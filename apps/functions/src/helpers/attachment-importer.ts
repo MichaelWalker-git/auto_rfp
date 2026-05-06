@@ -6,6 +6,7 @@
  * - detect-and-import-attachments.ts (linked attachment auto-import from extracted text)
  */
 import https from 'https';
+import dns from 'dns/promises';
 import {
   httpsGetBuffer,
   buildAttachmentFilename,
@@ -46,23 +47,71 @@ const BLOCKED_HOSTNAMES = new Set([
   '169.254.169.254',                // AWS/Azure/GCP metadata service
 ]);
 
-// Trusted government/procurement domains that can use HTTP (legacy sites)
-const TRUSTED_HTTP_DOMAINS = [
-  '.gov',           // US Government
-  '.mil',           // US Military  
-  '.gov.uk',        // UK Government
-  '.gc.ca',         // Canada Government
-  'jaggaer.com',    // Procurement platform (sometimes uses HTTP redirects)
-];
+/**
+ * Check if an IP address is private/internal (SSRF target)
+ */
+const isPrivateIp = (ip: string): boolean => {
+  for (const pattern of BLOCKED_IP_PATTERNS) {
+    if (pattern.test(ip)) {
+      return true;
+    }
+  }
+  return false;
+};
 
 /**
- * Check if a URL is safe to fetch (not internal/private)
- * Exported for use as urlValidator in httpsGetBuffer redirects.
+ * Resolve hostname to IPs and check if any resolve to private/internal addresses.
+ * Prevents DNS rebinding attacks (e.g., 127.0.0.1.nip.io, attacker-controlled DNS).
+ */
+const resolveAndCheckDns = async (hostname: string): Promise<{ safe: boolean; reason?: string }> => {
+  try {
+    // Resolve both IPv4 and IPv6 addresses
+    const [ipv4Addresses, ipv6Addresses] = await Promise.all([
+      dns.resolve4(hostname).catch(() => [] as string[]),
+      dns.resolve6(hostname).catch(() => [] as string[]),
+    ]);
+    
+    const allAddresses = [...ipv4Addresses, ...ipv6Addresses];
+    
+    if (allAddresses.length === 0) {
+      // DNS resolution failed or returned no results - block to be safe
+      return { safe: false, reason: 'DNS resolution failed' };
+    }
+    
+    // Check each resolved IP against blocked patterns
+    for (const ip of allAddresses) {
+      if (isPrivateIp(ip)) {
+        return { safe: false, reason: `resolved to private IP: ${ip}` };
+      }
+      // Also check for IPv6 loopback
+      if (ip === '::1' || ip.toLowerCase() === '0:0:0:0:0:0:0:1') {
+        return { safe: false, reason: `resolved to loopback: ${ip}` };
+      }
+    }
+    
+    return { safe: true };
+  } catch (err) {
+    // DNS error - block to be safe
+    return { safe: false, reason: `DNS error: ${err instanceof Error ? err.message : String(err)}` };
+  }
+};
+
+/**
+ * Synchronous URL validation (hostname/protocol checks only).
+ * Use isSafeUrlAsync for full validation including DNS resolution.
+ * 
+ * NOTE: Only HTTPS is allowed because httpsGetBuffer() uses https.request().
  */
 export const isSafeUrl = (url: string): boolean => {
   try {
     const parsed = new URL(url);
     const hostname = parsed.hostname.toLowerCase();
+    
+    // Require HTTPS - httpsGetBuffer uses https.request() which is HTTPS-only
+    if (parsed.protocol !== 'https:') {
+      console.warn(`[SSRF] Blocked non-HTTPS URL: ${url}`);
+      return false;
+    }
     
     // Block known dangerous hostnames
     if (BLOCKED_HOSTNAMES.has(hostname)) {
@@ -70,7 +119,7 @@ export const isSafeUrl = (url: string): boolean => {
       return false;
     }
     
-    // Block private IP ranges
+    // Block private IP ranges (if hostname is an IP literal)
     for (const pattern of BLOCKED_IP_PATTERNS) {
       if (pattern.test(hostname)) {
         console.warn(`[SSRF] Blocked private IP: ${hostname}`);
@@ -78,17 +127,37 @@ export const isSafeUrl = (url: string): boolean => {
       }
     }
     
-    // Allow HTTP for trusted government/procurement domains
-    if (parsed.protocol === 'http:') {
-      const isTrusted = TRUSTED_HTTP_DOMAINS.some(domain => 
-        hostname.endsWith(domain) || hostname === domain.replace(/^\./, '')
-      );
-      if (!isTrusted) {
-        console.warn(`[SSRF] Blocked non-HTTPS URL (not a trusted domain): ${url}`);
-        return false;
-      }
-      // Log but allow HTTP from trusted domains
-      console.log(`[SSRF] Allowing HTTP from trusted domain: ${hostname}`);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Async URL validation with DNS resolution check.
+ * Prevents DNS rebinding attacks (e.g., 127.0.0.1.nip.io).
+ */
+export const isSafeUrlAsync = async (url: string): Promise<boolean> => {
+  // First do synchronous checks
+  if (!isSafeUrl(url)) {
+    return false;
+  }
+  
+  try {
+    const parsed = new URL(url);
+    const hostname = parsed.hostname.toLowerCase();
+    
+    // Skip DNS check if hostname is already an IP address
+    const isIpLiteral = /^[\d.]+$/.test(hostname) || hostname.includes(':');
+    if (isIpLiteral) {
+      return true; // Already checked by isSafeUrl
+    }
+    
+    // Resolve DNS and check for private IPs
+    const dnsResult = await resolveAndCheckDns(hostname);
+    if (!dnsResult.safe) {
+      console.warn(`[SSRF] Blocked URL (DNS check): ${url} - ${dnsResult.reason}`);
+      return false;
     }
     
     return true;
@@ -157,22 +226,16 @@ const importSingleAttachment = async (
   httpsAgent: https.Agent,
 ): Promise<ImportedFile | null> => {
   try {
-    // SSRF protection: block internal/private URLs
-    if (!isSafeUrl(a.url)) {
+    // SSRF protection: block internal/private URLs with DNS resolution check
+    if (!(await isSafeUrlAsync(a.url))) {
       console.warn(`[importAttachments] Skipped unsafe URL: ${a.url}`);
       return null;
     }
 
     const { buf, contentType, filename: headerFilename } = await httpsGetBuffer(
       new URL(a.url),
-      { httpsAgent, urlValidator: isSafeUrl },
+      { httpsAgent, urlValidator: isSafeUrl, maxBytes: MAX_DOWNLOAD_SIZE_BYTES },
     );
-
-    // Additional size check (in case httpsGetBuffer doesn't enforce it)
-    if (buf.length > MAX_DOWNLOAD_SIZE_BYTES) {
-      console.warn(`[importAttachments] Skipped oversized file (${buf.length} bytes): ${a.url}`);
-      return null;
-    }
 
     // Priority order for filename:
     // 1. Content-Disposition header (from server response) - most reliable
@@ -379,10 +442,14 @@ const UNSUPPORTED_EXTENSIONS = new Set([
 
 /**
  * Check if a URL serves a processable document via HEAD request.
+ * Follows redirects (with SSRF validation) and checks content-type at final URL.
  * Also rejects files exceeding MAX_DOWNLOAD_SIZE_BYTES via Content-Length header.
- * Applies SSRF protection before making any network requests.
  */
-export const isProcessableDocument = async (url: string, agent: https.Agent): Promise<boolean> => {
+export const isProcessableDocument = async (
+  url: string, 
+  agent: https.Agent,
+  maxRedirects = 5,
+): Promise<boolean> => {
   // SSRF protection: validate URL before making HEAD request
   if (!isSafeUrl(url)) {
     console.warn(`[isProcessableDocument] Blocked unsafe URL: ${url}`);
@@ -401,6 +468,37 @@ export const isProcessableDocument = async (url: string, agent: https.Agent): Pr
         timeout: 10000,
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; RFPBot/1.0)' },
       }, (res) => {
+        const status = res.statusCode ?? 0;
+        
+        // Handle redirects - follow with SSRF validation
+        if ([301, 302, 303, 307, 308].includes(status)) {
+          const loc = res.headers.location;
+          if (!loc) {
+            console.log(`[isProcessableDocument] ${url} → ${status} redirect without location`);
+            resolve(false);
+            return;
+          }
+          if (maxRedirects <= 0) {
+            console.log(`[isProcessableDocument] ${url} → too many redirects`);
+            resolve(false);
+            return;
+          }
+          
+          const redirectUrl = new URL(loc, url).toString();
+          
+          // SSRF check on redirect target
+          if (!isSafeUrl(redirectUrl)) {
+            console.warn(`[isProcessableDocument] Blocked redirect to unsafe URL: ${redirectUrl}`);
+            resolve(false);
+            return;
+          }
+          
+          // Recursively check the redirect target
+          res.resume();
+          isProcessableDocument(redirectUrl, agent, maxRedirects - 1).then(resolve);
+          return;
+        }
+        
         const ct = res.headers['content-type']?.split(';')[0]?.trim().toLowerCase() ?? '';
         const disp = res.headers['content-disposition'] ?? '';
         const contentLength = parseInt(res.headers['content-length'] ?? '0', 10);

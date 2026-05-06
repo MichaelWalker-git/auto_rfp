@@ -213,6 +213,7 @@ async function createQuestionFile(args: {
     originalFileName: args.originalFileName ?? null,
     mimeType: args.mimeType ?? null,
     sourceDocumentId: args.sourceDocumentId ?? null,
+    depth: 0,  // Saved search imports are user-initiated = depth 0
 
     createdAt: now,
     updatedAt: now,

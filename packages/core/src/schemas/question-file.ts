@@ -69,14 +69,14 @@ export const QuestionFileItemSchema = z
     extractedQuestionsCount: z.number().int().min(0).optional(),
     fileSize: z.number().int().min(0).optional(),  // file size in bytes
     jobId: z.string().optional(),
-    totalQuestions: z.number().int().min(0).default(0).optional(),
+    totalQuestions: z.number().int().min(0).optional().default(0),
     taskToken: z.string().optional(),
     createdAt: IsoDateStringSchema,
     updatedAt: IsoDateStringSchema.optional(),
     executionArn: z.string().optional(),
 
     // Linked attachment tracking
-    depth: z.number().int().min(0).max(3).default(0).optional(),  // 0=user upload, 1=child, 2=grandchild, 3=great-grandchild
+    depth: z.number().int().min(0).max(3).optional().default(0),  // 0=user upload, 1=child, 2=grandchild, 3=great-grandchild
     parentFileName: z.string().optional(),  // Display name of parent document (for UI tooltip)
 
     // Google Drive integration
@@ -98,7 +98,7 @@ export const CreateQuestionFileRequestSchema = z.object({
   mimeType: z.string().min(1),
   sourceDocumentId: z.string().optional(),  // ID of parent doc (for linked attachments)
   fileSize: z.number().int().min(0).optional(),  // file size in bytes
-  depth: z.number().int().min(0).max(3).default(0).optional(),  // 0=user upload, 1/2/3=linked children
+  depth: z.number().int().min(0).max(3).default(0),  // 0=user upload, 1/2/3=linked children
   parentFileName: z.string().optional(),  // Display name of parent document (for UI tooltip)
 });
 

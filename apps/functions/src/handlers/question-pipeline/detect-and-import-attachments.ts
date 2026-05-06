@@ -7,9 +7,14 @@
  * Key features:
  * - Detects attachment links in extracted text using regex patterns
  * - Supports Jaggaer, SAM.gov, DIBBS, PlanetBids, BidNet, and direct file URLs
- * - Downloads and imports ALL detected attachments (no limit)
- * - Recursive crawling up to MAX_LINK_DEPTH (original→child→grandchild→great-grandchild)
- * - Each imported child starts its own pipeline, enabling natural recursive crawling
+ * - Downloads and imports detected attachments (max 20 per invocation, see MAX_ATTACHMENTS_PER_INVOCATION)
+ * - Recursive crawling up to MAX_LINK_DEPTH levels (currently 1 = only direct children)
+ * - Each imported child starts its own pipeline, enabling recursive crawling within depth limit
+ * 
+ * Limits (defined in attachment-importer.ts and attachment.ts):
+ * - MAX_ATTACHMENTS_PER_INVOCATION: 20 attachments per Lambda invocation
+ * - MAX_LINK_DEPTH: 1 (original=0, child=1) - configurable in constants/attachment.ts
+ * - MAX_DOWNLOAD_SIZE_BYTES: 100MB per file
  */
 import https from 'https';
 import { requireEnv } from '@/helpers/env';
@@ -160,7 +165,7 @@ export const handler = async (input: DetectAttachmentsInput): Promise<DetectAtta
     return output;
   }
 
-  // 7. Import ALL processable documents (no limit)
+  // 7. Import processable documents (max 20 per invocation)
   const attachments = links.map(link => ({
     url: link.url,
     name: link.filename,
