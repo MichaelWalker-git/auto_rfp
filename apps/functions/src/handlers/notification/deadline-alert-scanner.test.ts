@@ -98,11 +98,11 @@ describe('deadline-alert-scanner — decision date notifications', () => {
 
     await (handler as any)({});
 
-    // Verify the QueryCommand was called with a FilterExpression
+    // Verify the QueryCommand was called with a FilterExpression using attribute_type
     const { QueryCommand } = jest.requireMock('@aws-sdk/lib-dynamodb');
     expect(QueryCommand).toHaveBeenCalledWith(
       expect.objectContaining({
-        FilterExpression: expect.stringContaining('attribute_exists'),
+        FilterExpression: expect.stringContaining('attribute_type'),
       }),
     );
   });

@@ -33,7 +33,7 @@ const sqs = new SQSClient({});
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}), {
   marshallOptions: { removeUndefinedValues: true },
 });
-const DB_TABLE_NAME = process.env.DB_TABLE_NAME!;
+const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const NOTIFICATION_QUEUE_URL = requireEnv('NOTIFICATION_QUEUE_URL');
 const DEADLINE_PK = 'DEADLINE';
 
@@ -85,21 +85,27 @@ const baseHandler: ScheduledHandler = async () => {
     }
   }
 
-  // Query opportunities that have a decision date or contract start date set
-  const oppResult = await ddb.send(
-    new QueryCommand({
-      TableName: DB_TABLE_NAME,
-      KeyConditionExpression: '#pk = :pk',
-      FilterExpression: 'attribute_exists(#dd) OR attribute_exists(#cs)',
-      ExpressionAttributeNames: {
-        '#pk': PK_NAME,
-        '#dd': 'decisionDateIso',
-        '#cs': 'contractStartDateIso',
-      },
-      ExpressionAttributeValues: { ':pk': 'OPPORTUNITY' },
-    }),
-  );
-  const opportunities = (oppResult.Items ?? []) as OpportunityItem[];
+  // Query opportunities that have a decision date or contract start date set (paginated)
+  const opportunities: OpportunityItem[] = [];
+  let lastEvaluatedKey: Record<string, unknown> | undefined;
+  do {
+    const oppResult = await ddb.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        KeyConditionExpression: '#pk = :pk',
+        FilterExpression: 'attribute_type(#dd, :strType) OR attribute_type(#cs, :strType)',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#dd': 'decisionDateIso',
+          '#cs': 'contractStartDateIso',
+        },
+        ExpressionAttributeValues: { ':pk': 'OPPORTUNITY', ':strType': 'S' },
+        ...(lastEvaluatedKey ? { ExclusiveStartKey: lastEvaluatedKey } : {}),
+      }),
+    );
+    opportunities.push(...((oppResult.Items ?? []) as OpportunityItem[]));
+    lastEvaluatedKey = oppResult.LastEvaluatedKey as Record<string, unknown> | undefined;
+  } while (lastEvaluatedKey);
 
   for (const opp of opportunities) {
     const dateIso = opp.decisionDateIso || opp.contractStartDateIso;

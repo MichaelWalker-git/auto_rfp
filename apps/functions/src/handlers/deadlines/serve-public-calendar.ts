@@ -155,9 +155,24 @@ const baseHandler = async (
       getOrganizationName(orgId),
     ]);
 
+    // Deduplicate: skip synthetic decision dates if AI already extracted one for the same opportunity
+    const oppIdsWithAiDecisionDate = new Set<string>();
+    for (const d of deadlineItems) {
+      const item = d as Record<string, unknown>;
+      const deadlines = item.deadlines as Array<{ type?: string }> | undefined;
+      if (deadlines?.some((dl) => dl.type === 'DECISION_DATE' || dl.type === 'AWARD_ESTIMATE')) {
+        const oppId = item.opportunityId as string | undefined;
+        if (oppId) oppIdsWithAiDecisionDate.add(oppId);
+      }
+    }
+
+    const deduplicatedDecisionDates = decisionDateItems.filter(
+      (d: Record<string, unknown>) => !oppIdsWithAiDecisionDate.has(d.opportunityId as string),
+    );
+
     // Convert to events and generate ICS with org name
     const calendarName = `${orgName} Deadlines`;
-    const allItems = [...deadlineItems, ...decisionDateItems];
+    const allItems = [...deadlineItems, ...deduplicatedDecisionDates];
     const events = deadlinesToCalendarEvents(allItems, FRONTEND_URL);
     const icsContent = generateICS(events, calendarName);
 

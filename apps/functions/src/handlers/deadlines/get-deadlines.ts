@@ -108,7 +108,7 @@ async function queryDeadlines(
         // Query all opportunities for a project (prefix match)
         keyConditionExpression += ' AND begins_with(#sk, :skPrefix)';
         expressionAttributeNames['#sk'] = SK_NAME;
-        expressionAttributeValues[':skPrefix'] = `${orgId}#${projectId}`;
+        expressionAttributeValues[':skPrefix'] = `${orgId}#${projectId}#`;
     } else if (orgId) {
         // Query all projects for an org
         keyConditionExpression += ' AND begins_with(#sk, :orgPrefix)';
@@ -165,7 +165,7 @@ async function queryOpportunityDecisionDates(
     } else if (orgId && projectId) {
         keyConditionExpression += ' AND begins_with(#sk, :skPrefix)';
         expressionAttributeNames['#sk'] = SK_NAME;
-        expressionAttributeValues[':skPrefix'] = `${orgId}#${projectId}`;
+        expressionAttributeValues[':skPrefix'] = `${orgId}#${projectId}#`;
     } else if (orgId) {
         keyConditionExpression += ' AND begins_with(#sk, :orgPrefix)';
         expressionAttributeNames['#sk'] = SK_NAME;
@@ -201,8 +201,8 @@ async function queryOpportunityDecisionDates(
         const warningLevel = getWarningLevel(daysUntil);
 
         syntheticDeadlines.push({
-            PK: 'DEADLINE',
-            SK: `${item.orgId ?? orgId}#${item.projectId ?? projectId}#${item.oppId ?? item.id}#${type}`,
+            [PK_NAME]: 'DEADLINE',
+            [SK_NAME]: `${item.orgId ?? orgId}#${item.projectId ?? projectId}#${item.oppId ?? item.id}#${type}`,
             orgId: item.orgId ?? orgId,
             projectId: item.projectId ?? projectId,
             opportunityId: item.oppId ?? item.id,

@@ -82,7 +82,7 @@ export const OpportunityHeaderView = ({
               </>
             ) : (
               <>
-                Decision: {formatDateTime(opportunity.contractStartDateIso)}
+                Contract Start: {formatDateTime(opportunity.contractStartDateIso)}
                 <Badge variant="outline" className="ml-1 text-[10px] h-4 px-1 bg-amber-50 text-amber-700 border-amber-200">Contract Start</Badge>
               </>
             )}
