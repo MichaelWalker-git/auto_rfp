@@ -58,6 +58,8 @@ const DEADLINE_TYPES = [
   { value: 'all', label: 'All types' },
   { value: 'PROPOSAL_DUE', label: 'Proposal Due' },
   { value: 'QUESTIONS_DUE', label: 'Questions Due' },
+  { value: 'DECISION_DATE', label: 'Decision Date' },
+  { value: 'CONTRACT_START', label: 'Contract Start' },
   { value: 'SITE_VISIT', label: 'Site Visit' },
   { value: 'OTHER', label: 'Other' },
 ] as const;

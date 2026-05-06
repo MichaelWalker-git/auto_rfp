@@ -142,19 +142,21 @@ export default function DeadlinesCalendar({ deadlines, displayType }: DeadlinesC
 
   // Custom event styling
   const eventStyleGetter = useCallback((event: CalendarEvent) => {
+    const borderColor = event.urgency === 'urgent' ? '#dc2626' :
+                        event.urgency === 'warning' ? '#ea580c' :
+                        event.urgency === 'upcoming' ? '#16a34a' :
+                        '#6b7280';
     return {
       style: {
         backgroundColor: event.urgency === 'urgent' ? '#ef4444' :
                          event.urgency === 'warning' ? '#f97316' :
                          event.urgency === 'upcoming' ? '#22c55e' :
                          '#9ca3af',
-        borderColor: event.urgency === 'urgent' ? '#dc2626' :
-                     event.urgency === 'warning' ? '#ea580c' :
-                     event.urgency === 'upcoming' ? '#16a34a' :
-                     '#6b7280',
+        borderWidth: '1px',
+        borderStyle: 'solid',
+        borderColor,
         color: 'white',
         borderRadius: '4px',
-        border: '1px solid',
         fontSize: '0.75rem',
       },
     };
@@ -301,7 +303,18 @@ export default function DeadlinesCalendar({ deadlines, displayType }: DeadlinesC
               {selectedEvent.deadline.type && (
                 <div className="space-y-1">
                   <div className="text-sm font-medium text-muted-foreground">Type</div>
-                  <Badge variant="outline">{selectedEvent.deadline.type}</Badge>
+                  <Badge
+                    variant="outline"
+                    className={
+                      selectedEvent.deadline.type === 'DECISION_DATE' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                      selectedEvent.deadline.type === 'CONTRACT_START' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                      undefined
+                    }
+                  >
+                    {selectedEvent.deadline.type === 'DECISION_DATE' ? 'Decision Date' :
+                     selectedEvent.deadline.type === 'CONTRACT_START' ? 'Contract Start' :
+                     selectedEvent.deadline.type}
+                  </Badge>
                 </div>
               )}
 

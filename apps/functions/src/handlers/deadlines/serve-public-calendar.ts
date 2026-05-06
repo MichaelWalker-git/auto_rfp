@@ -55,6 +55,54 @@ async function queryDeadlines(orgId: string): Promise<any[]> {
   return result.Items || [];
 }
 
+async function queryOpportunityDecisionDates(orgId: string): Promise<any[]> {
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: DB_TABLE_NAME,
+      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :orgPrefix)',
+      FilterExpression: 'attribute_exists(#dd) OR attribute_exists(#cs)',
+      ExpressionAttributeNames: {
+        '#pk': PK_NAME,
+        '#sk': SK_NAME,
+        '#dd': 'decisionDateIso',
+        '#cs': 'contractStartDateIso',
+      },
+      ExpressionAttributeValues: {
+        ':pk': 'OPPORTUNITY',
+        ':orgPrefix': `${orgId}#`,
+      },
+    })
+  );
+
+  const syntheticDeadlines: any[] = [];
+
+  for (const item of result.Items ?? []) {
+    const decisionDate = item.decisionDateIso as string | undefined;
+    const contractStart = item.contractStartDateIso as string | undefined;
+
+    if (!decisionDate && !contractStart) continue;
+
+    const dateIso = decisionDate || contractStart;
+    const type = decisionDate ? 'DECISION_DATE' : 'CONTRACT_START';
+    const label = decisionDate ? 'Decision Date' : 'Contract Start (fallback)';
+
+    syntheticDeadlines.push({
+      orgId,
+      projectId: item.projectId,
+      opportunityId: item.oppId ?? item.id,
+      opportunityTitle: item.title,
+      deadlines: [{
+        type,
+        label,
+        dateTimeIso: dateIso,
+        rawText: label,
+      }],
+    });
+  }
+
+  return syntheticDeadlines;
+}
+
 const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
@@ -100,15 +148,17 @@ const baseHandler = async (
       };
     }
 
-    // Query deadlines and org name for this organization
-    const [deadlineItems, orgName] = await Promise.all([
+    // Query deadlines, opportunity decision dates, and org name
+    const [deadlineItems, decisionDateItems, orgName] = await Promise.all([
       queryDeadlines(orgId),
+      queryOpportunityDecisionDates(orgId),
       getOrganizationName(orgId),
     ]);
 
     // Convert to events and generate ICS with org name
     const calendarName = `${orgName} Deadlines`;
-    const events = deadlinesToCalendarEvents(deadlineItems, FRONTEND_URL);
+    const allItems = [...deadlineItems, ...decisionDateItems];
+    const events = deadlinesToCalendarEvents(allItems, FRONTEND_URL);
     const icsContent = generateICS(events, calendarName);
 
     return {

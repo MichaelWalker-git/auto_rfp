@@ -51,3 +51,6 @@ packages/**/pnpm-workspace.yaml
 # Eval RFP fixtures (not committed)
 **/sections-rfps/
 **/rfp-texts/
+
+# Local ticket tracking
+.tickets/

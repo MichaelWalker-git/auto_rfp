@@ -706,6 +706,8 @@ export const DEADLINE_USER_PROMPT = [
   '- AMENDMENT_CUTOFF',
   '- ORALS',
   '- AWARD_ESTIMATE',
+  '- DECISION_DATE',
+  '- CONTRACT_START',
   '- OTHER',
   '',
   'COPY THIS JSON SKELETON AND FILL IT IN (do not add keys):',

@@ -188,6 +188,10 @@ export const OpportunityItemSchema = z.object({
   higherGovOppKey: z.string().nullish(),
   /** HigherGov AI-generated summary — proprietary enrichment */
   higherGovAiSummary: z.string().nullish(),
+  /** Decision/award date — when the awarding agency will announce the winner */
+  decisionDateIso: flexibleDateSchema.nullish(),
+  /** Contract start / period-of-performance start date */
+  contractStartDateIso: flexibleDateSchema.nullish(),
 });
 
 export type OpportunityItem = z.infer<typeof OpportunityItemSchema>;

@@ -5,12 +5,10 @@ import { useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format } from 'date-fns';
 import type { OpportunityItem } from '@auto-rfp/core';
-import { CalendarIcon, Loader2, Plus } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import {
   Dialog,
   DialogContent,
@@ -22,10 +20,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { cn } from '@/lib/utils';
 import { useCreateOpportunity } from '@/lib/hooks/use-opportunities';
 import { useCurrentOrganization } from '@/context/organization-context';
 
@@ -42,6 +38,9 @@ const CreateOpportunityFormSchema = z.object({
   pscCode: z.string().trim().optional(),
   contactName: z.string().trim().optional(),
   contactEmail: z.string().trim().email('Invalid email').optional().or(z.literal('')),
+  responseDeadlineIso: z.string().trim().optional().or(z.literal('')),
+  decisionDateIso: z.string().trim().optional().or(z.literal('')),
+  contractStartDateIso: z.string().trim().optional().or(z.literal('')),
 });
 
 type CreateOpportunityFormValues = z.input<typeof CreateOpportunityFormSchema>;
@@ -63,8 +62,6 @@ export function CreateOpportunityDialog({ projectId: propProjectId, onCreated, t
 
   const [open, setOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [deadlineDate, setDeadlineDate] = useState<Date | undefined>(undefined);
-  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const projectId = propProjectId || (params?.projectId as string);
   const orgId = currentOrganization?.id;
@@ -87,6 +84,9 @@ export function CreateOpportunityDialog({ projectId: propProjectId, onCreated, t
       pscCode: '',
       contactName: '',
       contactEmail: '',
+      responseDeadlineIso: '',
+      decisionDateIso: '',
+      contractStartDateIso: '',
     },
   });
 
@@ -94,7 +94,6 @@ export function CreateOpportunityDialog({ projectId: propProjectId, onCreated, t
     if (newOpen) {
       reset();
       setSubmitError(null);
-      setDeadlineDate(undefined);
     }
     setOpen(newOpen);
   }, [reset]);
@@ -118,7 +117,7 @@ export function CreateOpportunityDialog({ projectId: propProjectId, onCreated, t
         title: values.title,
         type: values.type?.trim() || null,
         postedDateIso: new Date().toISOString(),
-        responseDeadlineIso: deadlineDate ? deadlineDate.toISOString() : null,
+        responseDeadlineIso: values.responseDeadlineIso?.trim() || null,
         noticeId: null,
         solicitationNumber: values.solicitationNumber?.trim() || null,
         naicsCode: values.naicsCode?.trim() || null,
@@ -128,6 +127,8 @@ export function CreateOpportunityDialog({ projectId: propProjectId, onCreated, t
         description: values.description?.trim() || null,
         contactName: values.contactName?.trim() || null,
         contactEmail: values.contactEmail?.trim() || null,
+        decisionDateIso: values.decisionDateIso?.trim() || null,
+        contractStartDateIso: values.contractStartDateIso?.trim() || null,
         stage: 'IDENTIFIED',
         baseAndAllOptionsValue: null,
       };
@@ -138,7 +139,7 @@ export function CreateOpportunityDialog({ projectId: propProjectId, onCreated, t
     } catch (err: unknown) {
       setSubmitError((err as Error)?.message || 'Failed to create opportunity');
     }
-  }, [projectId, orgId, deadlineDate, createOpportunity, onCreated]);
+  }, [projectId, orgId, createOpportunity, onCreated]);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -194,33 +195,19 @@ export function CreateOpportunityDialog({ projectId: propProjectId, onCreated, t
             </div>
 
             <div className="grid gap-2">
-              <Label>Response Deadline</Label>
-              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className={cn(
-                      'w-full justify-start text-left font-normal h-9 text-sm',
-                      !deadlineDate && 'text-muted-foreground',
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {deadlineDate ? format(deadlineDate, 'PPP') : 'Pick a date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={deadlineDate}
-                    onSelect={(date) => {
-                      setDeadlineDate(date);
-                      setCalendarOpen(false);
-                    }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <Label htmlFor="responseDeadlineIso">Response Deadline</Label>
+              <Input id="responseDeadlineIso" type="date" {...register('responseDeadlineIso')} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="decisionDateIso">Decision Date</Label>
+                <Input id="decisionDateIso" type="date" {...register('decisionDateIso')} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="contractStartDateIso">Contract Start Date</Label>
+                <Input id="contractStartDateIso" type="date" {...register('contractStartDateIso')} />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
