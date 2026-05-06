@@ -389,6 +389,20 @@ export const OpportunityItemCard = ({
               Due {new Date(item.responseDeadlineIso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </span>
           )}
+          {(item.decisionDateIso || item.contractStartDateIso) && (
+            <span className="flex items-center gap-1">
+              <FileText className="h-3 w-3 shrink-0" />
+              {item.decisionDateIso ? (
+                <>
+                  Decision {new Date(item.decisionDateIso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </>
+              ) : (
+                <>
+                  Contract Start {new Date(item.contractStartDateIso!).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </>
+              )}
+            </span>
+          )}
         </div>
 
         {/* Footer: stacked layout for 4-col view, inline for wider views */}

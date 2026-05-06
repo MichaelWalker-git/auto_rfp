@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { OpportunityStageBadge } from '../opportunity-stage-badge';
+
 import { formatDateTime } from '../opportunity-helpers';
 import type { OpportunityItem, OpportunityStage } from '@auto-rfp/core';
 
@@ -71,6 +72,22 @@ export const OpportunityHeaderView = ({
           <CalendarClock className="h-3.5 w-3.5" />
           Due: {formatDateTime(opportunity.responseDeadlineIso)}
         </span>
+        {(opportunity.decisionDateIso || opportunity.contractStartDateIso) && (
+          <span className="inline-flex items-center gap-1">
+            <CalendarClock className="h-3.5 w-3.5" />
+            {opportunity.decisionDateIso ? (
+              <>
+                Decision: {formatDateTime(opportunity.decisionDateIso)}
+                <Badge variant="outline" className="ml-1 text-[10px] h-4 px-1 bg-indigo-50 text-indigo-700 border-indigo-200">Decision</Badge>
+              </>
+            ) : (
+              <>
+                Contract Start: {formatDateTime(opportunity.contractStartDateIso)}
+                <Badge variant="outline" className="ml-1 text-[10px] h-4 px-1 bg-amber-50 text-amber-700 border-amber-200">Contract Start</Badge>
+              </>
+            )}
+          </span>
+        )}
       </div>
 
       {/* Created/Updated by */}

@@ -21,6 +21,8 @@ const EditFormSchema = z.object({
   pscCode: z.string().trim().optional(),
   contactName: z.string().trim().optional(),
   contactEmail: z.string().trim().email('Invalid email').optional().or(z.literal('')),
+  decisionDateIso: z.string().trim().optional().or(z.literal('')),
+  contractStartDateIso: z.string().trim().optional().or(z.literal('')),
 });
 
 interface OpportunityHeaderEditProps {
@@ -56,6 +58,8 @@ export const OpportunityHeaderEdit = ({
       pscCode: opportunity.pscCode || '',
       contactName: opportunity.contactName || '',
       contactEmail: opportunity.contactEmail || '',
+      decisionDateIso: opportunity.decisionDateIso ? opportunity.decisionDateIso.split('T')[0] : '',
+      contractStartDateIso: opportunity.contractStartDateIso ? opportunity.contractStartDateIso.split('T')[0] : '',
     });
     onClearError();
   }, [opportunity, reset, onClearError]);
@@ -104,6 +108,17 @@ export const OpportunityHeaderEdit = ({
         <div className="grid gap-1.5">
           <Label htmlFor="opp-psc">PSC Code</Label>
           <Input id="opp-psc" placeholder="e.g., D302" {...register('pscCode')} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-1.5">
+          <Label htmlFor="opp-decision-date">Decision Date</Label>
+          <Input id="opp-decision-date" type="date" {...register('decisionDateIso')} />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="opp-contract-start">Contract Start Date</Label>
+          <Input id="opp-contract-start" type="date" {...register('contractStartDateIso')} />
         </div>
       </div>
 

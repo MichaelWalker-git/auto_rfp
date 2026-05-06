@@ -23,6 +23,8 @@ export interface EditFormValues {
   pscCode?: string;
   contactName?: string;
   contactEmail?: string;
+  decisionDateIso?: string;
+  contractStartDateIso?: string;
 }
 
 export const useOpportunityHeaderActions = ({
@@ -60,6 +62,8 @@ export const useOpportunityHeaderActions = ({
             organizationName: values.organizationName?.trim() || null,
             contactName: values.contactName?.trim() || null,
             contactEmail: values.contactEmail?.trim() || null,
+            decisionDateIso: values.decisionDateIso?.trim() || null,
+            contractStartDateIso: values.contractStartDateIso?.trim() || null,
           },
         });
         setIsEditing(false);
