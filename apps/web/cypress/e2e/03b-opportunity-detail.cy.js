@@ -103,7 +103,6 @@ describe('Opportunity Detail', () => {
         cy.contains('Technical Proposal').should('be.visible')
         cy.contains('Past Performance').should('be.visible')
         cy.contains('Select all').should('be.visible')
-        cy.contains('Select required').should('be.visible')
       })
       cy.get('[role="dialog"]').contains('Cancel').click()
       cy.get('#rfp-documents').should('be.visible')

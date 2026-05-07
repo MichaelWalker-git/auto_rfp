@@ -54,3 +54,7 @@ packages/**/pnpm-workspace.yaml
 
 # Local ticket tracking
 .tickets/
+
+# Daily progress notes
+.daily-progress/
+cypress.env.json
