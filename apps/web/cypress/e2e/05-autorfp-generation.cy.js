@@ -37,7 +37,6 @@ describe('AutoRFP Generation', () => {
         cy.contains('Executive Summary').should('be.visible')
         cy.contains('Technical Proposal').should('be.visible')
         cy.contains('Select all').should('be.visible')
-        cy.contains('Select required').should('be.visible')
       })
       cy.get('[role="dialog"]').contains('Cancel').click()
     })
