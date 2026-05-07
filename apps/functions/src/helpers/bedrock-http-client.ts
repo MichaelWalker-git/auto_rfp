@@ -1,6 +1,7 @@
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import https from 'https';
 import { requireEnv } from './env';
+import { TransientServiceError } from '@/sentry-lambda';
 
 const SSM_PARAM_NAME = requireEnv('BEDROCK_API_KEY_SSM_PARAM','/auto-rfp/bedrock/api-key');
 const BEDROCK_REGION = requireEnv('BEDROCK_REGION', 'us-east-1');
@@ -86,12 +87,20 @@ async function invokeModelWithHttp(
             resolve(new Uint8Array(buffer));
           } else {
             const errorMessage = buffer.toString('utf-8');
-            reject(
-              Object.assign(
-                new Error(`Bedrock HTTP request failed: ${res.statusCode} ${res.statusMessage} - ${errorMessage}`),
-                { statusCode: res.statusCode, body: errorMessage },
-              )
-            );
+            const statusCode = res.statusCode ?? 500;
+            if (statusCode >= 500) {
+              reject(new TransientServiceError(
+                `Bedrock HTTP request failed: ${statusCode} ${res.statusMessage} - ${errorMessage}`,
+                statusCode,
+              ));
+            } else {
+              reject(
+                Object.assign(
+                  new Error(`Bedrock HTTP request failed: ${statusCode} ${res.statusMessage} - ${errorMessage}`),
+                  { statusCode, body: errorMessage },
+                )
+              );
+            }
           }
         });
       });

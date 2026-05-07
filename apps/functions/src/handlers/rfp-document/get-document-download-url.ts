@@ -32,6 +32,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
     const doc = await getRFPDocument(projectId, opportunityId, documentId);
     if (!doc || doc.deletedAt) return apiResponse(404, { message: 'Document not found' });
     if (doc.orgId !== orgId) return apiResponse(403, { message: 'Access denied' });
+    if (!doc.fileKey) return apiResponse(400, { message: 'Document has no associated file' });
 
     // Sanitize filename for Content-Disposition header — removes special characters
     // that could break the header or trigger double-encoding in browsers like Edge.

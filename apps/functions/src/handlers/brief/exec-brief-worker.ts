@@ -1,6 +1,6 @@
 import type { SQSBatchResponse, SQSEvent } from 'aws-lambda';
 import { z, ZodError } from 'zod';
-import { Sentry, withSentryLambda } from '@/sentry-lambda';
+import { Sentry, withSentryLambda, BusinessRetryError } from '@/sentry-lambda';
 import {
   ContactsSectionSchema,
   DeadlinesSectionSchema,
@@ -603,7 +603,7 @@ async function runScoring(job: Job): Promise<void> {
     const prereq = scoringPrereqsComplete(brief);
     if (!prereq.ok) {
       const missing = (prereq as { ok: false; missing: string[] }).missing;
-      throw new Error(`All fields should be ready before calling scoring. Missing: ${missing.join(', ')}`);
+      throw new BusinessRetryError(`All fields should be ready before calling scoring. Missing: ${missing.join(', ')}`);
     }
 
     const sections = brief.sections as Record<string, { data?: Record<string, unknown> }>;
@@ -620,7 +620,7 @@ async function runScoring(job: Job): Promise<void> {
       if (!requirementsData) missingData.push('requirements.data');
       if (!contactsData) missingData.push('contacts.data');
       if (!risksData) missingData.push('risks.data');
-      throw new Error(`Section data missing for scoring: ${missingData.join(', ')}`);
+      throw new BusinessRetryError(`Section data missing for scoring: ${missingData.join(', ')}`);
     }
 
     const pastPerformanceData = sections?.pastPerformance?.data;
