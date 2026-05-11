@@ -878,21 +878,30 @@ export function ExecutiveBriefView({
         <div className="space-y-4">
           {/* Show error if generation failed before brief was created */}
           {regenError && (
-            <Alert variant={regenError.includes('No processed question files') ? 'default' : 'destructive'}>
+            <Alert variant={regenError.includes('No processed question files') || regenError.includes('No solicitation documents uploaded') ? 'default' : 'destructive'}>
               {regenError.includes('No processed question files') ? (
                 <Clock className="h-4 w-4"/>
               ) : (
                 <AlertTriangle className="h-4 w-4"/>
               )}
               <AlertDescription>
-                {regenError.includes('ExecutiveBrief not found') 
+                {regenError.includes('ExecutiveBrief not found')
                   ? 'Unable to generate brief. Please try clicking "Generate All Sections" to initialize the executive brief first.'
+                  : regenError.includes('No solicitation documents uploaded')
+                  ? (
+                    <div className="space-y-2">
+                      <p className="font-medium">No solicitation documents uploaded</p>
+                      <p className="text-sm">
+                        Upload at least one solicitation document for this opportunity before generating an executive brief.
+                      </p>
+                    </div>
+                  )
                   : regenError.includes('No processed question files')
                   ? (
                     <div className="space-y-2">
                       <p className="font-medium">Documents are still being processed</p>
                       <p className="text-sm">
-                        Uploaded solicitation files need to complete text extraction before the executive brief can be generated. 
+                        Uploaded solicitation files need to complete text extraction before the executive brief can be generated.
                         This typically takes 1-3 minutes depending on document size.
                       </p>
                       <p className="text-sm text-muted-foreground">
@@ -990,7 +999,7 @@ export function ExecutiveBriefView({
 
             <CardContent className="pt-0">
               {regenError && (
-                <Alert variant={regenError.includes('No processed question files') ? 'default' : 'destructive'} className="mb-4">
+                <Alert variant={regenError.includes('No processed question files') || regenError.includes('No solicitation documents uploaded') ? 'default' : 'destructive'} className="mb-4">
                   {regenError.includes('No processed question files') ? (
                     <Clock className="h-4 w-4"/>
                   ) : (
@@ -999,6 +1008,15 @@ export function ExecutiveBriefView({
                   <AlertDescription>
                     {regenError.includes('ExecutiveBrief not found')
                       ? 'Unable to generate brief. Please try clicking "Generate All Sections" to initialize the executive brief first.'
+                      : regenError.includes('No solicitation documents uploaded')
+                      ? (
+                        <div className="space-y-2">
+                          <p className="font-medium">No solicitation documents uploaded</p>
+                          <p className="text-sm">
+                            Upload at least one solicitation document for this opportunity before generating an executive brief.
+                          </p>
+                        </div>
+                      )
                       : regenError.includes('No processed question files')
                       ? (
                         <div className="space-y-2">

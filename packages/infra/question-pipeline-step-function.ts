@@ -392,6 +392,8 @@ export class QuestionExtractionPipelineStack extends Stack {
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
+        mimeType: sfn.JsonPath.stringAt('$.mimeType'),
       }),
       resultPath: '$.unsupported',
       payloadResponseOnly: true,

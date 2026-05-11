@@ -77,11 +77,17 @@ export const initExecutiveBrief = async (
   );
 
   if (processedFiles.length === 0) {
+    const activeFiles = questionFiles.filter(
+      (qf) => qf.status !== 'DELETED' && qf.status !== 'CANCELLED' && qf.status !== 'FAILED',
+    );
+    const hasUploads = activeFiles.length > 0;
     return apiResponse(400, {
       ok: false,
-      error:
-        'No processed question files found for this opportunity. Please wait for text extraction to complete.',
+      error: hasUploads
+        ? 'No processed question files found for this opportunity. Please wait for text extraction to complete.'
+        : 'No solicitation documents uploaded for this opportunity. Upload at least one document before generating an executive brief.',
       totalFiles: questionFiles.length,
+      activeFiles: activeFiles.length,
       processedFiles: 0,
     });
   }
