@@ -149,13 +149,24 @@ export function OrganizationProvider({ children }: Props) {
     }
   }, [currentOrganization]);
 
-  // Redirect into org context if you're under a different org's route
+  // Sync org context to match the URL — if user navigates to a different org's route,
+  // switch the current org to that one instead of redirecting away
   useEffect(() => {
     if (!currentOrganization?.id) return;
-    if (isOnOrgRouteAndItIsNotCurrentOrg(pathname, currentOrganization.id)) {
-      router.push(`/organizations/${currentOrganization.id}`);
+    if (!organizations.length) return;
+
+    const m = pathname.match(/^\/organizations\/([^/]+)(?:\/|$)/);
+    if (!m) return;
+
+    const orgIdInPath = m[1];
+    if (orgIdInPath === currentOrganization.id) return;
+
+    const targetOrg = organizations.find((o) => o.id === orgIdInPath);
+    if (targetOrg) {
+      setSelectedOrgId(targetOrg.id);
+      writeStoredOrgId(targetOrg.id);
     }
-  }, [currentOrganization?.id, pathname, router]);
+  }, [pathname, currentOrganization?.id, organizations]);
 
   const refreshData = async () => {
     await mutateOrg();
