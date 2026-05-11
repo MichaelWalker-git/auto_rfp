@@ -417,14 +417,21 @@ const parseTable = (tableHtml: string): Table | null => {
     const cells: TableCell[] = [];
     let rowCols = 0;
 
-    const cellRe = /<(th|td)[^>]*>([\s\S]*?)<\/\1>/gi;
+    const cellRe = /<(th|td)([^>]*)>([\s\S]*?)<\/\1>/gi;
     let cellMatch: RegExpExecArray | null;
 
     while ((cellMatch = cellRe.exec(trInner)) !== null) {
-      rowCols++;
       const isHeader = cellMatch[1]?.toLowerCase() === 'th';
-      const cellInner = cellMatch[2] ?? '';
+      const attrs = cellMatch[2] ?? '';
+      const cellInner = cellMatch[3] ?? '';
       const plainText = stripHtml(cellInner);
+
+      const colspanMatch = attrs.match(/colspan\s*=\s*["']?(\d+)["']?/i);
+      const rowspanMatch = attrs.match(/rowspan\s*=\s*["']?(\d+)["']?/i);
+      const colspan = colspanMatch ? parseInt(colspanMatch[1], 10) : 1;
+      const rowspan = rowspanMatch ? parseInt(rowspanMatch[1], 10) : 1;
+
+      rowCols += colspan;
 
       cells.push(
         new TableCell({
@@ -442,6 +449,8 @@ const parseTable = (tableHtml: string): Table | null => {
               spacing: { before: 40, after: 40 },
             }),
           ],
+          columnSpan: colspan > 1 ? colspan : undefined,
+          rowSpan: rowspan > 1 ? rowspan : undefined,
           shading: isHeader
             ? { type: ShadingType.CLEAR, fill: COLORS.tableHeaderBg }
             : undefined,
