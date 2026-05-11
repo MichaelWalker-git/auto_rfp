@@ -21,6 +21,8 @@ import {
   Heading1, Heading2, Heading3, Quote, Code, Minus,
   Undo, Redo, Loader2, Highlighter, Palette, SeparatorHorizontal,
   FileText, ListTree,
+  Rows3, Columns3, Merge, SplitSquareHorizontal, Trash2,
+  ArrowUpFromLine, ArrowDownFromLine, ArrowLeftFromLine, ArrowRightFromLine,
 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -866,6 +868,14 @@ interface ToolbarProps {
 const Toolbar = ({ editor, disabled, onImageClick, pageSize, onPageSizeChange }: ToolbarProps) => {
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [linkInitialUrl, setLinkInitialUrl] = useState('');
+  const [, forceUpdate] = useState(0);
+
+  useEffect(() => {
+    if (!editor) return;
+    const handler = () => forceUpdate((n) => n + 1);
+    editor.on('selectionUpdate', handler);
+    return () => { editor.off('selectionUpdate', handler); };
+  }, [editor]);
 
   if (!editor) return null;
 
@@ -1116,6 +1126,39 @@ const Toolbar = ({ editor, disabled, onImageClick, pageSize, onPageSizeChange }:
         >
           <TableIcon className="h-3.5 w-3.5" />
         </ToolbarButton>
+
+        {/* Table editing actions — visible when cursor is in a table */}
+        {editor.isActive('table') && (
+          <>
+            <ToolbarButton onClick={() => editor.chain().focus().addRowBefore().run()} disabled={disabled} title="Insert row above">
+              <ArrowUpFromLine className="h-3.5 w-3.5" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => editor.chain().focus().addRowAfter().run()} disabled={disabled} title="Insert row below">
+              <ArrowDownFromLine className="h-3.5 w-3.5" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => editor.chain().focus().deleteRow().run()} disabled={disabled} title="Delete row">
+              <Rows3 className="h-3.5 w-3.5 text-red-500" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => editor.chain().focus().addColumnBefore().run()} disabled={disabled} title="Insert column left">
+              <ArrowLeftFromLine className="h-3.5 w-3.5" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => editor.chain().focus().addColumnAfter().run()} disabled={disabled} title="Insert column right">
+              <ArrowRightFromLine className="h-3.5 w-3.5" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => editor.chain().focus().deleteColumn().run()} disabled={disabled} title="Delete column">
+              <Columns3 className="h-3.5 w-3.5 text-red-500" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => editor.chain().focus().mergeCells().run()} disabled={disabled} title="Merge cells">
+              <Merge className="h-3.5 w-3.5" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => editor.chain().focus().splitCell().run()} disabled={disabled} title="Split cell">
+              <SplitSquareHorizontal className="h-3.5 w-3.5" />
+            </ToolbarButton>
+            <ToolbarButton onClick={() => editor.chain().focus().deleteTable().run()} disabled={disabled} title="Delete table">
+              <Trash2 className="h-3.5 w-3.5 text-red-500" />
+            </ToolbarButton>
+          </>
+        )}
 
         {/* Page Break */}
         <ToolbarButton
