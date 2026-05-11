@@ -225,7 +225,7 @@ export const useExportPricing = () => {
 // ─── Executive Brief Pricing ───
 
 export const useGenerateExecutiveBriefPricing = (orgId?: string) => {
-  return useSWRMutation<{ ok: boolean }, Error, string, { executiveBriefId: string }>(
+  return useSWRMutation<{ ok: boolean }, Error, string, { executiveBriefId: string; force?: boolean }>(
     `${env.BASE_API_URL}/brief/generate-pricing${orgId ? `?orgId=${orgId}` : ''}`,
     (url, { arg }) => postJson<{ ok: boolean }>(url, arg),
   );

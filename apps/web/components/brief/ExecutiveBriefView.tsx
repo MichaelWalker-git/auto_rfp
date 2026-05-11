@@ -46,6 +46,7 @@ import { GapAnalysisCard } from './components/GapAnalysisCard';
 import { PricingCard } from './components/PricingCard';
 import { OpportunitySelector } from './components/OpportunitySelector';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { PermissionButton } from '@/components/ui/permission-button';
 import { useProjectOutcome } from '@/lib/hooks/use-project-outcome';
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
 import type { OpportunityItem } from '@auto-rfp/core';
@@ -975,14 +976,15 @@ export function ExecutiveBriefView({
                       {completedSections === 0 ? 'Generate All' : 'Generate Missing'}
                     </Button>
                   ) : (
-                    <Button
+                    <PermissionButton
+                      requiredPermission="brief:edit"
                       variant="outline"
                       size="sm"
                       onClick={() => generateBrief(false)}
                     >
                       <RefreshCw className="h-4 w-4 mr-2"/>
                       Regenerate All
-                    </Button>
+                    </PermissionButton>
                   )}
                 </div>
               </div>

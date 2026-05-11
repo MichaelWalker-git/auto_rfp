@@ -10,7 +10,8 @@ import { BaseCard } from '@/components/ui/base-card';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { useProjectContext } from '@/context/project-context';
 import type { Project } from '@/types/project';
-import PermissionWrapper from '../permission-wrapper';
+import { PermissionButton } from '@/components/ui/permission-button';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { useFavoriteProjects } from '@/lib/hooks/use-favorite-projects';
 
 interface ProjectCardProps {
@@ -77,35 +78,24 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
                 />
               </Button>
 
-              <PermissionWrapper requiredPermission={'project:edit'}>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-xl"
-                  onClick={handleEditClick}
-                  aria-label="Edit project"
-                  title="Edit project"
-                >
-                  <Pencil className="h-3.5 w-3.5"/>
-                </Button>
-              </PermissionWrapper>
+              <PermissionButton
+                requiredPermission="project:edit"
+                variant="ghost"
+                size="icon"
+                className="rounded-xl"
+                onClick={handleEditClick}
+              >
+                <Pencil className="h-3.5 w-3.5"/>
+              </PermissionButton>
 
-              <PermissionWrapper requiredPermission={'project:delete'}>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-xl hover:bg-destructive/10 hover:text-destructive"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onDelete?.(project);
-                  }}
-                  aria-label="Remove project"
-                  title="Remove project"
-                >
-                  <Trash2 className="h-3.5 w-3.5"/>
-                </Button>
-              </PermissionWrapper>
+              <PermissionDeleteButton
+                requiredPermission="project:delete"
+                variant="ghost"
+                size="icon"
+                className="rounded-xl hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => onDelete?.(project)}
+                ariaLabel="Remove project"
+              />
             </>
           }
           footer={

@@ -9,7 +9,7 @@ import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
 import { PageSearch } from '@/components/layout/page-search';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, FileText, PlusCircle, Shield, Upload } from 'lucide-react';
-import PermissionWrapper from '@/components/permission-wrapper';
+import { PermissionButton } from '@/components/ui/permission-button';
 
 import { useKnowledgeBase } from '@/lib/hooks/use-knowledgebase';
 import {
@@ -159,12 +159,10 @@ export default function KnowledgeBaseItemComponent() {
                 </Link>
               </Button>
             )}
-            <PermissionWrapper requiredPermission="kb:upload">
-              <Button onClick={() => setShowUpload(true)}>
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Upload Documents
-              </Button>
-            </PermissionWrapper>
+            <PermissionButton requiredPermission="kb:upload" onClick={() => setShowUpload(true)}>
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Upload Documents
+            </PermissionButton>
           </div>
         }
         data={filteredDocs}
@@ -190,12 +188,10 @@ export default function KnowledgeBaseItemComponent() {
               Upload your first documents to start indexing and enable Q&amp;A capabilities.
               Supported formats include PDF, Word, Excel, CSV, and plain text files.
             </p>
-            <PermissionWrapper requiredPermission="document:create">
-              <Button size="lg" onClick={() => setShowUpload(true)}>
-                <Upload className="h-5 w-5 mr-2" />
-                Upload Your First Documents
-              </Button>
-            </PermissionWrapper>
+            <PermissionButton requiredPermission="document:create" size="lg" onClick={() => setShowUpload(true)}>
+              <Upload className="h-5 w-5 mr-2" />
+              Upload Your First Documents
+            </PermissionButton>
           </div>
         }
       >

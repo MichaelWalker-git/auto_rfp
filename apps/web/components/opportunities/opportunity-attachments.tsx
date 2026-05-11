@@ -29,6 +29,7 @@ import {
   QuestionFileUploadDialog,
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/question-extraction-dialog';
 import { useOpportunityContext } from './opportunity-context';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { formatDateTime, getStatusChip, pickDisplayName, guessDownloadName } from './opportunity-helpers';
 import { formatFileSize } from '@/lib/format-file-size';
 
@@ -441,6 +442,16 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
                         {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' && f.status !== 'TEXT_EXTRACTION_FAILED' && (
                           <CancelPipelineButton projectId={projectId} opportunityId={oppId} questionFileId={f.questionFileId} status={f.status} onMutate={refetchFiles} />
                         )}
+                        {(f.status === 'PROCESSED' || isFailed) && (
+                          <PermissionDeleteButton
+                            requiredPermission="document:delete"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => void handleDelete(f)}
+                            isLoading={isDeleting}
+                            deniedTooltip="You don't have permission to delete solicitation documents. Contact your admin for access."
+                          />
+                        )}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button size="sm" variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
@@ -479,15 +490,6 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
                               <DropdownMenuItem onClick={() => window.open(f.googleDriveUrl, '_blank')}>
                                 <ExternalLink className="h-4 w-4 mr-2" /> Open in Google Drive
                               </DropdownMenuItem>
-                            )}
-                            {(f.status === 'PROCESSED' || isFailed) && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-red-600" disabled={!f.questionFileId || isDeleting} onClick={() => void handleDelete(f)}>
-                                  {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
-                                  Delete
-                                </DropdownMenuItem>
-                              </>
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>

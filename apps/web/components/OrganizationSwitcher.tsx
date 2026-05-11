@@ -23,6 +23,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { useCreateOrganization } from '@/lib/hooks/use-create-organization';
 import { useIconUrl } from '@/lib/hooks/use-icon-url';
+import { usePermission } from '@/components/permission-wrapper';
 
 export function OrganizationSwitcher() {
   const { toast } = useToast();
@@ -40,7 +41,8 @@ export function OrganizationSwitcher() {
 
   const label = currentOrganization?.name ?? (loading ? 'Loading…' : 'Select organization');
 
-  const iconKey = currentOrganization?.iconKey || (currentOrganization as Record<string, unknown>)?.iconUrl as string | undefined;
+  // Handle potential iconUrl field for backwards compatibility (iconKey may not exist on older orgs)
+  const iconKey = currentOrganization?.iconKey ?? ((currentOrganization as unknown as Record<string, unknown> | null)?.iconUrl as string | undefined);
   const currentIconUrl = useIconUrl(iconKey);
 
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -51,7 +53,8 @@ export function OrganizationSwitcher() {
     description: '',
   });
 
-  const canCreateOrg = !isOrgLocked;
+  const hasCreateOrgPermission = usePermission('org:create');
+  const canCreateOrg = !isOrgLocked && hasCreateOrgPermission;
 
   const handleCreate = async () => {
     const name = orgForm.name.trim();

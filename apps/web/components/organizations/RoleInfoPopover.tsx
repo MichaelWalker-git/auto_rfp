@@ -19,7 +19,10 @@ const CAPABILITY_GROUPS: { group: string; capabilities: RoleCapability[] }[] = [
       { label: 'Create projects & opportunities', roles: ['ADMIN', 'EDITOR', 'MEMBER'] },
       { label: 'Create proposals & documents', roles: ['ADMIN', 'EDITOR', 'MEMBER'] },
       { label: 'Edit projects, proposals & documents', roles: ['ADMIN', 'EDITOR'] },
-      { label: 'Delete projects, proposals & documents', roles: ['ADMIN'] },
+      { label: 'Create & edit Executive Briefs', roles: ['ADMIN', 'EDITOR'] },
+      { label: 'Delete RFP documents', roles: ['ADMIN', 'EDITOR'] },
+      { label: 'Delete solicitation documents', roles: ['ADMIN'] },
+      { label: 'Delete projects & proposals', roles: ['ADMIN'] },
     ],
   },
   {
@@ -50,6 +53,7 @@ const CAPABILITY_GROUPS: { group: string; capabilities: RoleCapability[] }[] = [
   {
     group: 'Administration',
     capabilities: [
+      { label: 'Create new organizations', roles: ['ADMIN'] },
       { label: 'Manage users', roles: ['ADMIN', 'EDITOR'] },
       { label: 'Manage organization settings', roles: ['ADMIN'] },
       { label: 'View audit logs', roles: ['ADMIN'] },
@@ -68,7 +72,16 @@ const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   BILLING: 'Access to pricing and financial data only',
 };
 
-export const RoleInfoPopover = () => {
+interface RoleInfoPopoverProps {
+  /** Use 'light' variant when displaying on dark backgrounds (e.g., tooltips) */
+  variant?: 'default' | 'light';
+}
+
+export const RoleInfoPopover = ({ variant = 'default' }: RoleInfoPopoverProps) => {
+  const buttonClassName = variant === 'light'
+    ? 'h-5 w-5 text-white/80 hover:text-white hover:bg-white/20'
+    : 'h-5 w-5 text-muted-foreground hover:text-foreground';
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -76,7 +89,7 @@ export const RoleInfoPopover = () => {
           type="button"
           variant="ghost"
           size="icon"
-          className="h-5 w-5 text-muted-foreground hover:text-foreground"
+          className={buttonClassName}
         >
           <Info className="h-3.5 w-3.5" />
           <span className="sr-only">Role permissions info</span>

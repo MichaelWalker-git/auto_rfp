@@ -85,6 +85,7 @@ export const ALL_PERMISSIONS = [
   'project:create', 'project:edit', 'project:read', 'project:delete',
   'question:read', 'question:create', 'question:edit', 'question:delete',
   'document:create', 'document:edit', 'document:read', 'document:delete',
+  'rfp_document:delete', // RFP documents only (not solicitation documents)
   'answer:create', 'answer:read', 'answer:generate', 'answer:edit',
   'brief:create', 'brief:edit',
   'index:retry',
@@ -123,8 +124,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
   EDITOR: [
     ...VIEWER_PERMISSIONS,
-    'question:create', 'org:create', 'kb:create', 'proposal:create', 'project:create', 'document:create', 'user:create', 'answer:create', 'opportunity:create',
+    'question:create', 'kb:create', 'proposal:create', 'project:create', 'document:create', 'user:create', 'answer:create', 'opportunity:create',
     'question:edit', 'org:edit', 'kb:edit', 'proposal:edit', 'project:edit', 'document:edit', 'user:edit', 'answer:edit', 'opportunity:edit',
+    'brief:create', 'brief:edit', 
+    'rfp_document:delete', 
     'template:create', 'template:update', 'template:publish', 'template:apply',
     'collaboration:presence',
     'collaboration:comment',

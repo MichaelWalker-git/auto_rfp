@@ -4,6 +4,7 @@ import * as React from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PermissionButton } from '@/components/ui/permission-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -131,10 +132,10 @@ export function CreatePromptDialog(props: {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2" disabled={disabled}>
+        <PermissionButton requiredPermission="org:manage_settings" className="gap-2" disabled={disabled}>
           <Plus className="h-4 w-4"/>
           {triggerLabel}
-        </Button>
+        </PermissionButton>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-[720px]">
@@ -248,7 +249,12 @@ export function CreatePromptDialog(props: {
             </Button>
           </DialogClose>
 
-          <Button onClick={onSubmit} disabled={isSaving || !prompt.trim()} className="gap-2">
+          <PermissionButton 
+            requiredPermission="org:manage_settings"
+            onClick={onSubmit} 
+            disabled={isSaving || !prompt.trim()} 
+            className="gap-2"
+          >
             {isSaving ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin"/>
@@ -260,7 +266,7 @@ export function CreatePromptDialog(props: {
                 Save
               </>
             )}
-          </Button>
+          </PermissionButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

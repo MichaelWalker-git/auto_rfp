@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useDeleteQuestionFile, useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { useDownloadFromS3 } from '@/lib/hooks/use-file';
-import PermissionWrapper from '@/components/permission-wrapper';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import {
   QuestionFileUploadDialog,
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/question-extraction-dialog';
@@ -220,15 +220,14 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                           {rowDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                         </Button>
                         {(f.status === 'PROCESSED' || f.status === 'FAILED') && (
-                          <PermissionWrapper requiredPermission="question:delete">
-                            <Button
-                              size="sm" variant="destructive" className="gap-2"
-                              disabled={!f.questionFileId || rowDeleting}
-                              onClick={() => void handleDelete({ questionFileId: f.questionFileId, name: f.originalFileName || 'unknown', oppId: f.oppId })}
-                            >
-                              {rowDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                            </Button>
-                          </PermissionWrapper>
+                          <PermissionDeleteButton
+                            requiredPermission="question:delete"
+                            size="sm"
+                            variant="destructive"
+                            className="gap-2"
+                            isLoading={rowDeleting}
+                            onClick={() => void handleDelete({ questionFileId: f.questionFileId, name: f.originalFileName || 'unknown', oppId: f.oppId })}
+                          />
                         )}
                         {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' && (
                           <CancelPipelineButton

@@ -4,6 +4,7 @@ import * as React from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PermissionButton } from '@/components/ui/permission-button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -122,8 +123,8 @@ function PromptRow({
             {expanded ? 'Collapse' : 'Edit'}
           </Button>
 
-          <Button
-            type="button"
+          <PermissionButton
+            requiredPermission="org:manage_settings"
             size="sm"
             disabled={!dirty || isSaving}
             className="gap-2 rounded-xl"
@@ -131,7 +132,7 @@ function PromptRow({
           >
             <Save className="h-4 w-4"/>
             Save
-          </Button>
+          </PermissionButton>
         </div>
       </div>
 
