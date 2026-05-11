@@ -565,6 +565,18 @@ export function ExecutiveBriefView({
 
   async function generateBrief(onlyMissing: boolean) {
     if (isGeneratingBrief) return;
+
+    const activeFiles = (questionFiles ?? []).filter(
+      (f: Record<string, unknown>) =>
+        f.status !== 'DELETED' && f.status !== 'CANCELLED' && f.status !== 'FAILED',
+    );
+    if (activeFiles.length === 0) {
+      setRegenError(
+        'No solicitation documents uploaded for this opportunity. Upload at least one document before generating an executive brief.',
+      );
+      return;
+    }
+
     setIsGeneratingBrief(true);
     setRegenError(null);
     linearTicketAttemptedRef.current = false;
@@ -675,6 +687,17 @@ export function ExecutiveBriefView({
   }, [fixedOpportunityId, briefFetchDone, briefItem, isFetchingBrief, isGeneratingBrief, questionFiles]);
 
   async function runOneSection(section: SectionKey) {
+    const activeFiles = (questionFiles ?? []).filter(
+      (f: Record<string, unknown>) =>
+        f.status !== 'DELETED' && f.status !== 'CANCELLED' && f.status !== 'FAILED',
+    );
+    if (activeFiles.length === 0) {
+      setRegenError(
+        'No solicitation documents uploaded for this opportunity. Upload at least one document before generating an executive brief.',
+      );
+      return;
+    }
+
     setRegenError(null);
     try {
       const executiveBriefId = await ensureBriefId();
