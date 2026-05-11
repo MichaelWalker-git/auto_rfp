@@ -48,11 +48,18 @@ type UploadItem = {
   status?: string;
 };
 
-const VALID_EXTS = ['.pdf', '.doc', '.docx', '.txt', '.xlsx', '.xls'];
+const VALID_EXTS = ['.pdf', '.docx', '.txt', '.xlsx', '.xls'];
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 const isValidFile = (f: File): { valid: boolean; reason?: string } => {
-  if (!VALID_EXTS.some((ext) => f.name.toLowerCase().endsWith(ext))) {
+  const lowerName = f.name.toLowerCase();
+  if (lowerName.endsWith('.doc') && !lowerName.endsWith('.docx')) {
+    return {
+      valid: false,
+      reason: 'Legacy .doc files are not supported. Please open the file in Word or Google Docs and save as .docx.',
+    };
+  }
+  if (!VALID_EXTS.some((ext) => lowerName.endsWith(ext))) {
     return { valid: false, reason: 'Invalid file type' };
   }
   if (f.size > MAX_FILE_SIZE) {
@@ -482,7 +489,7 @@ export function QuestionFileUploadDialog({
               >
                 <input
                   type="file"
-                  accept=".pdf,.doc,.docx,.txt,.xlsx,.xls"
+                  accept=".pdf,.docx,.txt,.xlsx,.xls"
                   multiple
                   onChange={handleFileChange}
                   disabled={anyBusy}
@@ -502,7 +509,6 @@ export function QuestionFileUploadDialog({
                       {[
                         { ext: 'PDF', color: 'bg-red-50 text-red-700 border-red-200', tip: 'Solicitation PDFs' },
                         { ext: 'DOCX', color: 'bg-blue-50 text-blue-700 border-blue-200', tip: 'Word documents' },
-                        { ext: 'DOC', color: 'bg-blue-50 text-blue-700 border-blue-200', tip: 'Word documents' },
                         { ext: 'XLSX', color: 'bg-green-50 text-green-700 border-green-200', tip: 'Excel spreadsheets' },
                         { ext: 'XLS', color: 'bg-green-50 text-green-700 border-green-200', tip: 'Excel spreadsheets' },
                         { ext: 'TXT', color: 'bg-slate-50 text-slate-600 border-slate-200', tip: 'Plain text' },

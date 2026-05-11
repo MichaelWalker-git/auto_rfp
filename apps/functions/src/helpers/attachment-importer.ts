@@ -270,7 +270,6 @@ const importSingleAttachment = async (
     if (filenameExt) {
       const extToMime: Record<string, string> = {
         'pdf': 'application/pdf',
-        'doc': 'application/msword',
         'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'xls': 'application/vnd.ms-excel',
         'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -289,6 +288,18 @@ const importSingleAttachment = async (
     if (filename && !filename.includes('.') && ct) {
       const extFromCt = contentTypeToExt(ct);
       if (extFromCt) filename = `${filename}${extFromCt}`;
+    }
+
+    // Skip legacy .doc files — mammoth cannot parse them and the pipeline has no converter.
+    // Users must save as .docx in Word/Google Docs and upload manually.
+    const isLegacyDoc =
+      ct === 'application/msword' ||
+      (filename.toLowerCase().endsWith('.doc') && !filename.toLowerCase().endsWith('.docx'));
+    if (isLegacyDoc) {
+      console.warn(
+        `[importAttachments] Skipping legacy .doc file (not supported): ${filename} (${a.url})`,
+      );
+      return null;
     }
 
     const fileKey = buildAttachmentS3Key({
@@ -376,7 +387,6 @@ export const importAttachments = async (args: ImportAttachmentsArgs): Promise<Im
 // Excluding text/plain and text/csv - these fail with UnsupportedFileType in the pipeline
 const PROCESSABLE_CONTENT_TYPES = new Set([
   'application/pdf',
-  'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.ms-excel',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -433,6 +443,7 @@ export const detectAttachmentLinks = (text: string): DetectedLink[] => {
 
 // Extensions the question pipeline cannot process (skip even if Content-Type is generic)
 const UNSUPPORTED_EXTENSIONS = new Set([
+  '.doc', // legacy binary Word — mammoth cannot parse; users must convert to .docx
   '.txt', '.csv', '.log', '.json', '.xml',
   '.html', '.htm', '.php', '.asp', '.aspx', '.jsp',
   '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.bmp', '.webp',
@@ -532,7 +543,7 @@ export const isProcessableDocument = async (
         
         // SPECIAL CASE: Server returns misleading Content-Type (e.g., text/plain) but filename has document extension
         // This happens with Jaggaer and some other procurement portals
-        const PROCESSABLE_EXTENSIONS = new Set(['.pdf', '.doc', '.docx', '.xls', '.xlsx']);
+        const PROCESSABLE_EXTENSIONS = new Set(['.pdf', '.docx', '.xls', '.xlsx']);
         if (ext && PROCESSABLE_EXTENSIONS.has(ext)) {
           console.log(`[isProcessableDocument] ${url} → ${ct} (but filename: ${filename}) → true (trusted extension)`);
           resolve(true);
