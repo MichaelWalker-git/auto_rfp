@@ -15,6 +15,7 @@ import {
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 import { deleteOpportunity } from '@/helpers/opportunity';
+import { deleteOpportunitySolicitationVectors } from '@/helpers/pinecone';
 import { listQuestionFilesByOpportunity, deleteQuestionFile } from '@/helpers/questionFile';
 import { requireEnv } from '@/helpers/env';
 import { queryBySkPrefix, deleteItem, batchDeleteItems } from '@/helpers/db';
@@ -92,7 +93,7 @@ const deleteByPrefix = async (
  * - Document approvals
  * - Opportunity context
  */
-const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
     const { projectId, oppId, orgId } = event.queryStringParameters ?? {};
 
@@ -135,6 +136,15 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
       }
       deletionResults.push({ entity: 'questionFiles', count: questionFiles.length });
       deletionResults.push({ entity: 's3Objects', count: objectsToDelete.length });
+    }
+
+    // ── Step 1.5: Delete solicitation vectors from Pinecone ──────────────────
+    try {
+      const vectorsDeleted = await deleteOpportunitySolicitationVectors(orgId, oppId);
+      deletionResults.push({ entity: 'solicitationVectors', count: vectorsDeleted });
+    } catch (err) {
+      console.error('[delete-opportunity] Pinecone cleanup failed (continuing):', err);
+      deletionResults.push({ entity: 'solicitationVectors', count: 0 });
     }
 
     // ── Step 2: Delete all related entities by SK prefix ──────────────────────

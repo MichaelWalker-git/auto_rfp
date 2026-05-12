@@ -34,6 +34,7 @@ const CHUNK_MIN_CHARS = Number(process.env.CHUNK_MIN_CHARS ?? 200);
 const s3Client = new S3Client({ region: REGION });
 
 interface IndexSolicitationEvent {
+  orgId: string;
   opportunityId: string;
   projectId: string;
   questionFileId: string;
@@ -48,23 +49,24 @@ interface IndexSolicitationResult {
   chunksIndexed: number;
 }
 
-const baseHandler = async (
+export const baseHandler = async (
   event: IndexSolicitationEvent,
   _context: Context,
 ): Promise<IndexSolicitationResult> => {
   console.log('[index-solicitation] Event:', JSON.stringify(event));
 
-  const { opportunityId, questionFileId, fileName, textFileKey } = event;
+  const { orgId, opportunityId, questionFileId, fileName, textFileKey } = event;
 
   // Validate all required fields
   const missingFields: string[] = [];
+  if (!orgId) missingFields.push('orgId');
   if (!opportunityId) missingFields.push('opportunityId');
   if (!questionFileId) missingFields.push('questionFileId');
   if (!textFileKey || textFileKey.trim() === '') missingFields.push('textFileKey');
 
   if (missingFields.length > 0) {
     console.warn(`[index-solicitation] Missing required fields: ${missingFields.join(', ')}, skipping indexing`);
-    console.warn(`[index-solicitation] Received: opportunityId=${opportunityId}, questionFileId=${questionFileId}, fileName=${fileName}, textFileKey=${textFileKey}`);
+    console.warn(`[index-solicitation] Received: orgId=${orgId}, opportunityId=${opportunityId}, questionFileId=${questionFileId}, fileName=${fileName}, textFileKey=${textFileKey}`);
     return {
       success: true,
       opportunityId: opportunityId || 'unknown',
@@ -73,7 +75,7 @@ const baseHandler = async (
     };
   }
 
-  console.log(`[index-solicitation] Processing: oppId=${opportunityId}, fileId=${questionFileId}, textFileKey=${textFileKey}`);
+  console.log(`[index-solicitation] Processing: orgId=${orgId}, oppId=${opportunityId}, fileId=${questionFileId}, textFileKey=${textFileKey}`);
 
   // Load text from S3
   const res = await s3Client.send(
@@ -128,7 +130,7 @@ const baseHandler = async (
   }
 
   // Batch index to Pinecone
-  await indexSolicitationChunksBatch(opportunityId, chunksToIndex);
+  await indexSolicitationChunksBatch(orgId, opportunityId, chunksToIndex);
 
   console.log(`[index-solicitation] Indexed ${chunks.length} chunks for ${questionFileId}`);
 
