@@ -325,6 +325,7 @@ const importSingleAttachment = async (
     });
 
     const { executionArn } = await startPipeline(
+      args.orgId,
       args.projectId,
       args.oppId,
       qf.questionFileId,

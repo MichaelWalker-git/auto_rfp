@@ -523,6 +523,7 @@ export class QuestionExtractionPipelineStack extends Stack {
     const indexSolicitationAfterPdf = new tasks.LambdaInvoke(this, 'Index Solicitation (PDF)', {
       lambdaFunction: indexSolicitationLambda,
       payload: sfn.TaskInput.fromObject({
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
@@ -536,6 +537,7 @@ export class QuestionExtractionPipelineStack extends Stack {
     const indexSolicitationAfterXlsx = new tasks.LambdaInvoke(this, 'Index Solicitation (XLSX)', {
       lambdaFunction: indexSolicitationLambda,
       payload: sfn.TaskInput.fromObject({
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
@@ -549,6 +551,7 @@ export class QuestionExtractionPipelineStack extends Stack {
     const indexSolicitationAfterDocx = new tasks.LambdaInvoke(this, 'Index Solicitation (DOCX)', {
       lambdaFunction: indexSolicitationLambda,
       payload: sfn.TaskInput.fromObject({
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),

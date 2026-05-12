@@ -26,6 +26,7 @@ const getStateMachineArn = (): string => {
 };
 
 export const startPipeline = async (
+  orgId: string | undefined,
   projectId: string,
   oppId: string,
   questionFileId: string,
@@ -36,6 +37,7 @@ export const startPipeline = async (
     new StartExecutionCommand({
       stateMachineArn: getStateMachineArn(),
       input: JSON.stringify({
+        orgId: orgId ?? '',
         oppId,
         projectId,
         questionFileId,

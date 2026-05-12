@@ -27,6 +27,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
   if (!qf) return apiResponse(404, { message: 'Question file not found' });
 
   const { executionArn, startDate } = await startPipeline(
+    qf.orgId,
     projectId,
     oppId,
     questionFileId,

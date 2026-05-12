@@ -227,18 +227,17 @@ export interface SolicitationSearchHit {
   metadata: SolicitationChunkMetadata;
 }
 
-/**
- * Get the Pinecone namespace for an opportunity's solicitation documents.
- * Uses a dedicated namespace per opportunity for complete isolation.
- */
-export const getOpportunityNamespace = (opportunityId: string): string =>
+// Legacy per-opportunity namespace. New writes go to {orgId}; this format is only
+// read/deleted for draining data created before the namespace consolidation fix.
+const getLegacyOpportunityNamespace = (opportunityId: string): string =>
   `opp_${opportunityId}`;
 
 /**
- * Index a solicitation document chunk to Pinecone.
+ * Index a solicitation document chunk to Pinecone under the org's namespace.
  * Called after Textract extracts text from a question file.
  */
 export const indexSolicitationChunk = async (args: {
+  orgId: string;
   opportunityId: string;
   questionFileId: string;
   fileName: string;
@@ -246,11 +245,10 @@ export const indexSolicitationChunk = async (args: {
   chunkKey: string;
   text: string;
 }): Promise<string> => {
-  const { opportunityId, questionFileId, fileName, chunkIndex, chunkKey, text } = args;
+  const { orgId, opportunityId, questionFileId, fileName, chunkIndex, chunkKey, text } = args;
 
   const index = await getPineconeIndex();
   const bucket = requireEnv('DOCUMENTS_BUCKET');
-  const namespace = getOpportunityNamespace(opportunityId);
 
   // Vector ID: unique per chunk
   const vectorId = `${questionFileId}#${chunkIndex}`;
@@ -269,7 +267,7 @@ export const indexSolicitationChunk = async (args: {
     createdAt: nowIso(),
   };
 
-  await index.namespace(namespace).upsert([
+  await index.namespace(orgId).upsert([
     {
       id: vectorId,
       values: embedding,
@@ -277,7 +275,7 @@ export const indexSolicitationChunk = async (args: {
     },
   ]);
 
-  console.log(`[opportunity-pinecone] Indexed chunk ${vectorId} to namespace ${namespace}`);
+  console.log(`[opportunity-pinecone] Indexed chunk ${vectorId} to namespace ${orgId}`);
   return vectorId;
 };
 
@@ -289,6 +287,7 @@ const EMBED_BATCH_SIZE = 10;
  * Processes embeddings in batches of 10 to avoid Bedrock rate limiting.
  */
 export const indexSolicitationChunksBatch = async (
+  orgId: string,
   opportunityId: string,
   chunks: Array<{
     questionFileId: string;
@@ -302,7 +301,6 @@ export const indexSolicitationChunksBatch = async (
 
   const index = await getPineconeIndex();
   const bucket = requireEnv('DOCUMENTS_BUCKET');
-  const namespace = getOpportunityNamespace(opportunityId);
 
   // Generate embeddings in controlled batches to avoid Bedrock throttling
   const embeddings: number[][] = [];
@@ -331,95 +329,193 @@ export const indexSolicitationChunksBatch = async (
   const UPSERT_BATCH_SIZE = 100;
   for (let i = 0; i < vectors.length; i += UPSERT_BATCH_SIZE) {
     const batch = vectors.slice(i, i + UPSERT_BATCH_SIZE);
-    await index.namespace(namespace).upsert(batch);
+    await index.namespace(orgId).upsert(batch);
   }
 
-  console.log(`[opportunity-pinecone] Batch indexed ${vectors.length} chunks to namespace ${namespace}`);
+  console.log(`[opportunity-pinecone] Batch indexed ${vectors.length} chunks to namespace ${orgId}`);
   return vectors.map(v => v.id);
 };
 
 /**
  * Semantic search within an opportunity's solicitation documents.
+ * Dual-reads from the new org namespace AND the legacy opp_{id} namespace
+ * during the migration window. Legacy misses are swallowed so new opportunities
+ * (with no legacy namespace) still succeed.
  */
 export const searchSolicitation = async (
+  orgId: string,
   opportunityId: string,
   query: string,
   topK: number = 5,
 ): Promise<SolicitationSearchHit[]> => {
   const index = await getPineconeIndex();
-  const namespace = getOpportunityNamespace(opportunityId);
+  const legacyNamespace = getLegacyOpportunityNamespace(opportunityId);
 
-  // Embed the query
+  // Embed the query once, reuse for both namespace reads
   const embedding = await getEmbedding(query);
 
-  const results = await index.namespace(namespace).query({
+  const orgPromise = index.namespace(orgId).query({
     vector: embedding,
     topK,
     includeMetadata: true,
     includeValues: false,
     filter: {
       type: { $eq: 'solicitation_chunk' },
+      opportunityId: { $eq: opportunityId },
     },
   });
 
-  return (results.matches || []).map(match => ({
-    id: match.id,
-    score: match.score ?? 0,
-    metadata: match.metadata as SolicitationChunkMetadata,
-  }));
+  const legacyPromise = index
+    .namespace(legacyNamespace)
+    .query({
+      vector: embedding,
+      topK,
+      includeMetadata: true,
+      includeValues: false,
+      filter: {
+        type: { $eq: 'solicitation_chunk' },
+      },
+    })
+    .catch((err) => {
+      console.warn(`[opportunity-pinecone] Legacy namespace query failed (likely not-found):`, err);
+      return { matches: [] as Array<{ id: string; score?: number; metadata?: unknown }> };
+    });
+
+  const [orgRes, legacyRes] = await Promise.all([orgPromise, legacyPromise]);
+
+  // Dedupe by vector ID; prefer the higher score when both namespaces return the same ID
+  const byId = new Map<string, SolicitationSearchHit>();
+  const ingest = (matches: Array<{ id: string; score?: number; metadata?: unknown }>) => {
+    for (const m of matches) {
+      const hit: SolicitationSearchHit = {
+        id: m.id,
+        score: m.score ?? 0,
+        metadata: m.metadata as SolicitationChunkMetadata,
+      };
+      const existing = byId.get(m.id);
+      if (!existing || hit.score > existing.score) byId.set(m.id, hit);
+    }
+  };
+  ingest(orgRes.matches ?? []);
+  ingest(legacyRes.matches ?? []);
+
+  return Array.from(byId.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK);
 };
 
 /**
- * Delete all vectors in an opportunity's namespace.
+ * Delete all solicitation vectors for an opportunity.
  * Called when an opportunity is deleted.
+ *
+ * CRITICAL: must never `deleteAll()` on the {orgId} namespace — that would wipe
+ * document chunks, content library, past performance, and clustering data for
+ * the whole org. Uses a metadata filter to scope deletes to one opportunity.
+ *
+ * The legacy `opp_{opportunityId}` namespace (if it still holds data from
+ * before the namespace consolidation fix) IS safe to `deleteAll` because it
+ * only ever held one opportunity's vectors.
  */
-export const deleteOpportunityNamespace = async (opportunityId: string): Promise<void> => {
+export const deleteOpportunitySolicitationVectors = async (
+  orgId: string,
+  opportunityId: string,
+): Promise<number> => {
   const index = await getPineconeIndex();
-  const namespace = getOpportunityNamespace(opportunityId);
+  const legacyNamespace = getLegacyOpportunityNamespace(opportunityId);
 
+  // Clean up the shared org namespace by metadata filter
+  let deleted = 0;
   try {
-    await index.namespace(namespace).deleteAll();
-    console.log(`[opportunity-pinecone] Deleted namespace ${namespace}`);
+    const results = await index.namespace(orgId).query({
+      vector: new Array(1024).fill(0),
+      topK: 10000,
+      includeMetadata: true,
+      filter: {
+        opportunityId: { $eq: opportunityId },
+        type: { $eq: 'solicitation_chunk' },
+      },
+    });
+    const idsToDelete = (results.matches ?? []).map((m) => m.id);
+    if (idsToDelete.length > 0) {
+      const BATCH_SIZE = 100;
+      for (let i = 0; i < idsToDelete.length; i += BATCH_SIZE) {
+        const batch = idsToDelete.slice(i, i + BATCH_SIZE);
+        await index.namespace(orgId).deleteMany(batch);
+      }
+      deleted = idsToDelete.length;
+    }
+    console.log(`[opportunity-pinecone] Deleted ${deleted} solicitation vectors for opp ${opportunityId} from namespace ${orgId}`);
   } catch (err) {
-    // Namespace might not exist if no docs were ever indexed
-    console.warn(`[opportunity-pinecone] Failed to delete namespace ${namespace}:`, err);
+    console.warn(`[opportunity-pinecone] Org-namespace delete failed for opp ${opportunityId}:`, err);
   }
+
+  // Best-effort legacy namespace drain (safe here — legacy namespace is per-opportunity only)
+  try {
+    await index.namespace(legacyNamespace).deleteAll();
+    console.log(`[opportunity-pinecone] Drained legacy namespace ${legacyNamespace}`);
+  } catch (err) {
+    // Namespace might not exist if no docs were ever indexed there — not an error
+    console.warn(`[opportunity-pinecone] Legacy namespace drain skipped for ${legacyNamespace}:`, err);
+  }
+
+  return deleted;
 };
 
 /**
- * Delete vectors for a specific solicitation file.
- * Called when a solicitation document is deleted.
+ * Delete vectors for a specific solicitation file, scoped by opportunity.
+ * Called when a single solicitation document is deleted.
  */
 export const deleteSolicitationFile = async (
+  orgId: string,
   opportunityId: string,
   questionFileId: string,
-): Promise<void> => {
+): Promise<number> => {
   const index = await getPineconeIndex();
-  const namespace = getOpportunityNamespace(opportunityId);
+  const legacyNamespace = getLegacyOpportunityNamespace(opportunityId);
 
-  // Query for all chunks of this file
-  const results = await index.namespace(namespace).query({
-    vector: new Array(1024).fill(0), // Dummy vector for metadata-only query
-    topK: 10000,
-    includeMetadata: true,
-    filter: {
-      questionFileId: { $eq: questionFileId },
-    },
-  });
+  const deleteFromNamespace = async (
+    namespace: string,
+    filter: Record<string, unknown>,
+    label: string,
+  ): Promise<number> => {
+    try {
+      const results = await index.namespace(namespace).query({
+        vector: new Array(1024).fill(0),
+        topK: 10000,
+        includeMetadata: true,
+        filter,
+      });
+      const idsToDelete = (results.matches ?? []).map((m) => m.id);
+      if (idsToDelete.length === 0) return 0;
+      const BATCH_SIZE = 100;
+      for (let i = 0; i < idsToDelete.length; i += BATCH_SIZE) {
+        const batch = idsToDelete.slice(i, i + BATCH_SIZE);
+        await index.namespace(namespace).deleteMany(batch);
+      }
+      console.log(`[opportunity-pinecone] Deleted ${idsToDelete.length} chunks for file ${questionFileId} from ${label}`);
+      return idsToDelete.length;
+    } catch (err) {
+      console.warn(`[opportunity-pinecone] Delete from ${label} failed for file ${questionFileId}:`, err);
+      return 0;
+    }
+  };
 
-  const idsToDelete = (results.matches || []).map(m => m.id);
+  const [fromOrg, fromLegacy] = await Promise.all([
+    deleteFromNamespace(
+      orgId,
+      {
+        type: { $eq: 'solicitation_chunk' },
+        opportunityId: { $eq: opportunityId },
+        questionFileId: { $eq: questionFileId },
+      },
+      `namespace ${orgId}`,
+    ),
+    deleteFromNamespace(
+      legacyNamespace,
+      { questionFileId: { $eq: questionFileId } },
+      `legacy namespace ${legacyNamespace}`,
+    ),
+  ]);
 
-  if (idsToDelete.length === 0) {
-    console.log(`[opportunity-pinecone] No chunks found for file ${questionFileId}`);
-    return;
-  }
-
-  // Delete in batches
-  const BATCH_SIZE = 100;
-  for (let i = 0; i < idsToDelete.length; i += BATCH_SIZE) {
-    const batch = idsToDelete.slice(i, i + BATCH_SIZE);
-    await index.namespace(namespace).deleteMany(batch);
-  }
-
-  console.log(`[opportunity-pinecone] Deleted ${idsToDelete.length} chunks for file ${questionFileId}`);
+  return fromOrg + fromLegacy;
 };

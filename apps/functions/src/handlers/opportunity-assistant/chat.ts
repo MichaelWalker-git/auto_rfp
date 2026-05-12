@@ -83,7 +83,7 @@ const invokeClaudeChat = async (prompt: string): Promise<string> => {
   return textContent?.text ?? '';
 };
 
-const baseHandler = async (
+export const baseHandler = async (
   event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   // Parse query params
@@ -110,7 +110,7 @@ const baseHandler = async (
   }
 
   // Search solicitation documents
-  const hits = await searchSolicitation(oppId, data.message, 5);
+  const hits = await searchSolicitation(orgId, oppId, data.message, 5);
 
   if (hits.length === 0) {
     // No indexed documents — return helpful message

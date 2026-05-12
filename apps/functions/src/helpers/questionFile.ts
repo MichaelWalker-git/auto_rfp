@@ -9,6 +9,7 @@ import { createItem, DBItem, deleteItem, docClient, queryAllBySkPrefix } from '.
 import { buildQuestionSK } from './question';
 import { ANSWER_PK } from '../constants/answer';
 import { QUESTION_CLUSTER_PK } from '../constants/clustering';
+import { deleteSolicitationFile } from './pinecone';
 import { startPipeline } from './solicitation';
 import { nowIso } from './date';
 import { v4 as uuidv4 } from 'uuid';
@@ -295,6 +296,17 @@ export const deleteQuestionFileWithCascade = async (
     ? await Promise.all(keysToDelete.map((k) => deleteS3ObjectBestEffort(documentsBucket, k)))
     : [];
 
+  // 1.5 Delete Pinecone vectors for this file (best-effort — don't block cascade on failure).
+  //     Skip if orgId is missing on legacy records; the legacy `opp_{oppId}` namespace
+  //     is still drained when the whole opportunity is deleted.
+  if (qf.orgId) {
+    try {
+      await deleteSolicitationFile(qf.orgId, oppId, questionFileId);
+    } catch (err) {
+      console.error('[deleteQuestionFileWithCascade] Pinecone cleanup failed (continuing):', err);
+    }
+  }
+
   // 2. Cascade delete associated questions
   const questionKeys = await queryQuestionKeysByFile(projectId, oppId, questionFileId);
   const questionsDeleted = await batchDeleteDynamoItems(questionKeys);
@@ -363,6 +375,7 @@ export const reextractQuestions = async (
 
   // 3. Start the pipeline
   const { executionArn, startDate } = await startPipeline(
+    qf.orgId,
     projectId,
     oppId,
     questionFileId,
@@ -465,6 +478,7 @@ export const reextractAllQuestions = async (
     // Start the pipeline
     try {
       const { executionArn } = await startPipeline(
+        qf.orgId,
         projectId,
         oppId,
         qf.questionFileId,
