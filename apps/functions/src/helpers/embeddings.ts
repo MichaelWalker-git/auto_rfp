@@ -7,7 +7,7 @@ import { invokeModel } from './bedrock-http-client';
 // Safe limit: 8192 tokens × 1.3 chars/token × 0.75 safety margin ≈ 8,000 chars.
 // This matches the observed failure at 12,506 tokens from a ~15,000-char input.
 const TITAN_V2_SAFE_CHARS = 8_000;
-const BEDROCK_EMBEDDING_MODEL_ID = requireEnv('BEDROCK_EMBEDDING_MODEL_ID');
+const getBedrockEmbeddingModelId = () => requireEnv('BEDROCK_EMBEDDING_MODEL_ID');
 
 export async function getEmbedding(text: string): Promise<number[]> {
   const body = {
@@ -15,7 +15,7 @@ export async function getEmbedding(text: string): Promise<number[]> {
   };
 
   const responseBody = await invokeModel(
-    BEDROCK_EMBEDDING_MODEL_ID,
+    getBedrockEmbeddingModelId(),
     JSON.stringify(body),
     'application/json',
     'application/json'
