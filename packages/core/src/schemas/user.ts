@@ -85,6 +85,7 @@ export const ALL_PERMISSIONS = [
   'project:create', 'project:edit', 'project:read', 'project:delete',
   'question:read', 'question:create', 'question:edit', 'question:delete',
   'document:create', 'document:edit', 'document:read', 'document:delete',
+  'rfp_document:upload', // Upload RFP documents
   'rfp_document:delete', // RFP documents only (not solicitation documents)
   'answer:create', 'answer:read', 'answer:generate', 'answer:edit',
   'brief:create', 'brief:edit',
