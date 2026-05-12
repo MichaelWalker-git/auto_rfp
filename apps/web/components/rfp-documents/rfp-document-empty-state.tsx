@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { FolderOpen, Upload } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { PermissionButton } from '@/components/ui/permission-button';
 
 interface RFPDocumentEmptyStateProps {
   onUpload: () => void;
@@ -17,10 +17,14 @@ export function RFPDocumentEmptyState({ onUpload }: RFPDocumentEmptyStateProps) 
         Upload documents developed during the RFP process such as technical proposals, cost
         proposals, teaming agreements, and more.
       </p>
-      <Button className="mt-4" onClick={onUpload}>
+      <PermissionButton 
+        className="mt-4" 
+        requiredPermission="rfp_document:upload"
+        onClick={onUpload}
+      >
         <Upload className="h-4 w-4 mr-2" />
         Upload Your First Document
-      </Button>
+      </PermissionButton>
     </div>
   );
 }

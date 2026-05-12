@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Upload, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PermissionButton } from '@/components/ui/permission-button';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
@@ -195,10 +196,13 @@ export function RFPDocumentsContent({ projectId, orgId, opportunityId }: RFPDocu
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <Button onClick={() => setUploadDialogOpen(true)}>
+            <PermissionButton 
+              requiredPermission="rfp_document:upload"
+              onClick={() => setUploadDialogOpen(true)}
+            >
               <Upload className="h-4 w-4 mr-2" />
               Upload Document
-            </Button>
+            </PermissionButton>
           </div>
         }
         isLoading={isLoading}

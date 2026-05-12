@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PermissionButton } from '@/components/ui/permission-button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -272,10 +273,14 @@ export function OpportunityRFPDocuments() {
                 orgId={orgId}
                 onSuccess={() => mutate()}
               />
-              <Button size="sm" onClick={() => setUploadDialogOpen(true)}>
+              <PermissionButton 
+                size="sm" 
+                requiredPermission="rfp_document:upload"
+                onClick={() => setUploadDialogOpen(true)}
+              >
                 <Upload className="h-4 w-4 mr-2" />
                 Upload
-              </Button>
+              </PermissionButton>
             </div>
           </div>
         </CardHeader>
