@@ -59,6 +59,7 @@ jest.mock('@/components/permission-wrapper', () => {
     __esModule: true,
     default: PermissionWrapper,
     PermissionWrapper,
+    usePermission: () => true, // Mock the hook to always return true (has permission)
   };
 });
 
