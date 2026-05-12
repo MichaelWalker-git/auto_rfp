@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { CreateFOIARequestDialog } from './CreateFOIARequestDialog';
 import { useFOIARequests, useGenerateFOIALetter } from '@/lib/hooks/use-foia-requests';
 import { useToast } from '@/components/ui/use-toast';
-import PermissionWrapper from '@/components/permission-wrapper';
+import { PermissionButton } from '@/components/ui/permission-button';
 import type { FOIADocumentType, FOIARequestItem } from '@auto-rfp/core';
 import { FOIA_DOCUMENT_DESCRIPTIONS } from '@auto-rfp/core';
 import {
@@ -227,17 +227,16 @@ export const FOIARequestCard = ({
 
               {/* Action buttons */}
               <div className="flex gap-2 pt-2 border-t">
-                <PermissionWrapper requiredPermission="project:edit">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsEditDialogOpen(true)}
-                    className="text-xs"
-                  >
-                    <Pencil className="h-3.5 w-3.5 mr-1" />
-                    Edit
-                  </Button>
-                </PermissionWrapper>
+                <PermissionButton
+                  requiredPermission="project:edit"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditDialogOpen(true)}
+                  className="text-xs"
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-1" />
+                  Edit
+                </PermissionButton>
                 <Button
                   variant="outline"
                   size="sm"
@@ -267,15 +266,14 @@ export const FOIARequestCard = ({
               <p className="text-xs text-muted-foreground mb-3">
                 Submit a Freedom of Information Act request to obtain evaluation documents.
               </p>
-              <PermissionWrapper requiredPermission="project:edit">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsCreateDialogOpen(true)}
-                >
-                  Create FOIA Request
-                </Button>
-              </PermissionWrapper>
+              <PermissionButton
+                requiredPermission="project:edit"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCreateDialogOpen(true)}
+              >
+                Create FOIA Request
+              </PermissionButton>
             </div>
           )}
         </CardContent>

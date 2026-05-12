@@ -7,6 +7,8 @@ import { CreateLaborRateSchema, type LaborRate, type UpdateLaborRate } from '@au
 import { useLaborRates, useCreateLaborRate, useUpdateLaborRate, useDeleteLaborRate } from '@/lib/hooks/use-pricing';
 import { useDrafts } from '@/lib/hooks/use-extraction';
 import { Button } from '@/components/ui/button';
+import { PermissionButton } from '@/components/ui/permission-button';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,7 +24,6 @@ import { PendingDraftsSection } from './PendingDraftsSection';
 import { LaborRateInfoPopover } from './LaborRateInfoPopover';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { usePermission } from '@/components/permission-wrapper';
 import { z } from 'zod';
 
 interface LaborRateManagerProps {
@@ -54,8 +55,6 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
   const [showForm, setShowForm] = useState(false);
   const [editingRate, setEditingRate] = useState<LaborRate | null>(null);
   const { toast } = useToast();
-  const canCreate = usePermission('pricing:create');
-  const canDelete = usePermission('pricing:delete');
 
   const laborRates = data?.laborRates ?? [];
 
@@ -126,14 +125,12 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
             <LaborRateInfoPopover />
           </div>
         </div>
-        {canCreate && (
-          <div className="flex items-center gap-2">
-            <ExtractionUploadDialog orgId={orgId} targetType="LABOR_RATE"
-              onExtractionComplete={() => { mutate((key: string) => typeof key === 'string' && key.includes('/labor-rates')); refreshDrafts(); }}
-              trigger={<Button variant="outline" size="sm"><Upload className="h-4 w-4 mr-1" />Upload Rate Card</Button>} />
-            <Button onClick={() => setShowForm(!showForm)} size="sm"><Plus className="h-4 w-4 mr-1" />Add Rate</Button>
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <ExtractionUploadDialog orgId={orgId} targetType="LABOR_RATE"
+            onExtractionComplete={() => { mutate((key: string) => typeof key === 'string' && key.includes('/labor-rates')); refreshDrafts(); }}
+            trigger={<PermissionButton requiredPermission="pricing:create" variant="outline" size="sm"><Upload className="h-4 w-4 mr-1" />Upload Rate Card</PermissionButton>} />
+          <PermissionButton requiredPermission="pricing:create" onClick={() => setShowForm(!showForm)} size="sm"><Plus className="h-4 w-4 mr-1" />Add Rate</PermissionButton>
+        </div>
       </div>
 
       {showForm && (
@@ -223,7 +220,7 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
                 <th className="text-right p-3 font-medium"><div className="flex items-center justify-end gap-0.5">Profit<LaborRateInfoPopover /></div></th>
                 <th className="text-right p-3 font-medium"><div className="flex items-center justify-end gap-0.5">Fully Loaded<LaborRateInfoPopover /></div></th>
                 <th className="text-center p-3 font-medium">Status</th>
-                {canDelete && <th className="text-right p-3 font-medium">Actions</th>}
+                <th className="text-right p-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -241,12 +238,10 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
                   <td className="p-3 text-right">{rate.profit}%</td>
                   <td className="p-3 text-right font-semibold text-primary">${rate.fullyLoadedRate.toFixed(2)}</td>
                   <td className="p-3 text-center"><Badge variant={rate.isActive ? 'default' : 'secondary'}>{rate.isActive ? 'Active' : 'Inactive'}</Badge></td>
-                  {canDelete && (
-                    <td className="p-3 text-right space-x-1">
-                      <Button variant="ghost" size="sm" onClick={() => handleEdit(rate)}><Pencil className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(rate.laborRateId)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
-                    </td>
-                  )}
+                  <td className="p-3 text-right space-x-1">
+                    <PermissionButton requiredPermission="pricing:edit" variant="ghost" size="sm" onClick={() => handleEdit(rate)}><Pencil className="h-4 w-4" /></PermissionButton>
+                    <PermissionDeleteButton requiredPermission="pricing:delete" variant="ghost" size="sm" onClick={() => handleDelete(rate.laborRateId)} />
+                  </td>
                 </tr>
               ))}
             </tbody>

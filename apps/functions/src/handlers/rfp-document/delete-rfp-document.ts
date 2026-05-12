@@ -100,7 +100,7 @@ export const handler = withSentryLambda(
   middy(baseHandler)
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
-    .use(requirePermission('proposal:delete'))
+    .use(requirePermission('rfp_document:delete'))
     .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );

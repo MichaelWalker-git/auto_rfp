@@ -2,7 +2,7 @@
 
 import { useDeleteQuestionFile, useStartQuestionFilePipeline, useStopQuestionPipeline } from '@/lib/hooks/use-question-file';
 import { useToast } from './ui/use-toast';
-import { CircleX, Loader2, Trash2, RefreshCw } from 'lucide-react';
+import { CircleX, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -10,7 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import PermissionWrapper from '@/components/permission-wrapper';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 
 const CANCELLABLE_STATUSES = ['PROCESSING', 'TEXTRACT_RUNNING', 'TEXT_READY'] as const;
 const CANCELLED_STATUSES = ['CANCELLED'] as const;
@@ -126,29 +126,15 @@ export const CancelPipelineButton = ({
             </TooltipContent>
           </Tooltip>
 
-          <PermissionWrapper requiredPermission="question:delete">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={handleDelete}
-                  disabled={isAnyMutating}
-                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                  aria-label="Delete file"
-                >
-                  {isDeleting ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Trash2 className="h-3.5 w-3.5" />
-                  )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p>Delete file</p>
-              </TooltipContent>
-            </Tooltip>
-          </PermissionWrapper>
+          <PermissionDeleteButton
+            requiredPermission="question:delete"
+            isLoading={isDeleting}
+            onClick={handleDelete}
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+            ariaLabel="Delete file"
+          />
         </div>
       </TooltipProvider>
     );

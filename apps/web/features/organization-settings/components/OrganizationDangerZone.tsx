@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { AlertCircle } from 'lucide-react';
-import PermissionWrapper from '@/components/permission-wrapper';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 
 interface OrganizationDangerZoneProps {
   organizationName: string;
@@ -48,16 +48,15 @@ export const OrganizationDangerZone: React.FC<OrganizationDangerZoneProps> = ({
             />
           </div>
         </CardContent>
-        <PermissionWrapper requiredPermission="org:delete">
-          <CardFooter>
-            <Button
-              variant="destructive"
-              onClick={onDelete}
-            >
-              Delete Organization
-            </Button>
-          </CardFooter>
-        </PermissionWrapper>
+        <CardFooter>
+          <PermissionDeleteButton
+            requiredPermission="org:delete"
+            variant="destructive"
+            onClick={onDelete}
+            showLabel
+            label="Delete Organization"
+          />
+        </CardFooter>
       </Card>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { PermissionButton } from '@/components/ui/permission-button';
 import { CalendarClock, Plus } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useCreateOrganization } from '@/lib/hooks/use-create-organization';
@@ -70,10 +71,10 @@ const OrganizationsHeader = ({
         <CalendarClock className="mr-2 h-4 w-4" />
         Deadlines
       </Button>
-      <Button onClick={onCreateClick}>
+      <PermissionButton requiredPermission="org:create" onClick={onCreateClick}>
         <Plus className="mr-2 h-4 w-4" />
         New Organization
-      </Button>
+      </PermissionButton>
     </div>
   </div>
 );

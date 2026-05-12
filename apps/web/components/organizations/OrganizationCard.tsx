@@ -3,14 +3,15 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Pencil, Trash2, Users, FolderOpen } from 'lucide-react';
+import { Pencil, Users, FolderOpen } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BaseCard } from '@/components/ui/base-card';
 import { useCurrentOrganization } from '@/context/organization-context';
 import type { OrganizationItem } from '@auto-rfp/core';
-import PermissionWrapper from '../permission-wrapper';
+import { PermissionButton } from '@/components/ui/permission-button';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { CreateEditOrganizationDialog } from '@/components/organizations/CreateEditOrganizationDialog';
 
 interface OrganizationCardProps {
@@ -54,35 +55,24 @@ export function OrganizationCard({ organization, onDelete, onUpdate }: Organizat
           isHoverable
           actions={
             <>
-              <PermissionWrapper requiredPermission={'org:edit'}>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-xl"
-                  onClick={handleEditClick}
-                  aria-label="Edit organization"
-                  title="Edit organization"
-                >
-                  <Pencil className="h-3.5 w-3.5"/>
-                </Button>
-              </PermissionWrapper>
+              <PermissionButton
+                requiredPermission="org:edit"
+                variant="ghost"
+                size="icon"
+                className="rounded-xl"
+                onClick={handleEditClick}
+              >
+                <Pencil className="h-3.5 w-3.5"/>
+              </PermissionButton>
 
-              <PermissionWrapper requiredPermission={'org:delete'}>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-xl hover:bg-destructive/10 hover:text-destructive"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onDelete?.(organization);
-                  }}
-                  aria-label="Remove organization"
-                  title="Remove organization"
-                >
-                  <Trash2 className="h-3.5 w-3.5"/>
-                </Button>
-              </PermissionWrapper>
+              <PermissionDeleteButton
+                requiredPermission="org:delete"
+                variant="ghost"
+                size="icon"
+                className="rounded-xl hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => onDelete?.(organization)}
+                ariaLabel="Remove organization"
+              />
             </>
           }
           footer={

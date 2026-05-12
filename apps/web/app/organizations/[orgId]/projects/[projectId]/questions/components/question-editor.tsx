@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Save, Sparkles, Trash2, MessageSquare, ChevronDown, ChevronRight } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { AnswerSource, ConfidenceBreakdown, ConfidenceBand, type CommentEntityType } from '@auto-rfp/core';
-import PermissionWrapper from '@/components/permission-wrapper';
+import { PermissionButton } from '@/components/ui/permission-button';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { ConfidenceScoreDisplay } from '@/components/confidence/confidence-score-display';
 import { SimilarQuestionsPanel } from './similar-questions-panel';
 import { getToolDisplayName } from './source-details-dialog';
@@ -324,64 +325,61 @@ export function QuestionEditor({
 
           {/* Action area */}
           <div className="flex items-center justify-between pt-3 border-t">
-            <PermissionWrapper requiredPermission={'answer:generate'}>
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={onGenerateAnswer}
-                  disabled={isGenerating || isLockedByOther}
-                >
-                  {isGenerating ? (
-                    <><Spinner className="h-4 w-4" />Generating...</>
-                  ) : (
-                    <><Sparkles className="h-4 w-4" />Generate</>
-                  )}
-                </Button>
-                {selectedIndexes.size > 0 && (
-                  <Badge variant="secondary" className="text-xs">
-                    {selectedIndexes.size} {selectedIndexes.size === 1 ? 'index' : 'indexes'}
-                  </Badge>
+            <div className="flex items-center gap-3">
+              <PermissionButton
+                requiredPermission="answer:generate"
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={onGenerateAnswer}
+                disabled={isGenerating || isLockedByOther}
+              >
+                {isGenerating ? (
+                  <><Spinner className="h-4 w-4" />Generating...</>
+                ) : (
+                  <><Sparkles className="h-4 w-4" />Generate</>
                 )}
-              </div>
-            </PermissionWrapper>
+              </PermissionButton>
+              {selectedIndexes.size > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {selectedIndexes.size} {selectedIndexes.size === 1 ? 'index' : 'indexes'}
+                </Badge>
+              )}
+            </div>
 
             <div className="flex items-center gap-2">
-              <PermissionWrapper requiredPermission={'question:delete'}>
-                <Button
-                  variant="destructive"
+              <PermissionDeleteButton
+                requiredPermission="question:delete"
+                variant="destructive"
+                size="sm"
+                onClick={onRemoveQuestion}
+                showLabel
+                label={isRemoving ? 'Removing...' : 'Remove'}
+                isLoading={isRemoving}
+              />
+              {answer?.text && answer.status === 'APPROVED' && onUnapprove ? (
+                <PermissionButton
+                  requiredPermission="answer:edit"
+                  variant="outline"
                   size="sm"
-                  onClick={onRemoveQuestion}
-                  disabled={isSaving || isGenerating || isRemoving || isLockedByOther}
+                  onClick={onUnapprove}
+                  disabled={isUnapproving || isRemoving || isLockedByOther}
+                  className="border-slate-300 text-slate-600 hover:bg-slate-50"
                 >
-                  {isRemoving ? <><Spinner className="h-4 w-4 mr-1" />Removing...</> : <><Trash2 className="h-4 w-4 mr-1" />Remove</>}
-                </Button>
-              </PermissionWrapper>
-              <PermissionWrapper requiredPermission={'answer:edit'}>
-                {answer?.text && answer.status === 'APPROVED' && onUnapprove ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onUnapprove}
-                    disabled={isUnapproving || isRemoving || isLockedByOther}
-                    className="border-slate-300 text-slate-600 hover:bg-slate-50"
-                    title="Revert approval"
-                  >
-                    {isUnapproving ? <><Spinner className="h-4 w-4 mr-1" />Reverting...</> : 'Unapprove'}
-                  </Button>
-                ) : answer?.text ? (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={onApprove}
-                    disabled={isApproving || isRemoving || isGenerating || isLockedByOther}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
-                  >
-                    {isApproving ? <><Spinner className="h-4 w-4 mr-1" />Approving...</> : <><Save className="h-4 w-4 mr-1" />Approve</>}
-                  </Button>
-                ) : null}
-              </PermissionWrapper>
+                  {isUnapproving ? <><Spinner className="h-4 w-4 mr-1" />Reverting...</> : 'Unapprove'}
+                </PermissionButton>
+              ) : answer?.text ? (
+                <PermissionButton
+                  requiredPermission="answer:edit"
+                  variant="default"
+                  size="sm"
+                  onClick={onApprove}
+                  disabled={isApproving || isRemoving || isGenerating || isLockedByOther}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+                >
+                  {isApproving ? <><Spinner className="h-4 w-4 mr-1" />Approving...</> : <><Save className="h-4 w-4 mr-1" />Approve</>}
+                </PermissionButton>
+              ) : null}
             </div>
           </div>
         </CardContent>

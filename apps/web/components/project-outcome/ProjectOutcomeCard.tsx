@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ProjectOutcomeBadge } from './ProjectOutcomeBadge';
 import { SetProjectOutcomeDialog } from './SetProjectOutcomeDialog';
 import { useProjectOutcome, useRemoveProjectOutcome } from '@/lib/hooks/use-project-outcome';
-import PermissionWrapper from '@/components/permission-wrapper';
+import { PermissionButton } from '@/components/ui/permission-button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -84,30 +84,30 @@ export function ProjectOutcomeCard({
             <Target className="h-4 w-4" />
             Project Outcome
           </CardTitle>
-          <PermissionWrapper requiredPermission="project:edit">
-            <div className="flex items-center gap-1">
-              {outcome && opportunityId && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsRemoveDialogOpen(true)}
-                  className="h-8 text-xs gap-1 text-muted-foreground"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  Remove
-                </Button>
-              )}
-              <Button
+          <div className="flex items-center gap-1">
+            {outcome && opportunityId && (
+              <PermissionButton
+                requiredPermission="project:edit"
                 variant="ghost"
                 size="sm"
-                onClick={() => setIsDialogOpen(true)}
-                className="h-8 text-xs gap-1"
+                onClick={() => setIsRemoveDialogOpen(true)}
+                className="h-8 text-xs gap-1 text-muted-foreground"
               >
-                <Settings2 className="h-3.5 w-3.5" />
-                {outcome ? 'Update' : 'Set Outcome'}
-              </Button>
-            </div>
-          </PermissionWrapper>
+                <RotateCcw className="h-3.5 w-3.5" />
+                Remove
+              </PermissionButton>
+            )}
+            <PermissionButton
+              requiredPermission="project:edit"
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsDialogOpen(true)}
+              className="h-8 text-xs gap-1"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              {outcome ? 'Update' : 'Set Outcome'}
+            </PermissionButton>
+          </div>
         </CardHeader>
 
         <CardContent>
@@ -201,15 +201,14 @@ export function ProjectOutcomeCard({
               <p className="text-xs text-muted-foreground mb-3">
                 Set the project outcome to track win/loss status and sync with AWS Partner Central.
               </p>
-              <PermissionWrapper requiredPermission="project:edit">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsDialogOpen(true)}
-                >
-                  Set Outcome
-                </Button>
-              </PermissionWrapper>
+              <PermissionButton
+                requiredPermission="project:edit"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsDialogOpen(true)}
+              >
+                Set Outcome
+              </PermissionButton>
             </div>
           )}
         </CardContent>

@@ -8,6 +8,8 @@ import { z } from 'zod';
 import { useBOMItems, useCreateBOMItem, useDeleteBOMItem } from '@/lib/hooks/use-pricing';
 import { useDrafts } from '@/lib/hooks/use-extraction';
 import { Button } from '@/components/ui/button';
+import { PermissionButton } from '@/components/ui/permission-button';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,7 +17,6 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, Trash2, Package, Upload } from 'lucide-react';
 import { mutate } from 'swr';
-import { usePermission } from '@/components/permission-wrapper';
 import { ExtractionUploadDialog, ExtractionSourceBadge, type AnyDraft } from '@/components/extraction';
 import { PendingDraftsSection } from './PendingDraftsSection';
 import { DirectCostInfoPopover } from './DirectCostInfoPopover';
@@ -55,8 +56,6 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
   const { drafts: bomDrafts, refresh: refreshDrafts } = useDrafts<'BOM_ITEM'>(orgId, { draftType: 'BOM_ITEM', status: 'DRAFT' });
   
   const [showForm, setShowForm] = useState(false);
-  const canCreate = usePermission('pricing:create');
-  const canDelete = usePermission('pricing:delete');
 
   const bomItems = data?.bomItems ?? [];
 
@@ -103,14 +102,12 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
             <DirectCostInfoPopover />
           </div>
         </div>
-        {canCreate && (
-          <div className="flex gap-2">
-            <ExtractionUploadDialog orgId={orgId} targetType="BOM_ITEM"
-              onExtractionComplete={() => { mutate((key: string) => typeof key === 'string' && key.includes('/bom-items')); refreshDrafts(); }}
-              trigger={<Button variant="outline" size="sm"><Upload className="h-4 w-4 mr-1" />Upload Quote</Button>} />
-            <Button onClick={() => setShowForm(!showForm)} size="sm"><Plus className="h-4 w-4 mr-1" />Add Item</Button>
-          </div>
-        )}
+        <div className="flex gap-2">
+          <ExtractionUploadDialog orgId={orgId} targetType="BOM_ITEM"
+            onExtractionComplete={() => { mutate((key: string) => typeof key === 'string' && key.includes('/bom-items')); refreshDrafts(); }}
+            trigger={<PermissionButton requiredPermission="pricing:create" variant="outline" size="sm"><Upload className="h-4 w-4 mr-1" />Upload Quote</PermissionButton>} />
+          <PermissionButton requiredPermission="pricing:create" onClick={() => setShowForm(!showForm)} size="sm"><Plus className="h-4 w-4 mr-1" />Add Item</PermissionButton>
+        </div>
       </div>
 
       {/* Category Filter */}
@@ -228,11 +225,9 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
                     <td className="p-3 text-right font-semibold">${item.unitCost.toFixed(2)}</td>
                     <td className="p-3">{item.unit}</td>
                     <td className="p-3 text-muted-foreground">{item.vendor || '—'}</td>
-                    {canDelete && (
-                      <td className="p-3 text-right">
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(item.bomItemId)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
-                      </td>
-                    )}
+                    <td className="p-3 text-right">
+                      <PermissionDeleteButton requiredPermission="pricing:delete" variant="ghost" size="sm" onClick={() => handleDelete(item.bomItemId)} />
+                    </td>
                   </tr>
                 ))}
               </tbody>

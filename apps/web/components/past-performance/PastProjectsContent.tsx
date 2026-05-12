@@ -25,7 +25,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { ListingPageLayout } from '@/components/layout/ListingPageLayout';
 import Link from 'next/link';
 import type { PastProject } from '@auto-rfp/core';
-import PermissionWrapper, { usePermission } from '@/components/permission-wrapper';
+import { PermissionButton } from '@/components/ui/permission-button';
+import { usePermission } from '@/components/permission-wrapper';
 
 interface PastProjectsContentProps {
   orgId: string;
@@ -211,14 +212,12 @@ export function PastProjectsContent({ orgId }: PastProjectsContentProps) {
       <p className="text-muted-foreground mt-1">
         Add your completed projects to enable past performance matching for RFPs.
       </p>
-      <PermissionWrapper requiredPermission="project:create">
-        <Button asChild className="mt-4">
-          <Link href={`/organizations/${orgId}/past-performance/new`}>
-            <Plus className="h-4 w-4 mr-2"/>
-            Add Your First Project
-          </Link>
-        </Button>
-      </PermissionWrapper>
+      <PermissionButton requiredPermission="project:create" asChild className="mt-4">
+        <Link href={`/organizations/${orgId}/past-performance/new`}>
+          <Plus className="h-4 w-4 mr-2"/>
+          Add Your First Project
+        </Link>
+      </PermissionButton>
     </div>
   );
 
@@ -256,26 +255,24 @@ export function PastProjectsContent({ orgId }: PastProjectsContentProps) {
         title="Past Performance"
         description={statsDescription || 'Manage your organization\'s past performance projects for RFP matching'}
         headerActions={
-          <PermissionWrapper requiredPermission="project:create">
-            <div className="flex items-center gap-2">
-              <ExtractionUploadDialog
-                orgId={orgId}
-                onExtractionComplete={handleReload}
-                trigger={
-                  <Button variant="outline">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload Documents
-                  </Button>
-                }
-              />
-              <Button asChild>
-                <Link href={`/organizations/${orgId}/past-performance/new`}>
-                  <Plus className="h-4 w-4 mr-2"/>
-                  Add Past Project
-                </Link>
-              </Button>
-            </div>
-          </PermissionWrapper>
+          <div className="flex items-center gap-2">
+            <ExtractionUploadDialog
+              orgId={orgId}
+              onExtractionComplete={handleReload}
+              trigger={
+                <PermissionButton requiredPermission="project:create" variant="outline">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Documents
+                </PermissionButton>
+              }
+            />
+            <PermissionButton requiredPermission="project:create" asChild>
+              <Link href={`/organizations/${orgId}/past-performance/new`}>
+                <Plus className="h-4 w-4 mr-2"/>
+                Add Past Project
+              </Link>
+            </PermissionButton>
+          </div>
         }
         isLoading={isLoading}
         isEmpty={projects.length === 0}

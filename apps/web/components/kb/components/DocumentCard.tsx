@@ -5,8 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileText } from 'lucide-react';
 import { DownloadButton } from '@/components/ui/download-button';
-import { DeleteButton } from '@/components/ui/delete-button';
-import PermissionWrapper from '@/components/permission-wrapper';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { FreshnessStatusBadge } from '@/components/content-library/FreshnessStatusBadge';
 import { getStatusVariant, getStatusLabel } from '../lib/formatting';
 import { formatFileSize } from '@/lib/format-file-size';
@@ -104,15 +103,14 @@ export function DocumentCard({
             className="h-9 w-9"
           />
         )}
-        <PermissionWrapper requiredPermission="document:delete">
-          <DeleteButton
-            isLoading={isDeleting}
-            onClick={() => onDelete(doc)}
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10"
-          />
-        </PermissionWrapper>
+        <PermissionDeleteButton
+          requiredPermission="document:delete"
+          isLoading={isDeleting}
+          onClick={() => onDelete(doc)}
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10"
+        />
       </div>
     </Card>
   );

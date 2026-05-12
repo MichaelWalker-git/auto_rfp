@@ -2,23 +2,32 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowRight, Search, Settings2 } from 'lucide-react';
 import { ClusteringSettings } from '@/components/organizations/ClusteringSettings';
 import { PrimaryContactCard } from '@/components/organizations/PrimaryContactCard';
+import { PermissionButton } from '@/components/ui/permission-button';
 
 interface OrganizationConfigurationLinksProps {
   orgId: string;
 }
 
 export const OrganizationConfigurationLinks: React.FC<OrganizationConfigurationLinksProps> = ({ orgId }) => {
+  const router = useRouter();
+
   return (
     <>
       {/* Prompts Management Link */}
-      <Card className="hover:border-primary/50 transition-colors">
-        <Link href={`/organizations/${orgId}/settings/prompts`}>
+      <PermissionButton
+        requiredPermission="org:manage_settings"
+        variant="ghost"
+        className="w-full p-0 h-auto justify-start hover:bg-transparent"
+        onClick={() => router.push(`/organizations/${orgId}/settings/prompts`)}
+      >
+        <Card className="w-full hover:border-primary/50 transition-colors">
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <div className="space-y-1">
+            <div className="space-y-1 text-left">
               <CardTitle className="flex items-center gap-2">
                 <Settings2 className="h-5 w-5" />
                 Prompts
@@ -29,8 +38,8 @@ export const OrganizationConfigurationLinks: React.FC<OrganizationConfigurationL
             </div>
             <ArrowRight className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
-        </Link>
-      </Card>
+        </Card>
+      </PermissionButton>
 
       {/* Semantic Search Tester Link */}
       <Card className="hover:border-primary/50 transition-colors">

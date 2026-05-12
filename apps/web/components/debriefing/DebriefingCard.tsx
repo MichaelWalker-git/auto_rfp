@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { RequestDebriefingDialog } from './RequestDebriefingDialog';
 import { useDebriefings, useGenerateDebriefingLetter } from '@/lib/hooks/use-debriefing';
 import { useToast } from '@/components/ui/use-toast';
-import PermissionWrapper from '@/components/permission-wrapper';
+import { PermissionButton } from '@/components/ui/permission-button';
 import {
   User,
   MessageSquare,
@@ -196,17 +196,16 @@ export const DebriefingCard = ({
 
               {/* Action buttons */}
               <div className="flex gap-2 pt-2 border-t">
-                <PermissionWrapper requiredPermission="project:edit">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsEditDialogOpen(true)}
-                    className="text-xs"
-                  >
-                    <Pencil className="h-3.5 w-3.5 mr-1" />
-                    Edit
-                  </Button>
-                </PermissionWrapper>
+                <PermissionButton
+                  requiredPermission="project:edit"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditDialogOpen(true)}
+                  className="text-xs"
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-1" />
+                  Edit
+                </PermissionButton>
                 <Button
                   variant="outline"
                   size="sm"
@@ -236,15 +235,14 @@ export const DebriefingCard = ({
               <p className="text-xs text-muted-foreground mb-3">
                 Request a debriefing to learn why your proposal was not selected.
               </p>
-              <PermissionWrapper requiredPermission="project:edit">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsCreateDialogOpen(true)}
-                >
-                  Request Debriefing
-                </Button>
-              </PermissionWrapper>
+              <PermissionButton
+                requiredPermission="project:edit"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCreateDialogOpen(true)}
+              >
+                Request Debriefing
+              </PermissionButton>
             </div>
           )}
         </CardContent>

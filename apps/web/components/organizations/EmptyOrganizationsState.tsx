@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { FolderOpen } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { PermissionButton } from '@/components/ui/permission-button';
 import { BaseCard } from '@/components/ui/base-card';
 
 interface EmptyOrganizationsStateProps {
@@ -20,9 +20,9 @@ export function EmptyOrganizationsState({ onCreateClick }: EmptyOrganizationsSta
         <p className="text-muted-foreground">
           Create your first organization to get started
         </p>
-        <Button onClick={onCreateClick}>
+        <PermissionButton requiredPermission="org:create" onClick={onCreateClick}>
           Create Organization
-        </Button>
+        </PermissionButton>
       </div>
     </BaseCard>
   );

@@ -26,6 +26,7 @@ jest.mock('../CreateFOIARequestDialog', () => ({
 jest.mock('@/components/permission-wrapper', () => ({
   __esModule: true,
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  usePermission: () => true, // Mock the hook to always return true (has permission)
 }));
 
 const mockUseFOIARequests = useFOIARequests as jest.MockedFunction<typeof useFOIARequests>;
