@@ -498,6 +498,8 @@ export class ApiOrchestratorStack extends cdk.Stack {
           PROPOSAL_MAX_SOLICITATION_CHARS: '80000',
           BEDROCK_MAX_TOKENS: '40000',
           BEDROCK_TEMPERATURE: '0.1',
+          // Required for CLARIFYING_QUESTIONS document type to auto-trigger question generation
+          CLARIFYING_QUESTION_QUEUE_URL: clarifyingQuestionQueueUrl,
         },
         bundling: {
           minify: true,
