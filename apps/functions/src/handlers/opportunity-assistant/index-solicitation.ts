@@ -23,6 +23,7 @@ import { requireEnv } from '@/helpers/env';
 import { streamToString } from '@/helpers/s3';
 import { indexSolicitationChunksBatch } from '@/helpers/pinecone';
 import { chunkText } from '@/handlers/document-pipeline-steps/chunk-document';
+import { getQuestionFileItem } from '@/helpers/questionFile';
 
 const REGION = requireEnv('REGION', 'us-east-1');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -54,7 +55,7 @@ const baseHandler = async (
 ): Promise<IndexSolicitationResult> => {
   console.log('[index-solicitation] Event:', JSON.stringify(event));
 
-  const { opportunityId, questionFileId, fileName, textFileKey } = event;
+  const { opportunityId, projectId, questionFileId, fileName, textFileKey } = event;
 
   // Validate all required fields
   const missingFields: string[] = [];
@@ -127,8 +128,12 @@ const baseHandler = async (
     );
   }
 
+  // Look up orgId from question file for namespace
+  const qf = await getQuestionFileItem(projectId, opportunityId, questionFileId);
+  const orgId = qf?.orgId ?? projectId;
+
   // Batch index to Pinecone
-  await indexSolicitationChunksBatch(opportunityId, chunksToIndex);
+  await indexSolicitationChunksBatch(orgId, opportunityId, chunksToIndex);
 
   console.log(`[index-solicitation] Indexed ${chunks.length} chunks for ${questionFileId}`);
 

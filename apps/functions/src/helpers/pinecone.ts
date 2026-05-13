@@ -228,17 +228,20 @@ export interface SolicitationSearchHit {
 }
 
 /**
- * Get the Pinecone namespace for an opportunity's solicitation documents.
- * Uses a dedicated namespace per opportunity for complete isolation.
+ * Single shared namespace for all solicitation documents.
+ * Vectors are filtered by opportunityId in metadata queries.
  */
-export const getOpportunityNamespace = (opportunityId: string): string =>
-  `opp_${opportunityId}`;
+const SOLICITATIONS_NAMESPACE = 'solicitations';
+
+export const getOpportunityNamespace = (_orgId?: string): string =>
+  SOLICITATIONS_NAMESPACE;
 
 /**
  * Index a solicitation document chunk to Pinecone.
  * Called after Textract extracts text from a question file.
  */
 export const indexSolicitationChunk = async (args: {
+  orgId: string;
   opportunityId: string;
   questionFileId: string;
   fileName: string;
@@ -246,11 +249,11 @@ export const indexSolicitationChunk = async (args: {
   chunkKey: string;
   text: string;
 }): Promise<string> => {
-  const { opportunityId, questionFileId, fileName, chunkIndex, chunkKey, text } = args;
+  const { orgId, opportunityId, questionFileId, fileName, chunkIndex, chunkKey, text } = args;
 
   const index = await getPineconeIndex();
   const bucket = requireEnv('DOCUMENTS_BUCKET');
-  const namespace = getOpportunityNamespace(opportunityId);
+  const namespace = getOpportunityNamespace(orgId);
 
   // Vector ID: unique per chunk
   const vectorId = `${questionFileId}#${chunkIndex}`;
@@ -289,6 +292,7 @@ const EMBED_BATCH_SIZE = 10;
  * Processes embeddings in batches of 10 to avoid Bedrock rate limiting.
  */
 export const indexSolicitationChunksBatch = async (
+  orgId: string,
   opportunityId: string,
   chunks: Array<{
     questionFileId: string;
@@ -302,7 +306,7 @@ export const indexSolicitationChunksBatch = async (
 
   const index = await getPineconeIndex();
   const bucket = requireEnv('DOCUMENTS_BUCKET');
-  const namespace = getOpportunityNamespace(opportunityId);
+  const namespace = getOpportunityNamespace(orgId);
 
   // Generate embeddings in controlled batches to avoid Bedrock throttling
   const embeddings: number[][] = [];
@@ -342,12 +346,13 @@ export const indexSolicitationChunksBatch = async (
  * Semantic search within an opportunity's solicitation documents.
  */
 export const searchSolicitation = async (
+  orgId: string,
   opportunityId: string,
   query: string,
   topK: number = 5,
 ): Promise<SolicitationSearchHit[]> => {
   const index = await getPineconeIndex();
-  const namespace = getOpportunityNamespace(opportunityId);
+  const namespace = getOpportunityNamespace(orgId);
 
   // Embed the query
   const embedding = await getEmbedding(query);
@@ -359,6 +364,7 @@ export const searchSolicitation = async (
     includeValues: false,
     filter: {
       type: { $eq: 'solicitation_chunk' },
+      opportunityId: { $eq: opportunityId },
     },
   });
 
@@ -370,32 +376,37 @@ export const searchSolicitation = async (
 };
 
 /**
- * Delete all vectors in an opportunity's namespace.
+ * Delete all vectors for an opportunity.
  * Called when an opportunity is deleted.
  */
-export const deleteOpportunityNamespace = async (opportunityId: string): Promise<void> => {
+export const deleteOpportunityVectors = async (orgId: string, opportunityId: string): Promise<void> => {
   const index = await getPineconeIndex();
-  const namespace = getOpportunityNamespace(opportunityId);
+  const namespace = getOpportunityNamespace(orgId);
 
   try {
-    await index.namespace(namespace).deleteAll();
-    console.log(`[opportunity-pinecone] Deleted namespace ${namespace}`);
+    await index.namespace(namespace).deleteMany({
+      filter: { opportunityId: { $eq: opportunityId } },
+    });
+    console.log(`[opportunity-pinecone] Deleted vectors for opportunity ${opportunityId} in namespace ${namespace}`);
   } catch (err) {
-    // Namespace might not exist if no docs were ever indexed
-    console.warn(`[opportunity-pinecone] Failed to delete namespace ${namespace}:`, err);
+    console.warn(`[opportunity-pinecone] Failed to delete vectors for opportunity ${opportunityId}:`, err);
   }
 };
+
+/** @deprecated Use deleteOpportunityVectors instead */
+export const deleteOpportunityNamespace = deleteOpportunityVectors;
 
 /**
  * Delete vectors for a specific solicitation file.
  * Called when a solicitation document is deleted.
  */
 export const deleteSolicitationFile = async (
+  orgId: string,
   opportunityId: string,
   questionFileId: string,
 ): Promise<void> => {
   const index = await getPineconeIndex();
-  const namespace = getOpportunityNamespace(opportunityId);
+  const namespace = getOpportunityNamespace(orgId);
 
   // Query for all chunks of this file
   const results = await index.namespace(namespace).query({
@@ -403,6 +414,7 @@ export const deleteSolicitationFile = async (
     topK: 10000,
     includeMetadata: true,
     filter: {
+      opportunityId: { $eq: opportunityId },
       questionFileId: { $eq: questionFileId },
     },
   });

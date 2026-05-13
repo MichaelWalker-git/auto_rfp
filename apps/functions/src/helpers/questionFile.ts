@@ -12,6 +12,7 @@ import { QUESTION_CLUSTER_PK } from '../constants/clustering';
 import { startPipeline } from './solicitation';
 import { nowIso } from './date';
 import { v4 as uuidv4 } from 'uuid';
+import { deleteSolicitationFile, deleteOpportunityVectors } from './pinecone';
 
 // Resolved lazily so tests can set process.env before module-level code runs
 const getTableName = () => requireEnv('DB_TABLE_NAME');
@@ -299,7 +300,15 @@ export const deleteQuestionFileWithCascade = async (
   const questionKeys = await queryQuestionKeysByFile(projectId, oppId, questionFileId);
   const questionsDeleted = await batchDeleteDynamoItems(questionKeys);
 
-  // 3. Delete the question file record itself
+  // 3. Delete solicitation vectors for this file from Pinecone (best-effort)
+  const orgId = qf.orgId;
+  if (orgId) {
+    deleteSolicitationFile(orgId, oppId, questionFileId).catch((err) =>
+      console.warn(`Failed to delete solicitation vectors for ${questionFileId}:`, (err as Error).message),
+    );
+  }
+
+  // 4. Delete the question file record itself
   await deleteItem(QUESTION_FILE_PK, sk);
 
   return {
@@ -353,7 +362,14 @@ export const reextractQuestions = async (
 
   const deletedCount = questionItems.length;
 
-  // 2. Reset question file status to UPLOADED and clear any previous error
+  // 2. Delete solicitation vectors for this file from Pinecone (best-effort)
+  if (qf.orgId) {
+    deleteSolicitationFile(qf.orgId, oppId, questionFileId).catch((err) =>
+      console.warn(`Failed to delete solicitation vectors for ${questionFileId}:`, (err as Error).message),
+    );
+  }
+
+  // 3. Reset question file status to UPLOADED and clear any previous error
   await updateQuestionFile(projectId, oppId, questionFileId, {
     status: 'UPLOADED',
     totalQuestions: 0,
@@ -450,7 +466,15 @@ export const reextractAllQuestions = async (
     opportunityClusters.map((item) => ({ pk: item[PK_NAME], sk: item[SK_NAME] })),
   );
 
-  // 5. Reset each question file and restart pipelines
+  // 5. Delete all solicitation vectors for this opportunity from Pinecone (best-effort)
+  const firstFileWithOrg = validFiles.find((qf) => qf.orgId);
+  if (firstFileWithOrg?.orgId) {
+    deleteOpportunityVectors(firstFileWithOrg.orgId, oppId).catch((err) =>
+      console.warn(`Failed to delete solicitation vectors for opportunity ${oppId}:`, (err as Error).message),
+    );
+  }
+
+  // 6. Reset each question file and restart pipelines
   const pipelinesStarted: ReextractAllQuestionsResult['pipelinesStarted'] = [];
 
   for (const qf of validFiles) {
