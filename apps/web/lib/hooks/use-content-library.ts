@@ -195,3 +195,43 @@ export function useTrackContentLibraryUsage() {
 
   return { trackUsage };
 }
+
+// ─── Export Helper (fetches ALL items using pagination) ───
+
+const EXPORT_BATCH_SIZE = 100; // Backend max limit is 100
+
+/**
+ * Fetch all content library items for export (paginates automatically).
+ * Fetches in batches of 100 until all items are retrieved.
+ */
+export const fetchAllContentLibraryItems = async (
+  params: Omit<SearchContentLibraryParams, 'limit' | 'offset'>,
+  apiFetcher: (url: string) => Promise<ContentLibraryListResponse>,
+): Promise<ContentLibraryItem[]> => {
+  const allItems: ContentLibraryItem[] = [];
+  let offset = 0;
+  let hasMore = true;
+
+  while (hasMore) {
+    const queryParams: Record<string, string | number | boolean | undefined> = {
+      orgId: params.orgId,
+      kbId: params.kbId,
+      limit: EXPORT_BATCH_SIZE,
+      offset,
+      excludeArchived: params.excludeArchived ?? true,
+    };
+    if (params.query) queryParams.query = params.query;
+    if (params.category) queryParams.category = params.category;
+    if (params.tags?.length) queryParams.tags = params.tags.join(',');
+    if (params.approvalStatus) queryParams.approvalStatus = params.approvalStatus;
+
+    const url = buildApiUrl('content-library/get-content-libraries', queryParams);
+    const response = await apiFetcher(url);
+
+    allItems.push(...response.items);
+    hasMore = response.hasMore;
+    offset += EXPORT_BATCH_SIZE;
+  }
+
+  return allItems;
+};
