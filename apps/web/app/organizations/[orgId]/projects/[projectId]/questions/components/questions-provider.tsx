@@ -55,6 +55,8 @@ interface QuestionsContextType {
   setConfidenceFilter: (filter: ConfidenceBand | 'all') => void;
   sortByConfidence: boolean;
   setSortByConfidence: (sort: boolean) => void;
+  showPendingOnly: boolean;
+  setShowPendingOnly: (show: boolean) => void;
 
   // Data state
   isLoading: boolean;
@@ -149,6 +151,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   // Confidence filter/sort state
   const [confidenceFilter, setConfidenceFilter] = useState<ConfidenceBand | 'all'>('all');
   const [sortByConfidence, setSortByConfidence] = useState(false);
+  const [showPendingOnly, setShowPendingOnly] = useState(false);
 
   // Process state
   const [savingQuestions, setSavingQuestions] = useState<Set<string>>(new Set());
@@ -651,8 +654,18 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       });
     }
 
+    // Filter by pending approval only (has answer text but NOT approved)
+    if (showPendingOnly) {
+      result = result.filter((q: any) => {
+        const answerData = answers[q.id];
+        const hasText = answerData?.text && answerData.text.trim().length > 0;
+        const isApproved = answerData?.status === 'APPROVED';
+        return hasText && !isApproved;
+      });
+    }
+
     return result;
-  }, [questions, answers, confidenceFilter, searchQuery, sortByConfidence, opportunityId]);
+  }, [questions, answers, confidenceFilter, searchQuery, sortByConfidence, opportunityId, showPendingOnly]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const getCounts = useCallback(() => {
@@ -1203,6 +1216,8 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     setConfidenceFilter,
     sortByConfidence,
     setSortByConfidence,
+    showPendingOnly,
+    setShowPendingOnly,
 
     // Data state
     isLoading,
