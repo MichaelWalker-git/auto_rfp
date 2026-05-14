@@ -2,6 +2,8 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import {
+  CheckCircle2,
+  Clock,
   Download,
   FileDown,
   FileText,
@@ -12,6 +14,7 @@ import {
   RefreshCw,
   Trash2,
   Upload,
+  XCircle,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -48,9 +51,9 @@ import { useOpportunityContext } from './opportunity-context';
 import { formatDateTime } from './opportunity-helpers';
 import Link from 'next/link';
 import { useCurrentOrganization } from '@/context/organization-context';
-import { useApprovalHistory } from '@/features/document-approval';
-import { ApprovalStatusBadge } from '@/features/document-approval';
 
+
+import { DocumentStatusBadge } from '@/components/rfp-documents/document-status-badge';
 
 function formatFileSize(bytes: number): string {
   if (!bytes) return '';
@@ -60,33 +63,6 @@ function formatFileSize(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
-// Component to show approval status for a document
-function DocumentApprovalStatus({ doc, orgId, projectId }: { doc: RFPDocumentItem; orgId: string; projectId: string }) {
-  const { activeApproval, hasPendingApproval, approvals } = useApprovalHistory(
-    orgId, projectId, doc.opportunityId, doc.documentId,
-  );
-  
-  const isApproved = approvals.length > 0 && approvals[0]?.status === 'APPROVED';
-  const isRejected = approvals.length > 0 && approvals[0]?.status === 'REJECTED';
-  
-  if (isApproved) {
-    return <ApprovalStatusBadge status="APPROVED" />;
-  }
-  
-  if (hasPendingApproval) {
-    return <ApprovalStatusBadge status="PENDING" />;
-  }
-  
-  if (isRejected) {
-    return (
-      <Badge variant="outline" className="text-xs border-red-300 text-red-700 bg-red-50">
-        Rejected
-      </Badge>
-    );
-  }
-  
-  return null;
-}
 
 export function OpportunityRFPDocuments() {
   const { projectId, oppId, orgId, opportunity } = useOpportunityContext();
@@ -356,17 +332,11 @@ export function OpportunityRFPDocuments() {
                         <p className="font-medium truncate text-sm" title={doc.name}>
                           {doc.name}
                         </p>
-                        <Badge variant="outline" className={cn('text-xs border', typeChip.cls)}>
-                          {RFP_DOCUMENT_TYPES[doc.documentType as keyof typeof RFP_DOCUMENT_TYPES] ?? doc.documentType}
-                        </Badge>
-                        <DocumentApprovalStatus 
-                          doc={doc} 
-                          orgId={orgId} 
-                          projectId={projectId} 
-                        />
+                        <DocumentStatusBadge status={doc.status} />
                       </div>
 
                       <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                        <span className="font-medium">{RFP_DOCUMENT_TYPES[doc.documentType as keyof typeof RFP_DOCUMENT_TYPES] ?? doc.documentType}</span>
                         {doc.fileSizeBytes > 0 && <span>{formatFileSize(doc.fileSizeBytes)}</span>}
                         <span>{formatDateTime(doc.createdAt)}</span>
                         {doc.createdByName && <span>by {doc.createdByName}</span>}

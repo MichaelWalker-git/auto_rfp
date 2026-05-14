@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowRight, Search, Settings2 } from 'lucide-react';
+import { ArrowRight, Building2, Search, Settings2 } from 'lucide-react';
 import { ClusteringSettings } from '@/components/organizations/ClusteringSettings';
 import { PrimaryContactCard } from '@/components/organizations/PrimaryContactCard';
 import { PermissionButton } from '@/components/ui/permission-button';
@@ -40,6 +40,24 @@ export const OrganizationConfigurationLinks: React.FC<OrganizationConfigurationL
           </CardHeader>
         </Card>
       </PermissionButton>
+
+      {/* Company Profile */}
+      <Card className="hover:border-primary/50 transition-colors">
+        <Link href={`/organizations/${orgId}/settings/company-profile`}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Company Profile
+              </CardTitle>
+              <CardDescription>
+                Company registration data used to auto-fill required vendor forms
+              </CardDescription>
+            </div>
+            <ArrowRight className="h-5 w-5 text-muted-foreground" />
+          </CardHeader>
+        </Link>
+      </Card>
 
       {/* Semantic Search Tester Link */}
       <Card className="hover:border-primary/50 transition-colors">

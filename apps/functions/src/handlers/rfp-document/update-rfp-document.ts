@@ -46,7 +46,14 @@ export const baseHandler = async (
     return apiResponse(403, { message: 'Access denied' });
   }
 
-  // Update document (business logic in helper)
+  // Auto-promote status on save: DRAFT/NEEDS_REVIEW → READY
+  if (dto.content && !dto.status) {
+    const currentStatus = existing.status as string | null | undefined;
+    if (currentStatus === 'DRAFT' || currentStatus === 'NEEDS_REVIEW') {
+      dto.status = 'READY';
+    }
+  }
+
   const updated = await updateRFPDocumentWithContent({
     orgId,
     projectId: dto.projectId,

@@ -1564,7 +1564,7 @@ export const RichTextEditor = ({
         .tiptap-document-editor .ProseMirror h4 {
           font-size: 1.1rem; font-weight: 600; margin: 0.75rem 0 0.3rem; color: #374151;
         }
-        .tiptap-document-editor .ProseMirror p { margin: 0 0 0.75rem; }
+        .tiptap-document-editor .ProseMirror p { margin: 0 0 0.4rem; }
         .tiptap-document-editor .ProseMirror p:last-child { margin-bottom: 0; }
         .tiptap-document-editor .ProseMirror img {
           max-width: 100%; border-radius: 4px; margin: 0.5rem 0; cursor: pointer;
@@ -1603,6 +1603,12 @@ export const RichTextEditor = ({
         .tiptap-document-editor .ProseMirror td {
           border: 1px solid #d1d5db; padding: 0.5rem 0.75rem;
           vertical-align: top; position: relative;
+        }
+        .tiptap-document-editor .ProseMirror td[style*="border: none"],
+        .tiptap-document-editor .ProseMirror th[style*="border: none"],
+        .tiptap-document-editor .ProseMirror td[style*="border-color: transparent"],
+        .tiptap-document-editor .ProseMirror th[style*="border-color: transparent"] {
+          border: none !important;
         }
         .tiptap-document-editor .ProseMirror th {
           background: #f9fafb; font-weight: 600; text-align: left;

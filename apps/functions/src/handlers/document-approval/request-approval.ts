@@ -8,7 +8,7 @@ import {
   cancelPendingApprovals,
   updateApprovalLinearTicket,
 } from '@/helpers/document-approval';
-import { getRFPDocument } from '@/helpers/rfp-document';
+import { getRFPDocument, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
 import { getUserByOrgAndId } from '@/helpers/user';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
 import { createLinearTicket } from '@/helpers/linear';
@@ -67,6 +67,15 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     reviewer.email,
     (doc['name'] as string | undefined) ?? (doc['title'] as string | undefined),
   );
+
+  // ── Update document status to NEEDS_REVIEW ──
+  await updateRFPDocumentMetadata({
+    projectId: data.projectId,
+    opportunityId: data.opportunityId,
+    documentId: data.documentId,
+    updates: { status: 'NEEDS_REVIEW' },
+    updatedBy: requestedBy,
+  });
 
   // ── Create Linear ticket for the reviewer (non-blocking) ──
   createLinearTicket({

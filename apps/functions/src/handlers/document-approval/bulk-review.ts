@@ -60,13 +60,13 @@ const processReview = async (
       { status: review.decision, reviewedAt: now, reviewNote: review.reviewNote },
     );
 
-    // Update document signatureStatus (blocking — gates submission)
     const newSignatureStatus = review.decision === 'APPROVED' ? 'FULLY_SIGNED' : 'PENDING_SIGNATURE';
+    const newDocStatus = review.decision === 'APPROVED' ? 'APPROVED' : 'DRAFT';
     await updateRFPDocumentMetadata({
       projectId,
       opportunityId,
       documentId: review.documentId,
-      updates: { signatureStatus: newSignatureStatus },
+      updates: { signatureStatus: newSignatureStatus, status: newDocStatus },
       updatedBy: reviewerId,
     });
 

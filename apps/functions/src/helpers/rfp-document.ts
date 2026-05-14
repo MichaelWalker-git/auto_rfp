@@ -121,7 +121,7 @@ export async function updateRFPDocumentMetadata(args: {
     description?: string | null;
     documentType?: string;
     content?: Record<string, any> | null;
-    status?: string;
+    status?: string | null;
     title?: string | null;
     editHistory?: Record<string, any>[];
     /** S3 key for the HTML content — replaces storing HTML inline in DynamoDB */
@@ -360,7 +360,7 @@ export async function updateRFPDocumentWithContent(args: {
     description?: string | null;
     documentType?: string;
     content?: Record<string, unknown> | null;
-    status?: string;
+    status?: string | null;
     title?: string | null;
   };
   userId: string;

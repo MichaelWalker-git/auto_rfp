@@ -268,6 +268,56 @@ export class QuestionExtractionPipelineStack extends Stack {
       }),
     );
 
+    // NEW: Detect Required Forms Lambda
+    // Scans extracted text for vendor forms, analyzes fields via Textract/XLSX,
+    // auto-fills from company profile, and creates REQUIRED_FORM RFP documents.
+    const detectRequiredFormsLambda = new lambdaNode.NodejsFunction(this, 'DetectRequiredFormsLambda', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      logGroup: mkFnLogGroup('DetectRequiredForms'),
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/question-pipeline/detect-required-forms.ts'),
+      handler: 'handler',
+      timeout: Duration.minutes(5),
+      memorySize: 512,
+      environment: {
+        ...commonLambdaEnv,
+        BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
+        BEDROCK_REGION: 'us-east-1',
+        BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
+        PINECONE_API_KEY: props.pineconeApiKey,
+        PINECONE_INDEX: 'documents',
+      },
+    });
+    documentsBucket.grantReadWrite(detectRequiredFormsLambda);
+    mainTable.grantReadWriteData(detectRequiredFormsLambda);
+
+    detectRequiredFormsLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['textract:AnalyzeDocument'],
+        resources: ['*'],
+      }),
+    );
+
+    detectRequiredFormsLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:InvokeModel'],
+        resources: ['*'],
+      }),
+    );
+
+    detectRequiredFormsLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [bedrockApiKeyParamArn],
+      }),
+    );
+
+    detectRequiredFormsLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [`arn:aws:secretsmanager:${this.region}:${this.account}:secret:auto-rfp/pinecone-api-key-*`],
+      }),
+    );
+
     // NEW: Index Solicitation Lambda for Opportunity Assistant RAG
     const indexSolicitationLambda = new lambdaNode.NodejsFunction(this, 'IndexSolicitationLambda', {
       runtime: lambda.Runtime.NODEJS_24_X,
@@ -518,6 +568,52 @@ export class QuestionExtractionPipelineStack extends Stack {
       payloadResponseOnly: true,
     });
 
+    // NEW: Detect Required Forms tasks (one per branch)
+    const detectFormsAfterPdf = new tasks.LambdaInvoke(this, 'Detect Required Forms (PDF)', {
+      lambdaFunction: detectRequiredFormsLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
+        mimeType: sfn.JsonPath.stringAt('$.mimeType'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
+    const detectFormsAfterXlsx = new tasks.LambdaInvoke(this, 'Detect Required Forms (XLSX)', {
+      lambdaFunction: detectRequiredFormsLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
+        mimeType: sfn.JsonPath.stringAt('$.mimeType'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
+    const detectFormsAfterDocx = new tasks.LambdaInvoke(this, 'Detect Required Forms (DOCX)', {
+      lambdaFunction: detectRequiredFormsLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
+        mimeType: sfn.JsonPath.stringAt('$.mimeType'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
     // NEW: Index Solicitation tasks for Opportunity Assistant RAG
     // Indexes document chunks to Pinecone for semantic search
     const indexSolicitationAfterPdf = new tasks.LambdaInvoke(this, 'Index Solicitation (PDF)', {
@@ -640,10 +736,11 @@ export class QuestionExtractionPipelineStack extends Stack {
       sfn.Condition.stringMatches('$.sourceFileKey', '*.TIF'),
     );
 
-    // Pipeline flow: Extract Text → Detect Attachments → Fulfill Opp → Index → Extract Questions → Check & Trigger
+    // Pipeline flow: Extract Text → Detect Attachments → Detect Forms → Fulfill Opp → Index → Extract Questions → Check & Trigger
     const pdfBranch = sfn.Chain.start(startTextract)
       .next(processResult)
       .next(detectAttachmentsAfterPdf)
+      .next(detectFormsAfterPdf)
       .next(fulfillOppAfterPdf)
       .next(indexSolicitationAfterPdf)
       .next(extractQuestionsAfterPdf)
@@ -652,6 +749,7 @@ export class QuestionExtractionPipelineStack extends Stack {
 
     const docxBranch = sfn.Chain.start(extractDocxText)
       .next(detectAttachmentsAfterDocx)
+      .next(detectFormsAfterDocx)
       .next(fulfillOppAfterDocx)
       .next(indexSolicitationAfterDocx)
       .next(extractQuestionsAfterDocx)
@@ -660,6 +758,7 @@ export class QuestionExtractionPipelineStack extends Stack {
 
     const xlsxBranch = sfn.Chain.start(extractXlsxText)
       .next(detectAttachmentsAfterXlsx)
+      .next(detectFormsAfterXlsx)
       .next(fulfillOppAfterXlsx)
       .next(indexSolicitationAfterXlsx)
       .next(extractQuestionsAfterXlsx)
