@@ -7,8 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { CheckCheck, FileText, Plus, Tag } from 'lucide-react';
+import { CheckCheck, Download, FileCode, FileSpreadsheet, FileText, Plus, Tag } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 import { PageHeader } from '@/components/layout/page-header';
 import { PageSearch } from '@/components/layout/page-search';
@@ -26,7 +32,11 @@ import {
   useApproveContentLibraryItem,
   useBulkApproveContentLibrary,
   useDeprecateContentLibraryItem,
+  fetchAllContentLibraryItems,
 } from '@/lib/hooks/use-content-library';
+import { apiFetcher, buildApiUrl } from '@/lib/hooks/api-helpers';
+import { ContentLibraryListResponse } from '@auto-rfp/core';
+import { exportToCsv, exportToDocx, exportToJson } from './lib/export-utils';
 
 interface ContentLibraryClientProps {
   orgId: string;
@@ -95,7 +105,10 @@ export function ContentLibraryClient({ orgId, kbId }: ContentLibraryClientProps)
   const { bulkApprove } = useBulkApproveContentLibrary(orgId, kbId);
   const [isApprovingAll, setIsApprovingAll] = useState(false);
 
-  const hasMore = offset + ITEMS_PER_PAGE < total;
+  // Pagination calculations
+  const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
+  const hasNextPage = page < totalPages;
+  const hasPrevPage = page > 1;
 
   // Compute approvable items (DRAFT, not archived)
   const approvableItems = useMemo(
@@ -174,6 +187,67 @@ export function ContentLibraryClient({ orgId, kbId }: ContentLibraryClientProps)
     setDialog(prev => ({ mode: 'edit', item: prev.item }));
   }, []);
 
+  // ─── Export handlers (fetch ALL items only if needed) ───────────────────────
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Only fetch all items if we have more than currently loaded
+  const getItemsForExport = useCallback(async (): Promise<ContentLibraryItem[]> => {
+    // If all items are already loaded, use them directly (no extra API call)
+    if (items.length >= total) {
+      return items;
+    }
+    // Otherwise, fetch all items from API
+    return fetchAllContentLibraryItems(
+      { orgId, kbId, query: search || undefined, category, approvalStatus: status, excludeArchived: true },
+      apiFetcher as (url: string) => Promise<ContentLibraryListResponse>,
+    );
+  }, [items, total, orgId, kbId, search, category, status]);
+
+  const handleExportCsv = useCallback(async () => {
+    if (total === 0) return;
+    setIsExporting(true);
+    try {
+      const exportItems = await getItemsForExport();
+      exportToCsv(exportItems, 'qa-library');
+      toast({ title: 'Export Complete', description: `Exported ${exportItems.length} items to CSV.` });
+    } catch (err) {
+      console.error('CSV export failed:', err);
+      toast({ title: 'Export failed', description: 'Could not generate the CSV file.', variant: 'destructive' });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [total, getItemsForExport, toast]);
+
+  const handleExportDocx = useCallback(async () => {
+    if (total === 0) return;
+    setIsExporting(true);
+    try {
+      const exportItems = await getItemsForExport();
+      await exportToDocx(exportItems, 'qa-library');
+      toast({ title: 'Export Complete', description: `Exported ${exportItems.length} items to DOCX.` });
+    } catch (err) {
+      console.error('DOCX export failed:', err);
+      toast({ title: 'Export failed', description: 'Could not generate the DOCX file.', variant: 'destructive' });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [total, getItemsForExport, toast]);
+
+  const handleExportJson = useCallback(async () => {
+    if (total === 0) return;
+    setIsExporting(true);
+    try {
+      const exportItems = await getItemsForExport();
+      exportToJson(exportItems, 'qa-library');
+      toast({ title: 'Export Complete', description: `Exported ${exportItems.length} items to JSON.` });
+    } catch (err) {
+      console.error('JSON export failed:', err);
+      toast({ title: 'Export failed', description: 'Could not generate the JSON file.', variant: 'destructive' });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [total, getItemsForExport, toast]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -188,6 +262,28 @@ export function ContentLibraryClient({ orgId, kbId }: ContentLibraryClientProps)
               placeholder="Search questions..."
               widthClass="w-64"
             />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1" disabled={items.length === 0}>
+                  <Download className="h-4 w-4" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={handleExportCsv} className="gap-2">
+                  <FileSpreadsheet className="h-4 w-4" />
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleExportDocx} className="gap-2">
+                  <FileText className="h-4 w-4" />
+                  Export as DOCX
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleExportJson} className="gap-2">
+                  <FileCode className="h-4 w-4" />
+                  Export as JSON
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant="outline"
               size="sm"
@@ -359,11 +455,27 @@ export function ContentLibraryClient({ orgId, kbId }: ContentLibraryClientProps)
         </div>
       )}
 
-      {/* Load more */}
-      {hasMore && !isLoading && !isPending && (
-        <div className="flex justify-center">
-          <Button variant="outline" onClick={() => updateUrlParams({ page: (page + 1).toString() })}>
-            Load more ({items.length} of {total})
+      {/* Pagination */}
+      {totalPages > 1 && !isLoading && !isPending && (
+        <div className="flex items-center justify-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => updateUrlParams({ page: (page - 1).toString() })}
+            disabled={!hasPrevPage}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {page} of {totalPages} ({total} items)
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => updateUrlParams({ page: (page + 1).toString() })}
+            disabled={!hasNextPage}
+          >
+            Next
           </Button>
         </div>
       )}
