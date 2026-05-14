@@ -252,6 +252,7 @@ export function CommentThread({
             onSubmit={handleSubmit}
             placeholder="Type a message… (@ to mention)"
             orgId={orgId}
+            projectId={projectId}
           />
         </div>
       )}

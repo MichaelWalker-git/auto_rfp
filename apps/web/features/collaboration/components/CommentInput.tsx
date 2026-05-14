@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { SendHorizontal } from 'lucide-react';
 import { useUsersList } from '@/lib/hooks/use-user';
+import { useProjectAccessUsers } from '@/lib/hooks/use-project-access';
 import type { UserListItem } from '@auto-rfp/core';
 
 interface CommentInputProps {
@@ -12,6 +13,8 @@ interface CommentInputProps {
   disabled?: boolean;
   /** orgId needed to fetch members for @mention */
   orgId?: string;
+  /** projectId to filter suggestions to only users with project access */
+  projectId?: string;
 }
 
 export function CommentInput({
@@ -19,6 +22,7 @@ export function CommentInput({
   placeholder = 'Type a message… (@ to mention)',
   disabled = false,
   orgId,
+  projectId,
 }: CommentInputProps) {
   const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,16 +38,46 @@ export function CommentInput({
   // Fetch org members for mention suggestions
   const { data: usersData } = useUsersList(orgId ?? '', {
     search: mentionQuery ?? undefined,
-    limit: 8,
+    limit: 50, // Fetch more since we filter by project access
   });
 
-  const suggestions: UserListItem[] = mentionQuery !== null
-    ? (usersData?.items ?? []).filter((u) =>
-        !mentionQuery ||
-        u.displayName?.toLowerCase().includes(mentionQuery.toLowerCase()) ||
-        u.email.toLowerCase().includes(mentionQuery.toLowerCase()),
-      ).slice(0, 6)
-    : [];
+  // Fetch users with explicit project access
+  const { users: projectAccessUsers } = useProjectAccessUsers(orgId, projectId);
+
+  // Build set of userIds who have project access (explicit access or admin role)
+  const projectAccessUserIds = useMemo(() => {
+    const ids = new Set<string>();
+    // Add users with explicit project access
+    for (const accessRecord of projectAccessUsers) {
+      ids.add(accessRecord.userId);
+    }
+    return ids;
+  }, [projectAccessUsers]);
+
+  // Filter suggestions to only users with project access
+  // If no projectId, fall back to all org users (backward compatible)
+  const suggestions: UserListItem[] = useMemo(() => {
+    if (mentionQuery === null) return [];
+
+    const allUsers = usersData?.items ?? [];
+
+    // Filter by search query
+    const filtered = allUsers.filter((u) =>
+      !mentionQuery ||
+      u.displayName?.toLowerCase().includes(mentionQuery.toLowerCase()) ||
+      u.email.toLowerCase().includes(mentionQuery.toLowerCase()),
+    );
+
+    // If projectId provided, filter to only users with access (explicit or admin)
+    if (projectId) {
+      return filtered
+        .filter((u) => projectAccessUserIds.has(u.userId) || u.role === 'ADMIN')
+        .slice(0, 6);
+    }
+
+    // No projectId → show all org users (backward compatible)
+    return filtered.slice(0, 6);
+  }, [mentionQuery, usersData?.items, projectId, projectAccessUserIds]);
 
   // Reset selected index when suggestions change
   useEffect(() => {

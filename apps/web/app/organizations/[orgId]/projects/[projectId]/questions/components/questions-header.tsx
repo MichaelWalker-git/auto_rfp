@@ -2,7 +2,8 @@
 
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
-import { Download, CheckCheck, RefreshCw, FileSpreadsheet, FileText } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Download, CheckCheck, RefreshCw, FileSpreadsheet, FileText, Filter, FilterX } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,7 +42,7 @@ export function QuestionsHeader({
   onReload,
 }: QuestionsHeaderProps) {
   const { activeUsers } = usePresence(projectId, orgId);
-  const { selectedQuestion, getSelectedQuestionData, setSelectedQuestion } = useQuestions() as any;
+  const { selectedQuestion, getSelectedQuestionData, setSelectedQuestion, showPendingOnly, setShowPendingOnly, setActiveTab } = useQuestions() as any;
 
   const questionData = selectedQuestion ? getSelectedQuestionData() : null;
   const questionText = questionData?.question?.question as string | undefined;
@@ -51,7 +52,7 @@ export function QuestionsHeader({
       <PageHeader
         title={questionText ? '' : 'RFP Questions'}
         description={
-          !questionText && approvableCount > 0
+          approvableCount > 0
             ? `${approvableCount} answer${approvableCount > 1 ? 's' : ''} pending approval`
             : undefined
         }
@@ -61,6 +62,35 @@ export function QuestionsHeader({
             {/* Real-time presence avatars */}
             {activeUsers.length > 0 && (
               <PresenceAvatars users={activeUsers} maxVisible={5} />
+            )}
+            {/* Filter: show pending only toggle */}
+            {approvableCount > 0 && (
+              <Button
+                variant={showPendingOnly ? 'default' : 'outline'}
+                size="sm"
+                className="gap-1"
+                onClick={() => {
+                  const newValue = !showPendingOnly;
+                  setShowPendingOnly(newValue);
+                  // Auto-switch to "All Questions" tab when enabling pending filter
+                  if (newValue) {
+                    setActiveTab('all');
+                  }
+                }}
+                title={showPendingOnly ? 'Show all questions' : 'Show only questions with pending approvals'}
+              >
+                {showPendingOnly ? (
+                  <>
+                    <FilterX className="h-4 w-4" />
+                    Show All
+                  </>
+                ) : (
+                  <>
+                    <Filter className="h-4 w-4" />
+                    Pending Only
+                  </>
+                )}
+              </Button>
             )}
             <PageSearch
               value={searchQuery}

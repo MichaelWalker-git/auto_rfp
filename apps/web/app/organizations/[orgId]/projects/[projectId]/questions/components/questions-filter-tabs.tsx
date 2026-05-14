@@ -5,7 +5,8 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowUpDown, Link } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ArrowUpDown, Link, Info } from 'lucide-react';
 import type { ConfidenceBand } from '@auto-rfp/core';
 
 import { useQuestions } from './questions-provider';
@@ -34,6 +35,7 @@ export function QuestionsFilterTabs({ rfpDocument, orgId, projectId, opportunity
     setConfidenceFilter,
     sortByConfidence,
     setSortByConfidence,
+    showPendingOnly,
 
     answers,
     unsavedQuestions,
@@ -59,21 +61,44 @@ export function QuestionsFilterTabs({ rfpDocument, orgId, projectId, opportunity
   const questionData = getSelectedQuestionData();
 
   // Compute counts from rfpDocument prop (already filtered by opportunity)
+  // When "Pending Only" filter is active, counts reflect filtered results
   const counts = React.useMemo(() => {
     if (!rfpDocument?.sections?.length) return { all: 0, answered: 0, unanswered: 0 };
     
     const allQuestions = rfpDocument.sections.flatMap((s: any) => s.questions);
-    const answeredCount = allQuestions.filter((q: any) => {
+    
+    // Helper to check if a question has text
+    const hasText = (q: any) => {
       const text = answers[q?.id]?.text;
       return typeof text === 'string' && text.trim().length > 0;
-    }).length;
+    };
     
+    // Helper to check if a question has pending approval (has text but NOT approved)
+    const isPending = (q: any) => {
+      const answerData = answers[q?.id];
+      const hasAnswerText = answerData?.text && answerData.text.trim().length > 0;
+      const isApproved = answerData?.status === 'APPROVED';
+      return hasAnswerText && !isApproved;
+    };
+    
+    if (showPendingOnly) {
+      // When pending filter is active, show filtered counts
+      const pendingQuestions = allQuestions.filter(isPending);
+      return {
+        all: pendingQuestions.length,
+        answered: pendingQuestions.length, // All pending questions are "answered"
+        unanswered: 0, // Unanswered questions can't be pending
+      };
+    }
+    
+    // Normal counts (no pending filter)
+    const answeredCount = allQuestions.filter(hasText).length;
     return {
       all: allQuestions.length,
       answered: answeredCount,
       unanswered: allQuestions.length - answeredCount,
     };
-  }, [rfpDocument, answers]);
+  }, [rfpDocument, answers, showPendingOnly]);
 
   // Compute confidence counts from rfpDocument
   const confidenceCounts = React.useMemo(() => {
@@ -157,8 +182,18 @@ export function QuestionsFilterTabs({ rfpDocument, orgId, projectId, opportunity
       });
     }
 
+    // Filter by pending approval only (has answer text but NOT approved)
+    if (showPendingOnly) {
+      result = result.filter((q: any) => {
+        const answerData = answers[q.id];
+        const hasText = answerData?.text && answerData.text.trim().length > 0;
+        const isApproved = answerData?.status === 'APPROVED';
+        return hasText && !isApproved;
+      });
+    }
+
     return result;
-  }, [rfpDocument, answers, confidenceFilter, searchQuery, sortByConfidence]);
+  }, [rfpDocument, answers, confidenceFilter, searchQuery, sortByConfidence, showPendingOnly]);
 
   // Get cluster count for the badge - filtered by opportunityId
   const { data: clustersData } = useClusters(projectId, opportunityId);
@@ -192,39 +227,61 @@ export function QuestionsFilterTabs({ rfpDocument, orgId, projectId, opportunity
   ];
 
   return (
-    <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-      <TabsList className="grid w-full grid-cols-4 mb-4">
-        <TabsTrigger value="all" className="gap-1">
-          All Questions
-          <Badge variant="secondary" className="ml-1">
-            {counts.all}
-          </Badge>
-        </TabsTrigger>
-
-        <TabsTrigger value="answered" className="gap-1">
-          Answered
-          <Badge variant="secondary" className="ml-1">
-            {counts.answered}
-          </Badge>
-        </TabsTrigger>
-
-        <TabsTrigger value="unanswered" className="gap-1">
-          Unanswered
-          <Badge variant="secondary" className="ml-1">
-            {counts.unanswered}
-          </Badge>
-        </TabsTrigger>
-
-        <TabsTrigger value="clusters" className="gap-1">
-          <Link className="h-3.5 w-3.5" />
-          Clusters
-          {clusterCount > 0 && (
-            <Badge variant="secondary" className="ml-1 bg-blue-100 text-blue-700">
-              {clusterCount}
+    <TooltipProvider>
+      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-4 mb-4">
+          <TabsTrigger value="all" className="gap-1">
+            All Questions
+            <Badge variant="secondary" className="ml-1">
+              {counts.all}
             </Badge>
+          </TabsTrigger>
+
+          <TabsTrigger value="answered" className="gap-1">
+            Answered
+            <Badge variant="secondary" className="ml-1">
+              {counts.answered}
+            </Badge>
+          </TabsTrigger>
+
+          {showPendingOnly ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                {/* Wrap in span to enable tooltip on disabled element */}
+                <span className="inline-flex">
+                  <TabsTrigger value="unanswered" className="gap-1 opacity-50 pointer-events-none" disabled>
+                    Unanswered
+                    <Badge variant="secondary" className="ml-1">
+                      {counts.unanswered}
+                    </Badge>
+                    <Info className="h-3 w-3" />
+                  </TabsTrigger>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-sm">Unanswered questions cannot have pending approvals.</p>
+                <p className="text-xs opacity-80">Disable "Pending Only" filter to see unanswered questions.</p>
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <TabsTrigger value="unanswered" className="gap-1">
+              Unanswered
+              <Badge variant="secondary" className="ml-1">
+                {counts.unanswered}
+              </Badge>
+            </TabsTrigger>
           )}
-        </TabsTrigger>
-      </TabsList>
+
+          <TabsTrigger value="clusters" className="gap-1">
+            <Link className="h-3.5 w-3.5" />
+            Clusters
+            {clusterCount > 0 && (
+              <Badge variant="secondary" className="ml-1 bg-blue-100 text-blue-700">
+                {clusterCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
       {/* Confidence Filter & Sort Controls — only shown on "answered" tab */}
       {activeTab === 'answered' && counts.answered > 0 && (
@@ -301,6 +358,7 @@ export function QuestionsFilterTabs({ rfpDocument, orgId, projectId, opportunity
           opportunityId={opportunityId}
         />
       </TabsContent>
-    </Tabs>
+      </Tabs>
+    </TooltipProvider>
   );
 }
