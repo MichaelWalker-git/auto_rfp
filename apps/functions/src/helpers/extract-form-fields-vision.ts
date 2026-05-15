@@ -30,19 +30,23 @@ export const extractFormFieldsWithVision = async (fileKey: string): Promise<Dete
   const mediaType = isPdf ? 'application/pdf' : 'image/png';
 
   const system =
-    'You extract fillable form fields from documents. Return ONLY valid JSON — no markdown, no commentary.\n\n' +
-    'Find EVERY place where a human needs to write, type, or mark something:\n' +
-    '- Underscored blank lines (______) — these are fields even if no label is nearby\n' +
-    '- Labeled blanks (Company Name: ______)\n' +
-    '- Empty cells in tables that need to be filled\n' +
-    '- Signature lines\n' +
-    '- Date fields\n' +
-    '- Checkboxes\n' +
-    '- Any blank space with a label indicating what should go there\n\n' +
-    'For each field return:\n' +
+    'You extract UNFILLED form fields from documents. Return ONLY valid JSON — no markdown, no commentary.\n\n' +
+    'Find ONLY places that are BLANK and need to be filled in by a human:\n' +
+    '- Underscored blank lines (______) with no text written on them\n' +
+    '- Labeled blanks where the value area is empty (Company Name: ______)\n' +
+    '- Empty cells in tables that need data entered\n' +
+    '- Blank signature lines (no signature present)\n' +
+    '- Empty date fields\n' +
+    '- Unchecked checkboxes\n\n' +
+    'DO NOT extract:\n' +
+    '- Fields that already have text/values filled in (e.g. "City of Toledo" already written)\n' +
+    '- Pre-printed static text, headings, or labels\n' +
+    '- Checked checkboxes\n' +
+    '- Fields belonging to the contracting agency that are already completed\n\n' +
+    'For each BLANK field return:\n' +
     '- label: descriptive name (e.g. "Company Name", "Signature", "Date", "Contract No.")\n' +
     '- fieldType: "text" | "signature" | "date" | "checkbox" | "address" | "number"\n' +
-    '- currentValue: any pre-filled value already in the field, or null if blank\n' +
+    '- currentValue: null (these are all blank fields)\n' +
     '- pageNumber: which page (1-indexed)\n' +
     '- boundingBox: { top, left, width, height } as normalized coordinates (0.0 to 1.0 relative to page)\n\n' +
     'Return JSON: { "fields": [...] }';

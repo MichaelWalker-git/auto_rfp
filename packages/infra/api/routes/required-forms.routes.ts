@@ -7,5 +7,6 @@ export function requiredFormsDomain(): DomainRoutes {
     { method: 'GET', path: 'get', entry: lambdaEntry('required-forms/get-required-form.ts') },
     { method: 'PUT', path: 'field', entry: lambdaEntry('required-forms/update-form-field.ts') },
     { method: 'DELETE', path: 'delete', entry: lambdaEntry('required-forms/delete-required-form.ts') },
+    { method: 'GET', path: 'export', entry: lambdaEntry('required-forms/export-filled-form.ts'), timeoutSeconds: 60 },
   ]};
 }

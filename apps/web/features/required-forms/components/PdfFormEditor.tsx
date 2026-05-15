@@ -107,7 +107,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     setExporting(true);
     try {
       const result = await apiFetcher<{ downloadUrl: string }>(
-        buildApiUrl(`/rfp-document/export-form/${doc.formId}`, { orgId, projectId: doc.projectId, opportunityId: doc.opportunityId }),
+        buildApiUrl(`/required-forms/export`, { orgId, projectId: doc.projectId, opportunityId: doc.opportunityId, formId: doc.formId }),
       );
       if (result?.downloadUrl) window.open(result.downloadUrl, '_blank');
     } catch (err) {
