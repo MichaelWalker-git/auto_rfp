@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { apiMutate, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { useToast } from '@/components/ui/use-toast';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
@@ -157,6 +158,26 @@ export function OpportunityRFPDocuments() {
       setConvertingId(null);
     }
   }, [convertingId, convertToContent, mutate, toast]);
+
+  const [refillingId, setRefillingId] = useState<string | null>(null);
+  const handleRefill = useCallback(async (doc: RFPDocumentItem) => {
+    if (refillingId) return;
+    try {
+      setRefillingId(doc.documentId);
+      await apiMutate(buildApiUrl('/rfp-document/refill', { orgId }), 'POST', {
+        projectId: doc.projectId,
+        opportunityId: doc.opportunityId,
+        documentId: doc.documentId,
+        orgId,
+      });
+      await mutate();
+      toast({ title: 'Form re-filled with latest company profile data' });
+    } catch (err) {
+      toast({ title: 'Re-fill failed', description: (err as Error)?.message, variant: 'destructive' });
+    } finally {
+      setRefillingId(null);
+    }
+  }, [refillingId, orgId, mutate, toast]);
 
   const handleDelete = useCallback(async (doc: RFPDocumentItem) => {
     if (deletingId === doc.documentId) return;
@@ -379,6 +400,12 @@ export function OpportunityRFPDocuments() {
                           {doc.content && (
                             <DropdownMenuItem onClick={() => setExportDoc(doc)}>
                               <FileDown className="h-4 w-4 mr-2" /> Export
+                            </DropdownMenuItem>
+                          )}
+                          {doc.documentType === 'REQUIRED_FORM' && (
+                            <DropdownMenuItem disabled={refillingId === doc.documentId} onClick={() => handleRefill(doc)}>
+                              {refillingId === doc.documentId ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+                              Re-fill from Profile
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />

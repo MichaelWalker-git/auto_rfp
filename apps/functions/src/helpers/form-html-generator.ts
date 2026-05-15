@@ -1,11 +1,17 @@
+import * as XLSX from 'xlsx';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+
 import { invokeModel } from './bedrock-http-client';
 import { requireEnv } from './env';
+import { extractPdfStructure, structureToJson } from './pdf-to-html';
 
 import type { DetectedFormField, CompanyProfileItem } from '@auto-rfp/core';
 
+const s3 = new S3Client({});
+const getDocumentsBucket = () => requireEnv('DOCUMENTS_BUCKET');
 const getBedrockModelId = () => requireEnv('BEDROCK_MODEL_ID');
 
-type FormHtmlInput = {
+export type FormHtmlInput = {
   formName: string;
   sourceFileName: string;
   sourceFileKey: string;
@@ -16,32 +22,15 @@ type FormHtmlInput = {
   knowledgeContext?: string;
 };
 
-const FILL_RULES =
-  'FIELD STYLING (CRITICAL — follow exactly):\n' +
-  '- AI-filled value (confident): <span style="background-color: #dcfce7; padding: 2px 6px; border-radius: 3px; border-bottom: 2px solid #22c55e;">filled value</span>\n' +
-  '- Needs human input (blank field): <span style="color: #9ca3af; border-bottom: 1px solid #9ca3af; padding-bottom: 1px;">field label</span>\n' +
-  '  Show ONLY the gray underlined placeholder. Do NOT also show the label as regular text next to it.\n' +
-  '  WRONG: "Name of Project <span>Name of Project</span>" ← the label appears twice!\n' +
-  '  CORRECT: just <span style="color: #9ca3af; border-bottom: 1px solid #9ca3af; padding-bottom: 1px;">Name of Project</span>\n' +
-  '- For underscored blanks (_______ with parenthesized label "(Signature)" underneath):\n' +
-  '  Replace EVERYTHING (underscores + label text) with a SINGLE gray underlined span.\n' +
-  '- For labeled blanks like "Name of Project ___________": replace the WHOLE thing (label + underscores) with just the gray span.\n' +
-  '  The gray text IS the label. Do not repeat it.\n' +
-  '- TABLES (CRITICAL — border handling):\n' +
-  '  The rich text editor adds visible borders to ALL table cells by default.\n' +
-  '  If the original document has NO visible borders on a table (layout tables, signature blocks, field grids):\n' +
-  '    → Every <table> MUST have style="border-collapse: collapse; width: 100%; border: none;"\n' +
-  '    → Every <td> and <th> MUST have style="border: none; border-color: transparent;" explicitly\n' +
-  '    → Without this, the editor will show ugly grid lines that do not exist in the original.\n' +
-  '  If the original document HAS visible grid borders (data tables, matrices): use border: 1px solid #d1d5db.\n';
+// ─── Shared LLM call helper ───
 
-const callLLM = async (systemPrompt: string, userPrompt: string): Promise<string> => {
+const callLLM = async (system: string, user: string, maxTokens = 16000): Promise<string> => {
   const body = {
     anthropic_version: 'bedrock-2023-05-31',
-    system: systemPrompt,
-    messages: [{ role: 'user', content: [{ type: 'text', text: userPrompt }] }],
+    system,
+    messages: [{ role: 'user', content: [{ type: 'text', text: user }] }],
     temperature: 0,
-    max_tokens: 16000,
+    max_tokens: maxTokens,
   };
 
   const responseBody = await invokeModel(getBedrockModelId(), JSON.stringify(body));
@@ -56,84 +45,111 @@ const callLLM = async (systemPrompt: string, userPrompt: string): Promise<string
   return html.trim();
 };
 
-// ─── XLSX → HTML ───
+// ─── Phase 1: Convert to HTML (accurate structure) ───
 
-const generateXlsxHtml = async (input: FormHtmlInput): Promise<string> => {
+const convertPdfToHtml = async (fileKey: string): Promise<string> => {
+  const structure = await extractPdfStructure(fileKey);
+  const structureJson = structureToJson(structure);
+
   const system =
-    'You convert extracted spreadsheet text into an HTML table AND fill fields with provided data. Output ONLY HTML — no markdown, no commentary.\n\n' +
-    'TABLE LAYOUT:\n' +
-    '- Use <table> with <thead>/<tbody>, <th> for header row, <td> for data\n' +
-    '- Header row: bold, background #f1f5f9\n' +
-    '- Category/section rows spanning all columns: bold, background #dbeafe, use colspan\n' +
-    '- NO empty rows. Only rows that have data in at least one cell.\n' +
-    '- If the original spreadsheet has no visible grid borders, use border: none on cells. If it has a grid, use 1px solid #d1d5db.\n' +
-    '- Do NOT add any title or heading before the table.\n\n' +
-    FILL_RULES +
-    '\nINSTRUCTIONS WITHIN THE DOCUMENT:\n' +
-    '- If the spreadsheet contains instructions (like "Please identify for each feature the ability to Fully Meet, Partially Meet or Cannot Meet"), FOLLOW those instructions.\n' +
-    '- Use the knowledge context to determine compliance. If the company clearly has a capability → mark "X" in Fully Meets. If partial → "X" in Partially Meets with a comment explaining the limitation.\n' +
-    '- Fill "Additional Information / Comments" columns with brief, specific capability descriptions from the knowledge context.\n' +
-    '- If no relevant KB information exists for a feature, leave cells empty (no placeholder spans, no "TO BE COMPLETED" text).\n\n' +
-    'DATA FILL:\n' +
-    '- Use company profile to fill identity fields (company name, respondent name, address, etc.)\n' +
-    '- Use knowledge context to fill capability/technical fields with real information.\n';
+    'You convert structured document data (extracted by AWS Textract) into semantic HTML. Output ONLY HTML.\n\n' +
+    'INPUT FORMAT: JSON array of blocks with types: TITLE, SECTION_HEADER, TEXT, KEY_VALUE, TABLE, LIST.\n' +
+    'TABLE blocks have a "rows" array of string arrays (each row is an array of cell values).\n\n' +
+    'RULES:\n' +
+    '- TITLE blocks → <p style="text-align: center;"><strong>text</strong></p>\n' +
+    '- SECTION_HEADER blocks → <p><strong>text</strong></p>\n' +
+    '- TEXT blocks → <p>text</p>. Merge consecutive TEXT blocks that form one paragraph into a single <p>.\n' +
+    '- KEY_VALUE blocks → Split on first colon. Label is bold, value follows. If value is empty, show an underlined blank.\n' +
+    '- TABLE blocks → <table> with <tr>/<td>. If the table is used for layout (e.g., form fields side by side, signature blocks), use style="border: none; border-color: transparent;" on every td. If it\'s a data grid, use borders.\n' +
+    '- LIST blocks → <p style="padding-left: 40px;">text</p>\n' +
+    '- Do not add any content not present in the source data.\n' +
+    '- Do not use inline font-family, font-size, or margin styles — the editor handles those.\n' +
+    '- Keep underlined blanks as: <span style="display: inline-block; min-width: 150px; border-bottom: 1px solid #000;">&nbsp;</span>';
 
-  const user =
-    `COMPANY PROFILE:\n${buildProfileSummary(input.profile)}\n\n` +
-    (input.knowledgeContext ? `KNOWLEDGE CONTEXT (company capabilities, past performance):\n${input.knowledgeContext.slice(0, 40_000)}\n\n` : '') +
-    `SPREADSHEET TEXT:\n${input.documentText.slice(0, 80_000)}`;
+  const html = await callLLM(system, `STRUCTURED DOCUMENT BLOCKS:\n${structureJson}`);
+  if (html.length > 100) return html;
 
-  try {
-    const html = await callLLM(system, user);
-    if (html.length > 100) return html;
-  } catch (err) {
-    console.warn('XLSX→HTML failed:', (err as Error)?.message);
-  }
-
-  return fallbackFromText(input.documentText);
+  return structure.map((b) => `<p>${escapeHtml(b.content)}</p>`).join('\n');
 };
 
-// ─── PDF → HTML ───
+const convertXlsxToHtml = async (fileKey: string): Promise<string> => {
+  const bucket = getDocumentsBucket();
+  const s3Obj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: fileKey }));
+  const bytes = await s3Obj.Body?.transformToByteArray();
+  if (!bytes) throw new Error(`Could not read S3 object: ${fileKey}`);
 
-const generatePdfHtml = async (input: FormHtmlInput): Promise<string> => {
-  const system =
-    'You convert extracted PDF document text into faithful HTML AND fill form fields with provided data. Output ONLY HTML — no markdown, no commentary.\n\n' +
-    'LAYOUT (CRITICAL — reproduce the original printed document faithfully):\n' +
-    '- Title/heading lines that are centered in the original: <p style="text-align: center;"><strong>TEXT</strong></p>\n' +
-    '- Lines that form one paragraph: merge into ONE <p> tag.\n' +
-    '- Bold text: <strong>text</strong>\n' +
-    '- Indented checkbox items: use padding-left on the <p>, render (X) or ( ) inline\n' +
-    '- Do NOT use inline font-family, font-size, line-height, or margin styles.\n' +
-    '- Do NOT split a sentence across multiple <p> tags.\n' +
-    '- Do NOT add any title/header that was not in the original.\n\n' +
-    'TABLES IN PDF FORMS (important):\n' +
-    '- Many PDF forms use tables for layout — fields side by side, signature blocks, etc.\n' +
-    '- These layout tables have NO visible borders in the original. Use: <table style="border-collapse: collapse; width: 100%;"> and <td style="border: none; padding: 4px 8px; vertical-align: top;">\n' +
-    '- Example: "Name of Project ___" next to "Contract No. ___" = a table row with two cells, each containing label + field.\n' +
-    '- The signature block at the bottom (two columns: contractor and contractee) = a table with border: none.\n' +
-    '- EVERY td and th must have style="border: none" explicitly or the editor will add visible borders.\n\n' +
-    'INSTRUCTIONS WITHIN THE DOCUMENT:\n' +
-    '- If the document contains instructions (like "Please identify for each feature the ability to Fully Meet..."), follow those instructions when filling.\n' +
-    '- If it says to identify compliance, and you have knowledge context about the company capabilities, mark the appropriate response.\n\n' +
-    FILL_RULES +
-    '\nDATA FILL:\n' +
-    '- Fill blanks/underlines from company profile where the label matches.\n' +
-    '- Use knowledge context for capability/technical fields.\n' +
-    '- Agency info (City of Toledo, their address): leave as-is, do not fill or highlight.\n';
+  const workbook = XLSX.read(bytes, { type: 'array' });
+  const sheets: string[] = [];
 
-  const user =
-    `COMPANY PROFILE:\n${buildProfileSummary(input.profile)}\n\n` +
-    (input.knowledgeContext ? `KNOWLEDGE CONTEXT:\n${input.knowledgeContext.slice(0, 40_000)}\n\n` : '') +
-    `DOCUMENT TEXT:\n${input.documentText.slice(0, 80_000)}`;
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) continue;
 
-  try {
-    const html = await callLLM(system, user);
-    if (html.length > 100) return html;
-  } catch (err) {
-    console.warn('PDF→HTML failed:', (err as Error)?.message);
+    // Trim to actual data range
+    const range = XLSX.utils.decode_range(sheet['!ref'] ?? 'A1');
+    let lastRow = 0;
+    for (let r = range.s.r; r <= range.e.r; r++) {
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const cell = sheet[XLSX.utils.encode_cell({ r, c })];
+        if (cell && cell.v !== undefined && cell.v !== null && String(cell.v).trim() !== '') {
+          lastRow = r;
+        }
+      }
+    }
+    sheet['!ref'] = XLSX.utils.encode_range({ s: range.s, e: { r: lastRow, c: range.e.c } });
+
+    const html = XLSX.utils.sheet_to_html(sheet, { id: `sheet-${sheetName}` });
+    const bodyMatch = html.match(/<body>([\s\S]*)<\/body>/);
+    let tableHtml = bodyMatch ? bodyMatch[1] : html;
+
+    // Clean up: remove data attributes, add border styling
+    tableHtml = tableHtml
+      .replace(/<table[^>]*>/g, '<table style="border-collapse: collapse; width: 100%;">')
+      .replace(/ data-[a-z-]+="[^"]*"/g, '')
+      .replace(/ id="[^"]*"/g, '')
+      .replace(/ xml:space="[^"]*"/g, '');
+
+    sheets.push(tableHtml);
   }
 
-  return fallbackFromText(input.documentText);
+  return sheets.join('\n');
+};
+
+// ─── Phase 2: Fill blanks with data (LLM fill-only) ───
+
+const FILL_SYSTEM =
+  'You fill blank fields in an HTML document with provided company data. Output ONLY the modified HTML — no markdown, no commentary.\n\n' +
+  'RULES (follow exactly):\n' +
+  '- Find empty cells, blank underlines, and placeholder text. Fill them with matching data.\n' +
+  '- Auto-filled values: wrap in <span style="background-color: #dcfce7; padding: 2px 6px; border-radius: 3px; border-bottom: 2px solid #22c55e;">value</span>\n' +
+  '- Fields needing human input (no data found): replace blank with <span style="color: #9ca3af; border-bottom: 1px solid #9ca3af; padding-bottom: 1px;">field label</span>\n' +
+  '  Use just the field name as gray underlined text. Do NOT show the label twice.\n' +
+  '- For _________ underlines with labels like (Signature) or (Date) underneath:\n' +
+  '  Replace BOTH the underlines and the parenthesized label with a single gray span.\n' +
+  '- For compliance tables (Fully Meets / Partially Meets / Cannot Meet):\n' +
+  '  Use knowledge context to mark "X" where the company clearly has the capability.\n' +
+  '  Fill "Additional Information" columns with brief capability descriptions from KB.\n' +
+  '  Leave empty if no relevant KB data exists.\n' +
+  '- Do NOT change the HTML structure, layout, or existing styles.\n' +
+  '- Do NOT add titles, headers, or wrapper elements.\n' +
+  '- Tables with style="border: none" or style="border-color: transparent" on cells: do NOT add borders.\n';
+
+const fillFormHtml = async (html: string, input: FormHtmlInput): Promise<string> => {
+  const profileSummary = buildProfileSummary(input.profile);
+
+  const user =
+    `COMPANY PROFILE:\n${profileSummary}\n\n` +
+    (input.knowledgeContext ? `KNOWLEDGE CONTEXT (capabilities, past performance):\n${input.knowledgeContext.slice(0, 40_000)}\n\n` : '') +
+    `HTML TO FILL:\n${html.slice(0, 80_000)}`;
+
+  try {
+    const filled = await callLLM(FILL_SYSTEM, user);
+    if (filled.length > 100) return filled;
+  } catch (err) {
+    console.warn('LLM fill pass failed, returning unfilled HTML:', (err as Error)?.message);
+  }
+
+  return html;
 };
 
 // ─── Main Entry Point ───
@@ -145,14 +161,46 @@ export const generateFormHtml = async (input: FormHtmlInput): Promise<string> =>
     sourceFileKey.toLowerCase().endsWith('.xlsx') || sourceFileKey.toLowerCase().endsWith('.xls');
   const isPdf = mimeType.includes('pdf') || sourceFileKey.toLowerCase().endsWith('.pdf');
 
+  // Phase 1: Convert to accurate HTML
+  let rawHtml: string;
   try {
-    if (isXlsx) return await generateXlsxHtml(input);
-    if (isPdf) return await generatePdfHtml(input);
-    return fallbackFromText(input.documentText);
+    if (isPdf) {
+      rawHtml = await convertPdfToHtml(sourceFileKey);
+    } else if (isXlsx) {
+      rawHtml = await convertXlsxToHtml(sourceFileKey);
+    } else {
+      rawHtml = fallbackFromText(input.documentText);
+    }
   } catch (err) {
     console.warn(`HTML conversion failed for ${sourceFileKey}:`, (err as Error)?.message);
-    return fallbackFromText(input.documentText);
+    rawHtml = fallbackFromText(input.documentText);
   }
+
+  // Phase 2: Fill blanks with company data
+  const filledHtml = await fillFormHtml(rawHtml, input);
+
+  return filledHtml;
+};
+
+// Re-fill an existing form's HTML with updated profile data
+export const refillFormHtml = async (existingHtml: string, profile: CompanyProfileItem | null, knowledgeContext?: string): Promise<string> => {
+  // Strip existing auto-fill spans (green highlights) to re-fill from scratch
+  const cleanedHtml = existingHtml
+    .replace(/<span style="background-color: #dcfce7[^"]*">[^<]*<\/span>/g, (match) => {
+      // Extract the text content and replace with empty underline
+      return '<span style="display: inline-block; min-width: 150px; border-bottom: 1px solid #000;">&nbsp;</span>';
+    });
+
+  return fillFormHtml(cleanedHtml, {
+    formName: '',
+    sourceFileName: '',
+    sourceFileKey: '',
+    mimeType: '',
+    documentText: '',
+    fields: [],
+    profile,
+    knowledgeContext,
+  });
 };
 
 // ─── Helpers ───
@@ -192,5 +240,5 @@ const buildProfileSummary = (profile: CompanyProfileItem | null): string => {
 
 const fallbackFromText = (text: string): string => {
   return text.split('\n').filter((l) => l.trim()).slice(0, 200)
-    .map((l) => `<p style="margin: 0 0 2px;">${escapeHtml(l)}</p>`).join('\n');
+    .map((l) => `<p>${escapeHtml(l)}</p>`).join('\n');
 };

@@ -277,7 +277,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       entry: path.join(__dirname, '../../apps/functions/src/handlers/question-pipeline/detect-required-forms.ts'),
       handler: 'handler',
       timeout: Duration.minutes(5),
-      memorySize: 512,
+      memorySize: 1024,
       environment: {
         ...commonLambdaEnv,
         BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
