@@ -19,7 +19,6 @@ import { OpportunityHeader } from './opportunity-header';
 import { AssigneeSelector } from './AssigneeSelector';
 import { OpportunitySolicitationDocuments } from './opportunity-attachments';
 import { OpportunityRFPDocuments } from './opportunity-rfp-documents';
-import { RequiredFormsList } from '@/features/required-forms/components/RequiredFormsList';
 import { OpportunityChatDialog } from './OpportunityChatDialog';
 import { ExecutiveBriefView } from '@/components/brief/ExecutiveBriefView';
 import { QuestionsProvider } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components';
@@ -271,11 +270,6 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       {/* ── Solicitation Documents ────────────────────────────────────── */}
       <section id="solicitation-documents" className="scroll-mt-4">
         <OpportunitySolicitationDocuments onAskAI={() => setIsChatOpen(true)} />
-      </section>
-
-      {/* ── Required Forms ──────────────────────────────────────────────── */}
-      <section id="required-forms" className="scroll-mt-4">
-        <RequiredFormsList orgId={orgId} projectId={projectId} opportunityId={oppId} />
       </section>
 
       {/* ── RFP Documents ─────────────────────────────────────────────── */}
