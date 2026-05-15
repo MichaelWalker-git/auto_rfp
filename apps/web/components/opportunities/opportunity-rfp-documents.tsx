@@ -419,11 +419,15 @@ export function OpportunityRFPDocuments() {
                   </div>
                 );
 
-                // Use explicit conditional rendering to avoid TypeScript error with dynamic component
-                return canEdit ? (
+                const isRequiredForm = doc.documentType === 'REQUIRED_FORM' && doc.fileKey;
+                const editUrl = isRequiredForm
+                  ? `/organizations/${navOrgId}/projects/${projectId}/forms/${doc.documentId}`
+                  : `/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/rfp-documents/${doc.documentId}/edit`;
+
+                return canEdit || isRequiredForm ? (
                   <Link
                     key={doc.documentId}
-                    href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/rfp-documents/${doc.documentId}/edit`}
+                    href={editUrl}
                     className={cardClassName}
                   >
                     {cardContent}
