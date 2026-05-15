@@ -20,7 +20,7 @@ export const fillPdfForm = async (args: {
   const bytes = await s3Obj.Body?.transformToByteArray();
   if (!bytes) throw new Error(`Could not read PDF from S3: ${sourceFileKey}`);
 
-  const pdfDoc = await PDFDocument.load(bytes);
+  const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const pages = pdfDoc.getPages();
 

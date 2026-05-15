@@ -14,13 +14,23 @@ import {
   requirePermission,
 } from '@/middleware/rbac-middleware';
 
+const BoundingBoxSchema = z.object({
+  top: z.number(),
+  left: z.number(),
+  width: z.number(),
+  height: z.number(),
+});
+
 const BodySchema = z.object({
   projectId: z.string().min(1),
   opportunityId: z.string().min(1),
   documentId: z.string().min(1),
   fieldId: z.string().min(1),
-  value: z.string().nullable(),
+  value: z.string().nullable().optional(),
+  label: z.string().optional(),
   status: FormFieldStatusSchema.optional(),
+  boundingBox: BoundingBoxSchema.optional(),
+  delete: z.boolean().optional(),
 });
 
 const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
@@ -39,15 +49,35 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
   if (!doc || doc.deletedAt) return apiResponse(404, { message: 'Document not found' });
   if (doc.orgId !== orgId) return apiResponse(403, { message: 'Access denied' });
 
-  const formFields = (doc.formFields as Array<Record<string, unknown>>) ?? [];
+  let formFields = (doc.formFields as Array<Record<string, unknown>>) ?? [];
   const fieldIdx = formFields.findIndex((f) => f.fieldId === data.fieldId);
-  if (fieldIdx === -1) return apiResponse(404, { message: 'Field not found' });
 
-  formFields[fieldIdx] = {
-    ...formFields[fieldIdx],
-    value: data.value,
-    status: data.status ?? (data.value ? 'AUTO_FILLED' : 'EMPTY'),
-  };
+  if (data.delete) {
+    if (fieldIdx === -1) return apiResponse(404, { message: 'Field not found' });
+    formFields = formFields.filter((f) => f.fieldId !== data.fieldId);
+  } else if (fieldIdx === -1) {
+    // Create new field
+    formFields.push({
+      fieldId: data.fieldId,
+      label: data.label ?? 'New Field',
+      value: data.value ?? null,
+      status: data.value ? 'AUTO_FILLED' : 'EMPTY',
+      confidence: null,
+      profileFieldKey: null,
+      manualReason: null,
+      pageNumber: 1,
+      cellReference: null,
+      boundingBox: data.boundingBox ?? null,
+    });
+  } else {
+    const updates: Record<string, unknown> = {};
+    if (data.value !== undefined) updates.value = data.value;
+    if (data.label !== undefined) updates.label = data.label;
+    if (data.boundingBox !== undefined) updates.boundingBox = data.boundingBox;
+    if (data.status !== undefined) updates.status = data.status;
+    else if (data.value !== undefined) updates.status = data.value ? 'AUTO_FILLED' : 'EMPTY';
+    formFields[fieldIdx] = { ...formFields[fieldIdx], ...updates };
+  }
 
   await updateRFPDocumentMetadata({
     projectId: data.projectId,
