@@ -196,6 +196,16 @@ export async function updateRFPDocumentMetadata(args: {
     names['#signatureStatus'] = 'signatureStatus';
     values[':signatureStatus'] = args.updates.signatureStatus;
   }
+  if (args.updates.formFields !== undefined) {
+    setParts.push('#formFields = :formFields');
+    names['#formFields'] = 'formFields';
+    values[':formFields'] = args.updates.formFields;
+  }
+  if (args.updates.pageImagesKey !== undefined) {
+    setParts.push('#pageImagesKey = :pageImagesKey');
+    names['#pageImagesKey'] = 'pageImagesKey';
+    values[':pageImagesKey'] = args.updates.pageImagesKey;
+  }
 
   const res = await docClient.send(
     new UpdateCommand({

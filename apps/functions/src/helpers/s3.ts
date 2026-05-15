@@ -1,4 +1,5 @@
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
@@ -183,4 +184,12 @@ export async function deleteS3ObjectsFromKeys(
     failed: result.failed,
     skipped,
   };
+}
+
+export async function copyS3Object(bucket: string, sourceKey: string, destinationKey: string): Promise<void> {
+  await s3.send(new CopyObjectCommand({
+    Bucket: bucket,
+    CopySource: `${bucket}/${sourceKey}`,
+    Key: destinationKey,
+  }));
 }

@@ -217,6 +217,11 @@ export const baseHandler = async (
       const documentId = uuidv4();
       const now = nowIso();
 
+      // Copy source file to a stable RFP document location (never modify the original)
+      const { copyS3Object } = await import('@/helpers/s3');
+      const stableFileKey = `${orgId}/${projectId}/${opportunityId}/rfp-documents/${documentId}/source/${sourceFileName}`;
+      await copyS3Object(getDocumentsBucket(), sourceFileKey, stableFileKey);
+
       await putRFPDocument({
         [PK_NAME]: RFP_DOCUMENT_PK,
         [SK_NAME]: buildRFPDocumentSK(projectId, opportunityId, documentId),
@@ -230,7 +235,7 @@ export const baseHandler = async (
         mimeType: mimeType || 'application/pdf',
         fileSizeBytes: 0,
         originalFileName: sourceFileName,
-        fileKey: sourceFileKey,
+        fileKey: stableFileKey,
         version: 1,
         previousVersionId: null,
         signatureStatus: 'NOT_REQUIRED',
