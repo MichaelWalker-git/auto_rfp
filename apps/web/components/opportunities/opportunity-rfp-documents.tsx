@@ -421,7 +421,7 @@ export function OpportunityRFPDocuments() {
 
                 const isRequiredForm = doc.documentType === 'REQUIRED_FORM' && doc.fileKey;
                 const editUrl = isRequiredForm
-                  ? `/organizations/${navOrgId}/projects/${projectId}/forms/${doc.documentId}`
+                  ? `/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/forms/${doc.documentId}`
                   : `/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/rfp-documents/${doc.documentId}/edit`;
 
                 return canEdit || isRequiredForm ? (
