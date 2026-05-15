@@ -65,7 +65,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
       try {
         await apiMutate(buildApiUrl('/required-forms/field', { orgId }), 'PUT', {
           projectId: doc.projectId, opportunityId: doc.opportunityId,
-          documentId: doc.formId, fieldId, orgId, ...update,
+          formId: doc.formId, fieldId, orgId, ...update,
         });
       } catch (err) {
         toast({ title: 'Save failed', description: (err as Error)?.message, variant: 'destructive' });

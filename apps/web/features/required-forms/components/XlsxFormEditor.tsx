@@ -115,7 +115,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
     try {
       await apiMutate(buildApiUrl('/required-forms/field', { orgId }), 'PUT', {
         projectId: doc.projectId, opportunityId: doc.opportunityId,
-        documentId: doc.formId, fieldId: cell.fieldId,
+        formId: doc.formId, fieldId: cell.fieldId,
         value: cell.value || null, orgId,
       });
     } catch (err) {
