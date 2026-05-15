@@ -38,7 +38,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
   const [pdfLoading, setPdfLoading] = useState(true);
   const [pageSize, setPageSize] = useState<{ width: number; height: number }>({ width: 612, height: 792 });
   const [dragging, setDragging] = useState<{ fieldId: string; startX: number; startY: number; origLeft: number; origTop: number } | null>(null);
-  const [resizing, setResizing] = useState<{ fieldId: string; startX: number; origWidth: number } | null>(null);
+  const [resizing, setResizing] = useState<{ fieldId: string; startX: number; startY: number; origWidth: number; origHeight: number; dir: 'x' | 'y' | 'xy' } | null>(null);
   const [creatingField, setCreatingField] = useState(false);
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
   const saveTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
@@ -82,7 +82,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
       try {
         const pdfjsLib = await import('pdfjs-dist');
         pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
-        const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+        const pdf = await pdfjsLib.getDocument({ url: pdfUrl, isEvalSupported: false }).promise;
         const pages: string[] = [];
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
@@ -145,21 +145,31 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     return () => { window.removeEventListener('mousemove', handleMove); window.removeEventListener('mouseup', handleUp); };
   }, [dragging, pageSize, fieldPositions, saveFieldUpdate]);
 
-  // Resize width
-  const handleResizeStart = useCallback((e: React.MouseEvent, fieldId: string) => {
+  // Resize (horizontal, vertical, or both)
+  const handleResizeStart = useCallback((e: React.MouseEvent, fieldId: string, dir: 'x' | 'y' | 'xy') => {
     e.preventDefault();
     e.stopPropagation();
     const pos = fieldPositions[fieldId];
     if (!pos) return;
-    setResizing({ fieldId, startX: e.clientX, origWidth: pos.width });
+    setResizing({ fieldId, startX: e.clientX, startY: e.clientY, origWidth: pos.width, origHeight: pos.height, dir });
   }, [fieldPositions]);
 
   useEffect(() => {
     if (!resizing) return;
     const handleMove = (e: MouseEvent) => {
       const dx = (e.clientX - resizing.startX) / pageSize.width;
-      const newWidth = Math.max(0.05, resizing.origWidth + dx);
-      setFieldPositions((prev) => ({ ...prev, [resizing.fieldId]: { ...prev[resizing.fieldId]!, width: newWidth } }));
+      const dy = (e.clientY - resizing.startY) / pageSize.height;
+      setFieldPositions((prev) => {
+        const curr = prev[resizing.fieldId]!;
+        return {
+          ...prev,
+          [resizing.fieldId]: {
+            ...curr,
+            width: resizing.dir !== 'y' ? Math.max(0.03, resizing.origWidth + dx) : curr.width,
+            height: resizing.dir !== 'x' ? Math.max(0.015, resizing.origHeight + dy) : curr.height,
+          },
+        };
+      });
     };
     const handleUp = () => {
       const pos = fieldPositions[resizing.fieldId];
@@ -295,10 +305,18 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
                             </button>
                             <span className="text-[9px] text-gray-400 ml-1 max-w-[60px] truncate">{label}</span>
                           </div>
-                          {/* Resize handle */}
+                          {/* Resize handles */}
                           <div
-                            className="absolute top-0 right-0 w-2 h-full cursor-ew-resize opacity-0 group-hover:opacity-100 bg-blue-400/20 hover:bg-blue-400/40 rounded-r"
-                            onMouseDown={(e) => handleResizeStart(e, fid)}
+                            className="absolute top-0 right-0 w-1.5 h-full cursor-ew-resize opacity-0 group-hover:opacity-100 bg-blue-400/30 hover:bg-blue-400/50"
+                            onMouseDown={(e) => handleResizeStart(e, fid, 'x')}
+                          />
+                          <div
+                            className="absolute bottom-0 left-0 w-full h-1.5 cursor-ns-resize opacity-0 group-hover:opacity-100 bg-blue-400/30 hover:bg-blue-400/50"
+                            onMouseDown={(e) => handleResizeStart(e, fid, 'y')}
+                          />
+                          <div
+                            className="absolute bottom-0 right-0 w-2.5 h-2.5 cursor-nwse-resize opacity-0 group-hover:opacity-100 bg-blue-500/40 hover:bg-blue-500/60 rounded-tl"
+                            onMouseDown={(e) => handleResizeStart(e, fid, 'xy')}
                           />
                         </div>
                       );

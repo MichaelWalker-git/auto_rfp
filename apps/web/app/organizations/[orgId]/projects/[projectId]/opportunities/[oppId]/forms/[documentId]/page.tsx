@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useApi, apiMutate, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { PdfFormEditor } from '@/features/required-forms/components/PdfFormEditor';
+import { XlsxFormEditor } from '@/features/required-forms/components/XlsxFormEditor';
 import type { RFPDocumentItem } from '@auto-rfp/core';
 import { useCurrentOrganization } from '@/context/organization-context';
 
@@ -55,6 +56,13 @@ export default function RequiredFormEditorPage() {
         </div>
       </div>
     );
+  }
+
+  const isXlsx = doc.mimeType?.includes('spreadsheet') || doc.mimeType?.includes('excel') ||
+    doc.fileKey?.endsWith('.xlsx') || doc.fileKey?.endsWith('.xls');
+
+  if (isXlsx) {
+    return <XlsxFormEditor doc={doc} orgId={navOrgId} onFieldUpdated={() => mutateDoc()} />;
   }
 
   return (
