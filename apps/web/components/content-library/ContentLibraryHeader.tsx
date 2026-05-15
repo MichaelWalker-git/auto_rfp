@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, ShieldAlert } from 'lucide-react';
+import { Plus, ShieldAlert, Download, FileSpreadsheet, FileText, FileCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PageSearch } from '@/components/layout/page-search';
@@ -12,6 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import type { ApprovalStatus } from '@/lib/hooks/use-content-library';
 
 interface ContentLibraryHeaderProps {
@@ -23,6 +29,9 @@ interface ContentLibraryHeaderProps {
   onStatusChange: (status: ApprovalStatus | undefined) => void;
   categories: Array<{ name: string; count: number }>;
   onCreateClick: () => void;
+  onExportCsv: () => void;
+  onExportDocx: () => void;
+  onExportJson: () => void;
   total: number;
   orgId?: string;
   kbId?: string;
@@ -42,6 +51,9 @@ export function ContentLibraryHeader({
   onStatusChange,
   categories,
   onCreateClick,
+  onExportCsv,
+  onExportDocx,
+  onExportJson,
   total,
   orgId,
   kbId,
@@ -78,6 +90,28 @@ export function ContentLibraryHeader({
               </Link>
             </Button>
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1" disabled={total === 0}>
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={onExportCsv} className="gap-2">
+                <FileSpreadsheet className="h-4 w-4" />
+                Export as CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onExportDocx} className="gap-2">
+                <FileText className="h-4 w-4" />
+                Export as DOCX
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onExportJson} className="gap-2">
+                <FileCode className="h-4 w-4" />
+                Export as JSON
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button onClick={onCreateClick}>
             <Plus className="h-4 w-4 mr-2" />
             Add Q&A
