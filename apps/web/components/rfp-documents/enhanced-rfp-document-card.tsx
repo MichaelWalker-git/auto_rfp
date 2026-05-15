@@ -204,7 +204,7 @@ function DocumentInfo({ doc, typeStyle }: { doc: RFPDocumentItem; typeStyle: { c
           {doc.name}
         </p>
         <Badge variant="outline" className={cn('text-xs border', typeStyle.cls)}>
-          {(RFP_DOCUMENT_TYPES as Record<string, string>)[doc.documentType] ?? doc.documentType}
+          {RFP_DOCUMENT_TYPES[doc.documentType] ?? doc.documentType}
         </Badge>
         <DocumentStatusBadges doc={doc} />
         <LinearSyncIndicator status={doc.linearSyncStatus} lastSyncedAt={doc.lastSyncedAt} />
@@ -244,25 +244,28 @@ function DocumentInfo({ doc, typeStyle }: { doc: RFPDocumentItem; typeStyle: { c
   );
 }
 
-const ENHANCED_STATUS_DOT: Record<string, { label: string; dot: string; text: string; pulse?: boolean }> = {
-  GENERATING: { label: 'Generating', dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400', pulse: true },
-  DRAFT: { label: 'Draft', dot: 'bg-slate-400', text: 'text-slate-500 dark:text-slate-400' },
-  IN_PROGRESS: { label: 'In Progress', dot: 'bg-blue-500', text: 'text-blue-600 dark:text-blue-400' },
-  NEEDS_REVIEW: { label: 'Needs Review', dot: 'bg-orange-500', text: 'text-orange-600 dark:text-orange-400' },
-  READY: { label: 'Ready', dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' },
-  APPROVED: { label: 'Approved', dot: 'bg-green-500', text: 'text-green-600 dark:text-green-400' },
-  FAILED: { label: 'Failed', dot: 'bg-red-500', text: 'text-red-600 dark:text-red-400' },
-};
-
 function DocumentStatusBadges({ doc }: { doc: RFPDocumentItem }) {
-  if (!doc.status) return null;
-  const config = ENHANCED_STATUS_DOT[doc.status];
-  if (!config) return null;
   return (
-    <span className={cn('inline-flex items-center gap-1 text-[11px] font-medium', config.text)}>
-      <span className={cn('h-1.5 w-1.5 rounded-full', config.dot, config.pulse && 'animate-pulse')} />
-      {config.label}
-    </span>
+    <>
+      {doc.status === 'GENERATING' ? (
+        <Badge variant="outline" className="text-xs border border-amber-500/30 text-amber-600 bg-amber-500/5 animate-pulse">
+          ⏳ Generating...
+        </Badge>
+      ) : (doc.content || doc.htmlContentKey) && !doc.fileKey ? (
+        <Badge variant="outline" className="text-xs border border-violet-500/30 text-violet-600 bg-violet-500/5">
+          🤖 AI Generated
+        </Badge>
+      ) : doc.fileKey ? (
+        <Badge variant="outline" className="text-xs border border-blue-500/30 text-blue-600 bg-blue-500/5">
+          📎 Uploaded
+        </Badge>
+      ) : null}
+      {doc.status === 'FAILED' && (
+        <Badge variant="outline" className="text-xs border border-red-500/30 text-red-600 bg-red-500/5">
+          ❌ Failed
+        </Badge>
+      )}
+    </>
   );
 }
 

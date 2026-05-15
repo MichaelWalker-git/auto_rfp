@@ -22,7 +22,7 @@ import { useRevertVersion, useCherryPick } from '@/lib/hooks/use-document-versio
 import { RichTextEditor, stripPresignedUrlsFromHtml } from './rich-text-editor';
 import { sanitizeGeneratedHtml } from './rfp-document-utils';
 import { RFPDocumentExportDialog } from './rfp-document-export-dialog';
-import { RequestApprovalButton, ResubmitForReviewButton } from '@/features/document-approval';
+import { RequestApprovalButton, ApprovalStatusBadge, ResubmitForReviewButton } from '@/features/document-approval';
 import { useApprovalHistory } from '@/features/document-approval';
 import { ReviewSidebarPanel } from '@/features/document-approval/components/ReviewSidebarPanel';
 import { useAuth } from '@/components/AuthProvider';
@@ -33,7 +33,6 @@ import { CherryPickConfirmDialog } from './dialogs/CherryPickConfirmDialog';
 import { AIChatPanel } from './ai-chat';
 import { TemplateSelector } from './template-selector';
 import type { RFPDocumentVersion } from '@auto-rfp/core';
-import { DocumentStatusBadge } from './document-status-badge';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -581,14 +580,33 @@ export const OpportunityDocumentEditorPage = ({
           </Link>
         </Button>
 
-        {/* Document status */}
-        <DocumentStatusBadge status={doc?.status} className="shrink-0" />
+        {/* Status badges */}
+        {isGenerating && (
+          <Badge
+            variant="outline"
+            className="text-xs border-amber-500/30 text-amber-600 bg-amber-500/5 animate-pulse shrink-0"
+          >
+            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+            Generating…
+          </Badge>
+        )}
+        {isFailed && (
+          <Badge
+            variant="outline"
+            className="text-xs border-red-500/30 text-red-600 bg-red-500/5 shrink-0"
+          >
+            Generation Failed
+          </Badge>
+        )}
 
         {/* Spacer — pushes actions to the right */}
         <div className="flex-1" />
 
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0">
+        {/* Approval status badge */}
+        {isApproved && <ApprovalStatusBadge status="APPROVED" />}
+        {hasPendingApproval && <ApprovalStatusBadge status="PENDING" />}
 
         {/* Request Approval button — hidden for reviewer, approved docs, and recently rejected docs */}
         {doc && doc.status !== 'GENERATING' && doc.status !== 'FAILED' && userSub && !isReviewer && !isApproved && !wasRecentlyRejected && (

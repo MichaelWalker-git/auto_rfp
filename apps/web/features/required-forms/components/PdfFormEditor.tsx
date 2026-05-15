@@ -9,11 +9,10 @@ import { Download, RefreshCw, ArrowLeft, Plus, Trash2, Move, GripHorizontal } fr
 import { apiMutate, apiFetcher, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import type { DetectedFormField, RFPDocumentItem } from '@auto-rfp/core';
-import { DocumentStatusBadge } from '@/components/rfp-documents/document-status-badge';
+import type { DetectedFormField, RequiredFormItem } from '@auto-rfp/core';
 
 interface PdfFormEditorProps {
-  doc: RFPDocumentItem;
+  doc: RequiredFormItem;
   orgId: string;
   pdfUrl: string | null;
   onFieldUpdated?: () => void;
@@ -28,7 +27,7 @@ type FieldUpdate = {
 
 export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEditorProps) => {
   const { toast } = useToast();
-  const fields = (doc.formFields ?? []) as DetectedFormField[];
+  const fields = (doc.fields ?? []) as DetectedFormField[];
   const [activeField, setActiveField] = useState<string | null>(null);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [fieldLabels, setFieldLabels] = useState<Record<string, string>>({});
@@ -66,7 +65,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
       try {
         await apiMutate(buildApiUrl('/required-forms/field', { orgId }), 'PUT', {
           projectId: doc.projectId, opportunityId: doc.opportunityId,
-          documentId: doc.documentId, fieldId, orgId, ...update,
+          documentId: doc.formId, fieldId, orgId, ...update,
         });
       } catch (err) {
         toast({ title: 'Save failed', description: (err as Error)?.message, variant: 'destructive' });
@@ -108,7 +107,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     setExporting(true);
     try {
       const result = await apiFetcher<{ downloadUrl: string }>(
-        buildApiUrl(`/rfp-document/export-form/${doc.documentId}`, { orgId, projectId: doc.projectId, opportunityId: doc.opportunityId }),
+        buildApiUrl(`/rfp-document/export-form/${doc.formId}`, { orgId, projectId: doc.projectId, opportunityId: doc.opportunityId }),
       );
       if (result?.downloadUrl) window.open(result.downloadUrl, '_blank');
     } catch (err) {
@@ -239,7 +238,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium truncate">{doc.name}</p>
         </div>
-        <DocumentStatusBadge status={doc.status} />
+        <Badge variant="outline" className="text-xs">{doc.status}</Badge>
         <Button size="sm" variant={creatingField ? 'default' : 'outline'} onClick={() => setCreatingField(!creatingField)} className="gap-1.5">
           <Plus className="h-3.5 w-3.5" />{creatingField ? 'Click on PDF...' : 'Add Field'}
         </Button>

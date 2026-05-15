@@ -2,8 +2,6 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  CheckCircle2,
-  Clock,
   Download,
   FileDown,
   FileText,
@@ -14,7 +12,6 @@ import {
   RefreshCw,
   Trash2,
   Upload,
-  XCircle,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,7 +26,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { apiMutate, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { useToast } from '@/components/ui/use-toast';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
@@ -52,9 +48,9 @@ import { useOpportunityContext } from './opportunity-context';
 import { formatDateTime } from './opportunity-helpers';
 import Link from 'next/link';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { useApprovalHistory } from '@/features/document-approval';
+import { ApprovalStatusBadge } from '@/features/document-approval';
 
-
-import { DocumentStatusBadge } from '@/components/rfp-documents/document-status-badge';
 
 function formatFileSize(bytes: number): string {
   if (!bytes) return '';
@@ -64,6 +60,33 @@ function formatFileSize(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
+// Component to show approval status for a document
+function DocumentApprovalStatus({ doc, orgId, projectId }: { doc: RFPDocumentItem; orgId: string; projectId: string }) {
+  const { activeApproval, hasPendingApproval, approvals } = useApprovalHistory(
+    orgId, projectId, doc.opportunityId, doc.documentId,
+  );
+  
+  const isApproved = approvals.length > 0 && approvals[0]?.status === 'APPROVED';
+  const isRejected = approvals.length > 0 && approvals[0]?.status === 'REJECTED';
+  
+  if (isApproved) {
+    return <ApprovalStatusBadge status="APPROVED" />;
+  }
+  
+  if (hasPendingApproval) {
+    return <ApprovalStatusBadge status="PENDING" />;
+  }
+  
+  if (isRejected) {
+    return (
+      <Badge variant="outline" className="text-xs border-red-300 text-red-700 bg-red-50">
+        Rejected
+      </Badge>
+    );
+  }
+  
+  return null;
+}
 
 export function OpportunityRFPDocuments() {
   const { projectId, oppId, orgId, opportunity } = useOpportunityContext();
@@ -158,26 +181,6 @@ export function OpportunityRFPDocuments() {
       setConvertingId(null);
     }
   }, [convertingId, convertToContent, mutate, toast]);
-
-  const [refillingId, setRefillingId] = useState<string | null>(null);
-  const handleRefill = useCallback(async (doc: RFPDocumentItem) => {
-    if (refillingId) return;
-    try {
-      setRefillingId(doc.documentId);
-      await apiMutate(buildApiUrl('/rfp-document/refill', { orgId }), 'POST', {
-        projectId: doc.projectId,
-        opportunityId: doc.opportunityId,
-        documentId: doc.documentId,
-        orgId,
-      });
-      await mutate();
-      toast({ title: 'Form re-filled with latest company profile data' });
-    } catch (err) {
-      toast({ title: 'Re-fill failed', description: (err as Error)?.message, variant: 'destructive' });
-    } finally {
-      setRefillingId(null);
-    }
-  }, [refillingId, orgId, mutate, toast]);
 
   const handleDelete = useCallback(async (doc: RFPDocumentItem) => {
     if (deletingId === doc.documentId) return;
@@ -353,11 +356,17 @@ export function OpportunityRFPDocuments() {
                         <p className="font-medium truncate text-sm" title={doc.name}>
                           {doc.name}
                         </p>
-                        <DocumentStatusBadge status={doc.status} />
+                        <Badge variant="outline" className={cn('text-xs border', typeChip.cls)}>
+                          {RFP_DOCUMENT_TYPES[doc.documentType as keyof typeof RFP_DOCUMENT_TYPES] ?? doc.documentType}
+                        </Badge>
+                        <DocumentApprovalStatus 
+                          doc={doc} 
+                          orgId={orgId} 
+                          projectId={projectId} 
+                        />
                       </div>
 
                       <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-                        <span className="font-medium">{RFP_DOCUMENT_TYPES[doc.documentType as keyof typeof RFP_DOCUMENT_TYPES] ?? doc.documentType}</span>
                         {doc.fileSizeBytes > 0 && <span>{formatFileSize(doc.fileSizeBytes)}</span>}
                         <span>{formatDateTime(doc.createdAt)}</span>
                         {doc.createdByName && <span>by {doc.createdByName}</span>}
@@ -402,12 +411,6 @@ export function OpportunityRFPDocuments() {
                               <FileDown className="h-4 w-4 mr-2" /> Export
                             </DropdownMenuItem>
                           )}
-                          {doc.documentType === 'REQUIRED_FORM' && (
-                            <DropdownMenuItem disabled={refillingId === doc.documentId} onClick={() => handleRefill(doc)}>
-                              {refillingId === doc.documentId ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-                              Re-fill from Profile
-                            </DropdownMenuItem>
-                          )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem className="text-red-600" disabled={isDeleting} onClick={() => handleDelete(doc)}>
                             {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
@@ -419,15 +422,11 @@ export function OpportunityRFPDocuments() {
                   </div>
                 );
 
-                const isRequiredForm = doc.documentType === 'REQUIRED_FORM' && doc.fileKey;
-                const editUrl = isRequiredForm
-                  ? `/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/forms/${doc.documentId}`
-                  : `/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/rfp-documents/${doc.documentId}/edit`;
-
-                return canEdit || isRequiredForm ? (
+                // Use explicit conditional rendering to avoid TypeScript error with dynamic component
+                return canEdit ? (
                   <Link
                     key={doc.documentId}
-                    href={editUrl}
+                    href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/rfp-documents/${doc.documentId}/edit`}
                     className={cardClassName}
                   >
                     {cardContent}

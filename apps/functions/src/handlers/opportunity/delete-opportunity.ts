@@ -26,6 +26,7 @@ import { ANSWER_PK } from '@/constants/answer';
 import { APN_REGISTRATION_PK } from '@/constants/apn';
 import { DEADLINE_PK } from '@/constants/deadline';
 import { RFP_DOCUMENT_PK } from '@/constants/rfp-document';
+import { REQUIRED_FORM_PK } from '@/constants/required-form';
 import { RFP_DOCUMENT_VERSION_PK } from '@/constants/rfp-document-version';
 import { PROPOSAL_SUBMISSION_PK } from '@/constants/proposal-submission';
 import { CLARIFYING_QUESTION_PK } from '@/constants/clarifying-question';
@@ -166,6 +167,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
       [ENGAGEMENT_LOG_PK, 'engagementLogs'],
       [PROPOSAL_SUBMISSION_PK, 'proposalSubmissions'],
       [DOCUMENT_APPROVAL_PK, 'documentApprovals'],
+      [REQUIRED_FORM_PK, 'requiredForms'],
     ];
 
     // Entities with projectId#oppId SK prefix (no orgId)

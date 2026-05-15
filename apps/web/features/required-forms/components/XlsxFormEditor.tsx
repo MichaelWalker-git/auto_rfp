@@ -1,17 +1,18 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { Download, RefreshCw, ArrowLeft } from 'lucide-react';
 import { apiMutate, apiFetcher, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import type { DetectedFormField, RFPDocumentItem } from '@auto-rfp/core';
-import { DocumentStatusBadge } from '@/components/rfp-documents/document-status-badge';
+import type { DetectedFormField, RequiredFormItem } from '@auto-rfp/core';
+
 
 interface XlsxFormEditorProps {
-  doc: RFPDocumentItem;
+  doc: RequiredFormItem;
   orgId: string;
   onFieldUpdated?: () => void;
 }
@@ -28,7 +29,7 @@ type CellData = {
 
 export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorProps) => {
   const { toast } = useToast();
-  const fields = (doc.formFields ?? []) as DetectedFormField[];
+  const fields = (doc.fields ?? []) as DetectedFormField[];
   const [cells, setCells] = useState<CellData[][]>([]);
   const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -114,7 +115,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
     try {
       await apiMutate(buildApiUrl('/required-forms/field', { orgId }), 'PUT', {
         projectId: doc.projectId, opportunityId: doc.opportunityId,
-        documentId: doc.documentId, fieldId: cell.fieldId,
+        documentId: doc.formId, fieldId: cell.fieldId,
         value: cell.value || null, orgId,
       });
     } catch (err) {
@@ -126,7 +127,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
     setExporting(true);
     try {
       const result = await apiFetcher<{ downloadUrl: string }>(
-        buildApiUrl(`/rfp-document/export-form/${doc.documentId}`, { orgId, projectId: doc.projectId, opportunityId: doc.opportunityId }),
+        buildApiUrl(`/rfp-document/export-form/${doc.formId}`, { orgId, projectId: doc.projectId, opportunityId: doc.opportunityId }),
       );
       if (result?.downloadUrl) window.open(result.downloadUrl, '_blank');
     } catch (err) {
@@ -145,9 +146,9 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
         </Button>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium truncate">{doc.name}</p>
-          <p className="text-xs text-muted-foreground">{doc.originalFileName}</p>
+          <p className="text-xs text-muted-foreground">{doc.sourceFileName}</p>
         </div>
-        <DocumentStatusBadge status={doc.status} />
+        <Badge variant="outline" className="text-xs">{doc.status}</Badge>
         <Button size="sm" variant="outline" onClick={handleExport} disabled={exporting} className="gap-1.5">
           {exporting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           Export XLSX
