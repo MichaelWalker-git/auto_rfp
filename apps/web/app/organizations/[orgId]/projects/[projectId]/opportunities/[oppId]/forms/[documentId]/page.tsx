@@ -9,8 +9,8 @@ import type { RFPDocumentItem } from '@auto-rfp/core';
 import { useCurrentOrganization } from '@/context/organization-context';
 
 export default function RequiredFormEditorPage() {
-  const params = useParams<{ orgId: string; projectId: string; opportunityId: string; documentId: string }>();
-  const { orgId, projectId, opportunityId, documentId } = params;
+  const params = useParams<{ orgId: string; projectId: string; oppId: string; documentId: string }>();
+  const { orgId, projectId, oppId: opportunityId, documentId } = params;
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id ?? orgId;
 
