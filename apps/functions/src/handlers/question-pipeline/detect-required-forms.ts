@@ -8,7 +8,7 @@ import { getQuestionFileItem, checkQuestionFileCancelled } from '@/helpers/quest
 import { getCompanyProfile } from '@/helpers/company-profile';
 import { gatherAllContext } from '@/helpers/document-context';
 import { putRFPDocument, listRFPDocumentsByProject } from '@/helpers/rfp-document';
-import { analyzeDocumentForms } from '@/helpers/textract-forms';
+import { extractFormFieldsWithVision } from '@/helpers/extract-form-fields-vision';
 import { matchFieldsToProfile } from '@/helpers/form-field-matcher';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { RFP_DOCUMENT_PK } from '@/constants/rfp-document';
@@ -163,16 +163,16 @@ export const baseHandler = async (
         .catch((err) => { console.warn('KB context load failed (non-fatal):', (err as Error)?.message); return ''; }),
     ]);
 
-    // Extract form fields from PDF using Textract (bounding boxes for inline editing)
-    const isPdf = mimeType.includes('pdf') || sourceFileKey.toLowerCase().endsWith('.pdf');
+    // Extract form fields using Claude vision (sends actual file for accurate field detection)
     let detectedFields: DetectedFormField[] = [];
+    const isPdf = mimeType.includes('pdf') || sourceFileKey.toLowerCase().endsWith('.pdf');
 
     if (isPdf) {
       try {
-        detectedFields = await analyzeDocumentForms(sourceFileKey);
-        console.log(`Textract extracted ${detectedFields.length} fields from ${sourceFileName}`);
+        detectedFields = await extractFormFieldsWithVision(sourceFileKey);
+        console.log(`Vision extracted ${detectedFields.length} fields from ${sourceFileName}`);
       } catch (err) {
-        console.warn(`Textract field extraction failed for ${sourceFileName} (non-fatal):`, (err as Error)?.message);
+        console.warn(`Vision field extraction failed for ${sourceFileName} (non-fatal):`, (err as Error)?.message);
       }
     }
 

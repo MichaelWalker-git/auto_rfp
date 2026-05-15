@@ -131,6 +131,87 @@ const extractKeyValuePairs = (response: AnalyzeDocumentCommandOutput): KeyValueP
   return pairs;
 };
 
+// Detect underscored blanks in LINE blocks: "____________" followed by "(Label)" on next line
+const extractUnderscoreFields = (response: AnalyzeDocumentCommandOutput): DetectedFormField[] => {
+  const blocks = response.Blocks ?? [];
+  const lines = blocks
+    .filter((b) => b.BlockType === 'LINE' && b.Text)
+    .sort((a, b) => {
+      const pageA = a.Page ?? 1;
+      const pageB = b.Page ?? 1;
+      if (pageA !== pageB) return pageA - pageB;
+      const topA = a.Geometry?.BoundingBox?.Top ?? 0;
+      const topB = b.Geometry?.BoundingBox?.Top ?? 0;
+      return topA - topB;
+    });
+
+  const fields: DetectedFormField[] = [];
+  const usedIndices = new Set<number>();
+
+  for (let i = 0; i < lines.length; i++) {
+    if (usedIndices.has(i)) continue;
+    const line = lines[i];
+    const text = line.Text ?? '';
+
+    // Pattern 1: Line is mostly underscores (a blank field)
+    const isUnderscoreLine = /^[_\s]{5,}$/.test(text) || /_{3,}/.test(text);
+
+    if (isUnderscoreLine) {
+      // Look at the next line — often it's a parenthesized label like "(Signature)" or "(Company Name)"
+      const nextLine = i + 1 < lines.length ? lines[i + 1] : null;
+      const nextText = nextLine?.Text ?? '';
+      const labelMatch = nextText.match(/^\s*\(([^)]+)\)\s*$/);
+
+      const label = labelMatch ? labelMatch[1] : text.replace(/_/g, '').trim() || 'Field';
+      const bbox = line.Geometry?.BoundingBox;
+
+      fields.push({
+        fieldId: uuidv4(),
+        label,
+        value: null,
+        status: 'EMPTY',
+        confidence: 0.8,
+        profileFieldKey: null,
+        manualReason: null,
+        pageNumber: line.Page ?? 1,
+        cellReference: null,
+        boundingBox: bbox
+          ? { top: bbox.Top ?? 0, left: bbox.Left ?? 0, width: bbox.Width ?? 0, height: bbox.Height ?? 0 }
+          : null,
+      });
+
+      if (labelMatch) usedIndices.add(i + 1);
+      usedIndices.add(i);
+      continue;
+    }
+
+    // Pattern 2: "Label: ___________" or "Label ___________" — inline blank
+    const inlineMatch = text.match(/^(.{2,50?}?)\s*:?\s*_{3,}\s*$/);
+    if (inlineMatch) {
+      const label = inlineMatch[1].trim();
+      const bbox = line.Geometry?.BoundingBox;
+
+      fields.push({
+        fieldId: uuidv4(),
+        label,
+        value: null,
+        status: 'EMPTY',
+        confidence: 0.8,
+        profileFieldKey: null,
+        manualReason: null,
+        pageNumber: line.Page ?? 1,
+        cellReference: null,
+        boundingBox: bbox
+          ? { top: bbox.Top ?? 0, left: bbox.Left ?? 0, width: bbox.Width ?? 0, height: bbox.Height ?? 0 }
+          : null,
+      });
+      usedIndices.add(i);
+    }
+  }
+
+  return fields;
+};
+
 export const analyzeDocumentForms = async (fileKey: string): Promise<DetectedFormField[]> => {
   const bucket = getDocumentsBucket();
 
@@ -180,6 +261,17 @@ export const analyzeDocumentForms = async (fileKey: string): Promise<DetectedFor
       cellReference: null,
       boundingBox: pair.boundingBox,
     });
+  }
+
+  // Second pass: detect underscored blank fields from LINE blocks
+  const underscoreFields = extractUnderscoreFields(response);
+
+  // Deduplicate: skip underscore fields that overlap with already-detected FORMS fields
+  const existingLabels = new Set(fields.map((f) => f.label.toLowerCase().trim()));
+  for (const uf of underscoreFields) {
+    if (!existingLabels.has(uf.label.toLowerCase().trim())) {
+      fields.push(uf);
+    }
   }
 
   return fields;
