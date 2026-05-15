@@ -102,17 +102,100 @@ const convertXlsxToHtml = async (fileKey: string): Promise<string> => {
     const bodyMatch = html.match(/<body>([\s\S]*)<\/body>/);
     let tableHtml = bodyMatch ? bodyMatch[1] : html;
 
-    // Clean up: remove data attributes, add border styling
+    // Clean up: remove data attributes, add proper table styling
     tableHtml = tableHtml
-      .replace(/<table[^>]*>/g, '<table style="border-collapse: collapse; width: 100%;">')
+      .replace(/<table[^>]*>/g, '<table style="border-collapse: collapse; width: 100%; font-size: 13px;">')
+      .replace(/<td/g, '<td style="border: 1px solid #d1d5db; padding: 6px 8px; vertical-align: top;"')
+      .replace(/<th/g, '<th style="border: 1px solid #d1d5db; padding: 6px 8px; vertical-align: top; font-weight: bold; background: #f1f5f9;"')
       .replace(/ data-[a-z-]+="[^"]*"/g, '')
       .replace(/ id="[^"]*"/g, '')
-      .replace(/ xml:space="[^"]*"/g, '');
+      .replace(/ xml:space="[^"]*"/g, '')
+      // Remove [INSERT LOGO] placeholder
+      .replace(/\[INSERT LOGO\]/g, '');
 
     sheets.push(tableHtml);
   }
 
   return sheets.join('\n');
+};
+
+// ─── PDF conversion: send actual PDF to Claude (multimodal) ───
+
+const convertPdfWithVision = async (fileKey: string): Promise<string> => {
+  const bucket = getDocumentsBucket();
+  const s3Obj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: fileKey }));
+  const bytes = await s3Obj.Body?.transformToByteArray();
+  if (!bytes) throw new Error(`Could not read PDF from S3: ${fileKey}`);
+
+  const base64 = Buffer.from(bytes).toString('base64');
+
+  const system =
+    'You convert a PDF document into semantic HTML that faithfully reproduces the original layout. Output ONLY HTML — no markdown, no commentary.\n\n' +
+    'LAYOUT RULES (match the original PDF exactly):\n' +
+    '- Reproduce exact positioning: if title is left-aligned bold, keep it left-aligned bold. If centered, center it.\n' +
+    '- "EXEMPTION CERTIFICATE" and "(CONSTRUCTION CONTRACT)" on separate lines = separate <p> tags, same alignment as original.\n' +
+    '- Form fields with underline blanks above labels (like "_____ Name of Project"): use a layout table with border: none; border-color: transparent on every td.\n' +
+    '  Row 1: underline blank. Row 2: label text. This preserves the "blank above, label below" pattern.\n' +
+    '- Bold/italic text: use <strong> and <em> exactly as in the original.\n' +
+    '- Checkbox items with hanging indent: <p style="padding-left: 60px; text-indent: -30px;">(X) text...</p>\n' +
+    '- Signature blocks (two columns side by side): <table> with border: none; border-color: transparent on every td.\n' +
+    '- Underlined blanks: <span style="display: inline-block; min-width: 200px; border-bottom: 1px solid #000;">&nbsp;</span>\n' +
+    '- Do NOT use inline font-family, font-size, line-height, or margin styles — the editor provides those.\n' +
+    '- Do NOT add any content not in the original document.\n';
+
+  const body = {
+    anthropic_version: 'bedrock-2023-05-31',
+    system,
+    messages: [{
+      role: 'user',
+      content: [
+        {
+          type: 'document',
+          source: { type: 'base64', media_type: 'application/pdf', data: base64 },
+        },
+        {
+          type: 'text',
+          text: 'Convert this PDF to HTML. Reproduce the exact visual layout.',
+        },
+      ],
+    }],
+    temperature: 0,
+    max_tokens: 16000,
+  };
+
+  const responseBody = await invokeModel(getBedrockModelId(), JSON.stringify(body));
+  const responseJson = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as Record<string, unknown>;
+  const contentBlocks = (responseJson?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
+  const rawText = contentBlocks.find((c) => c?.type === 'text')?.text ?? '';
+
+  let html = rawText.trim();
+  if (html.startsWith('```html')) html = html.slice(7);
+  if (html.startsWith('```')) html = html.slice(3);
+  if (html.endsWith('```')) html = html.slice(0, -3);
+  return html.trim();
+};
+
+// ─── Fallback: LLM text-only conversion ───
+
+const convertWithLLM = async (documentText: string): Promise<string> => {
+  const system =
+    'You convert extracted document text into semantic HTML. Output ONLY HTML — no markdown, no commentary.\n\n' +
+    'LAYOUT RULES:\n' +
+    '- Reproduce the original document layout as faithfully as possible.\n' +
+    '- Bold/italic text: use <strong> and <em>\n' +
+    '- Checkboxes with indent: <p style="padding-left: 60px; text-indent: -30px;">(X) text</p>\n' +
+    '- Layout tables (fields side by side): border: none; border-color: transparent on every td/th\n' +
+    '- Underlined blanks: <span style="display: inline-block; min-width: 200px; border-bottom: 1px solid #000;">&nbsp;</span>\n' +
+    '- Do NOT use inline font-family, font-size, or margin styles.\n';
+
+  try {
+    const html = await callLLM(system, `DOCUMENT TEXT:\n${documentText.slice(0, 100_000)}`);
+    if (html.length > 100) return html;
+  } catch (err) {
+    console.warn('LLM text conversion failed:', (err as Error)?.message);
+  }
+
+  return fallbackFromText(documentText);
 };
 
 // ─── Phase 2: Fill blanks with data (LLM fill-only) ───
@@ -165,15 +248,20 @@ export const generateFormHtml = async (input: FormHtmlInput): Promise<string> =>
   let rawHtml: string;
   try {
     if (isPdf) {
-      rawHtml = await convertPdfToHtml(sourceFileKey);
+      // Send actual PDF to Claude vision for faithful HTML reproduction
+      rawHtml = await convertPdfWithVision(sourceFileKey);
+      if (!rawHtml || rawHtml.length < 100) {
+        console.warn('PDF vision conversion returned insufficient HTML, trying Textract');
+        rawHtml = await convertPdfToHtml(sourceFileKey);
+      }
     } else if (isXlsx) {
       rawHtml = await convertXlsxToHtml(sourceFileKey);
     } else {
       rawHtml = fallbackFromText(input.documentText);
     }
   } catch (err) {
-    console.warn(`HTML conversion failed for ${sourceFileKey}:`, (err as Error)?.message);
-    rawHtml = fallbackFromText(input.documentText);
+    console.warn(`HTML conversion failed for ${sourceFileKey}, using LLM text fallback:`, (err as Error)?.message);
+    rawHtml = await convertWithLLM(input.documentText);
   }
 
   // Phase 2: Fill blanks with company data

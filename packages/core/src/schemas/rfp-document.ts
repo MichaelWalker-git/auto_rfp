@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DetectedFormFieldSchema } from './required-form';
 
 // ─── RFP Document Content ─────────────────────────────────────────────────────
 
@@ -326,6 +327,10 @@ export const RFPDocumentItemSchema = z.object({
   htmlContentKey: z.string().nullable().optional(),
   /** Generation error message when status is FAILED */
   generationError: z.string().nullable().optional(),
+  /** Detected form fields for REQUIRED_FORM documents (field positions, values, auto-fill status) */
+  formFields: z.array(DetectedFormFieldSchema).nullable().optional(),
+  /** S3 key for page images rendered from the original PDF (JSON array of image keys) */
+  pageImagesKey: z.string().nullable().optional(),
 });
 
 export type RFPDocumentItem = z.infer<typeof RFPDocumentItemSchema>;

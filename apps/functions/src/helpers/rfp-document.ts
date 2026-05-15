@@ -128,6 +128,8 @@ export async function updateRFPDocumentMetadata(args: {
     htmlContentKey?: string;
     generationError?: string;
     signatureStatus?: string;
+    formFields?: unknown;
+    pageImagesKey?: string;
   };
   updatedBy: string;
 }): Promise<Record<string, any>> {

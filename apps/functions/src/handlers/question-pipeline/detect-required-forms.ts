@@ -7,14 +7,15 @@ import { safeParseJsonFromModel } from '@/helpers/json';
 import { getQuestionFileItem, checkQuestionFileCancelled } from '@/helpers/questionFile';
 import { getCompanyProfile } from '@/helpers/company-profile';
 import { gatherAllContext } from '@/helpers/document-context';
-import { putRFPDocument, uploadRFPDocumentHtml, listRFPDocumentsByProject } from '@/helpers/rfp-document';
-import { generateFormHtml } from '@/helpers/form-html-generator';
+import { putRFPDocument, listRFPDocumentsByProject } from '@/helpers/rfp-document';
+import { analyzeDocumentForms } from '@/helpers/textract-forms';
+import { matchFieldsToProfile } from '@/helpers/form-field-matcher';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { RFP_DOCUMENT_PK } from '@/constants/rfp-document';
 import { buildRFPDocumentSK } from '@/helpers/rfp-document';
 import { withSentryLambda } from '@/sentry-lambda';
 
-import type { FormType } from '@auto-rfp/core';
+import type { DetectedFormField, FormFieldStatus, FormType } from '@auto-rfp/core';
 import { FormTypeSchema } from '@auto-rfp/core';
 
 const getDocumentsBucket = () => requireEnv('DOCUMENTS_BUCKET');
@@ -52,20 +53,24 @@ const buildDetectionPrompt = (docText: string, mimeType: string) => {
 
   const userText =
     `${fileTypeHint}\n\n` +
-    'Analyze the following document text and identify any REQUIRED VENDOR FORMS that must be filled out and submitted. ' +
-    'Look for:\n' +
-    '- Fillable form fields (labeled blanks like "Company Name: ___", "EIN: ___")\n' +
-    '- Certification/exemption forms with signature blocks\n' +
-    '- Requirements response matrices (columns like "Fully Meets / Partially Meets / Cannot Meet")\n' +
-    '- Contract templates with inline blanks for vendor information\n' +
-    '- Bid schedules or cost sheets requiring vendor input\n\n' +
+    'Analyze the following document text and identify any REQUIRED VENDOR FORMS that must be filled out and submitted.\n\n' +
+    'A document IS a form if it has:\n' +
+    '- Blank lines/underscores where the vendor must write information (company name, address, EIN, signature)\n' +
+    '- A response matrix with columns the vendor must fill (Fully Meets / Partially Meets / Cannot Meet)\n' +
+    '- Fillable form fields or labeled blanks (e.g. "Company Name: ___")\n' +
+    '- Signature blocks that require the vendor to sign\n\n' +
+    'A document is NOT a form if it:\n' +
+    '- Is purely informational (scope of work, terms and conditions with no blanks to fill)\n' +
+    '- Is a notice, addendum, or instruction document with no vendor-fillable fields\n' +
+    '- Contains only pre-filled government data with nothing for the vendor to complete\n\n' +
+    'Only return documents that have ACTUAL BLANKS, FIELDS, OR CELLS that the vendor must fill in.\n\n' +
     'For each form found, return:\n' +
     '- name: descriptive form title\n' +
     '- formType: one of PDF_FILLABLE, PDF_SCANNED, XLSX_MATRIX, XLSX_FORM, CONTRACT_TEMPLATE\n' +
     '- pageRange: page numbers if identifiable (e.g. "3-5")\n' +
     '- sheetName: sheet/tab name if XLSX\n\n' +
     'Return JSON: { "forms": [...], "confidence": number (0-1) }\n' +
-    'If NO forms are detected, return: { "forms": [], "confidence": number }\n\n' +
+    'If NO forms are detected, return: { "forms": [], "confidence": 1.0 }\n\n' +
     'DOCUMENT TEXT:\n' +
     docText.slice(0, 150_000);
 
@@ -127,15 +132,22 @@ export const baseHandler = async (
       JSON.stringify(buildDetectionPrompt(docText, mimeType)),
     );
     const responseJson = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as Record<string, unknown>;
-
     const contentBlocks = (responseJson?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
     const rawText = contentBlocks.find((c) => c?.type === 'text')?.text ?? null;
-
     const modelOut = rawText ? (safeParseJsonFromModel(String(rawText)) as Record<string, unknown>) : null;
 
-    const forms = Array.isArray(modelOut?.forms)
-      ? (modelOut.forms as DetectedFormResult[])
-      : [];
+    if (!modelOut) {
+      console.log(`Form detection returned non-JSON for ${sourceFileKey}, skipping`);
+      return { ok: true, formsDetected: 0 };
+    }
+
+    const confidence = typeof modelOut.confidence === 'number' ? modelOut.confidence : 0;
+    const forms = Array.isArray(modelOut.forms) ? (modelOut.forms as DetectedFormResult[]) : [];
+
+    if (confidence < 0.5) {
+      console.log(`Low confidence (${confidence}) for form detection in ${sourceFileKey}, skipping`);
+      return { ok: true, formsDetected: 0 };
+    }
 
     if (forms.length === 0) {
       console.log(`No forms detected in ${sourceFileKey}`);
@@ -144,11 +156,48 @@ export const baseHandler = async (
 
     const sourceFileName = sourceFileKey.split('/').pop() ?? sourceFileKey;
 
+    // Load company profile + KB context for auto-fill
     const [profile, knowledgeContext] = await Promise.all([
       getCompanyProfile(orgId),
       gatherAllContext({ projectId, orgId, opportunityId, solicitation: docText.slice(0, 10_000) })
         .catch((err) => { console.warn('KB context load failed (non-fatal):', (err as Error)?.message); return ''; }),
     ]);
+
+    // Extract form fields from PDF using Textract (bounding boxes for inline editing)
+    const isPdf = mimeType.includes('pdf') || sourceFileKey.toLowerCase().endsWith('.pdf');
+    let detectedFields: DetectedFormField[] = [];
+
+    if (isPdf) {
+      try {
+        detectedFields = await analyzeDocumentForms(sourceFileKey);
+        console.log(`Textract extracted ${detectedFields.length} fields from ${sourceFileName}`);
+      } catch (err) {
+        console.warn(`Textract field extraction failed for ${sourceFileName} (non-fatal):`, (err as Error)?.message);
+      }
+    }
+
+    // Auto-fill fields from company profile
+    if (profile && detectedFields.length > 0) {
+      try {
+        const matchResults = await matchFieldsToProfile(detectedFields, profile);
+        detectedFields = detectedFields.map((f) => {
+          const match = matchResults.find((m) => m.fieldId === f.fieldId);
+          if (!match) return f;
+          if (match.manualReason) {
+            return { ...f, status: 'MANUAL_REQUIRED' as FormFieldStatus, manualReason: match.manualReason };
+          }
+          if (match.profileFieldKey && match.value && match.confidence >= 0.85) {
+            return { ...f, value: match.value, status: 'AUTO_FILLED' as FormFieldStatus, confidence: match.confidence, profileFieldKey: match.profileFieldKey };
+          }
+          if (match.profileFieldKey && match.value && match.confidence > 0.5) {
+            return { ...f, value: match.value, status: 'LOW_CONFIDENCE' as FormFieldStatus, confidence: match.confidence, profileFieldKey: match.profileFieldKey };
+          }
+          return f;
+        });
+      } catch (err) {
+        console.warn('Field matching failed (non-fatal):', (err as Error)?.message);
+      }
+    }
 
     let createdCount = 0;
     for (const form of forms) {
@@ -161,32 +210,12 @@ export const baseHandler = async (
       const parsedType = FormTypeSchema.safeParse(form.formType);
       const validFormType: FormType = parsedType.success ? parsedType.data : 'PDF_SCANNED';
 
-      const html = await generateFormHtml({
-        formName,
-        sourceFileName,
-        sourceFileKey,
-        mimeType,
-        documentText: docText,
-        fields: [],
-        profile,
-        knowledgeContext,
-      });
-
-      // Determine status: if HTML has unfilled placeholders (gray fields), it's DRAFT.
-      // If all fields were filled by AI, it's NEEDS_REVIEW (human should verify).
-      const hasUnfilledFields = html.includes('color: #9ca3af') || html.includes('color:#9ca3af');
-      const formStatus = hasUnfilledFields ? 'DRAFT' : 'NEEDS_REVIEW';
+      const autoFilledCount = detectedFields.filter((f) => f.status === 'AUTO_FILLED').length;
+      const hasUnfilled = detectedFields.some((f) => f.status === 'EMPTY' || f.status === 'MANUAL_REQUIRED');
+      const formStatus = detectedFields.length === 0 ? 'DRAFT' : (hasUnfilled ? 'DRAFT' : 'NEEDS_REVIEW');
 
       const documentId = uuidv4();
       const now = nowIso();
-
-      const htmlContentKey = await uploadRFPDocumentHtml({
-        orgId,
-        projectId,
-        opportunityId,
-        documentId,
-        html,
-      });
 
       await putRFPDocument({
         [PK_NAME]: RFP_DOCUMENT_PK,
@@ -196,12 +225,12 @@ export const baseHandler = async (
         opportunityId,
         orgId,
         name: formName,
-        description: `Required form detected from ${sourceFileName}.`,
+        description: `Required form from ${sourceFileName}. ${autoFilledCount}/${detectedFields.length} fields auto-filled.`,
         documentType: 'REQUIRED_FORM',
-        mimeType: 'application/json',
-        fileSizeBytes: Buffer.byteLength(html, 'utf-8'),
-        originalFileName: null,
-        fileKey: null,
+        mimeType: mimeType || 'application/pdf',
+        fileSizeBytes: 0,
+        originalFileName: sourceFileName,
+        fileKey: sourceFileKey,
         version: 1,
         previousVersionId: null,
         signatureStatus: 'NOT_REQUIRED',
@@ -218,20 +247,22 @@ export const baseHandler = async (
           title: formName,
           customerName: null,
           opportunityId,
-          outlineSummary: `Required vendor form detected from solicitation.`,
+          outlineSummary: `Required vendor form. Type: ${validFormType}.`,
         },
         status: formStatus,
         title: formName,
-        htmlContentKey,
+        htmlContentKey: null,
         editHistory: null,
         googleDriveFileId: null,
         googleDriveUrl: null,
         generationError: null,
+        formFields: detectedFields,
+        pageImagesKey: null,
       });
 
       existingFormNames.add(formName.toLowerCase().trim());
       createdCount++;
-      console.log(`Created REQUIRED_FORM RFP document "${formName}" (${documentId})`);
+      console.log(`Created REQUIRED_FORM "${formName}" (${documentId}): ${detectedFields.length} fields, ${autoFilledCount} auto-filled, status=${formStatus}`);
     }
 
     return { ok: true, formsDetected: createdCount };

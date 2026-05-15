@@ -34,6 +34,7 @@ import { AIChatPanel } from './ai-chat';
 import { TemplateSelector } from './template-selector';
 import type { RFPDocumentVersion } from '@auto-rfp/core';
 import { DocumentStatusBadge } from './document-status-badge';
+import { PdfFormEditor } from '@/features/required-forms/components/PdfFormEditor';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -723,6 +724,14 @@ export const OpportunityDocumentEditorPage = ({
                   Try Again
                 </Button>
               </div>
+            </div>
+          ) : doc?.documentType === 'REQUIRED_FORM' && doc.formFields && doc.fileKey ? (
+            <div className="h-full overflow-auto p-4 bg-background">
+              <PdfFormEditor
+                doc={doc}
+                orgId={orgId}
+                onFieldUpdated={() => mutateDoc()}
+              />
             </div>
           ) : isEditorReady ? (
             <RichTextEditor
