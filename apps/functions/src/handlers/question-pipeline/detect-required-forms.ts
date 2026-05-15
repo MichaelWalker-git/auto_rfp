@@ -1,19 +1,14 @@
-import { v4 as uuidv4 } from 'uuid';
-
 import { requireEnv } from '@/helpers/env';
-import { loadTextFromS3 } from '@/helpers/s3';
+import { loadTextFromS3, copyS3Object } from '@/helpers/s3';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import { safeParseJsonFromModel } from '@/helpers/json';
 import { getQuestionFileItem, checkQuestionFileCancelled } from '@/helpers/questionFile';
 import { getCompanyProfile } from '@/helpers/company-profile';
 import { gatherAllContext } from '@/helpers/document-context';
-import { putRFPDocument, listRFPDocumentsByProject } from '@/helpers/rfp-document';
+import { createRequiredForm, listRequiredFormsByOpportunity } from '@/helpers/required-form';
 import { extractFormFieldsWithVision } from '@/helpers/extract-form-fields-vision';
 import { parseXlsxForms } from '@/helpers/xlsx-form-parser';
 import { matchFieldsToProfile } from '@/helpers/form-field-matcher';
-import { PK_NAME, SK_NAME } from '@/constants/common';
-import { RFP_DOCUMENT_PK } from '@/constants/rfp-document';
-import { buildRFPDocumentSK } from '@/helpers/rfp-document';
 import { withSentryLambda } from '@/sentry-lambda';
 
 import type { DetectedFormField, FormFieldStatus, FormType } from '@auto-rfp/core';
@@ -86,8 +81,6 @@ const buildDetectionPrompt = (docText: string, mimeType: string) => {
   };
 };
 
-const nowIso = () => new Date().toISOString();
-
 export const baseHandler = async (
   event: DetectRequiredFormsEvent,
 ): Promise<DetectRequiredFormsResult> => {
@@ -115,11 +108,9 @@ export const baseHandler = async (
   }
 
   try {
-    const existingDocs = await listRFPDocumentsByProject({ projectId, opportunityId });
+    const existingForms = await listRequiredFormsByOpportunity({ orgId, projectId, opportunityId });
     const existingFormNames = new Set(
-      existingDocs.items
-        .filter((d) => d.documentType === 'REQUIRED_FORM')
-        .map((d) => (d.name as string).toLowerCase().trim()),
+      existingForms.map((f) => f.name.toLowerCase().trim()),
     );
 
     const docText = await loadTextFromS3(getDocumentsBucket(), textFileKey);
@@ -224,64 +215,30 @@ export const baseHandler = async (
       const parsedType = FormTypeSchema.safeParse(form.formType);
       const validFormType: FormType = parsedType.success ? parsedType.data : 'PDF_SCANNED';
 
-      const autoFilledCount = detectedFields.filter((f) => f.status === 'AUTO_FILLED').length;
-      const hasUnfilled = detectedFields.some((f) => f.status === 'EMPTY' || f.status === 'MANUAL_REQUIRED');
-      const formStatus = detectedFields.length === 0 ? 'DRAFT' : (hasUnfilled ? 'DRAFT' : 'NEEDS_REVIEW');
-
-      const documentId = uuidv4();
-      const now = nowIso();
-
-      // Copy source file to a stable RFP document location (never modify the original)
-      const { copyS3Object } = await import('@/helpers/s3');
-      const stableFileKey = `${orgId}/${projectId}/${opportunityId}/rfp-documents/${documentId}/source/${sourceFileName}`;
+      // Copy source file to a stable location
+      const formId = `form-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const stableFileKey = `${orgId}/${projectId}/${opportunityId}/required-forms/${formId}/${sourceFileName}`;
       await copyS3Object(getDocumentsBucket(), sourceFileKey, stableFileKey);
 
-      await putRFPDocument({
-        [PK_NAME]: RFP_DOCUMENT_PK,
-        [SK_NAME]: buildRFPDocumentSK(projectId, opportunityId, documentId),
-        documentId,
-        projectId,
-        opportunityId,
-        orgId,
-        name: formName,
-        description: `Required form from ${sourceFileName}. ${autoFilledCount}/${detectedFields.length} fields auto-filled.`,
-        documentType: 'REQUIRED_FORM',
-        mimeType: mimeType || 'application/pdf',
-        fileSizeBytes: 0,
-        originalFileName: sourceFileName,
-        fileKey: stableFileKey,
-        version: 1,
-        previousVersionId: null,
-        signatureStatus: 'NOT_REQUIRED',
-        signatureDetails: null,
-        linearSyncStatus: 'NOT_SYNCED',
-        linearCommentId: null,
-        lastSyncedAt: null,
-        deletedAt: null,
-        createdBy: 'system',
-        updatedBy: 'system',
-        createdAt: now,
-        updatedAt: now,
-        content: {
-          title: formName,
-          customerName: null,
+      const { formId: createdFormId } = await createRequiredForm({
+        dto: {
+          orgId,
+          projectId,
           opportunityId,
-          outlineSummary: `Required vendor form. Type: ${validFormType}.`,
+          name: formName,
+          formType: validFormType,
+          sourceFileName,
+          sourceFileKey: stableFileKey,
+          sourcePageRange: form.pageRange ?? null,
+          sourceSheetName: form.sheetName ?? null,
         },
-        status: formStatus,
-        title: formName,
-        htmlContentKey: null,
-        editHistory: null,
-        googleDriveFileId: null,
-        googleDriveUrl: null,
-        generationError: null,
-        formFields: detectedFields,
-        pageImagesKey: null,
+        fields: detectedFields,
       });
 
       existingFormNames.add(formName.toLowerCase().trim());
       createdCount++;
-      console.log(`Created REQUIRED_FORM "${formName}" (${documentId}): ${detectedFields.length} fields, ${autoFilledCount} auto-filled, status=${formStatus}`);
+      const autoFilledCount = detectedFields.filter((f) => f.status === 'AUTO_FILLED').length;
+      console.log(`Created required form "${formName}" (${createdFormId}): ${detectedFields.length} fields, ${autoFilledCount} auto-filled`);
     }
 
     return { ok: true, formsDetected: createdCount };

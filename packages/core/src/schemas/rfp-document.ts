@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { DetectedFormFieldSchema } from './required-form';
 
 // ─── RFP Document Content ─────────────────────────────────────────────────────
 
@@ -85,7 +84,6 @@ export const RFP_DOCUMENT_TYPES = {
   CORRESPONDENCE: 'Correspondence',
   CLARIFYING_QUESTIONS: 'Clarifying Questions',
   QUESTIONS_AND_ANSWERS: 'Questions & Answers',
-  REQUIRED_FORM: 'Required Form',
   OTHER: 'Other',
 } as const;
 
@@ -117,7 +115,6 @@ export const RFP_DOCUMENT_TYPE_DESCRIPTIONS: Record<keyof typeof RFP_DOCUMENT_TY
   CORRESPONDENCE: 'General correspondence related to the opportunity.',
   CLARIFYING_QUESTIONS: 'Questions to submit during the Q&A period. Generated from AI-identified ambiguities in the solicitation, filtered by status, and formatted for submission to the contracting officer.',
   QUESTIONS_AND_ANSWERS: 'Extracted questions from solicitation documents with AI-generated answers. Organized by section with question-answer pairs formatted for review and export.',
-  REQUIRED_FORM: 'Required vendor form detected in the solicitation. Auto-filled fields use data from the company profile. Review auto-filled values and manually complete remaining fields before submission.',
   OTHER: 'Miscellaneous document not covered by other categories.',
 };
 
@@ -148,7 +145,6 @@ const RFP_DOCUMENT_TYPE_ENUM = [
   'CORRESPONDENCE',
   'CLARIFYING_QUESTIONS',
   'QUESTIONS_AND_ANSWERS',
-  'REQUIRED_FORM',
   'OTHER',
 ] as const;
 
@@ -327,10 +323,6 @@ export const RFPDocumentItemSchema = z.object({
   htmlContentKey: z.string().nullable().optional(),
   /** Generation error message when status is FAILED */
   generationError: z.string().nullable().optional(),
-  /** Detected form fields for REQUIRED_FORM documents (field positions, values, auto-fill status) */
-  formFields: z.array(DetectedFormFieldSchema).nullable().optional(),
-  /** S3 key for page images rendered from the original PDF (JSON array of image keys) */
-  pageImagesKey: z.string().nullable().optional(),
 });
 
 export type RFPDocumentItem = z.infer<typeof RFPDocumentItemSchema>;

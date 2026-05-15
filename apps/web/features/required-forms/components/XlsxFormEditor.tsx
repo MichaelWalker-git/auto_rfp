@@ -112,7 +112,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
     if (!cell?.fieldId) return;
 
     try {
-      await apiMutate(buildApiUrl('/rfp-document/form-field', { orgId }), 'PUT', {
+      await apiMutate(buildApiUrl('/required-forms/field', { orgId }), 'PUT', {
         projectId: doc.projectId, opportunityId: doc.opportunityId,
         documentId: doc.documentId, fieldId: cell.fieldId,
         value: cell.value || null, orgId,

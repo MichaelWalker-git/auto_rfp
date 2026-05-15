@@ -64,7 +64,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     if (saveTimeoutRef.current[fieldId]) clearTimeout(saveTimeoutRef.current[fieldId]);
     saveTimeoutRef.current[fieldId] = setTimeout(async () => {
       try {
-        await apiMutate(buildApiUrl('/rfp-document/form-field', { orgId }), 'PUT', {
+        await apiMutate(buildApiUrl('/required-forms/field', { orgId }), 'PUT', {
           projectId: doc.projectId, opportunityId: doc.opportunityId,
           documentId: doc.documentId, fieldId, orgId, ...update,
         });

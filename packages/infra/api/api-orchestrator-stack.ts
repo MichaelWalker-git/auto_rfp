@@ -59,6 +59,7 @@ import { pricingDomain } from './routes/pricing.routes';
 import { extractionDomain } from './routes/extraction.routes';
 import { opportunityAssistantDomain } from './routes/opportunity-assistant.routes';
 import { companyProfileDomain } from './routes/company-profile.routes';
+import { requiredFormsDomain } from './routes/required-forms.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -602,6 +603,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       extractionDomain({ extractionQueueUrl }),
       opportunityAssistantDomain(),
       companyProfileDomain(),
+      requiredFormsDomain(),
     ];
 
     // 4. Create nested stacks per domain (Lambda + LogGroup + Route registration)
@@ -623,6 +625,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'DocumentApprovalRoutes', 'PricingRoutes', 'ExtractionRoutes',
       'OpportunityAssistantRoutes',
       'CompanyProfileRoutes',
+      'RequiredFormsRoutes',
     ];
 
     for (let i = 0; i < allDomains.length; i++) {

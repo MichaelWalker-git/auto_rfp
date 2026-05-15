@@ -23,6 +23,19 @@ export const FormTypeSchema = z.enum([
 
 export type FormType = z.infer<typeof FormTypeSchema>;
 
+// ─── Form Processing Status ───
+
+export const FormProcessingStatusSchema = z.enum([
+  'DETECTED',
+  'ANALYZING',
+  'READY_FOR_REVIEW',
+  'REVIEWED',
+  'EXPORTED',
+  'FAILED',
+]);
+
+export type FormProcessingStatus = z.infer<typeof FormProcessingStatusSchema>;
+
 // ─── Detected Form Field ───
 
 export const DetectedFormFieldSchema = z.object({
@@ -44,3 +57,92 @@ export const DetectedFormFieldSchema = z.object({
 });
 
 export type DetectedFormField = z.infer<typeof DetectedFormFieldSchema>;
+
+// ─── Required Form Item ───
+
+export const RequiredFormItemSchema = z.object({
+  formId: z.string(),
+  orgId: z.string(),
+  projectId: z.string(),
+  opportunityId: z.string(),
+  name: z.string(),
+  formType: FormTypeSchema,
+  status: FormProcessingStatusSchema.default('DETECTED'),
+  sourceFileName: z.string(),
+  sourceFileKey: z.string(),
+  sourcePageRange: z.string().nullable().default(null),
+  sourceSheetName: z.string().nullable().default(null),
+  fields: z.array(DetectedFormFieldSchema).default([]),
+  filledFileKey: z.string().nullable().default(null),
+  autoFillPercentage: z.number().min(0).max(100).default(0),
+  manualFieldCount: z.number().default(0),
+  totalFieldCount: z.number().default(0),
+  reviewRequired: z.boolean().default(true),
+  reviewedBy: z.string().nullable().default(null),
+  reviewedAt: z.string().nullable().default(null),
+  errorMessage: z.string().nullable().default(null),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type RequiredFormItem = z.infer<typeof RequiredFormItemSchema>;
+
+// ─── Create DTO ───
+
+export const CreateRequiredFormDTOSchema = z.object({
+  orgId: z.string().min(1),
+  projectId: z.string().min(1),
+  opportunityId: z.string().min(1),
+  name: z.string().min(1),
+  formType: FormTypeSchema,
+  sourceFileName: z.string().min(1),
+  sourceFileKey: z.string().min(1),
+  sourcePageRange: z.string().nullable().optional(),
+  sourceSheetName: z.string().nullable().optional(),
+});
+
+export type CreateRequiredFormDTO = z.infer<typeof CreateRequiredFormDTOSchema>;
+
+// ─── Update DTO ───
+
+export const UpdateRequiredFormDTOSchema = z.object({
+  status: FormProcessingStatusSchema.optional(),
+  fields: z.array(DetectedFormFieldSchema).optional(),
+  filledFileKey: z.string().nullable().optional(),
+  autoFillPercentage: z.number().min(0).max(100).optional(),
+  manualFieldCount: z.number().optional(),
+  totalFieldCount: z.number().optional(),
+  reviewRequired: z.boolean().optional(),
+  reviewedBy: z.string().nullable().optional(),
+  reviewedAt: z.string().nullable().optional(),
+  errorMessage: z.string().nullable().optional(),
+});
+
+export type UpdateRequiredFormDTO = z.infer<typeof UpdateRequiredFormDTOSchema>;
+
+// ─── Update Field DTO ───
+
+export const UpdateFormFieldDTOSchema = z.object({
+  formId: z.string().min(1),
+  fieldId: z.string().min(1),
+  value: z.string().nullable().optional(),
+  label: z.string().optional(),
+  status: FormFieldStatusSchema.optional(),
+  boundingBox: z.object({
+    top: z.number(),
+    left: z.number(),
+    width: z.number(),
+    height: z.number(),
+  }).optional(),
+  delete: z.boolean().optional(),
+});
+
+export type UpdateFormFieldDTO = z.infer<typeof UpdateFormFieldDTOSchema>;
+
+// ─── API Responses ───
+
+export const RequiredFormsListResponseSchema = z.object({
+  forms: z.array(RequiredFormItemSchema),
+});
+
+export type RequiredFormsListResponse = z.infer<typeof RequiredFormsListResponseSchema>;

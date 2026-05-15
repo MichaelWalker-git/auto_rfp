@@ -6,20 +6,20 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useApi, apiMutate, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { PdfFormEditor } from '@/features/required-forms/components/PdfFormEditor';
 import { XlsxFormEditor } from '@/features/required-forms/components/XlsxFormEditor';
-import type { RFPDocumentItem } from '@auto-rfp/core';
+import type { RequiredFormItem } from '@auto-rfp/core';
 import { useCurrentOrganization } from '@/context/organization-context';
 
 export default function RequiredFormEditorPage() {
   const params = useParams<{ orgId: string; projectId: string; oppId: string; documentId: string }>();
-  const { orgId, projectId, oppId: opportunityId, documentId } = params;
+  const { orgId, projectId, oppId: opportunityId, documentId: formId } = params;
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id ?? orgId;
 
-  const { data: docData, isLoading: docLoading, mutate: mutateDoc } = useApi<{ document: RFPDocumentItem }>(
-    documentId ? buildApiUrl('/rfp-document/get', { projectId, opportunityId, documentId, orgId: navOrgId }) : null,
-    documentId ? buildApiUrl('/rfp-document/get', { projectId, opportunityId, documentId, orgId: navOrgId }) : null,
+  const { data: formData, isLoading, mutate: mutateForm } = useApi<{ form: RequiredFormItem }>(
+    formId ? buildApiUrl('/required-forms/get', { projectId, opportunityId, formId, orgId: navOrgId }) : null,
+    formId ? buildApiUrl('/required-forms/get', { projectId, opportunityId, formId, orgId: navOrgId }) : null,
   );
-  const doc = docData?.document ?? null;
+  const form = formData?.form ?? null;
 
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const fetchPdfUrl = useCallback(async (fileKey: string) => {
@@ -36,10 +36,10 @@ export default function RequiredFormEditorPage() {
   }, []);
 
   useEffect(() => {
-    if (doc?.fileKey) fetchPdfUrl(doc.fileKey);
-  }, [doc?.fileKey, fetchPdfUrl]);
+    if (form?.sourceFileKey) fetchPdfUrl(form.sourceFileKey);
+  }, [form?.sourceFileKey, fetchPdfUrl]);
 
-  if (docLoading || !doc) {
+  if (isLoading || !form) {
     return (
       <div className="flex flex-col h-screen">
         <div className="flex items-center gap-3 px-4 py-3 border-b">
@@ -48,7 +48,7 @@ export default function RequiredFormEditorPage() {
         </div>
         <div className="flex flex-1">
           <Skeleton className="flex-1" />
-          <div className="w-[380px] border-l p-4 space-y-3">
+          <div className="w-[340px] border-l p-4 space-y-3">
             {Array.from({ length: 8 }).map((_, i) => (
               <Skeleton key={i} className="h-14 w-full" />
             ))}
@@ -58,19 +58,19 @@ export default function RequiredFormEditorPage() {
     );
   }
 
-  const isXlsx = doc.mimeType?.includes('spreadsheet') || doc.mimeType?.includes('excel') ||
-    doc.fileKey?.endsWith('.xlsx') || doc.fileKey?.endsWith('.xls');
+  const isXlsx = form.sourceFileKey?.endsWith('.xlsx') || form.sourceFileKey?.endsWith('.xls') ||
+    form.formType === 'XLSX_MATRIX' || form.formType === 'XLSX_FORM';
 
   if (isXlsx) {
-    return <XlsxFormEditor doc={doc} orgId={navOrgId} onFieldUpdated={() => mutateDoc()} />;
+    return <XlsxFormEditor doc={form as any} orgId={navOrgId} onFieldUpdated={() => mutateForm()} />;
   }
 
   return (
     <PdfFormEditor
-      doc={doc}
+      doc={form as any}
       orgId={navOrgId}
       pdfUrl={pdfUrl}
-      onFieldUpdated={() => mutateDoc()}
+      onFieldUpdated={() => mutateForm()}
     />
   );
 }
