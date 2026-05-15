@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -33,6 +33,10 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [savingField, setSavingField] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [pdfPages, setPdfPages] = useState<string[]>([]);
+  const [pdfLoading, setPdfLoading] = useState(true);
+  const [pageSize, setPageSize] = useState<{ width: number; height: number }>({ width: 612, height: 792 });
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const backUrl = `/organizations/${orgId}/projects/${doc.projectId}/opportunities/${doc.opportunityId}`;
 
@@ -43,6 +47,46 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     }
     setFieldValues(initial);
   }, [fields]);
+
+  // Render PDF pages as images using pdf.js
+  useEffect(() => {
+    if (!pdfUrl) return;
+
+    const loadPdf = async () => {
+      setPdfLoading(true);
+      try {
+        const pdfjsLib = await import('pdfjs-dist');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+
+        const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+        const pages: string[] = [];
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1.5 });
+
+          if (i === 1) {
+            setPageSize({ width: viewport.width, height: viewport.height });
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext('2d')!;
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          pages.push(canvas.toDataURL('image/png'));
+        }
+
+        setPdfPages(pages);
+      } catch (err) {
+        console.error('Failed to render PDF:', err);
+      } finally {
+        setPdfLoading(false);
+      }
+    };
+
+    loadPdf();
+  }, [pdfUrl]);
 
   const handleSaveField = useCallback(async (fieldId: string, value: string) => {
     setSavingField(fieldId);
@@ -104,37 +148,87 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
         </Button>
       </div>
 
-      {/* Main content: PDF viewer + field panel */}
+      {/* Main content: PDF with overlays + field panel */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: PDF viewer */}
-        <div className="flex-1 bg-gray-100 overflow-hidden">
-          {pdfUrl ? (
-            <iframe src={pdfUrl} className="w-full h-full border-0" title="PDF Document" />
-          ) : (
+        {/* Left: PDF pages with field overlays */}
+        <div ref={containerRef} className="flex-1 overflow-y-auto bg-gray-200 p-4">
+          {pdfLoading ? (
             <div className="flex items-center justify-center h-full">
-              <Skeleton className="w-[600px] h-[800px]" />
+              <div className="text-center space-y-3">
+                <RefreshCw className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">Rendering PDF...</p>
+              </div>
+            </div>
+          ) : pdfPages.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-sm text-muted-foreground">Could not render PDF. Try refreshing.</p>
+            </div>
+          ) : (
+            <div className="space-y-4 flex flex-col items-center">
+              {pdfPages.map((dataUrl, pageIdx) => (
+                <div
+                  key={pageIdx}
+                  className="relative bg-white shadow-lg"
+                  style={{ width: pageSize.width, height: pageSize.height }}
+                >
+                  {/* Rendered PDF page as background */}
+                  <img src={dataUrl} alt={`Page ${pageIdx + 1}`} className="w-full h-full" />
+
+                  {/* Field overlays positioned on the page */}
+                  {fields
+                    .filter((f) => (f.pageNumber ?? 1) === pageIdx + 1 && f.boundingBox)
+                    .map((field) => {
+                      const bbox = field.boundingBox!;
+                      const value = fieldValues[field.fieldId] ?? field.value ?? '';
+                      const isActive = editingField === field.fieldId;
+
+                      return (
+                        <input
+                          key={field.fieldId}
+                          type="text"
+                          value={value}
+                          onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.fieldId]: e.target.value }))}
+                          onFocus={() => setEditingField(field.fieldId)}
+                          onBlur={() => handleSaveField(field.fieldId, fieldValues[field.fieldId] ?? '')}
+                          placeholder={field.label}
+                          className={cn(
+                            'absolute bg-transparent text-[11px] px-0.5 outline-none transition-colors',
+                            isActive && 'bg-blue-50/80 ring-1 ring-blue-400',
+                            !isActive && value && 'bg-green-50/60',
+                            !isActive && !value && 'bg-yellow-50/40 placeholder:text-gray-400 placeholder:text-[10px]',
+                          )}
+                          style={{
+                            left: `${bbox.left * 100}%`,
+                            top: `${bbox.top * 100}%`,
+                            width: `${bbox.width * 100}%`,
+                            height: `${bbox.height * 100}%`,
+                          }}
+                          title={field.label}
+                        />
+                      );
+                    })}
+                </div>
+              ))}
             </div>
           )}
         </div>
 
         {/* Right: Field panel */}
-        <div className="w-[380px] border-l flex flex-col overflow-hidden bg-background">
-          {/* Field stats */}
+        <div className="w-[340px] border-l flex flex-col overflow-hidden bg-background">
+          {/* Stats */}
           <div className="px-4 py-3 border-b shrink-0">
-            <p className="text-sm font-medium">{fields.length} Fields Detected</p>
+            <p className="text-sm font-medium">{fields.length} Fields</p>
             <div className="flex gap-2 mt-1.5">
-              {autoFilled > 0 && <Badge variant="outline" className="text-[10px] border-green-300 text-green-700 bg-green-50">{autoFilled} auto-filled</Badge>}
+              {autoFilled > 0 && <Badge variant="outline" className="text-[10px] border-green-300 text-green-700 bg-green-50">{autoFilled} filled</Badge>}
               {manual > 0 && <Badge variant="outline" className="text-[10px] border-orange-300 text-orange-700 bg-orange-50">{manual} manual</Badge>}
-              {fields.length - autoFilled - manual > 0 && <Badge variant="outline" className="text-[10px]">{fields.length - autoFilled - manual} empty</Badge>}
             </div>
           </div>
 
           {/* Field list */}
           <div className="flex-1 overflow-y-auto">
             {fields.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-                <p className="text-sm text-muted-foreground">No form fields were detected.</p>
-                <p className="text-xs text-muted-foreground mt-1">The document may need manual processing.</p>
+              <div className="p-6 text-center">
+                <p className="text-sm text-muted-foreground">No fields detected.</p>
               </div>
             ) : (
               <div className="divide-y">
@@ -142,45 +236,20 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
                   const colors = STATUS_COLORS[field.status] ?? STATUS_COLORS.EMPTY;
                   const isEditing = editingField === field.fieldId;
                   const currentValue = fieldValues[field.fieldId] ?? field.value ?? '';
-                  const isSaving = savingField === field.fieldId;
 
                   return (
-                    <div key={field.fieldId} className={cn('px-4 py-2.5', colors.bg)}>
-                      <div className="flex items-center justify-between gap-2">
+                    <div
+                      key={field.fieldId}
+                      className={cn('px-3 py-2', isEditing && 'bg-blue-50/50', colors.bg)}
+                      onClick={() => setEditingField(field.fieldId)}
+                    >
+                      <div className="flex items-center justify-between">
                         <p className="text-[11px] font-medium text-muted-foreground truncate">{field.label}</p>
-                        <div className="flex items-center gap-1 shrink-0">
-                          {isSaving && <RefreshCw className="h-3 w-3 animate-spin text-muted-foreground" />}
-                          <span className={cn('text-[9px] font-medium uppercase', colors.text)}>
-                            {field.status === 'AUTO_FILLED' ? 'auto' : field.status === 'MANUAL_REQUIRED' ? 'manual' : field.status === 'LOW_CONFIDENCE' ? 'review' : ''}
-                          </span>
-                        </div>
+                        {savingField === field.fieldId && <RefreshCw className="h-3 w-3 animate-spin" />}
                       </div>
-
-                      {isEditing ? (
-                        <div className="flex items-center gap-1 mt-1">
-                          <input
-                            type="text"
-                            className="flex-1 px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            value={currentValue}
-                            onChange={(e) => setFieldValues((prev) => ({ ...prev, [field.fieldId]: e.target.value }))}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleSaveField(field.fieldId, fieldValues[field.fieldId] ?? '');
-                              if (e.key === 'Escape') setEditingField(null);
-                            }}
-                            autoFocus
-                          />
-                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleSaveField(field.fieldId, fieldValues[field.fieldId] ?? '')}>
-                            <Check className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <p
-                          className={cn('text-sm mt-0.5 cursor-pointer hover:bg-white/70 rounded px-1 -mx-1 py-0.5', !currentValue && 'italic text-muted-foreground')}
-                          onClick={() => setEditingField(field.fieldId)}
-                        >
-                          {currentValue || (field.manualReason ?? 'Click to fill')}
-                        </p>
-                      )}
+                      <p className={cn('text-sm truncate', !currentValue && 'italic text-muted-foreground')}>
+                        {currentValue || (field.manualReason ?? '—')}
+                      </p>
                     </div>
                   );
                 })}
