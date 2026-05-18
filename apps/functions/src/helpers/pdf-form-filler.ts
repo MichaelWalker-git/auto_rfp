@@ -20,18 +20,12 @@ export const fillPdfForm = async (args: {
   const bytes = await s3Obj.Body?.transformToByteArray();
   if (!bytes) throw new Error(`Could not read PDF from S3: ${sourceFileKey}`);
 
-  // Check if PDF is user-password encrypted (has /Encrypt + /U)
-  const pdfString = Buffer.from(bytes).toString('latin1');
-  const isEncrypted = pdfString.includes('/Encrypt') && pdfString.includes('/U ');
+  // Load original and copy into a fresh unencrypted document
+  const srcDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+  const pdfDoc = await PDFDocument.create();
+  const copiedPages = await pdfDoc.copyPages(srcDoc, srcDoc.getPageIndices());
+  for (const page of copiedPages) pdfDoc.addPage(page);
 
-  if (isEncrypted) {
-    // Can't modify encrypted PDFs — return original as-is with a note
-    console.warn(`PDF is password-encrypted, cannot fill fields: ${sourceFileKey}`);
-    await uploadToS3(bucket, outputKey, Buffer.from(bytes), 'application/pdf');
-    return outputKey;
-  }
-
-  const pdfDoc = await PDFDocument.load(bytes);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const pages = pdfDoc.getPages();
 
