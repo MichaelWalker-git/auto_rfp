@@ -68,19 +68,30 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [activeField]);
 
-  // Save all changes to backend
+  // Save all fields in one request
   const handleSaveAll = useCallback(async () => {
     setIsSaving(true);
     try {
-      for (const [fid, pos] of Object.entries(fieldPositions)) {
-        const value = fieldValues[fid] ?? null;
-        const label = fieldLabels[fid] ?? 'Field';
-        await apiMutate(buildApiUrl('/required-forms/field', { orgId }), 'PUT', {
-          projectId: doc.projectId, opportunityId: doc.opportunityId,
-          formId: doc.formId, fieldId: fid, orgId,
-          value, label, boundingBox: pos,
-        });
-      }
+      const allFields = Object.entries(fieldPositions).map(([fid, pos]) => ({
+        fieldId: fid,
+        label: fieldLabels[fid] ?? 'Field',
+        value: fieldValues[fid] ?? null,
+        status: fieldValues[fid] ? 'AUTO_FILLED' as const : 'EMPTY' as const,
+        confidence: null,
+        profileFieldKey: null,
+        manualReason: null,
+        pageNumber: null,
+        cellReference: null,
+        boundingBox: pos,
+      }));
+
+      await apiMutate(buildApiUrl('/required-forms/save-fields', { orgId }), 'PUT', {
+        projectId: doc.projectId,
+        opportunityId: doc.opportunityId,
+        formId: doc.formId,
+        fields: allFields,
+      });
+
       setIsDirty(false);
       toast({ title: 'Saved' });
       onFieldUpdated?.();

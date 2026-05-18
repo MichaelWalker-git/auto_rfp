@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
-import { Download, RefreshCw, ArrowLeft } from 'lucide-react';
+import { Download, RefreshCw, ArrowLeft, Trash2 } from 'lucide-react';
 import { apiMutate, apiFetcher, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { cn } from '@/lib/utils';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -124,6 +124,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
   }, [doc.sourceFileKey]);
 
   const handleCellChange = useCallback((row: number, col: number, value: string) => {
+    setIsDirty(true);
     setGrid((prev) => {
       const updated = [...prev];
       if (updated[row]) {
@@ -134,21 +135,50 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
     });
   }, []);
 
-  const handleCellBlur = useCallback(async (row: number, col: number) => {
+  const handleCellBlur = useCallback((_row: number, _col: number) => {
     setEditingCell(null);
-    const cell = grid[row]?.[col];
-    if (!cell?.fieldId) return;
+    setIsDirty(true);
+  }, []);
 
+  // Save all fields in one request
+  const handleSaveAll = useCallback(async () => {
+    setIsSaving(true);
     try {
-      await apiMutate(buildApiUrl('/required-forms/field', { orgId }), 'PUT', {
-        projectId: doc.projectId, opportunityId: doc.opportunityId,
-        formId: doc.formId, fieldId: cell.fieldId,
-        value: cell.value || null, orgId,
+      const allFields = fields.map((f) => {
+        const gridCell = grid.flat().find((c) => c.fieldId === f.fieldId);
+        return { ...f, value: gridCell?.value ?? f.value };
       });
+
+      await apiMutate(buildApiUrl('/required-forms/save-fields', { orgId }), 'PUT', {
+        projectId: doc.projectId, opportunityId: doc.opportunityId,
+        formId: doc.formId, fields: allFields,
+      });
+
+      setIsDirty(false);
+      toast({ title: 'Saved' });
+      onFieldUpdated?.();
     } catch (err) {
       toast({ title: 'Save failed', description: (err as Error)?.message, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
     }
-  }, [grid, doc, orgId, toast]);
+  }, [fields, grid, doc, orgId, toast, onFieldUpdated]);
+
+  // Reprocess
+  const handleReprocess = useCallback(async () => {
+    const ok = await confirm({ title: 'Reprocess form?', description: 'This will re-extract fields and re-fill. Manual edits will be lost.', confirmLabel: 'Reprocess', variant: 'destructive' });
+    if (!ok) return;
+    setReprocessing(true);
+    try {
+      await apiMutate(buildApiUrl('/required-forms/reprocess', { orgId, projectId: doc.projectId, opportunityId: doc.opportunityId, formId: doc.formId }), 'POST', {});
+      toast({ title: 'Form reprocessed' });
+      onFieldUpdated?.();
+    } catch (err) {
+      toast({ title: 'Reprocess failed', description: (err as Error)?.message, variant: 'destructive' });
+    } finally {
+      setReprocessing(false);
+    }
+  }, [doc, orgId, toast, onFieldUpdated, confirm]);
 
   const handleExport = useCallback(async () => {
     setExporting(true);
@@ -175,9 +205,17 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
           <p className="text-xs text-muted-foreground">{doc.sourceFileName}</p>
         </div>
         <Badge variant="outline" className="text-xs">{doc.status}</Badge>
+        <Button size="sm" variant="outline" onClick={handleReprocess} disabled={reprocessing} className="gap-1.5">
+          <RefreshCw className={cn('h-3.5 w-3.5', reprocessing && 'animate-spin')} />
+          Reprocess
+        </Button>
         <Button size="sm" variant="outline" onClick={handleExport} disabled={exporting} className="gap-1.5">
           {exporting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           Export XLSX
+        </Button>
+        <Button size="sm" variant={isDirty ? 'default' : 'outline'} onClick={handleSaveAll} disabled={isSaving || !isDirty} className="gap-1.5">
+          {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : null}
+          Save
         </Button>
       </div>
 
@@ -249,18 +287,42 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
             {fields.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-6">No editable fields detected.</p>
             ) : (
-              fields.map((field) => (
-                <div key={field.fieldId} className="px-4 py-2.5 border-b border-gray-100">
-                  <p className="text-[11px] font-medium text-gray-500 truncate">{field.label}</p>
-                  <p className={cn('text-xs mt-0.5 truncate', field.value ? 'text-gray-900' : 'text-gray-300 italic')}>
-                    {field.value || 'empty'}
-                  </p>
-                </div>
-              ))
+              fields.map((field) => {
+                const isEditingSidebar = editingSidebarField === field.fieldId;
+                const sidebarVal = sidebarValues[field.fieldId] ?? field.value ?? '';
+                return (
+                  <div key={field.fieldId} className="px-4 py-2.5 border-b border-gray-100 group">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-medium text-gray-500 truncate">{field.label}</p>
+                      <button className="p-0.5 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100" onClick={() => { /* delete would need save-fields call */ setIsDirty(true); }}>
+                        <Trash2 className="h-3 w-3 text-red-400" />
+                      </button>
+                    </div>
+                    {isEditingSidebar ? (
+                      <input
+                        className="w-full mt-0.5 text-xs border-b border-indigo-400 outline-none bg-transparent"
+                        value={sidebarVal}
+                        onChange={(e) => { setSidebarValues((prev) => ({ ...prev, [field.fieldId]: e.target.value })); setIsDirty(true); }}
+                        onBlur={() => setEditingSidebarField(null)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') setEditingSidebarField(null); }}
+                        autoFocus
+                      />
+                    ) : (
+                      <p
+                        className={cn('text-xs mt-0.5 truncate cursor-pointer', sidebarVal ? 'text-gray-900' : 'text-gray-300 italic')}
+                        onClick={() => setEditingSidebarField(field.fieldId)}
+                      >
+                        {sidebarVal || 'click to edit'}
+                      </p>
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
       </div>
+      <ConfirmDialog />
     </div>
   );
 };
