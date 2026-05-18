@@ -219,7 +219,15 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
         </Button>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className={cn('flex flex-1 overflow-hidden relative', reprocessing && 'pointer-events-none opacity-60')}>
+        {reprocessing && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/50 backdrop-blur-sm">
+            <div className="text-center">
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-indigo-500" />
+              <p className="text-sm font-medium text-gray-700 mt-2">Reprocessing form...</p>
+            </div>
+          </div>
+        )}
         {/* Table */}
         <div className="flex-1 overflow-auto bg-white">
         {loading ? (

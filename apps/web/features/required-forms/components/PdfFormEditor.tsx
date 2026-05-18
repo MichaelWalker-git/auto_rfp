@@ -277,6 +277,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
 
   const filledCount = Object.values(fieldValues).filter((v) => v).length;
   const totalCount = Object.keys(fieldPositions).length;
+  const isProcessing = reprocessing || doc.status === 'IN_PROGRESS';
 
   return (
     <div className="flex flex-col h-screen">
@@ -306,7 +307,15 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
         </Button>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className={cn('flex flex-1 overflow-hidden relative', isProcessing && 'pointer-events-none opacity-60')}>
+        {isProcessing && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/50 backdrop-blur-sm">
+            <div className="text-center">
+              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-indigo-500" />
+              <p className="text-sm font-medium text-gray-700 mt-2">Reprocessing form...</p>
+            </div>
+          </div>
+        )}
         {/* PDF with overlays */}
         <div className="flex-1 overflow-y-auto bg-gray-200 p-4" onClick={() => setActiveField(null)}>
           {pdfLoading ? (
