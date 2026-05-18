@@ -368,15 +368,15 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
                             onBlur={() => handleValueBlur(fid)}
                             placeholder={label}
                             className={cn(
-                              'w-full h-full bg-transparent text-[10px] leading-tight px-1 outline-none transition-all rounded-sm cursor-text',
-                              isActive && 'bg-white border border-indigo-400 shadow-md text-gray-900',
-                              !isActive && value && 'bg-blue-50/50 border border-blue-200/50 text-blue-900',
-                              !isActive && !value && 'bg-amber-50/30 border border-dashed border-amber-300/50 placeholder:text-amber-400/80 placeholder:text-[9px]',
+                              'w-full h-full bg-transparent text-[10px] leading-tight px-1.5 outline-none transition-all rounded-md cursor-text',
+                              isActive && 'bg-white/95 ring-2 ring-violet-400 shadow-lg text-gray-900',
+                              !isActive && value && 'bg-emerald-50/60 ring-1 ring-emerald-300/40 text-emerald-900',
+                              !isActive && !value && 'bg-slate-100/40 ring-1 ring-slate-300/30 placeholder:text-slate-400/70 placeholder:text-[9px] hover:bg-white/60 hover:ring-violet-300/50',
                             )}
                           />
                           {/* Resize handle — bottom-right corner */}
                           <div
-                            className="absolute bottom-0 right-0 w-2.5 h-2.5 cursor-nwse-resize opacity-0 group-hover:opacity-100 bg-indigo-500/40 rounded-tl-sm"
+                            className="absolute -bottom-0.5 -right-0.5 w-2 h-2 cursor-nwse-resize opacity-0 group-hover:opacity-100 bg-violet-500/50 rounded-full"
                             onMouseDown={(e) => handleResizeStart(e, fid, 'xy')}
                           />
                         </div>
