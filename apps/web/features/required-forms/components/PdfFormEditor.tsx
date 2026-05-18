@@ -279,7 +279,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
 
       <div className="flex flex-1 overflow-hidden">
         {/* PDF with overlays */}
-        <div className="flex-1 overflow-y-auto bg-gray-200 p-4" onClick={() => setActiveField(null)}
+        <div className="flex-1 overflow-y-auto bg-gray-200 p-4" onClick={() => setActiveField(null)}>
           {pdfLoading ? (
             <div className="flex items-center justify-center h-full"><RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" /></div>
           ) : (
