@@ -20,12 +20,7 @@ export const fillPdfForm = async (args: {
   const bytes = await s3Obj.Body?.transformToByteArray();
   if (!bytes) throw new Error(`Could not read PDF from S3: ${sourceFileKey}`);
 
-  // Load original and copy into a fresh unencrypted document
-  const srcDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
-  const pdfDoc = await PDFDocument.create();
-  const copiedPages = await pdfDoc.copyPages(srcDoc, srcDoc.getPageIndices());
-  for (const page of copiedPages) pdfDoc.addPage(page);
-
+  const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const pages = pdfDoc.getPages();
 
