@@ -18,6 +18,8 @@ import { useComments } from '@/features/collaboration/hooks/useComments';
 
 interface AnswerData {
   text: string;
+  /** The text that was last approved (used to detect if local edits match approved state) */
+  approvedText?: string;
   sources?: AnswerSource[];
   confidence?: number;
   confidenceBreakdown?: ConfidenceBreakdown;
@@ -357,29 +359,43 @@ export function QuestionEditor({
                 label={isRemoving ? 'Removing...' : 'Remove'}
                 isLoading={isRemoving}
               />
-              {answer?.text && answer.status === 'APPROVED' && onUnapprove ? (
-                <PermissionButton
-                  requiredPermission="answer:edit"
-                  variant="outline"
-                  size="sm"
-                  onClick={onUnapprove}
-                  disabled={isUnapproving || isRemoving || isLockedByOther}
-                  className="border-slate-300 text-slate-600 hover:bg-slate-50"
-                >
-                  {isUnapproving ? <><Spinner className="h-4 w-4 mr-1" />Reverting...</> : 'Unapprove'}
-                </PermissionButton>
-              ) : answer?.text ? (
-                <PermissionButton
-                  requiredPermission="answer:edit"
-                  variant="default"
-                  size="sm"
-                  onClick={onApprove}
-                  disabled={isApproving || isRemoving || isGenerating || isLockedByOther}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
-                >
-                  {isApproving ? <><Spinner className="h-4 w-4 mr-1" />Approving...</> : <><Save className="h-4 w-4 mr-1" />Approve</>}
-                </PermissionButton>
-              ) : null}
+              {/* Show Unapprove only if: has text + text matches approved text (user hasn't changed it) */}
+              {(() => {
+                const currentText = answer?.text?.trim() ?? '';
+                const approvedTextVal = answer?.approvedText?.trim() ?? '';
+                const isTextMatchingApproved = currentText === approvedTextVal && approvedTextVal.length > 0;
+                
+                if (currentText && isTextMatchingApproved && onUnapprove) {
+                  // Text matches what was approved — show Unapprove
+                  return (
+                    <PermissionButton
+                      requiredPermission="answer:edit"
+                      variant="outline"
+                      size="sm"
+                      onClick={onUnapprove}
+                      disabled={isUnapproving || isRemoving || isLockedByOther}
+                      className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                    >
+                      {isUnapproving ? <><Spinner className="h-4 w-4 mr-1" />Reverting...</> : 'Unapprove'}
+                    </PermissionButton>
+                  );
+                } else if (currentText) {
+                  // Text exists but differs from approved (or never approved) — show Approve
+                  return (
+                    <PermissionButton
+                      requiredPermission="answer:edit"
+                      variant="default"
+                      size="sm"
+                      onClick={onApprove}
+                      disabled={isApproving || isRemoving || isGenerating || isLockedByOther}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+                    >
+                      {isApproving ? <><Spinner className="h-4 w-4 mr-1" />Approving...</> : <><Save className="h-4 w-4 mr-1" />Approve</>}
+                    </PermissionButton>
+                  );
+                }
+                return null;
+              })()}
             </div>
           </div>
         </CardContent>

@@ -90,7 +90,7 @@ export type AnswerItem = z.infer<typeof AnswerItemSchema>;
 
 export const SaveAnswerDTOSchema = z.object({
   questionId: z.string(),
-  text: z.string().min(1, 'Answer text is required'),
+  text: z.string().trim().min(1, 'Answer text is required'),
   projectId: z.string().optional(),
   opportunityId: z.string().optional(),
   questionFileId: z.string().optional(),
