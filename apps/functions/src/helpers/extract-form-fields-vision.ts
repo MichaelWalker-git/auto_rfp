@@ -49,17 +49,15 @@ export const extractFormFieldsWithVision = async (fileKey: string): Promise<Dete
     '- currentValue: null (these are all blank fields)\n' +
     '- pageNumber: which page (1-indexed)\n' +
     '- boundingBox: { top, left, width, height } as normalized coordinates (0.0 to 1.0 relative to page)\n\n' +
-    'BOUNDING BOX RULES (CRITICAL — read carefully):\n' +
-    '- The boundingBox must cover the UNDERLINE/BLANK LINE where someone would write — NOT the parenthesized label below it.\n' +
-    '- Common pattern: a blank line ______ with "(Corporation Name)" printed below it.\n' +
-    '  The boundingBox goes on the BLANK LINE ABOVE, not on the "(Corporation Name)" text.\n' +
-    '- top: position of the UNDERLINE (the horizontal line), NOT the label text below it.\n' +
-    '- The label like "(Signature)" or "(Date)" is just a hint about what goes on the line above.\n' +
-    '- height: approximately 0.02-0.025 (one text line height)\n' +
-    '- left: where the underline starts (often at a margin ~0.05-0.10)\n' +
-    '- width: how wide the underline extends\n' +
-    '- WRONG: placing bbox on "(Corporation Name)" text → fields will overlap labels\n' +
-    '- RIGHT: placing bbox on the blank ______ line above "(Corporation Name)"\n\n' +
+    'BOUNDING BOX RULES (CRITICAL):\n' +
+    '- The boundingBox covers WHERE THE USER TYPES — the blank horizontal line, not any printed text.\n' +
+    '- top: the Y coordinate where the HORIZONTAL UNDERLINE is drawn on the page.\n' +
+    '  If there is a label "(Corporation Name)" at Y=0.15, the underline above it is at approximately Y=0.12.\n' +
+    '  Return top=0.12, NOT top=0.15.\n' +
+    '- The bbox should be 0.02-0.03 ABOVE any parenthesized label text like "(Signature)" or "(Date)".\n' +
+    '- height: 0.020 (thin line area)\n' +
+    '- left/width: match the extent of the underline.\n' +
+    '- If text like "municipality (\\"Toledo\\") and ___________" has an inline blank, the bbox covers just the underline portion.\n\n' +
     'Return JSON: { "fields": [...] }';
 
   const body = {
@@ -91,11 +89,11 @@ export const extractFormFieldsWithVision = async (fileKey: string): Promise<Dete
   const visionFields = Array.isArray(parsed?.fields) ? (parsed.fields as VisionField[]) : [];
 
   return visionFields.map((vf) => {
-    // Normalize bounding box: clamp to page bounds, ensure minimum size
+    // Normalize bounding box: shift up slightly (Claude tends to position on label, not underline above it)
     let bbox = vf.boundingBox ?? null;
     if (bbox) {
       bbox = {
-        top: Math.max(0, Math.min(0.98, bbox.top)),
+        top: Math.max(0, Math.min(0.98, bbox.top - 0.015)),
         left: Math.max(0, Math.min(0.95, bbox.left)),
         width: Math.max(0.05, Math.min(1 - bbox.left, bbox.width)),
         height: Math.max(0.018, Math.min(0.04, bbox.height)),

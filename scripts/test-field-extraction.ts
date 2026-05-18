@@ -59,8 +59,42 @@ const run = async () => {
   process.env.DB_TABLE_NAME = process.env.DB_TABLE_NAME || 'RFP-table-Dev';
   process.env.REGION = process.env.REGION || 'us-east-1';
 
-  const { invokeModel } = await import('../apps/functions/src/helpers/bedrock-http-client');
-  const { safeParseJsonFromModel } = await import('../apps/functions/src/helpers/json');
+  // Direct Bedrock call (avoids path alias issues from running outside functions workspace)
+  const { SSMClient, GetParameterCommand } = await import('@aws-sdk/client-ssm');
+  const https = await import('https');
+
+  const ssmParam = process.env.BEDROCK_API_KEY_SSM_PARAM || '/auto-rfp/bedrock/api-key';
+  const region = process.env.BEDROCK_REGION || 'us-east-1';
+  const ssm = new SSMClient({ region });
+  const paramRes = await ssm.send(new GetParameterCommand({ Name: ssmParam, WithDecryption: true }));
+  const apiKey = paramRes.Parameter?.Value;
+  if (!apiKey) { console.error('Could not get Bedrock API key from SSM'); process.exit(1); }
+
+  const invokeModel = (modelId: string, body: string): Promise<Uint8Array> => {
+    return new Promise((resolve, reject) => {
+      const options = {
+        hostname: `bedrock-runtime.${region}.amazonaws.com`,
+        path: `/model/${encodeURIComponent(modelId)}/invoke`,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      };
+      const req = https.request(options, (res: any) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => resolve(new Uint8Array(Buffer.concat(chunks))));
+      });
+      req.on('error', reject);
+      req.write(body);
+      req.end();
+    });
+  };
+
+  const safeParseJsonFromModel = (text: string): unknown => {
+    try {
+      const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      return JSON.parse(cleaned);
+    } catch { return null; }
+  };
 
   const base64 = pdfBytes.toString('base64');
   const modelId = process.env.BEDROCK_MODEL_ID!;
@@ -86,17 +120,15 @@ const run = async () => {
     '- currentValue: null (these are all blank fields)\n' +
     '- pageNumber: which page (1-indexed)\n' +
     '- boundingBox: { top, left, width, height } as normalized coordinates (0.0 to 1.0 relative to page)\n\n' +
-    'BOUNDING BOX RULES (CRITICAL — read carefully):\n' +
-    '- The boundingBox must cover the UNDERLINE/BLANK LINE where someone would write — NOT the parenthesized label below it.\n' +
-    '- Common pattern: a blank line ______ with "(Corporation Name)" printed below it.\n' +
-    '  The boundingBox goes on the BLANK LINE ABOVE, not on the "(Corporation Name)" text.\n' +
-    '- top: position of the UNDERLINE (the horizontal line), NOT the label text below it.\n' +
-    '- The label like "(Signature)" or "(Date)" is just a hint about what goes on the line above.\n' +
-    '- height: approximately 0.02-0.025 (one text line height)\n' +
-    '- left: where the underline starts (often at a margin ~0.05-0.10)\n' +
-    '- width: how wide the underline extends\n' +
-    '- WRONG: placing bbox on "(Corporation Name)" text → fields will overlap labels\n' +
-    '- RIGHT: placing bbox on the blank ______ line above "(Corporation Name)"\n\n' +
+    'BOUNDING BOX RULES (CRITICAL):\n' +
+    '- The boundingBox covers WHERE THE USER TYPES — the blank horizontal line, not any printed text.\n' +
+    '- top: the Y coordinate where the HORIZONTAL UNDERLINE is drawn on the page.\n' +
+    '  If there is a label "(Corporation Name)" at Y=0.15, the underline above it is at approximately Y=0.12.\n' +
+    '  Return top=0.12, NOT top=0.15.\n' +
+    '- The bbox should be 0.02-0.03 ABOVE any parenthesized label text like "(Signature)" or "(Date)".\n' +
+    '- height: 0.020 (thin line area)\n' +
+    '- left/width: match the extent of the underline.\n' +
+    '- If text like "municipality (\\"Toledo\\") and ___________" has an inline blank, the bbox covers just the underline portion.\n\n' +
     'Return JSON: { "fields": [...] }';
 
   const body = {
