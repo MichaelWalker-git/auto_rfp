@@ -192,11 +192,9 @@ export const baseHandler = async (
           if (match.manualReason) {
             return { ...f, status: 'MANUAL_REQUIRED' as FormFieldStatus, manualReason: match.manualReason };
           }
-          if (match.profileFieldKey && match.value && match.confidence >= 0.7) {
-            return { ...f, value: match.value, status: 'AUTO_FILLED' as FormFieldStatus, confidence: match.confidence, profileFieldKey: match.profileFieldKey };
-          }
-          if (match.profileFieldKey && match.value && match.confidence > 0.5) {
-            return { ...f, value: match.value, status: 'LOW_CONFIDENCE' as FormFieldStatus, confidence: match.confidence, profileFieldKey: match.profileFieldKey };
+          if (match.profileFieldKey && match.value) {
+            const status = match.confidence >= 0.7 ? 'AUTO_FILLED' as FormFieldStatus : 'LOW_CONFIDENCE' as FormFieldStatus;
+            return { ...f, value: match.value, status, confidence: match.confidence, profileFieldKey: match.profileFieldKey };
           }
           return f;
         });

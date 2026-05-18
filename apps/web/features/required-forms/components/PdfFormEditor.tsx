@@ -416,9 +416,11 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
               const label = fieldLabels[fid] ?? 'Field';
               const isActive = activeField === fid;
               const isEditingLbl = editingLabel === fid;
+              const field = fields.find((f) => f.fieldId === fid);
+              const isLowConfidence = field?.status === 'LOW_CONFIDENCE';
 
               return (
-                <div key={fid} className={cn('px-4 py-2.5 border-b border-gray-100 transition-colors', isActive && 'bg-indigo-50/60 border-l-2 border-l-indigo-500')}>
+                <div key={fid} className={cn('px-4 py-2.5 border-b border-gray-100 transition-colors', isActive && 'bg-indigo-50/60 border-l-2 border-l-indigo-500', isLowConfidence && 'bg-amber-50/40')}>
                   <div className="flex items-center justify-between mb-1">
                     {isEditingLbl ? (
                       <input
@@ -435,6 +437,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
                         onClick={() => { setEditingLabel(fid); setActiveField(fid); }}
                         title="Click to rename"
                       >
+                        {isLowConfidence && <span className="text-amber-500 mr-1" title={`Low confidence: ${Math.round((field?.confidence ?? 0) * 100)}%`}>⚠</span>}
                         {label}
                       </p>
                     )}
