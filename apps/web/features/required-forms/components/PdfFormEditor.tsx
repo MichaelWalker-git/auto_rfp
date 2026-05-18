@@ -310,33 +310,33 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
                             onBlur={() => handleValueBlur(fid)}
                             placeholder={label}
                             className={cn(
-                              'w-full h-full bg-transparent text-[11px] px-1 outline-none border rounded-sm',
-                              isActive && 'bg-blue-50/90 border-blue-400 shadow-sm',
-                              !isActive && value && 'bg-green-50/70 border-green-300/60',
-                              !isActive && !value && 'bg-yellow-50/40 border-yellow-300/30 placeholder:text-gray-400 placeholder:text-[9px]',
+                              'w-full h-full bg-transparent text-[10px] leading-tight px-0.5 outline-none border-b transition-all',
+                              isActive && 'bg-white/90 border-b-2 border-indigo-500 shadow-sm text-gray-900',
+                              !isActive && value && 'border-transparent text-blue-800 font-medium',
+                              !isActive && !value && 'border-gray-300/60 placeholder:text-gray-400/70 placeholder:text-[9px] hover:border-indigo-300 hover:bg-white/40',
                             )}
                           />
                           {/* Toolbar on hover */}
-                          <div className="absolute -top-5 left-0 hidden group-hover:flex items-center gap-0.5 bg-white shadow-md rounded px-1 py-0.5 z-20">
+                          <div className="absolute -top-[18px] left-0 hidden group-hover:flex items-center gap-0.5 bg-white/95 shadow-sm border border-gray-200 rounded px-1 py-0.5 z-20 backdrop-blur-sm">
                             <button className="cursor-move p-0.5 hover:bg-gray-100 rounded" onMouseDown={(e) => handleDragStart(e, fid)} title="Move">
-                              <Move className="h-3 w-3 text-gray-500" />
+                              <Move className="h-2.5 w-2.5 text-gray-500" />
                             </button>
                             <button className="p-0.5 hover:bg-red-50 rounded" onClick={() => handleDeleteField(fid)} title="Delete">
-                              <Trash2 className="h-3 w-3 text-red-500" />
+                              <Trash2 className="h-2.5 w-2.5 text-red-400" />
                             </button>
-                            <span className="text-[9px] text-gray-400 ml-1 max-w-[60px] truncate">{label}</span>
+                            <span className="text-[8px] text-gray-400 ml-0.5 max-w-[50px] truncate">{label}</span>
                           </div>
                           {/* Resize handles */}
                           <div
-                            className="absolute top-0 right-0 w-1.5 h-full cursor-ew-resize opacity-0 group-hover:opacity-100 bg-blue-400/30 hover:bg-blue-400/50"
+                            className="absolute top-0 right-0 w-1 h-full cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-indigo-400/40"
                             onMouseDown={(e) => handleResizeStart(e, fid, 'x')}
                           />
                           <div
-                            className="absolute bottom-0 left-0 w-full h-1.5 cursor-ns-resize opacity-0 group-hover:opacity-100 bg-blue-400/30 hover:bg-blue-400/50"
+                            className="absolute bottom-0 left-0 w-full h-1 cursor-ns-resize opacity-0 group-hover:opacity-100 hover:bg-indigo-400/40"
                             onMouseDown={(e) => handleResizeStart(e, fid, 'y')}
                           />
                           <div
-                            className="absolute bottom-0 right-0 w-2.5 h-2.5 cursor-nwse-resize opacity-0 group-hover:opacity-100 bg-blue-500/40 hover:bg-blue-500/60 rounded-tl"
+                            className="absolute bottom-0 right-0 w-2 h-2 cursor-nwse-resize opacity-0 group-hover:opacity-100 bg-indigo-400/30 hover:bg-indigo-500/50 rounded-tl-sm"
                             onMouseDown={(e) => handleResizeStart(e, fid, 'xy')}
                           />
                         </div>
@@ -349,11 +349,14 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
         </div>
 
         {/* Right: Field panel */}
-        <div className="w-[300px] border-l flex flex-col overflow-hidden bg-background">
-          <div className="px-3 py-2.5 border-b shrink-0">
-            <p className="text-xs font-medium text-muted-foreground">{totalCount} fields &middot; {filledCount} filled</p>
+        <div className="w-[320px] border-l flex flex-col overflow-hidden bg-white">
+          <div className="px-4 py-3 border-b shrink-0 bg-gray-50/80">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-gray-700">Fields</p>
+              <p className="text-[10px] text-gray-500">{filledCount}/{totalCount} filled</p>
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto divide-y">
+          <div className="flex-1 overflow-y-auto">
             {Object.entries(fieldPositions).map(([fid]) => {
               const val = fieldValues[fid] ?? '';
               const label = fieldLabels[fid] ?? 'Field';
@@ -361,11 +364,11 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
               const isEditingLbl = editingLabel === fid;
 
               return (
-                <div key={fid} className={cn('px-3 py-2 text-xs', isActive && 'bg-blue-50/50')}>
-                  <div className="flex items-center justify-between">
+                <div key={fid} className={cn('px-4 py-2.5 border-b border-gray-100 transition-colors', isActive && 'bg-indigo-50/60 border-l-2 border-l-indigo-500')}>
+                  <div className="flex items-center justify-between mb-1">
                     {isEditingLbl ? (
                       <input
-                        className="flex-1 text-[11px] font-medium border-b border-blue-400 outline-none bg-transparent"
+                        className="flex-1 text-[11px] font-medium border-b border-indigo-400 outline-none bg-transparent text-gray-800"
                         value={label}
                         onChange={(e) => handleLabelChange(fid, e.target.value)}
                         onBlur={() => handleLabelBlur(fid)}
@@ -374,14 +377,14 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
                       />
                     ) : (
                       <p
-                        className="font-medium text-muted-foreground truncate cursor-pointer hover:text-foreground"
+                        className="text-[11px] font-medium text-gray-500 truncate cursor-pointer hover:text-gray-800"
                         onClick={() => { setEditingLabel(fid); setActiveField(fid); }}
                         title="Click to rename"
                       >
                         {label}
                       </p>
                     )}
-                    <button className="p-0.5 hover:bg-red-50 rounded ml-1 shrink-0" onClick={() => handleDeleteField(fid)}>
+                    <button className="p-1 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0" onClick={() => handleDeleteField(fid)}>
                       <Trash2 className="h-3 w-3 text-red-400" />
                     </button>
                   </div>

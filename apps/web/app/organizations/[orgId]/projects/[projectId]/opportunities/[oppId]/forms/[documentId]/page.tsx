@@ -2,7 +2,10 @@
 
 import { useParams } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
+import { ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import Link from 'next/link';
 import { useApi, apiMutate, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { PdfFormEditor } from '@/features/required-forms/components/PdfFormEditor';
 import { XlsxFormEditor } from '@/features/required-forms/components/XlsxFormEditor';
@@ -42,15 +45,20 @@ export default function RequiredFormEditorPage() {
   if (isLoading || !form) {
     return (
       <div className="flex flex-col h-screen">
-        <div className="flex items-center gap-3 px-4 py-3 border-b">
-          <Skeleton className="h-8 w-16" />
+        <div className="flex items-center gap-3 px-4 py-3 border-b bg-background">
+          <Button variant="ghost" size="sm" asChild className="gap-1.5">
+            <Link href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${opportunityId}`}>
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Link>
+          </Button>
           <Skeleton className="h-5 w-64" />
         </div>
         <div className="flex flex-1">
           <Skeleton className="flex-1" />
-          <div className="w-[340px] border-l p-4 space-y-3">
+          <div className="w-[320px] border-l p-4 space-y-3">
             {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-14 w-full" />
+              <Skeleton key={i} className="h-12 w-full" />
             ))}
           </div>
         </div>
