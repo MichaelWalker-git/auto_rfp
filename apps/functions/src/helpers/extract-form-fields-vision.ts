@@ -87,13 +87,16 @@ export const extractFormFieldsWithVision = async (fileKey: string): Promise<Dete
   const visionFields = Array.isArray(parsed?.fields) ? (parsed.fields as VisionField[]) : [];
 
   return visionFields.map((vf) => {
-    // Normalize bounding box: ensure minimum size and clamp to page bounds
+    // Normalize bounding box: ensure minimum size, enforce page margins, clamp bounds
     let bbox = vf.boundingBox ?? null;
     if (bbox) {
+      // Most documents have ~5-8% margin. If left < 0.04 it's likely a coordinate error.
+      const left = bbox.left < 0.04 ? 0.06 : Math.min(0.95, bbox.left);
+      const top = Math.max(0.02, Math.min(0.98, bbox.top));
       bbox = {
-        top: Math.max(0, Math.min(1, bbox.top)),
-        left: Math.max(0, Math.min(1, bbox.left)),
-        width: Math.max(0.05, Math.min(1 - bbox.left, bbox.width)),
+        top,
+        left,
+        width: Math.max(0.05, Math.min(0.9 - left, bbox.width)),
         height: Math.max(0.018, Math.min(0.04, bbox.height)),
       };
     }
