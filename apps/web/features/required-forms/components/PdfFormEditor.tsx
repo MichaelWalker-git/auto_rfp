@@ -117,6 +117,24 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     }
   }, [doc, orgId, toast]);
 
+  const [reprocessing, setReprocessing] = useState(false);
+  const handleReprocess = useCallback(async () => {
+    setReprocessing(true);
+    try {
+      await apiMutate(
+        buildApiUrl('/required-forms/reprocess', { orgId, projectId: doc.projectId, opportunityId: doc.opportunityId, formId: doc.formId }),
+        'POST',
+        {},
+      );
+      toast({ title: 'Form reprocessed', description: 'Fields re-extracted and auto-filled.' });
+      onFieldUpdated?.();
+    } catch (err) {
+      toast({ title: 'Reprocess failed', description: (err as Error)?.message, variant: 'destructive' });
+    } finally {
+      setReprocessing(false);
+    }
+  }, [doc, orgId, toast, onFieldUpdated]);
+
   // Drag to move
   const handleDragStart = useCallback((e: React.MouseEvent, fieldId: string) => {
     e.preventDefault();
@@ -239,6 +257,10 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
           <p className="text-sm font-medium truncate">{doc.name}</p>
         </div>
         <Badge variant="outline" className="text-xs">{doc.status}</Badge>
+        <Button size="sm" variant="outline" onClick={handleReprocess} disabled={reprocessing} className="gap-1.5">
+          <RefreshCw className={cn('h-3.5 w-3.5', reprocessing && 'animate-spin')} />
+          Reprocess
+        </Button>
         <Button size="sm" variant={creatingField ? 'default' : 'outline'} onClick={() => setCreatingField(!creatingField)} className="gap-1.5">
           <Plus className="h-3.5 w-3.5" />{creatingField ? 'Click on PDF...' : 'Add Field'}
         </Button>

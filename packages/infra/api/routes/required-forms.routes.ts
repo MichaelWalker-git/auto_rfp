@@ -8,5 +8,6 @@ export function requiredFormsDomain(): DomainRoutes {
     { method: 'PUT', path: 'field', entry: lambdaEntry('required-forms/update-form-field.ts') },
     { method: 'DELETE', path: 'delete', entry: lambdaEntry('required-forms/delete-required-form.ts') },
     { method: 'GET', path: 'export', entry: lambdaEntry('required-forms/export-filled-form.ts'), timeoutSeconds: 60 },
+    { method: 'POST', path: 'reprocess', entry: lambdaEntry('required-forms/reprocess-form.ts'), timeoutSeconds: 120 },
   ]};
 }
