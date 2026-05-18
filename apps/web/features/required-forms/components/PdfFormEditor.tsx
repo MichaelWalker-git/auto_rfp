@@ -355,9 +355,10 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
                         <div
                           key={fid}
                           id={`field-${fid}`}
-                          className={cn('absolute group', isActive && 'z-10')}
+                          className={cn('absolute group cursor-move', isActive && 'z-10')}
                           style={{ left: `${bbox.left * 100}%`, top: `${bbox.top * 100}%`, width: `${bbox.width * 100}%`, height: `${bbox.height * 100}%` }}
                           onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => { if (e.target === e.currentTarget) handleDragStart(e, fid); }}
                         >
                           <input
                             type="text"
@@ -367,33 +368,15 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
                             onBlur={() => handleValueBlur(fid)}
                             placeholder={label}
                             className={cn(
-                              'w-full h-full bg-transparent text-[10px] leading-tight px-0.5 outline-none border-b transition-all',
-                              isActive && 'bg-white/90 border-b-2 border-indigo-500 shadow-sm text-gray-900',
-                              !isActive && value && 'border-transparent text-blue-800 font-medium',
-                              !isActive && !value && 'border-gray-300/60 placeholder:text-gray-400/70 placeholder:text-[9px] hover:border-indigo-300 hover:bg-white/40',
+                              'w-full h-full bg-transparent text-[10px] leading-tight px-1 outline-none transition-all rounded-sm cursor-text',
+                              isActive && 'bg-white border border-indigo-400 shadow-md text-gray-900',
+                              !isActive && value && 'bg-blue-50/50 border border-blue-200/50 text-blue-900',
+                              !isActive && !value && 'bg-amber-50/30 border border-dashed border-amber-300/50 placeholder:text-amber-400/80 placeholder:text-[9px]',
                             )}
                           />
-                          {/* Toolbar on hover */}
-                          <div className="absolute -top-[18px] left-0 hidden group-hover:flex items-center gap-0.5 bg-white/95 shadow-sm border border-gray-200 rounded px-1 py-0.5 z-20 backdrop-blur-sm">
-                            <button className="cursor-move p-0.5 hover:bg-gray-100 rounded" onMouseDown={(e) => handleDragStart(e, fid)} title="Move">
-                              <Move className="h-2.5 w-2.5 text-gray-500" />
-                            </button>
-                            <button className="p-0.5 hover:bg-red-50 rounded" onClick={() => handleDeleteField(fid)} title="Delete">
-                              <Trash2 className="h-2.5 w-2.5 text-red-400" />
-                            </button>
-                            <span className="text-[8px] text-gray-400 ml-0.5 max-w-[50px] truncate">{label}</span>
-                          </div>
-                          {/* Resize handles */}
+                          {/* Resize handle — bottom-right corner */}
                           <div
-                            className="absolute top-0 right-0 w-1 h-full cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-indigo-400/40"
-                            onMouseDown={(e) => handleResizeStart(e, fid, 'x')}
-                          />
-                          <div
-                            className="absolute bottom-0 left-0 w-full h-1 cursor-ns-resize opacity-0 group-hover:opacity-100 hover:bg-indigo-400/40"
-                            onMouseDown={(e) => handleResizeStart(e, fid, 'y')}
-                          />
-                          <div
-                            className="absolute bottom-0 right-0 w-2 h-2 cursor-nwse-resize opacity-0 group-hover:opacity-100 bg-indigo-400/30 hover:bg-indigo-500/50 rounded-tl-sm"
+                            className="absolute bottom-0 right-0 w-2.5 h-2.5 cursor-nwse-resize opacity-0 group-hover:opacity-100 bg-indigo-500/40 rounded-tl-sm"
                             onMouseDown={(e) => handleResizeStart(e, fid, 'xy')}
                           />
                         </div>
@@ -423,7 +406,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
               const isLowConfidence = field?.status === 'LOW_CONFIDENCE';
 
               return (
-                <div key={fid} className={cn('px-4 py-2.5 border-b border-gray-100 transition-colors', isActive && 'bg-indigo-50/60 border-l-2 border-l-indigo-500', isLowConfidence && 'bg-amber-50/40')}>
+                <div key={fid} className={cn('px-4 py-2.5 border-b border-gray-100 transition-colors group/item', isActive && 'bg-indigo-50/60 border-l-2 border-l-indigo-500', isLowConfidence && 'bg-amber-50/40')}>
                   <div className="flex items-center justify-between mb-1">
                     {isEditingLbl ? (
                       <input
@@ -444,7 +427,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
                         {label}
                       </p>
                     )}
-                    <button className="p-1 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0" onClick={() => handleDeleteField(fid)}>
+                    <button className="p-1 hover:bg-red-50 rounded opacity-0 group-hover/item:opacity-100 transition-opacity ml-1 shrink-0" onClick={() => handleDeleteField(fid)} title="Delete field">
                       <Trash2 className="h-3 w-3 text-red-400" />
                     </button>
                   </div>
