@@ -48,7 +48,7 @@ export const createRequiredForm = async (args: {
     {
       ...dto,
       formId,
-      status: total > 0 ? 'READY_FOR_REVIEW' : 'DETECTED',
+      status: total > 0 ? 'READY' : 'NEW',
       fields,
       filledFileKey: null,
       autoFillPercentage: total > 0 ? Math.round((autoFilled / total) * 100) : 0,

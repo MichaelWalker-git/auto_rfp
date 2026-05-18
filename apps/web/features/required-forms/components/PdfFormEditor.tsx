@@ -412,7 +412,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
                       className={cn('truncate mt-0.5 cursor-pointer', val ? 'text-foreground' : 'text-muted-foreground italic')}
                       onClick={() => setActiveField(fid)}
                     >
-                      {val || '— click to edit'}
+                      {val || 'click to edit'}
                     </p>
                   )}
                 </div>

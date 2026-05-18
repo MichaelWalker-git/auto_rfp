@@ -26,11 +26,10 @@ export type FormType = z.infer<typeof FormTypeSchema>;
 // ─── Form Processing Status ───
 
 export const FormProcessingStatusSchema = z.enum([
-  'DETECTED',
-  'ANALYZING',
-  'READY_FOR_REVIEW',
-  'REVIEWED',
-  'EXPORTED',
+  'NEW',
+  'IN_PROGRESS',
+  'READY',
+  'DONE',
   'FAILED',
 ]);
 
@@ -67,7 +66,7 @@ export const RequiredFormItemSchema = z.object({
   opportunityId: z.string(),
   name: z.string(),
   formType: FormTypeSchema,
-  status: FormProcessingStatusSchema.default('DETECTED'),
+  status: FormProcessingStatusSchema.default('NEW'),
   sourceFileName: z.string(),
   sourceFileKey: z.string(),
   sourcePageRange: z.string().nullable().default(null),

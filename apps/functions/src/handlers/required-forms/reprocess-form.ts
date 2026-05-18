@@ -38,7 +38,7 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
   // Set status to ANALYZING
   await updateRequiredForm({
     orgId, projectId: data.projectId, opportunityId: data.opportunityId, formId: data.formId,
-    patch: { status: 'ANALYZING' },
+    patch: { status: 'IN_PROGRESS' },
   });
 
   try {
@@ -88,7 +88,7 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
       orgId, projectId: data.projectId, opportunityId: data.opportunityId, formId: data.formId,
       patch: {
         fields,
-        status: 'READY_FOR_REVIEW',
+        status: 'READY',
         autoFillPercentage: total > 0 ? Math.round((autoFilled / total) * 100) : 0,
         manualFieldCount: manual,
         totalFieldCount: total,
