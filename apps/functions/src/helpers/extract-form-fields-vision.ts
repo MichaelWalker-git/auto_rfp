@@ -49,6 +49,13 @@ export const extractFormFieldsWithVision = async (fileKey: string): Promise<Dete
     '- currentValue: null (these are all blank fields)\n' +
     '- pageNumber: which page (1-indexed)\n' +
     '- boundingBox: { top, left, width, height } as normalized coordinates (0.0 to 1.0 relative to page)\n\n' +
+    'BOUNDING BOX RULES (critical for accuracy):\n' +
+    '- The boundingBox must cover ONLY the blank/underlined area where text will be typed — NOT the label.\n' +
+    '- For "Company Name: ______", the box covers the underlined blank part AFTER the colon, not the "Company Name:" label.\n' +
+    '- For standalone underlines (______) with a label below like "(Signature)", the box covers the underline area.\n' +
+    '- top: the TOP edge of the underlined blank (where typed text would start vertically)\n' +
+    '- height: should be approximately 0.02-0.03 (one line height)\n' +
+    '- Be precise — the coordinates must align exactly with the blank underlined area on the page.\n\n' +
     'Return JSON: { "fields": [...] }';
 
   const body = {
@@ -79,18 +86,31 @@ export const extractFormFieldsWithVision = async (fileKey: string): Promise<Dete
   const parsed = safeParseJsonFromModel(rawText) as Record<string, unknown> | null;
   const visionFields = Array.isArray(parsed?.fields) ? (parsed.fields as VisionField[]) : [];
 
-  return visionFields.map((vf) => ({
-    fieldId: uuidv4(),
-    label: vf.label || 'Unknown Field',
-    value: vf.currentValue || null,
-    status: vf.fieldType === 'signature' ? 'MANUAL_REQUIRED' as const
-      : vf.fieldType === 'checkbox' ? 'MANUAL_REQUIRED' as const
-      : 'EMPTY' as const,
-    confidence: 0.9,
-    profileFieldKey: null,
-    manualReason: vf.fieldType === 'signature' ? 'Requires signature' : null,
-    pageNumber: vf.pageNumber ?? 1,
-    cellReference: null,
-    boundingBox: vf.boundingBox ?? null,
-  }));
+  return visionFields.map((vf) => {
+    // Normalize bounding box: ensure minimum size and clamp to page bounds
+    let bbox = vf.boundingBox ?? null;
+    if (bbox) {
+      bbox = {
+        top: Math.max(0, Math.min(1, bbox.top)),
+        left: Math.max(0, Math.min(1, bbox.left)),
+        width: Math.max(0.05, Math.min(1 - bbox.left, bbox.width)),
+        height: Math.max(0.018, Math.min(0.04, bbox.height)),
+      };
+    }
+
+    return {
+      fieldId: uuidv4(),
+      label: vf.label || 'Unknown Field',
+      value: vf.currentValue || null,
+      status: vf.fieldType === 'signature' ? 'MANUAL_REQUIRED' as const
+        : vf.fieldType === 'checkbox' ? 'MANUAL_REQUIRED' as const
+        : 'EMPTY' as const,
+      confidence: 0.9,
+      profileFieldKey: null,
+      manualReason: vf.fieldType === 'signature' ? 'Requires signature' : null,
+      pageNumber: vf.pageNumber ?? 1,
+      cellReference: null,
+      boundingBox: bbox,
+    };
+  });
 };
