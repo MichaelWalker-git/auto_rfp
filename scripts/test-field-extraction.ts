@@ -176,15 +176,88 @@ const run = async () => {
   console.log('└─────────────────────────────────────┴──────────┴────────┴───────┴───────┴───────┘');
 
   // Save raw response for debugging
-  const outFile = '/tmp/field-extraction-result.json';
-  writeFileSync(outFile, JSON.stringify({ fields, rawText }, null, 2));
-  console.log(`\nFull response saved to: ${outFile}`);
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const outFile = `/tmp/field-extraction-${timestamp}.json`;
+  writeFileSync(outFile, JSON.stringify({ fields, rawText, prompt: system, elapsed, input }, null, 2));
+  console.log(`\nJSON saved to: ${outFile}`);
+
+  // Generate HTML preview with PDF + field overlays
+  const htmlFile = `/tmp/field-extraction-${timestamp}.html`;
+  const pdfDataUrl = `data:application/pdf;base64,${base64}`;
+
+  const fieldOverlays = (fields as Array<{ label: string; fieldType: string; pageNumber: number; boundingBox: { top: number; left: number; width: number; height: number } }>)
+    .map((f, i) => {
+      const bb = f.boundingBox;
+      if (!bb) return '';
+      const color = f.fieldType === 'signature' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(99, 102, 241, 0.25)';
+      const border = f.fieldType === 'signature' ? '1px dashed #ef4444' : '1px solid #6366f1';
+      return `<div class="field" style="top:${bb.top*100}%;left:${bb.left*100}%;width:${bb.width*100}%;height:${bb.height*100}%;background:${color};border:${border};" title="${f.label} (${f.fieldType}) page ${f.pageNumber}"><span class="label">${i+1}. ${f.label}</span></div>`;
+    }).join('\n');
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Field Extraction: ${input} — ${timestamp}</title>
+<style>
+  body { margin: 0; font-family: system-ui; background: #f3f4f6; }
+  .header { padding: 12px 20px; background: white; border-bottom: 1px solid #e5e7eb; display: flex; align-items: center; gap: 16px; }
+  .header h1 { font-size: 14px; margin: 0; }
+  .header .meta { font-size: 12px; color: #6b7280; }
+  .container { display: flex; gap: 20px; padding: 20px; }
+  .pdf-panel { flex: 1; }
+  .fields-panel { width: 320px; background: white; border-radius: 8px; border: 1px solid #e5e7eb; overflow-y: auto; max-height: calc(100vh - 80px); }
+  .fields-panel h2 { padding: 12px 16px; margin: 0; font-size: 13px; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; background: white; }
+  .field-item { padding: 8px 16px; border-bottom: 1px solid #f3f4f6; font-size: 11px; }
+  .field-item .name { font-weight: 600; color: #1f2937; }
+  .field-item .coords { color: #6b7280; margin-top: 2px; }
+  .page-container { position: relative; margin-bottom: 20px; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  .page-container img { width: 100%; display: block; }
+  .field { position: absolute; display: flex; align-items: flex-start; overflow: hidden; border-radius: 2px; }
+  .field .label { font-size: 8px; color: #4338ca; white-space: nowrap; padding: 0 2px; font-weight: 500; }
+  iframe { width: 100%; height: 800px; border: none; border-radius: 8px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Field Extraction Result</h1>
+  <span class="meta">${input} &middot; ${fields.length} fields &middot; ${elapsed}s &middot; ${timestamp}</span>
+</div>
+<div class="container">
+  <div class="pdf-panel">
+    <div class="page-container" id="page-overlay">
+      <iframe src="${pdfDataUrl}"></iframe>
+      <!-- Fields overlay (renders on top of first page — for multi-page, use pdfjs) -->
+    </div>
+    <div class="page-container" style="position:relative;">
+      <div style="padding:8px 12px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:11px;color:#6b7280;">
+        Field positions overlay (all pages flattened)
+      </div>
+      <div style="position:relative;width:100%;padding-bottom:129%;background:#fff;">
+        ${fieldOverlays}
+      </div>
+    </div>
+  </div>
+  <div class="fields-panel">
+    <h2>${fields.length} Fields Detected</h2>
+    ${(fields as Array<{ label: string; fieldType: string; pageNumber: number; boundingBox: { top: number; left: number; width: number; height: number } }>).map((f, i) => {
+      const bb = f.boundingBox;
+      return `<div class="field-item"><div class="name">${i+1}. ${f.label}</div><div class="coords">${f.fieldType} &middot; page ${f.pageNumber} &middot; top=${bb?.top?.toFixed(3)} left=${bb?.left?.toFixed(3)} w=${bb?.width?.toFixed(3)}</div></div>`;
+    }).join('\n')}
+  </div>
+</div>
+</body>
+</html>`;
+
+  writeFileSync(htmlFile, html);
+  console.log(`HTML preview: ${htmlFile}`);
+  console.log(`Open: open ${htmlFile}`);
 
   // Save the prompt for easy editing
   const promptFile = '/tmp/field-extraction-prompt.txt';
   writeFileSync(promptFile, system);
-  console.log(`Prompt saved to: ${promptFile}`);
-  console.log('\nTo iterate on the prompt, edit the prompt file and re-run.');
+  console.log(`Prompt: ${promptFile}`);
+  console.log('\nTo iterate: edit prompt → re-run → compare HTML files by timestamp.');
 };
 
 run().catch((err) => {
