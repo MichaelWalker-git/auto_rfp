@@ -72,18 +72,21 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
   const handleSaveAll = useCallback(async () => {
     setIsSaving(true);
     try {
-      const allFields = Object.entries(fieldPositions).map(([fid, pos]) => ({
-        fieldId: fid,
-        label: fieldLabels[fid] ?? 'Field',
-        value: fieldValues[fid] ?? null,
-        status: fieldValues[fid] ? 'AUTO_FILLED' as const : 'EMPTY' as const,
-        confidence: null,
-        profileFieldKey: null,
-        manualReason: null,
-        pageNumber: null,
-        cellReference: null,
-        boundingBox: pos,
-      }));
+      const allFields = Object.entries(fieldPositions).map(([fid, pos]) => {
+        const originalField = fields.find((f) => f.fieldId === fid);
+        return {
+          fieldId: fid,
+          label: fieldLabels[fid] ?? originalField?.label ?? 'Field',
+          value: fieldValues[fid] ?? null,
+          status: originalField?.status ?? (fieldValues[fid] ? 'AUTO_FILLED' as const : 'EMPTY' as const),
+          confidence: originalField?.confidence ?? null,
+          profileFieldKey: originalField?.profileFieldKey ?? null,
+          manualReason: originalField?.manualReason ?? null,
+          pageNumber: originalField?.pageNumber ?? 1,
+          cellReference: originalField?.cellReference ?? null,
+          boundingBox: pos,
+        };
+      });
 
       await apiMutate(buildApiUrl('/required-forms/save-fields', { orgId }), 'PUT', {
         projectId: doc.projectId,
