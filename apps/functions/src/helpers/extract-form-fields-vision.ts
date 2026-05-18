@@ -31,33 +31,20 @@ export const extractFormFieldsWithVision = async (fileKey: string): Promise<Dete
 
   const system =
     'You extract UNFILLED form fields from documents. Return ONLY valid JSON — no markdown, no commentary.\n\n' +
-    'Find ONLY places that are BLANK and need to be filled in by a human:\n' +
-    '- Underscored blank lines (______) with no text written on them\n' +
-    '- Labeled blanks where the value area is empty (Company Name: ______)\n' +
-    '- Empty cells in tables that need data entered\n' +
-    '- Blank signature lines (no signature present)\n' +
-    '- Empty date fields\n' +
-    '- Unchecked checkboxes\n\n' +
-    'DO NOT extract:\n' +
-    '- Fields that already have text/values filled in (e.g. "City of Toledo" already written)\n' +
-    '- Pre-printed static text, headings, or labels\n' +
-    '- Checked checkboxes\n' +
-    '- Fields belonging to the contracting agency that are already completed\n\n' +
-    'For each BLANK field return:\n' +
-    '- label: descriptive name (e.g. "Company Name", "Signature", "Date", "Contract No.")\n' +
-    '- fieldType: "text" | "signature" | "date" | "checkbox" | "address" | "number"\n' +
-    '- currentValue: null (these are all blank fields)\n' +
-    '- pageNumber: which page (1-indexed)\n' +
-    '- boundingBox: { top, left, width, height } as normalized coordinates (0.0 to 1.0 relative to page)\n\n' +
-    'BOUNDING BOX RULES (CRITICAL):\n' +
-    '- The boundingBox covers WHERE THE USER TYPES — the blank horizontal line, not any printed text.\n' +
-    '- top: the Y coordinate where the HORIZONTAL UNDERLINE is drawn on the page.\n' +
-    '  If there is a label "(Corporation Name)" at Y=0.15, the underline above it is at approximately Y=0.12.\n' +
-    '  Return top=0.12, NOT top=0.15.\n' +
-    '- The bbox should be 0.02-0.03 ABOVE any parenthesized label text like "(Signature)" or "(Date)".\n' +
-    '- height: 0.020 (thin line area)\n' +
-    '- left/width: match the extent of the underline.\n' +
-    '- If text like "municipality (\\"Toledo\\") and ___________" has an inline blank, the bbox covers just the underline portion.\n\n' +
+    'Find ONLY blank spaces where a human needs to write:\n' +
+    '- Blank underlines (______)\n' +
+    '- Empty labeled fields\n' +
+    '- Blank signature lines\n' +
+    '- Empty date fields\n\n' +
+    'DO NOT extract pre-filled text or agency data.\n\n' +
+    'For each field return:\n' +
+    '- label: field name\n' +
+    '- fieldType: "text" | "signature" | "date" | "address" | "number"\n' +
+    '- currentValue: null\n' +
+    '- pageNumber: page number (1-indexed)\n' +
+    '- boundingBox: { top, left, width, height } normalized 0-1 relative to page\n\n' +
+    'Position the boundingBox on the BLANK LINE where someone would write — not on any label text.\n' +
+    'height: 0.020\n\n' +
     'Return JSON: { "fields": [...] }';
 
   const body = {
@@ -93,7 +80,7 @@ export const extractFormFieldsWithVision = async (fileKey: string): Promise<Dete
     let bbox = vf.boundingBox ?? null;
     if (bbox) {
       bbox = {
-        top: Math.max(0, Math.min(0.98, bbox.top - 0.015)),
+        top: Math.max(0, Math.min(0.98, bbox.top - 0.03)),
         left: Math.max(0, Math.min(0.95, bbox.left + 0.02)),
         width: Math.max(0.05, Math.min(1 - bbox.left - 0.02, bbox.width)),
         height: Math.max(0.018, Math.min(0.04, bbox.height)),

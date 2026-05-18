@@ -107,28 +107,34 @@ const run = async () => {
     '- Labeled blanks where the value area is empty (Company Name: ______)\n' +
     '- Empty cells in tables that need data entered\n' +
     '- Blank signature lines (no signature present)\n' +
-    '- Empty date fields\n' +
-    '- Unchecked checkboxes\n\n' +
+    '- Empty date fields\n\n' +
     'DO NOT extract:\n' +
-    '- Fields that already have text/values filled in (e.g. "City of Toledo" already written)\n' +
+    '- Fields that already have text/values filled in\n' +
     '- Pre-printed static text, headings, or labels\n' +
-    '- Checked checkboxes\n' +
     '- Fields belonging to the contracting agency that are already completed\n\n' +
-    'For each BLANK field return:\n' +
-    '- label: descriptive name (e.g. "Company Name", "Signature", "Date", "Contract No.")\n' +
+    'For each field return:\n' +
+    '- label: descriptive name\n' +
     '- fieldType: "text" | "signature" | "date" | "checkbox" | "address" | "number"\n' +
-    '- currentValue: null (these are all blank fields)\n' +
+    '- currentValue: null\n' +
     '- pageNumber: which page (1-indexed)\n' +
-    '- boundingBox: { top, left, width, height } as normalized coordinates (0.0 to 1.0 relative to page)\n\n' +
-    'BOUNDING BOX RULES (CRITICAL):\n' +
-    '- The boundingBox covers WHERE THE USER TYPES — the blank horizontal line, not any printed text.\n' +
-    '- top: the Y coordinate where the HORIZONTAL UNDERLINE is drawn on the page.\n' +
-    '  If there is a label "(Corporation Name)" at Y=0.15, the underline above it is at approximately Y=0.12.\n' +
-    '  Return top=0.12, NOT top=0.15.\n' +
-    '- The bbox should be 0.02-0.03 ABOVE any parenthesized label text like "(Signature)" or "(Date)".\n' +
-    '- height: 0.020 (thin line area)\n' +
-    '- left/width: match the extent of the underline.\n' +
-    '- If text like "municipality (\\"Toledo\\") and ___________" has an inline blank, the bbox covers just the underline portion.\n\n' +
+    '- boundingBox: { top, left, width, height } — normalized 0.0 to 1.0 relative to page dimensions\n\n' +
+    'BOUNDING BOX POSITIONING (very important):\n' +
+    'Imagine you are placing a transparent text input widget ON TOP of the document.\n' +
+    'The widget must sit exactly on the BLANK SPACE where someone would handwrite their answer.\n\n' +
+    'Pattern A — Underline with label below:\n' +
+    '  Visual: ________________________\n' +
+    '          (Corporation Name)\n' +
+    '  The widget goes ON the underline, NOT on the "(Corporation Name)" text.\n' +
+    '  The underline is ABOVE the label by about 0.025 in normalized coords.\n\n' +
+    'Pattern B — Inline blank after text:\n' +
+    '  Visual: "municipality and _______________________"\n' +
+    '  The widget covers only the blank underlined portion after "and".\n\n' +
+    'Key rules:\n' +
+    '- top = vertical position of the UNDERLINE itself (the blank writing area)\n' +
+    '- The "(Label)" text below is NOT the field position — subtract ~0.025-0.03 from label position\n' +
+    '- height = 0.020 (one line height)\n' +
+    '- left = where the underline starts horizontally\n' +
+    '- width = full extent of the underline\n\n' +
     'Return JSON: { "fields": [...] }';
 
   const body = {
