@@ -94,8 +94,8 @@ export const extractFormFieldsWithVision = async (fileKey: string): Promise<Dete
     if (bbox) {
       bbox = {
         top: Math.max(0, Math.min(0.98, bbox.top - 0.015)),
-        left: Math.max(0, Math.min(0.95, bbox.left)),
-        width: Math.max(0.05, Math.min(1 - bbox.left, bbox.width)),
+        left: Math.max(0, Math.min(0.95, bbox.left + 0.02)),
+        width: Math.max(0.05, Math.min(1 - bbox.left - 0.02, bbox.width)),
         height: Math.max(0.018, Math.min(0.04, bbox.height)),
       };
     }
