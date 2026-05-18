@@ -49,13 +49,17 @@ export const extractFormFieldsWithVision = async (fileKey: string): Promise<Dete
     '- currentValue: null (these are all blank fields)\n' +
     '- pageNumber: which page (1-indexed)\n' +
     '- boundingBox: { top, left, width, height } as normalized coordinates (0.0 to 1.0 relative to page)\n\n' +
-    'BOUNDING BOX RULES (critical for accuracy):\n' +
-    '- The boundingBox must cover ONLY the blank/underlined area where text will be typed — NOT the label.\n' +
-    '- For "Company Name: ______", the box covers the underlined blank part AFTER the colon, not the "Company Name:" label.\n' +
-    '- For standalone underlines (______) with a label below like "(Signature)", the box covers the underline area.\n' +
-    '- top: the TOP edge of the underlined blank (where typed text would start vertically)\n' +
-    '- height: should be approximately 0.02-0.03 (one line height)\n' +
-    '- Be precise — the coordinates must align exactly with the blank underlined area on the page.\n\n' +
+    'BOUNDING BOX RULES (CRITICAL — read carefully):\n' +
+    '- The boundingBox must cover the UNDERLINE/BLANK LINE where someone would write — NOT the parenthesized label below it.\n' +
+    '- Common pattern: a blank line ______ with "(Corporation Name)" printed below it.\n' +
+    '  The boundingBox goes on the BLANK LINE ABOVE, not on the "(Corporation Name)" text.\n' +
+    '- top: position of the UNDERLINE (the horizontal line), NOT the label text below it.\n' +
+    '- The label like "(Signature)" or "(Date)" is just a hint about what goes on the line above.\n' +
+    '- height: approximately 0.02-0.025 (one text line height)\n' +
+    '- left: where the underline starts (often at a margin ~0.05-0.10)\n' +
+    '- width: how wide the underline extends\n' +
+    '- WRONG: placing bbox on "(Corporation Name)" text → fields will overlap labels\n' +
+    '- RIGHT: placing bbox on the blank ______ line above "(Corporation Name)"\n\n' +
     'Return JSON: { "fields": [...] }';
 
   const body = {
