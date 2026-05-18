@@ -406,7 +406,7 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
                               </Badge>
                             </a>
                           )}
-                          {formsBySourceFile.has(f.name) && (
+                          {f.status === 'PROCESSED' && formsBySourceFile.has(f.name) && (
                             formsBySourceFile.get(f.name)!.map((form) => (
                               <Link key={form.formId} href={`/organizations/${orgId}/projects/${projectId}/opportunities/${oppId}/forms/${form.formId}`} title={`Required form detected: "${form.name}". Click to open and fill in.`}>
                                 <Badge variant="secondary" className="text-xs gap-1 cursor-pointer bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200">
