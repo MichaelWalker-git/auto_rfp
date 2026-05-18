@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Download, RefreshCw, ArrowLeft, Plus, Trash2, Move, GripHorizontal } from 'lucide-react';
 import { apiMutate, apiFetcher, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { cn } from '@/lib/utils';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import Link from 'next/link';
 import type { DetectedFormField, RequiredFormItem } from '@auto-rfp/core';
 
@@ -40,7 +41,9 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
   const [resizing, setResizing] = useState<{ fieldId: string; startX: number; startY: number; origWidth: number; origHeight: number; dir: 'x' | 'y' | 'xy' } | null>(null);
   const [creatingField, setCreatingField] = useState(false);
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
-  const saveTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
+  const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   const backUrl = `/organizations/${orgId}/projects/${doc.projectId}/opportunities/${doc.opportunityId}`;
 
@@ -65,20 +68,31 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [activeField]);
 
-  // Save field update to backend (debounced)
-  const saveFieldUpdate = useCallback((fieldId: string, update: FieldUpdate) => {
-    if (saveTimeoutRef.current[fieldId]) clearTimeout(saveTimeoutRef.current[fieldId]);
-    saveTimeoutRef.current[fieldId] = setTimeout(async () => {
-      try {
+  // Save all changes to backend
+  const handleSaveAll = useCallback(async () => {
+    setIsSaving(true);
+    try {
+      for (const [fid, pos] of Object.entries(fieldPositions)) {
+        const value = fieldValues[fid] ?? null;
+        const label = fieldLabels[fid] ?? 'Field';
         await apiMutate(buildApiUrl('/required-forms/field', { orgId }), 'PUT', {
           projectId: doc.projectId, opportunityId: doc.opportunityId,
-          formId: doc.formId, fieldId, orgId, ...update,
+          formId: doc.formId, fieldId: fid, orgId,
+          value, label, boundingBox: pos,
         });
-      } catch (err) {
-        toast({ title: 'Save failed', description: (err as Error)?.message, variant: 'destructive' });
       }
-    }, 300);
-  }, [doc, orgId, toast]);
+      setIsDirty(false);
+      toast({ title: 'Saved' });
+      onFieldUpdated?.();
+    } catch (err) {
+      toast({ title: 'Save failed', description: (err as Error)?.message, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [fieldPositions, fieldValues, fieldLabels, doc, orgId, toast, onFieldUpdated]);
+
+  // Mark dirty on any change
+  const markDirty = useCallback(() => setIsDirty(true), []);
 
   // Render PDF pages
   useEffect(() => {
@@ -161,13 +175,13 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     };
     const handleUp = () => {
       const pos = fieldPositions[dragging.fieldId];
-      if (pos) saveFieldUpdate(dragging.fieldId, { boundingBox: pos });
+      if (pos) markDirty();
       setDragging(null);
     };
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleUp);
     return () => { window.removeEventListener('mousemove', handleMove); window.removeEventListener('mouseup', handleUp); };
-  }, [dragging, pageSize, fieldPositions, saveFieldUpdate]);
+  }, [dragging, pageSize, fieldPositions, markDirty]);
 
   // Resize (horizontal, vertical, or both)
   const handleResizeStart = useCallback((e: React.MouseEvent, fieldId: string, dir: 'x' | 'y' | 'xy') => {
@@ -197,13 +211,13 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     };
     const handleUp = () => {
       const pos = fieldPositions[resizing.fieldId];
-      if (pos) saveFieldUpdate(resizing.fieldId, { boundingBox: pos });
+      if (pos) markDirty();
       setResizing(null);
     };
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleUp);
     return () => { window.removeEventListener('mousemove', handleMove); window.removeEventListener('mouseup', handleUp); };
-  }, [resizing, pageSize, fieldPositions, saveFieldUpdate]);
+  }, [resizing, pageSize, fieldPositions, markDirty]);
 
   // Create field on double-click
   const handleCreateField = useCallback((e: React.MouseEvent<HTMLDivElement>, pageIdx: number) => {
@@ -220,35 +234,35 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     setCreatingField(false);
     setActiveField(newFieldId);
 
-    saveFieldUpdate(newFieldId, { label: 'New Field', value: null, boundingBox: bbox });
-  }, [creatingField, saveFieldUpdate]);
+    markDirty();
+  }, [creatingField, markDirty]);
 
   // Delete field
   const handleDeleteField = useCallback((fieldId: string) => {
     setFieldPositions((prev) => { const n = { ...prev }; delete n[fieldId]; return n; });
     setFieldValues((prev) => { const n = { ...prev }; delete n[fieldId]; return n; });
     setFieldLabels((prev) => { const n = { ...prev }; delete n[fieldId]; return n; });
-    saveFieldUpdate(fieldId, { delete: true });
-  }, [saveFieldUpdate]);
+    markDirty();
+  }, [markDirty]);
 
   // Value change (save on blur or debounced)
   const handleValueChange = useCallback((fieldId: string, value: string) => {
     setFieldValues((prev) => ({ ...prev, [fieldId]: value }));
+    markDirty();
+  }, [markDirty]);
+
+  const handleValueBlur = useCallback((_fieldId: string) => {
+    // no-op — save is manual now
   }, []);
 
-  const handleValueBlur = useCallback((fieldId: string) => {
-    saveFieldUpdate(fieldId, { value: fieldValues[fieldId] || null });
-  }, [fieldValues, saveFieldUpdate]);
-
-  // Label rename
   const handleLabelChange = useCallback((fieldId: string, label: string) => {
     setFieldLabels((prev) => ({ ...prev, [fieldId]: label }));
-  }, []);
+    markDirty();
+  }, [markDirty]);
 
-  const handleLabelBlur = useCallback((fieldId: string) => {
+  const handleLabelBlur = useCallback((_fieldId: string) => {
     setEditingLabel(null);
-    saveFieldUpdate(fieldId, { label: fieldLabels[fieldId] });
-  }, [fieldLabels, saveFieldUpdate]);
+  }, []);
 
   const filledCount = Object.values(fieldValues).filter((v) => v).length;
   const totalCount = Object.keys(fieldPositions).length;
@@ -264,7 +278,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
           <p className="text-sm font-medium truncate">{doc.name}</p>
         </div>
         <Badge variant="outline" className="text-xs">{doc.status}</Badge>
-        <Button size="sm" variant="outline" onClick={handleReprocess} disabled={reprocessing} className="gap-1.5">
+        <Button size="sm" variant="outline" onClick={async () => { const ok = await confirm({ title: 'Reprocess form?', description: 'This will re-extract all fields and re-fill from company profile. Any manual edits will be lost.', confirmLabel: 'Reprocess', variant: 'destructive' }); if (ok) handleReprocess(); }} disabled={reprocessing} className="gap-1.5">
           <RefreshCw className={cn('h-3.5 w-3.5', reprocessing && 'animate-spin')} />
           Reprocess
         </Button>
@@ -274,6 +288,10 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
         <Button size="sm" variant="outline" onClick={handleExport} disabled={exporting} className="gap-1.5">
           {exporting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           Export PDF
+        </Button>
+        <Button size="sm" variant={isDirty ? 'default' : 'outline'} onClick={handleSaveAll} disabled={isSaving || !isDirty} className="gap-1.5">
+          {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : null}
+          Save
         </Button>
       </div>
 
@@ -421,6 +439,8 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
           </div>
         </div>
       </div>
+
+      <ConfirmDialog />
     </div>
   );
 };

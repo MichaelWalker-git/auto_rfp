@@ -7,6 +7,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Download, RefreshCw, ArrowLeft } from 'lucide-react';
 import { apiMutate, apiFetcher, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { cn } from '@/lib/utils';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 import type { DetectedFormField, RequiredFormItem } from '@auto-rfp/core';
@@ -27,11 +28,17 @@ type CellData = {
 
 export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorProps) => {
   const { toast } = useToast();
+  const { confirm, ConfirmDialog } = useConfirmDialog();
   const fields = (doc.fields ?? []) as DetectedFormField[];
   const [grid, setGrid] = useState<CellData[][]>([]);
   const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null);
+  const [editingSidebarField, setEditingSidebarField] = useState<string | null>(null);
+  const [sidebarValues, setSidebarValues] = useState<Record<string, string>>({});
   const [exporting, setExporting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [reprocessing, setReprocessing] = useState(false);
 
   const backUrl = `/organizations/${orgId}/projects/${doc.projectId}/opportunities/${doc.opportunityId}`;
 
