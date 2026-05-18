@@ -184,7 +184,7 @@ export const baseHandler = async (
     // Auto-fill fields from company profile
     if (profile && detectedFields.length > 0) {
       try {
-        const matchResults = await matchFieldsToProfile(detectedFields, profile);
+        const matchResults = await matchFieldsToProfile(detectedFields, profile, docText);
         detectedFields = detectedFields.map((f) => {
           const match = matchResults.find((m) => m.fieldId === f.fieldId);
           if (!match) return f;

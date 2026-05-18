@@ -64,6 +64,7 @@ const buildProfileContext = (profile: CompanyProfileItem): string => {
 export const matchFieldsToProfile = async (
   fields: DetectedFormField[],
   profile: CompanyProfileItem,
+  documentText?: string,
 ): Promise<MatchResult[]> => {
   const results: MatchResult[] = [];
 
@@ -119,6 +120,7 @@ export const matchFieldsToProfile = async (
     system:
       'You match form field labels to company profile data. ' +
       'For each field, return the best matching profile key and confidence (0-1). ' +
+      'If the document contains filling instructions (e.g. "mark X for Fully Meets"), follow those instructions when determining values. ' +
       'Return ONLY valid JSON.',
     messages: [{
       role: 'user',
@@ -127,6 +129,7 @@ export const matchFieldsToProfile = async (
         text:
           'Match these form fields to the company profile data below.\n\n' +
           'COMPANY PROFILE:\n' + profileContext + '\n\n' +
+          (documentText ? `DOCUMENT TEXT (contains form instructions and context):\n${documentText.slice(0, 30_000)}\n\n` : '') +
           'FORM FIELDS:\n' + JSON.stringify(fieldLabels) + '\n\n' +
           'Return JSON array: [{ "fieldId": string, "profileFieldKey": string|null, "confidence": number }]\n' +
           'If no good match exists, set profileFieldKey to null and confidence to 0.',

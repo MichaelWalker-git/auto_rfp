@@ -41,17 +41,21 @@ export const fillPdfForm = async (args: {
     const { width: pageWidth, height: pageHeight } = page.getSize();
     const bbox = field.boundingBox;
 
-    // Textract bounding boxes are normalized (0-1). Convert to page coordinates.
+    // Bounding boxes are normalized (0-1) with origin top-left.
+    // PDF coordinates have origin bottom-left.
     const x = bbox.left * pageWidth;
-    const y = pageHeight - (bbox.top * pageHeight) - (bbox.height * pageHeight);
     const w = bbox.width * pageWidth;
     const h = bbox.height * pageHeight;
 
-    const fontSize = Math.min(h * 0.7, 11);
+    // Position text at the top of the bbox (where the underline starts)
+    // bbox.top is distance from page top, so PDF y = pageHeight - bbox.top * pageHeight
+    // Then offset down by fontSize to place text baseline on the line
+    const fontSize = Math.min(h * 0.8, 11);
+    const y = pageHeight - (bbox.top * pageHeight) - fontSize;
 
     page.drawText(field.value, {
       x: x + 2,
-      y: y + (h - fontSize) / 2,
+      y,
       size: fontSize,
       font,
       color: rgb(0, 0, 0.6),

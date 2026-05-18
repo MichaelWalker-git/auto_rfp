@@ -50,13 +50,20 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
       fields = await extractFormFieldsWithVision(form.sourceFileKey);
     }
 
-    // Re-fill from company profile
-    const [profile] = await Promise.all([
-      getCompanyProfile(orgId),
-    ]);
+    // Load document text for context (form instructions)
+    let documentText = '';
+    try {
+      const { loadTextFromS3 } = await import('@/helpers/s3');
+      const { requireEnv } = await import('@/helpers/env');
+      const textKey = form.sourceFileKey.replace(/\.(pdf|xlsx|xls|docx)$/i, '.txt');
+      documentText = await loadTextFromS3(requireEnv('DOCUMENTS_BUCKET'), textKey).catch(() => '');
+    } catch { /* non-fatal */ }
+
+    // Re-fill from company profile + document context
+    const profile = await getCompanyProfile(orgId);
 
     if (profile && fields.length > 0) {
-      const matchResults = await matchFieldsToProfile(fields, profile);
+      const matchResults = await matchFieldsToProfile(fields, profile, documentText);
       fields = fields.map((f) => {
         const match = matchResults.find((m) => m.fieldId === f.fieldId);
         if (!match) return f;
