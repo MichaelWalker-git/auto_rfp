@@ -174,7 +174,9 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
         </Button>
       </div>
 
-      <div className="flex-1 overflow-auto bg-white">
+      <div className="flex flex-1 overflow-hidden">
+        {/* Table */}
+        <div className="flex-1 overflow-auto bg-white">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -226,6 +228,31 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
             </tbody>
           </table>
         )}
+        </div>
+
+        {/* Right: Field sidebar */}
+        <div className="w-[300px] border-l flex flex-col overflow-hidden bg-white shrink-0">
+          <div className="px-4 py-3 border-b bg-gray-50/80 shrink-0">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-gray-700">Fields</p>
+              <p className="text-[10px] text-gray-500">{fields.filter((f) => f.value).length}/{fields.length} filled</p>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {fields.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-6">No editable fields detected.</p>
+            ) : (
+              fields.map((field) => (
+                <div key={field.fieldId} className="px-4 py-2.5 border-b border-gray-100">
+                  <p className="text-[11px] font-medium text-gray-500 truncate">{field.label}</p>
+                  <p className={cn('text-xs mt-0.5 truncate', field.value ? 'text-gray-900' : 'text-gray-300 italic')}>
+                    {field.value || 'empty'}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

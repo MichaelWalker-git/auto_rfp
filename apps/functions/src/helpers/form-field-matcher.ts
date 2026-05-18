@@ -118,21 +118,26 @@ export const matchFieldsToProfile = async (
   const body = {
     anthropic_version: 'bedrock-2023-05-31',
     system:
-      'You match form field labels to company profile data. ' +
+      'You match form field labels to company profile data for a government vendor/contractor form. ' +
+      'The company filling this form is the VENDOR/CONSULTANT/CONTRACTOR. ' +
       'For each field, return the best matching profile key and confidence (0-1). ' +
-      'If the document contains filling instructions (e.g. "mark X for Fully Meets"), follow those instructions when determining values. ' +
+      'Common mappings: "Consultant Name"/"Vendor Name"/"Contractor Name"/"Corporation Name" → companyName; ' +
+      '"Address"/"Mailing Address" → address; "City" → city; "State" → state; "Zip" → zip; ' +
+      '"Phone"/"Telephone" → phone; "Email" → email; "EIN"/"Tax ID"/"FEIN" → ein; ' +
+      '"Entity Type" → entityType; "Signature" → authorizedSignatory.name. ' +
       'Return ONLY valid JSON.',
     messages: [{
       role: 'user',
       content: [{
         type: 'text',
         text:
-          'Match these form fields to the company profile data below.\n\n' +
+          'Match these form fields to the company profile data below. This is a vendor/contractor form.\n\n' +
           'COMPANY PROFILE:\n' + profileContext + '\n\n' +
-          (documentText ? `DOCUMENT TEXT (contains form instructions and context):\n${documentText.slice(0, 30_000)}\n\n` : '') +
-          'FORM FIELDS:\n' + JSON.stringify(fieldLabels) + '\n\n' +
+          (documentText ? `DOCUMENT TEXT (form instructions):\n${documentText.slice(0, 20_000)}\n\n` : '') +
+          'FORM FIELDS TO MATCH:\n' + JSON.stringify(fieldLabels) + '\n\n' +
           'Return JSON array: [{ "fieldId": string, "profileFieldKey": string|null, "confidence": number }]\n' +
-          'If no good match exists, set profileFieldKey to null and confidence to 0.',
+          'Be aggressive with matching — if a field could reasonably be filled from the profile, match it with high confidence.\n' +
+          'If no match exists, set profileFieldKey to null and confidence to 0.',
       }],
     }],
     temperature: 0,
@@ -146,6 +151,8 @@ export const matchFieldsToProfile = async (
     const rawText = contentBlocks.find((c) => c?.type === 'text')?.text ?? null;
     const matches = rawText ? (safeParseJsonFromModel(String(rawText)) as Array<{ fieldId: string; profileFieldKey: string | null; confidence: number }>) : [];
 
+    console.log(`Field matcher LLM returned ${Array.isArray(matches) ? matches.length : 0} matches`);
+
     if (Array.isArray(matches)) {
       for (const match of matches) {
         const resultIdx = results.findIndex((r) => r.fieldId === match.fieldId);
@@ -153,6 +160,10 @@ export const matchFieldsToProfile = async (
 
         const profileKey = match.profileFieldKey;
         const confidence = match.confidence ?? 0;
+
+        if (profileKey && confidence > 0.3) {
+          console.log(`  Match: fieldId=${match.fieldId.slice(0,8)} key=${profileKey} conf=${confidence}`);
+        }
 
         if (profileKey && confidence >= CONFIDENCE_THRESHOLD) {
           const value = getProfileValue(profile, profileKey);
