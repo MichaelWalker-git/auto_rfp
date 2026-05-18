@@ -295,6 +295,37 @@ export const baseHandler = async (
       });
     }
 
+    // ── Export Required Forms (filled PDFs) ──
+    try {
+      const { listRequiredFormsByOpportunity } = await import('@/helpers/required-form');
+      const { fillPdfForm } = await import('@/helpers/pdf-form-filler');
+
+      if (!opportunityId) throw new Error('opportunityId required for forms export');
+      const forms = await listRequiredFormsByOpportunity({ orgId, projectId, opportunityId });
+      const formsWithFields = forms.filter((f) => f.fields.length > 0 && f.sourceFileKey);
+
+      for (const form of formsWithFields) {
+        try {
+          const outputKey = `${orgId}/${projectId}/${opportunityId}/required-forms/${form.formId}/export-temp.pdf`;
+          await fillPdfForm({ sourceFileKey: form.sourceFileKey, fields: form.fields, outputKey });
+
+          const filledObj = await s3Client.send(new GetObjectCommand({ Bucket: DOCUMENTS_BUCKET, Key: outputKey }));
+          const filledBytes = await filledObj.Body?.transformToByteArray();
+
+          if (filledBytes) {
+            const sanitizedFormName = form.name.replace(/[^a-zA-Z0-9\s\-_()]/g, '').trim().slice(0, 80) || 'Form';
+            zip.file(`Required Forms/${sanitizedFormName}.pdf`, filledBytes);
+            exportedDocs.push({ documentId: form.formId, title: form.name, formats: ['pdf'], skipped: false });
+          }
+        } catch (formErr) {
+          console.warn(`Failed to export form "${form.name}":`, (formErr as Error)?.message);
+          exportedDocs.push({ documentId: form.formId, title: form.name, formats: [], skipped: true, skipReason: 'Form export failed' });
+        }
+      }
+    } catch (err) {
+      console.warn('Required forms export failed (non-fatal):', (err as Error)?.message);
+    }
+
     // Check if any documents were actually exported
     const successfulExports = exportedDocs.filter((d) => !d.skipped);
     if (successfulExports.length === 0) {
