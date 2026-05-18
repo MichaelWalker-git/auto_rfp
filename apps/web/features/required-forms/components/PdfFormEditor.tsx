@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -37,8 +37,6 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
   const [pdfPages, setPdfPages] = useState<string[]>([]);
   const [pdfLoading, setPdfLoading] = useState(true);
   const [pageSize, setPageSize] = useState<{ width: number; height: number }>({ width: 612, height: 792 });
-  const [dragging, setDragging] = useState<{ fieldId: string; startX: number; startY: number; origLeft: number; origTop: number } | null>(null);
-  const [resizing, setResizing] = useState<{ fieldId: string; startX: number; startY: number; origWidth: number; origHeight: number; dir: 'x' | 'y' | 'xy' } | null>(null);
   const [creatingField, setCreatingField] = useState(false);
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
@@ -182,68 +180,95 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     }
   }, [doc, orgId, toast, backUrl, confirm]);
 
-  // Drag to move
+  // Drag to move — uses direct DOM manipulation during drag, commits to state on mouseup
+  const dragRef = useRef<{ fieldId: string; startX: number; startY: number; origLeft: number; origTop: number; el: HTMLElement } | null>(null);
+
   const handleDragStart = useCallback((e: React.MouseEvent, fieldId: string) => {
     e.preventDefault();
     e.stopPropagation();
     const pos = fieldPositions[fieldId];
     if (!pos) return;
-    setDragging({ fieldId, startX: e.clientX, startY: e.clientY, origLeft: pos.left, origTop: pos.top });
-  }, [fieldPositions]);
+    const el = document.getElementById(`field-${fieldId}`);
+    if (!el) return;
+    dragRef.current = { fieldId, startX: e.clientX, startY: e.clientY, origLeft: pos.left, origTop: pos.top, el };
 
-  useEffect(() => {
-    if (!dragging) return;
-    const handleMove = (e: MouseEvent) => {
-      const dx = (e.clientX - dragging.startX) / pageSize.width;
-      const dy = (e.clientY - dragging.startY) / pageSize.height;
-      const newPos = { ...fieldPositions[dragging.fieldId]!, left: dragging.origLeft + dx, top: dragging.origTop + dy };
-      setFieldPositions((prev) => ({ ...prev, [dragging.fieldId]: newPos }));
+    const handleMove = (ev: MouseEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      const dx = (ev.clientX - drag.startX) / pageSize.width;
+      const dy = (ev.clientY - drag.startY) / pageSize.height;
+      const newLeft = drag.origLeft + dx;
+      const newTop = drag.origTop + dy;
+      drag.el.style.left = `${newLeft * 100}%`;
+      drag.el.style.top = `${newTop * 100}%`;
     };
-    const handleUp = () => {
-      const pos = fieldPositions[dragging.fieldId];
-      if (pos) markDirty();
-      setDragging(null);
+
+    const handleUp = (ev: MouseEvent) => {
+      const drag = dragRef.current;
+      if (drag) {
+        const dx = (ev.clientX - drag.startX) / pageSize.width;
+        const dy = (ev.clientY - drag.startY) / pageSize.height;
+        setFieldPositions((prev) => ({
+          ...prev,
+          [drag.fieldId]: { ...prev[drag.fieldId]!, left: drag.origLeft + dx, top: drag.origTop + dy },
+        }));
+        markDirty();
+      }
+      dragRef.current = null;
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
     };
+
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleUp);
-    return () => { window.removeEventListener('mousemove', handleMove); window.removeEventListener('mouseup', handleUp); };
-  }, [dragging, pageSize, fieldPositions, markDirty]);
+  }, [fieldPositions, pageSize, markDirty]);
 
-  // Resize (horizontal, vertical, or both)
+  // Resize — uses direct DOM manipulation during resize, commits to state on mouseup
+  const resizeRef = useRef<{ fieldId: string; startX: number; startY: number; origWidth: number; origHeight: number; dir: 'x' | 'y' | 'xy'; el: HTMLElement } | null>(null);
+
   const handleResizeStart = useCallback((e: React.MouseEvent, fieldId: string, dir: 'x' | 'y' | 'xy') => {
     e.preventDefault();
     e.stopPropagation();
     const pos = fieldPositions[fieldId];
     if (!pos) return;
-    setResizing({ fieldId, startX: e.clientX, startY: e.clientY, origWidth: pos.width, origHeight: pos.height, dir });
-  }, [fieldPositions]);
+    const el = document.getElementById(`field-${fieldId}`);
+    if (!el) return;
+    resizeRef.current = { fieldId, startX: e.clientX, startY: e.clientY, origWidth: pos.width, origHeight: pos.height, dir, el };
 
-  useEffect(() => {
-    if (!resizing) return;
-    const handleMove = (e: MouseEvent) => {
-      const dx = (e.clientX - resizing.startX) / pageSize.width;
-      const dy = (e.clientY - resizing.startY) / pageSize.height;
-      setFieldPositions((prev) => {
-        const curr = prev[resizing.fieldId]!;
-        return {
+    const handleMove = (ev: MouseEvent) => {
+      const rs = resizeRef.current;
+      if (!rs) return;
+      const dx = (ev.clientX - rs.startX) / pageSize.width;
+      const dy = (ev.clientY - rs.startY) / pageSize.height;
+      const newWidth = rs.dir !== 'y' ? Math.max(0.03, rs.origWidth + dx) : rs.origWidth;
+      const newHeight = rs.dir !== 'x' ? Math.max(0.015, rs.origHeight + dy) : rs.origHeight;
+      rs.el.style.width = `${newWidth * 100}%`;
+      rs.el.style.height = `${newHeight * 100}%`;
+    };
+
+    const handleUp = (ev: MouseEvent) => {
+      const rs = resizeRef.current;
+      if (rs) {
+        const dx = (ev.clientX - rs.startX) / pageSize.width;
+        const dy = (ev.clientY - rs.startY) / pageSize.height;
+        setFieldPositions((prev) => ({
           ...prev,
-          [resizing.fieldId]: {
-            ...curr,
-            width: resizing.dir !== 'y' ? Math.max(0.03, resizing.origWidth + dx) : curr.width,
-            height: resizing.dir !== 'x' ? Math.max(0.015, resizing.origHeight + dy) : curr.height,
+          [rs.fieldId]: {
+            ...prev[rs.fieldId]!,
+            width: rs.dir !== 'y' ? Math.max(0.03, rs.origWidth + dx) : prev[rs.fieldId]!.width,
+            height: rs.dir !== 'x' ? Math.max(0.015, rs.origHeight + dy) : prev[rs.fieldId]!.height,
           },
-        };
-      });
+        }));
+        markDirty();
+      }
+      resizeRef.current = null;
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
     };
-    const handleUp = () => {
-      const pos = fieldPositions[resizing.fieldId];
-      if (pos) markDirty();
-      setResizing(null);
-    };
+
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleUp);
-    return () => { window.removeEventListener('mousemove', handleMove); window.removeEventListener('mouseup', handleUp); };
-  }, [resizing, pageSize, fieldPositions, markDirty]);
+  }, [fieldPositions, pageSize, markDirty]);
 
   // Create field on double-click
   const handleCreateField = useCallback((e: React.MouseEvent<HTMLDivElement>, pageIdx: number) => {
