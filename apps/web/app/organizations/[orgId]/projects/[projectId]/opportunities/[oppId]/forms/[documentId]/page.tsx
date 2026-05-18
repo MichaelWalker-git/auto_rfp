@@ -18,11 +18,18 @@ export default function RequiredFormEditorPage() {
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id ?? orgId;
 
+  const apiUrl = formId ? buildApiUrl('/required-forms/get', { projectId, opportunityId, formId, orgId: navOrgId }) : null;
+  const [isPolling, setIsPolling] = useState(false);
   const { data: formData, isLoading, mutate: mutateForm } = useApi<{ form: RequiredFormItem }>(
-    formId ? buildApiUrl('/required-forms/get', { projectId, opportunityId, formId, orgId: navOrgId }) : null,
-    formId ? buildApiUrl('/required-forms/get', { projectId, opportunityId, formId, orgId: navOrgId }) : null,
+    apiUrl,
+    apiUrl,
+    { refreshInterval: isPolling ? 3000 : 0 },
   );
   const form = formData?.form ?? null;
+
+  useEffect(() => {
+    setIsPolling(form?.status === 'IN_PROGRESS');
+  }, [form?.status]);
 
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const fetchPdfUrl = useCallback(async (fileKey: string) => {

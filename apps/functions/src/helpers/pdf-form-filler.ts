@@ -21,12 +21,22 @@ export const fillPdfForm = async (args: {
   if (!bytes) throw new Error(`Could not read PDF from S3: ${sourceFileKey}`);
 
   // Try loading without encryption first (clean PDFs).
-  // If encrypted, load with ignoreEncryption and write directly on original.
+  // If encrypted (owner-password only), load with ignoreEncryption and strip the
+  // Encrypt dict so the output doesn't prompt for a password on open.
   let pdfDoc: PDFDocument;
+  let wasEncrypted = false;
   try {
     pdfDoc = await PDFDocument.load(bytes);
   } catch {
     pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+    wasEncrypted = true;
+  }
+
+  if (wasEncrypted) {
+    const context = (pdfDoc as unknown as { context: { trailerInfo: { Encrypt?: unknown } } }).context;
+    if (context?.trailerInfo?.Encrypt) {
+      delete context.trailerInfo.Encrypt;
+    }
   }
 
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);

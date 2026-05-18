@@ -135,7 +135,7 @@ export const matchFieldsToProfile = async (
           'COMPANY PROFILE:\n' + profileContext + '\n\n' +
           (documentText ? `DOCUMENT TEXT (form instructions):\n${documentText.slice(0, 20_000)}\n\n` : '') +
           'FORM FIELDS TO MATCH:\n' + JSON.stringify(fieldLabels) + '\n\n' +
-          'Return JSON array: [{ "fieldId": string, "profileFieldKey": string|null, "confidence": number }]\n' +
+          'Return JSON object: { "matches": [{ "fieldId": string, "profileFieldKey": string|null, "confidence": number }] }\n' +
           'Be aggressive with matching — if a field could reasonably be filled from the profile, match it with high confidence.\n' +
           'If no match exists, set profileFieldKey to null and confidence to 0.',
       }],
@@ -149,11 +149,18 @@ export const matchFieldsToProfile = async (
     const responseJson = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as Record<string, unknown>;
     const contentBlocks = (responseJson?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
     const rawText = contentBlocks.find((c) => c?.type === 'text')?.text ?? null;
-    const matches = rawText ? (safeParseJsonFromModel(String(rawText)) as Array<{ fieldId: string; profileFieldKey: string | null; confidence: number }>) : [];
+    const parsed = rawText ? (safeParseJsonFromModel(String(rawText)) as Record<string, unknown>) : null;
+    const matches: Array<{ fieldId: string; profileFieldKey: string | null; confidence: number }> =
+      Array.isArray(parsed) ? parsed
+        : Array.isArray((parsed as Record<string, unknown> | null)?.matches) ? (parsed as { matches: Array<{ fieldId: string; profileFieldKey: string | null; confidence: number }> }).matches
+        : [];
 
-    console.log(`Field matcher LLM returned ${Array.isArray(matches) ? matches.length : 0} matches`);
+    if (matches.length === 0 && rawText) {
+      console.warn('Field matcher: 0 matches extracted. Raw LLM response (first 500 chars):', rawText.slice(0, 500));
+    }
+    console.log(`Field matcher LLM returned ${matches.length} matches for ${unmatchedFields.length} fields`);
 
-    if (Array.isArray(matches)) {
+    if (matches.length > 0) {
       for (const match of matches) {
         const resultIdx = results.findIndex((r) => r.fieldId === match.fieldId);
         if (resultIdx === -1) continue;
