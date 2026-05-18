@@ -355,11 +355,17 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
                         <div
                           key={fid}
                           id={`field-${fid}`}
-                          className={cn('absolute group cursor-move', isActive && 'z-10')}
+                          className={cn('absolute group', isActive && 'z-10')}
                           style={{ left: `${bbox.left * 100}%`, top: `${bbox.top * 100}%`, width: `${bbox.width * 100}%`, height: `${bbox.height * 100}%` }}
                           onClick={(e) => e.stopPropagation()}
-                          onMouseDown={(e) => { if (e.target === e.currentTarget) handleDragStart(e, fid); }}
                         >
+                          {/* Move handle — top-left */}
+                          <div
+                            className="absolute -top-2 -left-2 w-4 h-4 cursor-move opacity-0 group-hover:opacity-100 bg-violet-500 rounded-full flex items-center justify-center z-10 shadow-sm"
+                            onMouseDown={(e) => handleDragStart(e, fid)}
+                          >
+                            <Move className="h-2 w-2 text-white" />
+                          </div>
                           <input
                             type="text"
                             value={value}
@@ -374,9 +380,11 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
                               !isActive && !value && 'bg-slate-100/40 ring-1 ring-slate-300/30 placeholder:text-slate-400/70 placeholder:text-[9px] hover:bg-white/60 hover:ring-violet-300/50',
                             )}
                           />
-                          {/* Resize handle — bottom-right corner */}
+                          {/* Resize handles */}
+                          <div className="absolute top-0 -right-1 w-2 h-full cursor-ew-resize opacity-0 group-hover:opacity-100" onMouseDown={(e) => handleResizeStart(e, fid, 'x')} />
+                          <div className="absolute -bottom-1 left-0 w-full h-2 cursor-ns-resize opacity-0 group-hover:opacity-100" onMouseDown={(e) => handleResizeStart(e, fid, 'y')} />
                           <div
-                            className="absolute -bottom-0.5 -right-0.5 w-2 h-2 cursor-nwse-resize opacity-0 group-hover:opacity-100 bg-violet-500/50 rounded-full"
+                            className="absolute -bottom-1 -right-1 w-3 h-3 cursor-nwse-resize opacity-0 group-hover:opacity-100 bg-violet-500/60 rounded-full shadow-sm"
                             onMouseDown={(e) => handleResizeStart(e, fid, 'xy')}
                           />
                         </div>
