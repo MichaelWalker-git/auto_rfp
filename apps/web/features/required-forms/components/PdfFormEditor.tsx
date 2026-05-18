@@ -313,24 +313,16 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
           {exporting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           Export PDF
         </Button>
-        <Button size="sm" variant={isDirty ? 'default' : 'outline'} onClick={handleSaveAll} disabled={isSaving || !isDirty} className="gap-1.5">
+        <Button size="sm" variant={isDirty ? 'default' : 'outline'} onClick={handleSaveAll} disabled={isSaving || !isDirty || isProcessing} className="gap-1.5">
           {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : null}
           Save
         </Button>
-        <Button size="sm" variant="ghost" onClick={handleDeleteForm} className="text-red-500 hover:text-red-700 hover:bg-red-50">
+        <Button size="sm" variant="ghost" onClick={handleDeleteForm} disabled={isProcessing} className="text-red-500 hover:text-red-700 hover:bg-red-50">
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
 
-      <div className={cn('flex flex-1 overflow-hidden relative', isProcessing && 'pointer-events-none opacity-60')}>
-        {isProcessing && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/50 backdrop-blur-sm">
-            <div className="text-center">
-              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-indigo-500" />
-              <p className="text-sm font-medium text-gray-700 mt-2">Reprocessing form...</p>
-            </div>
-          </div>
-        )}
+      <div className={cn('flex flex-1 overflow-hidden relative', isProcessing && 'opacity-50 pointer-events-none')}>
         {/* PDF with overlays */}
         <div className="flex-1 overflow-y-auto bg-gray-200 p-4" onClick={() => setActiveField(null)}>
           {pdfLoading ? (

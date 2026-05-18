@@ -225,7 +225,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
           {exporting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
           Export XLSX
         </Button>
-        <Button size="sm" variant={isDirty ? 'default' : 'outline'} onClick={handleSaveAll} disabled={isSaving || !isDirty} className="gap-1.5">
+        <Button size="sm" variant={isDirty ? 'default' : 'outline'} onClick={handleSaveAll} disabled={isSaving || !isDirty || reprocessing} className="gap-1.5">
           {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : null}
           Save
         </Button>
@@ -234,15 +234,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
         </Button>
       </div>
 
-      <div className={cn('flex flex-1 overflow-hidden relative', reprocessing && 'pointer-events-none opacity-60')}>
-        {reprocessing && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/50 backdrop-blur-sm">
-            <div className="text-center">
-              <RefreshCw className="h-8 w-8 animate-spin mx-auto text-indigo-500" />
-              <p className="text-sm font-medium text-gray-700 mt-2">Reprocessing form...</p>
-            </div>
-          </div>
-        )}
+      <div className={cn('flex flex-1 overflow-hidden relative', reprocessing && 'opacity-50 pointer-events-none')}>
         {/* Table */}
         <div className="flex-1 overflow-auto bg-white">
         {loading ? (
