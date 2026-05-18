@@ -414,49 +414,53 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
               const isLowConfidence = field?.status === 'LOW_CONFIDENCE';
 
               return (
-                <div key={fid} className={cn('px-4 py-2.5 border-b border-gray-100 transition-colors group/item', isActive && 'bg-indigo-50/60 border-l-2 border-l-indigo-500', isLowConfidence && 'bg-amber-50/40')}>
-                  <div className="flex items-center justify-between mb-1">
-                    {isEditingLbl ? (
+                <div key={fid} className={cn('px-3 py-2 group/item')} onClick={() => setActiveField(fid)}>
+                  <div className={cn(
+                    'rounded-md px-2.5 py-1.5 transition-all',
+                    isActive && 'bg-white ring-2 ring-violet-400 shadow-sm',
+                    !isActive && val && 'bg-emerald-50/60 ring-1 ring-emerald-300/40',
+                    !isActive && !val && 'bg-slate-100/40 ring-1 ring-slate-300/30 hover:ring-violet-300/50',
+                    isLowConfidence && !isActive && 'ring-amber-300/50',
+                  )}>
+                    <div className="flex items-center justify-between">
+                      {isEditingLbl ? (
+                        <input
+                          className="flex-1 text-[10px] font-medium border-b border-violet-400 outline-none bg-transparent text-gray-800"
+                          value={label}
+                          onChange={(e) => handleLabelChange(fid, e.target.value)}
+                          onBlur={() => handleLabelBlur(fid)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleLabelBlur(fid); }}
+                          autoFocus
+                        />
+                      ) : (
+                        <p
+                          className="text-[10px] font-medium text-slate-500 truncate cursor-pointer hover:text-slate-700"
+                          onClick={(e) => { e.stopPropagation(); setEditingLabel(fid); setActiveField(fid); }}
+                        >
+                          {isLowConfidence && <span className="text-amber-500 mr-0.5">⚠</span>}
+                          {label}
+                        </p>
+                      )}
+                      <button className="p-0.5 hover:bg-red-50 rounded opacity-0 group-hover/item:opacity-100 transition-opacity ml-1 shrink-0" onClick={(e) => { e.stopPropagation(); handleDeleteField(fid); }}>
+                        <Trash2 className="h-2.5 w-2.5 text-red-400" />
+                      </button>
+                    </div>
+                    {isActive ? (
                       <input
-                        className="flex-1 text-[11px] font-medium border-b border-indigo-400 outline-none bg-transparent text-gray-800"
-                        value={label}
-                        onChange={(e) => handleLabelChange(fid, e.target.value)}
-                        onBlur={() => handleLabelBlur(fid)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleLabelBlur(fid); }}
+                        className="w-full mt-1 text-[11px] bg-transparent outline-none border-b border-violet-300 text-gray-900"
+                        value={val}
+                        onChange={(e) => handleValueChange(fid, e.target.value)}
+                        onBlur={() => handleValueBlur(fid)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleValueBlur(fid); }}
+                        placeholder="Type value..."
                         autoFocus
                       />
                     ) : (
-                      <p
-                        className="text-[11px] font-medium text-gray-500 truncate cursor-pointer hover:text-gray-800"
-                        onClick={() => { setEditingLabel(fid); setActiveField(fid); }}
-                        title="Click to rename"
-                      >
-                        {isLowConfidence && <span className="text-amber-500 mr-1" title={`Low confidence: ${Math.round((field?.confidence ?? 0) * 100)}%`}>⚠</span>}
-                        {label}
+                      <p className={cn('text-[11px] mt-0.5 truncate', val ? 'text-emerald-900' : 'text-slate-400 italic')}>
+                        {val || 'click to edit'}
                       </p>
                     )}
-                    <button className="p-1 hover:bg-red-50 rounded opacity-0 group-hover/item:opacity-100 transition-opacity ml-1 shrink-0" onClick={() => handleDeleteField(fid)} title="Delete field">
-                      <Trash2 className="h-3 w-3 text-red-400" />
-                    </button>
                   </div>
-                  {isActive ? (
-                    <input
-                      className="w-full mt-0.5 text-xs border-b border-blue-300 outline-none bg-transparent"
-                      value={val}
-                      onChange={(e) => handleValueChange(fid, e.target.value)}
-                      onBlur={() => handleValueBlur(fid)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleValueBlur(fid); }}
-                      placeholder="Type value..."
-                      autoFocus
-                    />
-                  ) : (
-                    <p
-                      className={cn('truncate mt-0.5 cursor-pointer', val ? 'text-foreground' : 'text-muted-foreground italic')}
-                      onClick={() => setActiveField(fid)}
-                    >
-                      {val || 'click to edit'}
-                    </p>
-                  )}
                 </div>
               );
             })}
