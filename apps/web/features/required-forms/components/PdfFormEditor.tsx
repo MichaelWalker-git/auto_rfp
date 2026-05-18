@@ -167,6 +167,18 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     }
   }, [doc, orgId, toast, onFieldUpdated]);
 
+  const handleDeleteForm = useCallback(async () => {
+    const ok = await confirm({ title: 'Delete this form?', description: 'This will permanently remove the form and all its fields.', confirmLabel: 'Delete', variant: 'destructive' });
+    if (!ok) return;
+    try {
+      await apiFetcher(buildApiUrl('/required-forms/delete', { orgId, projectId: doc.projectId, opportunityId: doc.opportunityId, formId: doc.formId }));
+      toast({ title: 'Form deleted' });
+      window.location.href = backUrl;
+    } catch (err) {
+      toast({ title: 'Delete failed', description: (err as Error)?.message, variant: 'destructive' });
+    }
+  }, [doc, orgId, toast, backUrl, confirm]);
+
   // Drag to move
   const handleDragStart = useCallback((e: React.MouseEvent, fieldId: string) => {
     e.preventDefault();
@@ -304,6 +316,9 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
         <Button size="sm" variant={isDirty ? 'default' : 'outline'} onClick={handleSaveAll} disabled={isSaving || !isDirty} className="gap-1.5">
           {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : null}
           Save
+        </Button>
+        <Button size="sm" variant="ghost" onClick={handleDeleteForm} className="text-red-500 hover:text-red-700 hover:bg-red-50">
+          <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
 

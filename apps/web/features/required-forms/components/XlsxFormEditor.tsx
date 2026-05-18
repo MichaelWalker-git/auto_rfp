@@ -194,6 +194,18 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
     }
   }, [doc, orgId, toast]);
 
+  const handleDeleteForm = useCallback(async () => {
+    const ok = await confirm({ title: 'Delete this form?', description: 'This will permanently remove the form and all its fields.', confirmLabel: 'Delete', variant: 'destructive' });
+    if (!ok) return;
+    try {
+      await apiFetcher(buildApiUrl('/required-forms/delete', { orgId, projectId: doc.projectId, opportunityId: doc.opportunityId, formId: doc.formId }));
+      toast({ title: 'Form deleted' });
+      window.location.href = backUrl;
+    } catch (err) {
+      toast({ title: 'Delete failed', description: (err as Error)?.message, variant: 'destructive' });
+    }
+  }, [doc, orgId, toast, backUrl, confirm]);
+
   return (
     <div className="flex flex-col h-screen">
       <div className="flex items-center gap-3 px-4 py-2.5 border-b bg-background shrink-0">
@@ -216,6 +228,9 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
         <Button size="sm" variant={isDirty ? 'default' : 'outline'} onClick={handleSaveAll} disabled={isSaving || !isDirty} className="gap-1.5">
           {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : null}
           Save
+        </Button>
+        <Button size="sm" variant="ghost" onClick={handleDeleteForm} className="text-red-500 hover:text-red-700 hover:bg-red-50">
+          <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
 

@@ -107,7 +107,7 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
 
   // Fetch required forms to show "Forms Detected" badge on matching solicitation files
   const formsUrl = orgId && projectId && oppId ? buildApiUrl('/required-forms/list', { orgId, projectId, opportunityId: oppId }) : null;
-  const { data: formsData } = useApi<RequiredFormsListResponse>(formsUrl, formsUrl, { dedupingInterval: 30_000 });
+  const { data: formsData } = useApi<RequiredFormsListResponse>(formsUrl, formsUrl, { refreshInterval: 10_000, dedupingInterval: 5_000 });
   const formsBySourceFile = useMemo(() => {
     const map = new Map<string, Array<{ formId: string; name: string }>>();
     for (const form of formsData?.forms ?? []) {
