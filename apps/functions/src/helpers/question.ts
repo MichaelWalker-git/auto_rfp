@@ -11,7 +11,9 @@ import type { CreateQuestions, QuestionItem } from '@auto-rfp/core';
 
 export type QuestionItemDynamo = QuestionItem & DBItem;
 
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+// Lazy initialization to prevent Lambda cold start failures
+// (env vars may not be fully available during module initialization on Node.js 20+)
+const getTableName = () => requireEnv('DB_TABLE_NAME');
 
 export async function getQuestionItemById(
   projectId: string,
@@ -24,7 +26,7 @@ export async function getQuestionItemById(
     const sk = buildQuestionSK(projectId, opportunityId, fileId, questionId);
     const res = await docClient.send(
       new GetCommand({
-        TableName: DB_TABLE_NAME,
+        TableName: getTableName(),
         Key: {
           [PK_NAME]: QUESTION_PK,
           [SK_NAME]: sk,

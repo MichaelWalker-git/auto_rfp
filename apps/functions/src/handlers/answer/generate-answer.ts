@@ -34,7 +34,9 @@ import { trackContentLibraryUsage } from '@/helpers/usage-tracking';
 import { getAnswerSystemPrompt, useAnswerUserPrompt } from '@/constants/prompt';
 import { ANSWER_TOOLS, executeAnswerTool } from '@/helpers/answer-tools';
 
-const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID');
+// Lazy initialization to prevent Lambda cold start failures
+// (env vars may not be fully available during module initialization on Node.js 20+)
+const getModelId = () => requireEnv('BEDROCK_MODEL_ID');
 
 export interface GenerateAnswerParams {
   questionId: string;
@@ -123,7 +125,7 @@ When in doubt, return {"match": false, "index": -1}. It is better to generate a 
   };
 
   try {
-    const response = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(evalPayload), 'application/json', 'application/json');
+    const response = await invokeModel(getModelId(), JSON.stringify(evalPayload), 'application/json', 'application/json');
     const raw = new TextDecoder('utf-8').decode(response);
     const outer = JSON.parse(raw);
     const text = outer?.content?.[0]?.text || '';
@@ -196,7 +198,7 @@ const generateAnswerWithTools = async (
     // Wrap each LLM round in a Sentry span
     const responseBody = await Sentry.startSpan(
       { name: `llm-round-${toolRounds}`, op: 'ai.completion' },
-      () => invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody)),
+      () => invokeModel(getModelId(), JSON.stringify(requestBody)),
     );
     const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as {
       stop_reason?: string;
@@ -284,7 +286,7 @@ const generateAnswerWithTools = async (
         role: 'user',
         content: [{ type: 'text', text: 'Now provide the final answer based on all information gathered. Return ONLY valid JSON: {"answer": "<answer>", "confidence": <0.0-1.0>, "found": <true|false>}' }],
       });
-      const finalResponse = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify({
+      const finalResponse = await invokeModel(getModelId(), JSON.stringify({
         anthropic_version: 'bedrock-2023-05-31',
         system: systemPrompt,
         messages,

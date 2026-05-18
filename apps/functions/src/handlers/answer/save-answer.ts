@@ -143,12 +143,29 @@ export const saveAnswer = async (dto: Partial<AnswerItem> & {
 };
 
 export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
-  if (!event.body) return apiResponse(400, { message: 'Request body is required' });
+  const requestId = event.requestContext?.requestId ?? 'unknown';
+  console.log(`[save-answer] START requestId=${requestId}`);
 
-  const { success, data, error } = SaveAnswerDTOSchema.safeParse(JSON.parse(event.body));
+  if (!event.body) {
+    console.log(`[save-answer] ERROR requestId=${requestId} - Missing request body`);
+    return apiResponse(400, { message: 'Request body is required' });
+  }
+
+  let parsedBody: unknown;
+  try {
+    parsedBody = JSON.parse(event.body);
+  } catch (parseErr) {
+    console.log(`[save-answer] ERROR requestId=${requestId} - JSON parse failed: ${(parseErr as Error).message}`);
+    return apiResponse(400, { message: 'Invalid JSON in request body' });
+  }
+
+  const { success, data, error } = SaveAnswerDTOSchema.safeParse(parsedBody);
   if (!success) {
+    console.log(`[save-answer] ERROR requestId=${requestId} - Validation failed:`, JSON.stringify(error.issues));
     return apiResponse(400, { message: 'Validation failed', issues: error.issues });
   }
+
+  console.log(`[save-answer] requestId=${requestId} questionId=${data.questionId} projectId=${data.projectId} status=${data.status ?? 'DRAFT'}`);
 
   const userId = event.auth?.userId;
   const claims = event.auth?.claims ?? {};
@@ -165,14 +182,21 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
   const isApproving = data.status === 'APPROVED';
   const now = nowIso();
 
-  const savedAnswer = await saveAnswer({
-    ...data,
-    updatedBy: userId,
-    updatedByName: displayName,
-    ...(isApproving && userId
-      ? { approvedBy: userId, approvedByName: displayName, approvedAt: now }
-      : {}),
-  });
+  let savedAnswer: AnswerItem;
+  try {
+    savedAnswer = await saveAnswer({
+      ...data,
+      updatedBy: userId,
+      updatedByName: displayName,
+      ...(isApproving && userId
+        ? { approvedBy: userId, approvedByName: displayName, approvedAt: now }
+        : {}),
+    });
+    console.log(`[save-answer] SUCCESS requestId=${requestId} questionId=${data.questionId} answerId=${savedAnswer.id} isApproving=${isApproving}`);
+  } catch (saveErr) {
+    console.error(`[save-answer] ERROR requestId=${requestId} questionId=${data.questionId} - DynamoDB save failed:`, (saveErr as Error).message, (saveErr as Error).stack);
+    throw saveErr; // Re-throw to let httpErrorMiddleware handle it
+  }
 
   // Log activity to the collaboration feed (non-blocking)
   const orgId = data.organizationId ?? event.queryStringParameters?.orgId;
