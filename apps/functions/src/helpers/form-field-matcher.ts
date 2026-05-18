@@ -21,7 +21,7 @@ const ALWAYS_MANUAL_PATTERNS = [
   /insurance.*expir/i,
 ];
 
-const CONFIDENCE_THRESHOLD = 0.85;
+const CONFIDENCE_THRESHOLD = 0.7;
 
 type MatchResult = {
   fieldId: string;

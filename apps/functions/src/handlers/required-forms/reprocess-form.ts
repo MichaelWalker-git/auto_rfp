@@ -70,7 +70,7 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
         if (match.manualReason) {
           return { ...f, status: 'MANUAL_REQUIRED' as FormFieldStatus, manualReason: match.manualReason };
         }
-        if (match.profileFieldKey && match.value && match.confidence >= 0.85) {
+        if (match.profileFieldKey && match.value && match.confidence >= 0.7) {
           return { ...f, value: match.value, status: 'AUTO_FILLED' as FormFieldStatus, confidence: match.confidence, profileFieldKey: match.profileFieldKey };
         }
         if (match.profileFieldKey && match.value && match.confidence > 0.5) {
