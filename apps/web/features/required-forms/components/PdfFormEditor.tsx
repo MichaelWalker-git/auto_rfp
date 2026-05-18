@@ -58,6 +58,13 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     setFieldPositions(positions);
   }, [fields]);
 
+  // Scroll to active field when selected from sidebar
+  useEffect(() => {
+    if (!activeField) return;
+    const el = document.getElementById(`field-${activeField}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [activeField]);
+
   // Save field update to backend (debounced)
   const saveFieldUpdate = useCallback((fieldId: string, update: FieldUpdate) => {
     if (saveTimeoutRef.current[fieldId]) clearTimeout(saveTimeoutRef.current[fieldId]);
@@ -272,7 +279,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
 
       <div className="flex flex-1 overflow-hidden">
         {/* PDF with overlays */}
-        <div className="flex-1 overflow-y-auto bg-gray-200 p-4">
+        <div className="flex-1 overflow-y-auto bg-gray-200 p-4" onClick={() => setActiveField(null)}
           {pdfLoading ? (
             <div className="flex items-center justify-center h-full"><RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" /></div>
           ) : (
@@ -299,8 +306,10 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
                       return (
                         <div
                           key={fid}
+                          id={`field-${fid}`}
                           className={cn('absolute group', isActive && 'z-10')}
                           style={{ left: `${bbox.left * 100}%`, top: `${bbox.top * 100}%`, width: `${bbox.width * 100}%`, height: `${bbox.height * 100}%` }}
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <input
                             type="text"
