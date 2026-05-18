@@ -21,6 +21,12 @@ export const fillPdfForm = async (args: {
   if (!bytes) throw new Error(`Could not read PDF from S3: ${sourceFileKey}`);
 
   const pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
+
+  // Remove encryption dictionary so the exported PDF opens without password
+  const catalog = pdfDoc.context.lookup(pdfDoc.context.trailerInfo.Root);
+  const trailer = pdfDoc.context.trailerInfo as Record<string, unknown>;
+  if (trailer.Encrypt) delete trailer.Encrypt;
+
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const pages = pdfDoc.getPages();
 
