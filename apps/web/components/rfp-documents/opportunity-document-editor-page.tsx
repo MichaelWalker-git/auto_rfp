@@ -33,6 +33,7 @@ import { CherryPickConfirmDialog } from './dialogs/CherryPickConfirmDialog';
 import { AIChatPanel } from './ai-chat';
 import { TemplateSelector } from './template-selector';
 import type { RFPDocumentVersion } from '@auto-rfp/core';
+import { QuestionnaireEditorPage } from './questionnaire-editor-page';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -114,7 +115,8 @@ export const OpportunityDocumentEditorPage = ({
   // Only fetch HTML when doc is loaded AND not generating/regenerating.
   // During generation, the HTML endpoint returns 202/404 — no point fetching.
   // Content will be fetched once generation completes (status transitions away from GENERATING).
-  const htmlFetchEnabled = !!doc && !isDocumentGenerating(doc?.status) && !isRegenerateStarting;
+  // QUESTIONNAIRE docs are file-based (no HTML content) — skip fetching entirely.
+  const htmlFetchEnabled = !!doc && !isDocumentGenerating(doc?.status) && !isRegenerateStarting && doc?.documentType !== 'QUESTIONNAIRE';
   const {
     html: serverHtml,
     isLoading: isHtmlLoading,
@@ -186,6 +188,7 @@ export const OpportunityDocumentEditorPage = ({
 
   useEffect(() => {
     if (!doc) return;
+    if (doc.documentType === 'QUESTIONNAIRE') return;
     // Don't initialize during generation — the "Generating…" overlay handles this state.
     // Content will be initialized after generation completes and HTML is fetched.
     if (isDocumentGenerating(doc.status) || isRegenerateStarting) return;
@@ -559,6 +562,18 @@ export const OpportunityDocumentEditorPage = ({
           </Link>
         </Button>
       </div>
+    );
+  }
+
+  if (doc.documentType === 'QUESTIONNAIRE' && doc.fileKey) {
+    return (
+      <QuestionnaireEditorPage
+        doc={doc}
+        orgId={orgId}
+        projectId={projectId}
+        opportunityId={opportunityId}
+        backUrl={backUrl}
+      />
     );
   }
 

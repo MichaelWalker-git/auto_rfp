@@ -54,7 +54,7 @@ export class CollaborationWebSocketStack extends cdk.Stack {
     const bundling = {
       minify: true,
       sourceMap: true,
-      externalModules: ['@aws-sdk/*'],
+      externalModules: ['@aws-sdk/*', '@smithy/*'],
     };
 
     // ── Lambda: WS JWT Authorizer ─────────────────────────────────────────────

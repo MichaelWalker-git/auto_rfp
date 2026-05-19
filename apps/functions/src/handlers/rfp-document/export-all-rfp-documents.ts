@@ -22,6 +22,7 @@ import {
   loadDocumentHtmlForExport,
   expandTableOfContents,
 } from '@/helpers/export';
+import { getFileFromS3 } from '@/helpers/s3';
 import { htmlToPdfBuffer } from '@/helpers/export-pdf';
 import { htmlToDocxBuffer } from '@/helpers/export-docx';
 import { htmlToPptxBuffer } from '@/helpers/export-pptx';
@@ -293,6 +294,30 @@ export const baseHandler = async (
         skipped: docFormats.length === 0,
         skipReason: docFormats.length === 0 ? 'Export conversion failed' : undefined,
       });
+    }
+
+    // ── Export Questionnaire Documents (filled XLSX files) ──
+    try {
+      const questionnaireDocs = documents.filter(
+        (doc) => doc.documentType === 'QUESTIONNAIRE' && doc.fileKey && !doc.deletedAt,
+      );
+
+      for (const doc of questionnaireDocs) {
+        try {
+          const body = await getFileFromS3(DOCUMENTS_BUCKET, doc.fileKey);
+          const bytes = await body.transformToByteArray();
+
+          const fileName = doc.originalFileName || doc.name || 'questionnaire.xlsx';
+          const sanitizedName = sanitizeFileName(fileName.replace(/\.xlsx$/i, '')).slice(0, 80);
+          zip.file(`Questionnaires/${sanitizedName}.xlsx`, bytes);
+          exportedDocs.push({ documentId: doc.documentId, title: doc.name, formats: ['xlsx'], skipped: false });
+        } catch (qErr) {
+          console.warn(`Failed to export questionnaire "${doc.name}":`, (qErr as Error)?.message);
+          exportedDocs.push({ documentId: doc.documentId, title: doc.name, formats: [], skipped: true, skipReason: 'Questionnaire export failed' });
+        }
+      }
+    } catch (err) {
+      console.warn('Questionnaire export failed (non-fatal):', (err as Error)?.message);
     }
 
     // ── Export Required Forms (filled PDFs) ──

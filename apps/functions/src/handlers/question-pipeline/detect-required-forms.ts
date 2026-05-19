@@ -25,6 +25,7 @@ type DetectRequiredFormsEvent = {
   opportunityId: string;
   questionFileId: string;
   orgId?: string;
+  docType?: string;
 };
 
 type DetectedFormResult = {
@@ -84,7 +85,12 @@ const buildDetectionPrompt = (docText: string, mimeType: string) => {
 export const baseHandler = async (
   event: DetectRequiredFormsEvent,
 ): Promise<DetectRequiredFormsResult> => {
-  const { textFileKey, sourceFileKey, mimeType, projectId, opportunityId, questionFileId } = event;
+  const { textFileKey, sourceFileKey, mimeType, projectId, opportunityId, questionFileId, docType } = event;
+
+  if (docType && docType !== 'REQUIRED_FORM') {
+    console.log(`Skipping form detection — docType is "${docType}", not REQUIRED_FORM`);
+    return { ok: true, formsDetected: 0 };
+  }
 
   if (projectId && opportunityId && questionFileId) {
     const isCancelled = await checkQuestionFileCancelled(projectId, opportunityId, questionFileId);

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  AlertCircle, Download, ExternalLink, Eye, FileText, FolderOpen,
+  AlertCircle, Download, ExternalLink, Eye, FileSpreadsheet, FileText, FolderOpen,
   Link2, Loader2, MoreHorizontal, RefreshCw, RotateCcw, Sparkles, Trash2, X,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,7 +32,7 @@ import { useOpportunityContext } from './opportunity-context';
 import { useApi, buildApiUrl } from '@/lib/hooks/api-helpers';
 import type { RequiredFormsListResponse } from '@auto-rfp/core';
 import Link from 'next/link';
-import { PermissionDeleteButton } from '@/components/ui/delete-button';
+import { usePermission } from '@/components/permission-wrapper';
 import { formatDateTime, getStatusChip, pickDisplayName, guessDownloadName } from './opportunity-helpers';
 import { formatFileSize } from '@/lib/format-file-size';
 
@@ -45,6 +45,14 @@ const getFileExtension = (key: string): string =>
 
 const isImage = (key: string): boolean =>
   IMAGE_EXTENSIONS.has(getFileExtension(key));
+
+const SPREADSHEET_EXTENSIONS = new Set(['xlsx', 'xls', 'csv']);
+
+const getFileIcon = (fileKey: string | undefined, docType: string | undefined) => {
+  if (docType === 'QUESTIONNAIRE' || docType === 'REQUIRED_FORM') return FileSpreadsheet;
+  if (fileKey && SPREADSHEET_EXTENSIONS.has(getFileExtension(fileKey))) return FileSpreadsheet;
+  return FileText;
+};
 
 // ─── Image Lightbox ───────────────────────────────────────────────────────────
 
@@ -92,6 +100,7 @@ interface AttachmentRow {
   fileSize: number | undefined;
   depth: number | undefined;
   parentFileName: string | undefined;
+  docType: string | undefined;
 }
 
 interface OpportunitySolicitationDocumentsProps {
@@ -102,6 +111,7 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
   const { projectId, oppId, orgId } = useOpportunityContext();
   const { toast } = useToast();
   const { confirm, ConfirmDialog } = useConfirmDialog();
+  const canDelete = usePermission('document:delete');
 
   const { items: qItems, isLoading: isLoadingFiles, isError: isFilesError, error: filesError, refetch: refetchFiles } = useQuestionFiles(projectId, { oppId });
 
@@ -146,6 +156,7 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
       fileSize: qf.fileSize,
       depth: qf.depth,
       parentFileName: qf.parentFileName,
+      docType: qf.docType,
     })),
     [qItems],
   );
@@ -375,7 +386,7 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
                   <div key={f.questionFileId ?? f.name} className={cn('rounded-xl border bg-background p-3', (isDeleting || isDownloading) && 'opacity-80')}>
                     <div className="flex items-start gap-3" data-doc-status={f.status ?? 'COMPLETE'}>
                       <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                        <FileText className="h-5 w-5 text-muted-foreground" />
+                        {React.createElement(getFileIcon(f.fileKey, f.docType), { className: 'h-5 w-5 text-muted-foreground' })}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -417,12 +428,23 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
                             ))
                           )}
                         </div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {formatFileSize(f.fileSize) && (
-                            <>{formatFileSize(f.fileSize)} · </>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+                          {f.docType && f.docType !== 'OTHER' && (
+                            <span className={cn('font-medium',
+                              f.docType === 'QUESTIONNAIRE' && 'text-teal-600 dark:text-teal-400',
+                              f.docType === 'REQUIRED_FORM' && 'text-orange-600 dark:text-orange-400',
+                            )}>
+                              {f.docType === 'QUESTIONNAIRE' ? 'Questionnaire' : 'Required Form'}
+                            </span>
                           )}
-                          {formatDateTime(f.createdAt)}
-                          {f.updatedAt && f.updatedAt !== f.createdAt ? ` • Updated: ${formatDateTime(f.updatedAt)}` : ''}
+                          {f.docType && f.docType !== 'OTHER' && <span>·</span>}
+                          {formatFileSize(f.fileSize) && (
+                            <><span>{formatFileSize(f.fileSize)}</span><span>·</span></>
+                          )}
+                          <span>{formatDateTime(f.createdAt)}</span>
+                          {f.updatedAt && f.updatedAt !== f.createdAt && (
+                            <><span>·</span><span>Updated {formatDateTime(f.updatedAt)}</span></>
+                          )}
                         </div>
                         {isFailed && f.errorMessage && (
                           <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">{f.errorMessage}</div>
@@ -468,16 +490,6 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
                         {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' && f.status !== 'TEXT_EXTRACTION_FAILED' && (
                           <CancelPipelineButton projectId={projectId} opportunityId={oppId} questionFileId={f.questionFileId} status={f.status} onMutate={refetchFiles} />
                         )}
-                        {(f.status === 'PROCESSED' || isFailed) && (
-                          <PermissionDeleteButton
-                            requiredPermission="document:delete"
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => void handleDelete(f)}
-                            isLoading={isDeleting}
-                            deniedTooltip="You don't have permission to delete solicitation documents. Contact your admin for access."
-                          />
-                        )}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button size="sm" variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
@@ -516,6 +528,15 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
                               <DropdownMenuItem onClick={() => window.open(f.googleDriveUrl, '_blank')}>
                                 <ExternalLink className="h-4 w-4 mr-2" /> Open in Google Drive
                               </DropdownMenuItem>
+                            )}
+                            {(f.status === 'PROCESSED' || isFailed) && canDelete && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-red-600" disabled={isDeleting} onClick={() => void handleDelete(f)}>
+                                  {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                                  Delete
+                                </DropdownMenuItem>
+                              </>
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>

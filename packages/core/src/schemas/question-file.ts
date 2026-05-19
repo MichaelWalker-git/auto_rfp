@@ -13,6 +13,9 @@ export const QuestionFileStatusSchema = z.enum([
 
 export type QuestionFileStatus = z.infer<typeof QuestionFileStatusSchema>;
 
+export const DocTypeSchema = z.enum(['QUESTIONNAIRE', 'REQUIRED_FORM', 'OTHER']);
+export type DocType = z.infer<typeof DocTypeSchema>;
+
 export const IsoDateStringSchema = z
   .string()
   .datetime({ offset: true })
@@ -47,6 +50,12 @@ export const UpdateQuestionFileDTOSchema = z.object({
   // optionally store results metadata
   pages: z.number().int().min(0).optional(),
   extractedQuestionsCount: z.number().int().min(0).optional(),
+  // Document classification
+  docType: DocTypeSchema.optional(),
+  questionColumn: z.string().optional(),
+  answerColumn: z.string().optional(),
+  firstDataRow: z.number().int().min(1).optional(),
+  sheetName: z.string().optional(),
 });
 
 export type UpdateQuestionFileDTO = z.infer<typeof UpdateQuestionFileDTOSchema>;
@@ -74,6 +83,13 @@ export const QuestionFileItemSchema = z
     createdAt: IsoDateStringSchema,
     updatedAt: IsoDateStringSchema.optional(),
     executionArn: z.string().optional(),
+
+    // Document classification
+    docType: DocTypeSchema.default('OTHER'),
+    questionColumn: z.string().optional(),
+    answerColumn: z.string().optional(),
+    firstDataRow: z.number().int().min(1).optional(),
+    sheetName: z.string().optional(),
 
     // Linked attachment tracking
     depth: z.number().int().min(0).max(3).optional().default(0),  // 0=user upload, 1=child, 2=grandchild, 3=great-grandchild

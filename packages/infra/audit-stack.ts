@@ -34,7 +34,7 @@ export class AuditStack extends cdk.Stack {
     const bundling = {
       minify: true,
       sourceMap: true,
-      externalModules: ['@aws-sdk/*'],
+      externalModules: ['@aws-sdk/*', '@smithy/*'],
     };
 
     // ── SSM: HMAC secret for log integrity ────────────────────────────────────

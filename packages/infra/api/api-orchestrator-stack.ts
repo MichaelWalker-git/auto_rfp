@@ -396,7 +396,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
         bundling: {
           minify: true,
           sourceMap: true,
-          externalModules: ['@aws-sdk/*'],
+          externalModules: ['@aws-sdk/*', '@smithy/*'],
         },
       });
 
@@ -429,7 +429,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
         bundling: {
           minify: true,
           sourceMap: true,
-          externalModules: ['@aws-sdk/*'],
+          externalModules: ['@aws-sdk/*', '@smithy/*'],
         },
       });
 
@@ -461,7 +461,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
         bundling: {
           minify: true,
           sourceMap: true,
-          externalModules: ['@aws-sdk/*'],
+          externalModules: ['@aws-sdk/*', '@smithy/*'],
         },
       });
 
@@ -506,7 +506,8 @@ export class ApiOrchestratorStack extends cdk.Stack {
         bundling: {
           minify: true,
           sourceMap: true,
-          externalModules: ['@aws-sdk/*'],
+          externalModules: ['@aws-sdk/*', '@smithy/*'],
+          nodeModules: ['exceljs'],
         },
       });
 
@@ -540,7 +541,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
         bundling: {
           minify: true,
           sourceMap: true,
-          externalModules: ['@aws-sdk/*', 'pdf-parse'],
+          externalModules: ['@aws-sdk/*', '@smithy/*', 'pdf-parse'],
           nodeModules: ['pdf-parse'], // pdf-parse uses dynamic require, must be installed
         },
       });
@@ -658,7 +659,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       memorySize: 256,
       role: sharedInfraStack.commonLambdaRole,
       environment: { ...commonEnv },
-      bundling: { minify: true, sourceMap: true, externalModules: ['@aws-sdk/*'] },
+      bundling: { minify: true, sourceMap: true, externalModules: ['@aws-sdk/*', '@smithy/*'] },
     });
 
     new logs.LogGroup(this, `DibbsRunSavedSearchLogs-${stage}`, {

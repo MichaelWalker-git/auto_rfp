@@ -25,7 +25,7 @@ export const updateQuestionFile = async (
   questionFileId: string,
   questionFile: Partial<QuestionFileItem>
 ): Promise<{ success: boolean; deleted?: boolean }> => {
-  const { status, textFileKey, jobId, taskToken, totalQuestions, errorMessage, executionArn } = questionFile;
+  const { status, textFileKey, jobId, taskToken, totalQuestions, errorMessage, executionArn, docType, questionColumn, answerColumn, firstDataRow, sheetName } = questionFile;
   const sk = buildQuestionFileSK(projectId, oppId, questionFileId);
 
   const fields: string[] = ['#updatedAt = :now'];
@@ -44,6 +44,11 @@ export const updateQuestionFile = async (
   if (totalQuestions !== undefined) { fields.push('#totalQuestions = :totalQuestions'); names['#totalQuestions'] = 'totalQuestions'; values[':totalQuestions'] = totalQuestions; }
   if (errorMessage !== undefined) { fields.push('#errorMessage = :errorMessage'); names['#errorMessage'] = 'errorMessage'; values[':errorMessage'] = errorMessage; }
   if (executionArn !== undefined) { fields.push('#executionArn = :executionArn'); names['#executionArn'] = 'executionArn'; values[':executionArn'] = executionArn; }
+  if (docType !== undefined) { fields.push('#docType = :docType'); names['#docType'] = 'docType'; values[':docType'] = docType; }
+  if (questionColumn !== undefined) { fields.push('#questionColumn = :questionColumn'); names['#questionColumn'] = 'questionColumn'; values[':questionColumn'] = questionColumn; }
+  if (answerColumn !== undefined) { fields.push('#answerColumn = :answerColumn'); names['#answerColumn'] = 'answerColumn'; values[':answerColumn'] = answerColumn; }
+  if (firstDataRow !== undefined) { fields.push('#firstDataRow = :firstDataRow'); names['#firstDataRow'] = 'firstDataRow'; values[':firstDataRow'] = firstDataRow; }
+  if (sheetName !== undefined) { fields.push('#sheetName = :sheetName'); names['#sheetName'] = 'sheetName'; values[':sheetName'] = sheetName; }
 
   try {
     await docClient.send(
