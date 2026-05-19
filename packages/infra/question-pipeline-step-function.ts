@@ -384,6 +384,36 @@ export class QuestionExtractionPipelineStack extends Stack {
       );
     }
 
+    // Classify Document Lambda — determines if the file is a QUESTIONNAIRE or OTHER
+    const classifyDocumentLambda = new lambdaNode.NodejsFunction(this, 'ClassifyDocumentLambda', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      logGroup: mkFnLogGroup('ClassifyDocument'),
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/question-pipeline/classify-document.ts'),
+      handler: 'handler',
+      timeout: Duration.minutes(2),
+      environment: {
+        ...commonLambdaEnv,
+        BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
+        BEDROCK_REGION: 'us-east-1',
+      },
+    });
+    documentsBucket.grantRead(classifyDocumentLambda);
+    mainTable.grantReadWriteData(classifyDocumentLambda);
+
+    classifyDocumentLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:InvokeModel'],
+        resources: ['*'],
+      }),
+    );
+
+    classifyDocumentLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [bedrockApiKeyParamArn],
+      }),
+    );
+
     const startTextract = new tasks.LambdaInvoke(this, 'Start Textract', {
       lambdaFunction: startTextractLambda,
       integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
@@ -455,7 +485,50 @@ export class QuestionExtractionPipelineStack extends Stack {
     });
 
     // IMPORTANT: do NOT reuse the same State instance across branches.
-    // NEW: Fulfill Opportunity Fields tasks (one per branch)
+    // Classify Document tasks (one per branch)
+    const classifyAfterPdf = new tasks.LambdaInvoke(this, 'Classify Document (PDF)', {
+      lambdaFunction: classifyDocumentLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
+        mimeType: sfn.JsonPath.stringAt('$.mimeType'),
+      }),
+      resultPath: '$.classify',
+      payloadResponseOnly: true,
+    });
+
+    const classifyAfterXlsx = new tasks.LambdaInvoke(this, 'Classify Document (XLSX)', {
+      lambdaFunction: classifyDocumentLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
+        mimeType: sfn.JsonPath.stringAt('$.mimeType'),
+      }),
+      resultPath: '$.classify',
+      payloadResponseOnly: true,
+    });
+
+    const classifyAfterDocx = new tasks.LambdaInvoke(this, 'Classify Document (DOCX)', {
+      lambdaFunction: classifyDocumentLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
+        mimeType: sfn.JsonPath.stringAt('$.mimeType'),
+      }),
+      resultPath: '$.classify',
+      payloadResponseOnly: true,
+    });
+
+    // Fulfill Opportunity Fields tasks (one per branch)
     const fulfillOppAfterPdf = new tasks.LambdaInvoke(this, 'Fulfill Opportunity Fields (PDF)', {
       lambdaFunction: fulfillOpportunityFieldsLambda,
       payload: sfn.TaskInput.fromObject({
@@ -500,6 +573,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        docType: sfn.JsonPath.stringAt('$.classify.docType'),
       }),
       resultPath: '$.extractResult',
       payloadResponseOnly: true,
@@ -512,6 +586,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        docType: sfn.JsonPath.stringAt('$.classify.docType'),
       }),
       resultPath: '$.extractResult',
       payloadResponseOnly: true,
@@ -524,6 +599,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        docType: sfn.JsonPath.stringAt('$.classify.docType'),
       }),
       resultPath: '$.extractResult',
       payloadResponseOnly: true,
@@ -569,6 +645,7 @@ export class QuestionExtractionPipelineStack extends Stack {
     });
 
     // NEW: Detect Required Forms tasks (one per branch)
+    // Skips processing inside Lambda when docType !== 'REQUIRED_FORM'
     const detectFormsAfterPdf = new tasks.LambdaInvoke(this, 'Detect Required Forms (PDF)', {
       lambdaFunction: detectRequiredFormsLambda,
       payload: sfn.TaskInput.fromObject({
@@ -579,6 +656,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
         mimeType: sfn.JsonPath.stringAt('$.mimeType'),
+        docType: sfn.JsonPath.stringAt('$.classify.docType'),
       }),
       resultPath: sfn.JsonPath.DISCARD,
       payloadResponseOnly: true,
@@ -594,6 +672,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
         mimeType: sfn.JsonPath.stringAt('$.mimeType'),
+        docType: sfn.JsonPath.stringAt('$.classify.docType'),
       }),
       resultPath: sfn.JsonPath.DISCARD,
       payloadResponseOnly: true,
@@ -609,6 +688,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
         mimeType: sfn.JsonPath.stringAt('$.mimeType'),
+        docType: sfn.JsonPath.stringAt('$.classify.docType'),
       }),
       resultPath: sfn.JsonPath.DISCARD,
       payloadResponseOnly: true,
@@ -736,9 +816,10 @@ export class QuestionExtractionPipelineStack extends Stack {
       sfn.Condition.stringMatches('$.sourceFileKey', '*.TIF'),
     );
 
-    // Pipeline flow: Extract Text → Detect Attachments → Detect Forms → Fulfill Opp → Index → Extract Questions → Check & Trigger
+    // Pipeline flow: Extract Text → Classify → Detect Attachments → Detect Forms → Fulfill Opp → Index → Extract Questions → Check & Trigger
     const pdfBranch = sfn.Chain.start(startTextract)
       .next(processResult)
+      .next(classifyAfterPdf)
       .next(detectAttachmentsAfterPdf)
       .next(detectFormsAfterPdf)
       .next(fulfillOppAfterPdf)
@@ -748,6 +829,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       .next(done);
 
     const docxBranch = sfn.Chain.start(extractDocxText)
+      .next(classifyAfterDocx)
       .next(detectAttachmentsAfterDocx)
       .next(detectFormsAfterDocx)
       .next(fulfillOppAfterDocx)
@@ -757,6 +839,7 @@ export class QuestionExtractionPipelineStack extends Stack {
       .next(done);
 
     const xlsxBranch = sfn.Chain.start(extractXlsxText)
+      .next(classifyAfterXlsx)
       .next(detectAttachmentsAfterXlsx)
       .next(detectFormsAfterXlsx)
       .next(fulfillOppAfterXlsx)

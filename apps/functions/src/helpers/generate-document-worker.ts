@@ -597,6 +597,13 @@ export const processJobInner = async (job: Job): Promise<void> => {
     return;
   }
 
+  // ─── QUESTIONNAIRE: No AI — fill answers into original XLSX ───
+  if (documentType === 'QUESTIONNAIRE') {
+    const { generateQuestionnaireDocument } = await import('@/helpers/questionnaire-document');
+    await generateQuestionnaireDocument({ orgId, projectId, opportunityId, documentId });
+    return;
+  }
+
   // ─── Step 1: Load Q&A pairs ───
   const qaPairs = await loadQaPairs(projectId, opportunityId);
 

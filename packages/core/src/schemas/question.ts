@@ -34,6 +34,8 @@ export const QuestionItemSchema = z.object({
   sectionDescription: z.string().nullable().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+  // Source row for questionnaire files (1-indexed XLSX row number)
+  sourceRow: z.number().int().min(1).optional(),
   // Clustering fields
   clusterId: z.string().optional(),
   isClusterMaster: z.boolean().optional(),

@@ -38,6 +38,7 @@
     "@types/html-to-docx": "^1.8.0",
     "aws-jwt-verify": "^5.1.1",
     "docx": "^9.5.1",
+    "exceljs": "^4.4.0",
     "googleapis": "^171.4.0",
     "html-to-docx": "^1.8.0",
     "jszip": "^3.10.1",

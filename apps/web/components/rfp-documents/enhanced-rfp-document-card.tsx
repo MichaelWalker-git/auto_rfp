@@ -3,8 +3,10 @@
 import React, { useCallback, useState } from 'react';
 import Link from 'next/link';
 import {
+  Download,
   ExternalLink,
   FileDown,
+  FileSpreadsheet,
   FileText,
   Loader2,
   MoreHorizontal,
@@ -57,6 +59,7 @@ interface EnhancedRFPDocumentCardProps {
   orgId: string;
   projectId: string;
   isDeleting: boolean;
+  onDownload?: (doc: RFPDocumentItem) => void;
   onExport: (doc: RFPDocumentItem) => void;
   onDelete: (doc: RFPDocumentItem) => void;
   onSyncComplete: () => void;
@@ -69,6 +72,7 @@ export function EnhancedRFPDocumentCard({
   orgId,
   projectId,
   isDeleting,
+  onDownload,
   onExport,
   onDelete,
   onSyncComplete,
@@ -123,7 +127,7 @@ export function EnhancedRFPDocumentCard({
         </div>
       )}
       <div className="flex items-start gap-3 p-3">
-        <DocumentIcon />
+        <DocumentIcon doc={doc} />
         <DocumentInfo doc={doc} typeStyle={typeStyle} />
         <div className="flex items-center gap-2 shrink-0">
           <DocumentActions
@@ -132,6 +136,7 @@ export function EnhancedRFPDocumentCard({
             projectId={projectId}
             isDeleting={isDeleting}
             isApproved={isApproved}
+            onDownload={onDownload}
             onExport={onExport}
             onDelete={onDelete}
             onSyncComplete={onSyncComplete}
@@ -188,10 +193,13 @@ export function EnhancedRFPDocumentCard({
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function DocumentIcon() {
+function DocumentIcon({ doc }: { doc: RFPDocumentItem }) {
+  const Icon = doc.documentType === 'QUESTIONNAIRE' || doc.mimeType?.includes('spreadsheet') || doc.mimeType?.includes('excel')
+    ? FileSpreadsheet
+    : FileText;
   return (
     <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-      <FileText className="h-5 w-5 text-muted-foreground" />
+      <Icon className="h-5 w-5 text-muted-foreground" />
     </div>
   );
 }
@@ -277,6 +285,7 @@ interface DocumentActionsProps {
   projectId: string;
   isDeleting: boolean;
   isApproved: boolean;
+  onDownload?: (doc: RFPDocumentItem) => void;
   onExport: (doc: RFPDocumentItem) => void;
   onDelete: (doc: RFPDocumentItem) => void;
   onSyncComplete: () => void;
@@ -288,6 +297,7 @@ function DocumentActions({
   projectId,
   isDeleting,
   isApproved,
+  onDownload,
   onExport,
   onDelete,
   onSyncComplete,
@@ -390,6 +400,13 @@ function DocumentActions({
             <DropdownMenuItem onClick={() => onExport(doc)}>
               <FileDown className="h-4 w-4 mr-2" />
               Export
+            </DropdownMenuItem>
+          )}
+
+          {doc.fileKey && onDownload && (
+            <DropdownMenuItem onClick={() => onDownload(doc)}>
+              <Download className="h-4 w-4 mr-2" />
+              Download
             </DropdownMenuItem>
           )}
 

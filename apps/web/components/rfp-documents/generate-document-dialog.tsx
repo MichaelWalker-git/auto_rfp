@@ -48,6 +48,7 @@ const STANDARD_TYPES: { key: string; label: string }[] = [
   { key: 'QUALITY_MANAGEMENT',            label: RFP_DOCUMENT_TYPES.QUALITY_MANAGEMENT },
   { key: 'CLARIFYING_QUESTIONS',          label: RFP_DOCUMENT_TYPES.CLARIFYING_QUESTIONS },
   { key: 'QUESTIONS_AND_ANSWERS',         label: RFP_DOCUMENT_TYPES.QUESTIONS_AND_ANSWERS },
+  { key: 'QUESTIONNAIRE',                 label: RFP_DOCUMENT_TYPES.QUESTIONNAIRE },
 ];
 
 interface DocRow {

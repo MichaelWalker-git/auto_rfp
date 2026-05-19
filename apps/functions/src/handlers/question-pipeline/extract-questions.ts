@@ -29,6 +29,7 @@ export interface ExtractQuestionsEvent {
   projectId: string;
   textFileKey: string;
   opportunityId: string;
+  docType?: string;
 }
 
 type ExtractedQuestions = { sections: GroupedSection[] };
@@ -124,6 +125,50 @@ Rules:
 - Aim for quality over quantity — 20 focused questions is better than 100 noisy ones.
 `.trim();
 
+const getQuestionnaireSystemPrompt = (): string => `
+You are an expert at extracting questions from structured questionnaire documents (spreadsheets with question/answer columns).
+
+This document is a QUESTIONNAIRE — a structured file where each row contains a question that requires a vendor response.
+
+GOAL:
+Extract EVERY question row from this document. Unlike narrative RFPs, in a questionnaire EVERY row in the question column IS a question that needs an answer. Do not filter aggressively.
+
+IMPORTANT: You MUST include the row number for each question. The row number is the 1-indexed row in the original spreadsheet where this question appears.
+
+Output format:
+Return ONLY valid JSON (no markdown, no commentary). Use exactly this schema:
+
+{
+  "sections": [
+    {
+      "title": "Section Title (group by sheet/category if apparent, otherwise use 'Questions')",
+      "description": "",
+      "locationHint": "",
+      "questions": [
+        {
+          "question": "The exact question text from the question column.",
+          "type": "technical|management|past_performance|pricing|security|qualifications|other",
+          "isExplicitQuestion": true,
+          "isRequired": "required",
+          "deliverable": "",
+          "responseFormat": "narrative",
+          "constraints": [],
+          "rowNumber": 5
+        }
+      ]
+    }
+  ]
+}
+
+Rules:
+- Include EVERY row that contains a question or requirement needing a vendor response.
+- The "rowNumber" field MUST be the 1-indexed row number from the original spreadsheet.
+- Preserve the exact wording of each question.
+- Group by section/category if the spreadsheet has section headers; otherwise use a single section titled "Questions".
+- Skip truly empty rows or rows that are clearly headers/section dividers (not questions).
+- Ensure the JSON is strictly valid.
+`.trim();
+
 const buildUserPrompt = (content: string, chunkIndex: number, totalChunks: number): string => {
   const chunkInfo = totalChunks > 1
     ? `\n\nNOTE: This is chunk ${chunkIndex + 1} of ${totalChunks}. Extract questions from this portion only. Focus on sections like "Instructions to Offerors", "Evaluation Criteria", "Technical Requirements", "Past Performance", "Management Approach".`
@@ -147,10 +192,11 @@ const extractQuestionsWithBedrock = async (
   content: string,
   chunkIndex: number,
   totalChunks: number,
+  isQuestionnaire = false,
 ): Promise<ExtractedQuestions> => {
   const body = {
     anthropic_version: 'bedrock-2023-05-31',
-    system: getSystemPrompt(),
+    system: isQuestionnaire ? getQuestionnaireSystemPrompt() : getSystemPrompt(),
     messages: [{ role: 'user', content: buildUserPrompt(content, chunkIndex, totalChunks) }],
     max_tokens: 32768,
     temperature: 0.1,
@@ -243,6 +289,8 @@ const saveQuestionsFromSections = async (
       const questionHash = sha256Hex(normalized);
       const sortKey = buildQuestionSK(projectId, opportunityId, questionFileId, questionHash);
 
+      const rowNumber = (q as { rowNumber?: number })?.rowNumber;
+
       const item = {
         [PK_NAME]: QUESTION_PK,
         [SK_NAME]: sortKey,
@@ -258,6 +306,7 @@ const saveQuestionsFromSections = async (
         questionNormalized: normalized,
         createdAt: now,
         updatedAt: now,
+        ...(typeof rowNumber === 'number' && { sourceRow: rowNumber }),
       };
 
       writes.push(
@@ -319,6 +368,9 @@ export const baseHandler = async (
     );
   }
 
+  const isQuestionnaire = event.docType === 'QUESTIONNAIRE';
+  console.log(`Document type: ${event.docType ?? 'not set'} (isQuestionnaire: ${isQuestionnaire})`);
+
   const text = await loadTextFromS3(getDocumentsBucket(), textFileKey);
   console.log(`Loaded text: ${text.length} characters`);
 
@@ -329,7 +381,7 @@ export const baseHandler = async (
 
   for (let i = 0; i < chunks.length; i++) {
     try {
-      const extracted = await extractQuestionsWithBedrock(chunks[i]!, i, chunks.length);
+      const extracted = await extractQuestionsWithBedrock(chunks[i]!, i, chunks.length, isQuestionnaire);
       allSections.push(...extracted.sections);
       console.log(`Chunk ${i + 1} extracted ${extracted.sections.length} sections`);
     } catch (err: unknown) {
