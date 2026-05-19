@@ -96,7 +96,9 @@ Key directories:
 
 DynamoDB uses single-table design. All operations go through `src/helpers/db.ts` (`createItem`, `getItem`, `queryBySkPrefix`, etc.). PK constants are in `src/constants/`. SK strings are built via helper functions — never manually.
 
-Middy middleware stack order: `authContextMiddleware → orgMembershipMiddleware → requirePermission → httpErrorMiddleware`. All REST handlers wrapped with `withSentryLambda`. The `AuthedEvent` type (extends `APIGatewayProxyEventV2` with `.auth` and `.rbac`) is exported from `src/middleware/rbac-middleware.ts`.
+Middy middleware stack order: `authContextMiddleware → orgMembershipMiddleware → requirePermission → httpErrorMiddleware`. All REST handlers wrapped with `withSentryLambda` (from `@/sentry-lambda`). The `AuthedEvent` type (extends `APIGatewayProxyEventV2` with `.auth` and `.rbac`) is exported from `src/middleware/rbac-middleware.ts`.
+
+Path aliases in `apps/functions`: `@/*` → `src/*` (e.g., `import { apiResponse } from '@/helpers/api'`).
 
 **Bedrock/AI**: Must only be called via HTTP (`src/helpers/bedrock-http-client.ts`) — never import `@aws-sdk/client-bedrock-runtime` directly.
 

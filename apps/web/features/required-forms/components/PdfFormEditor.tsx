@@ -1,0 +1,499 @@
+'use client';
+
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/components/ui/use-toast';
+import { Download, RefreshCw, ArrowLeft, Plus, Trash2, Move, GripHorizontal } from 'lucide-react';
+import { apiMutate, apiFetcher, buildApiUrl } from '@/lib/hooks/api-helpers';
+import { cn } from '@/lib/utils';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import Link from 'next/link';
+import type { DetectedFormField, RequiredFormItem } from '@auto-rfp/core';
+
+interface PdfFormEditorProps {
+  doc: RequiredFormItem;
+  orgId: string;
+  pdfUrl: string | null;
+  onFieldUpdated?: () => void;
+}
+
+type FieldUpdate = {
+  value?: string | null;
+  label?: string;
+  boundingBox?: { top: number; left: number; width: number; height: number };
+  delete?: boolean;
+};
+
+export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEditorProps) => {
+  const { toast } = useToast();
+  const fields = (doc.fields ?? []) as DetectedFormField[];
+  const [activeField, setActiveField] = useState<string | null>(null);
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  const [fieldLabels, setFieldLabels] = useState<Record<string, string>>({});
+  const [fieldPositions, setFieldPositions] = useState<Record<string, { top: number; left: number; width: number; height: number }>>({});
+  const [exporting, setExporting] = useState(false);
+  const [pdfPages, setPdfPages] = useState<string[]>([]);
+  const [pdfLoading, setPdfLoading] = useState(true);
+  const [pageSize, setPageSize] = useState<{ width: number; height: number }>({ width: 612, height: 792 });
+  const [creatingField, setCreatingField] = useState(false);
+  const [editingLabel, setEditingLabel] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirmDialog();
+
+  const backUrl = `/organizations/${orgId}/projects/${doc.projectId}/opportunities/${doc.opportunityId}`;
+
+  useEffect(() => {
+    const vals: Record<string, string> = {};
+    const labels: Record<string, string> = {};
+    const positions: Record<string, { top: number; left: number; width: number; height: number }> = {};
+    for (const f of fields) {
+      if (f.value) vals[f.fieldId] = f.value;
+      labels[f.fieldId] = f.label;
+      if (f.boundingBox) positions[f.fieldId] = f.boundingBox;
+    }
+    setFieldValues(vals);
+    setFieldLabels(labels);
+    setFieldPositions(positions);
+  }, [fields]);
+
+  // Scroll to active field when selected from sidebar
+  useEffect(() => {
+    if (!activeField) return;
+    const el = document.getElementById(`field-${activeField}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [activeField]);
+
+  // Save all fields in one request
+  const handleSaveAll = useCallback(async () => {
+    setIsSaving(true);
+    try {
+      const allFields = Object.entries(fieldPositions).map(([fid, pos]) => {
+        const originalField = fields.find((f) => f.fieldId === fid);
+        return {
+          fieldId: fid,
+          label: fieldLabels[fid] ?? originalField?.label ?? 'Field',
+          value: fieldValues[fid] ?? null,
+          status: originalField?.status ?? (fieldValues[fid] ? 'AUTO_FILLED' as const : 'EMPTY' as const),
+          confidence: originalField?.confidence ?? null,
+          profileFieldKey: originalField?.profileFieldKey ?? null,
+          manualReason: originalField?.manualReason ?? null,
+          pageNumber: originalField?.pageNumber ?? 1,
+          cellReference: originalField?.cellReference ?? null,
+          boundingBox: pos,
+        };
+      });
+
+      await apiMutate(buildApiUrl('/required-forms/save-fields', { orgId }), 'PUT', {
+        projectId: doc.projectId,
+        opportunityId: doc.opportunityId,
+        formId: doc.formId,
+        fields: allFields,
+      });
+
+      setIsDirty(false);
+      toast({ title: 'Saved' });
+      onFieldUpdated?.();
+    } catch (err) {
+      toast({ title: 'Save failed', description: (err as Error)?.message, variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [fieldPositions, fieldValues, fieldLabels, doc, orgId, toast, onFieldUpdated]);
+
+  // Mark dirty on any change
+  const markDirty = useCallback(() => setIsDirty(true), []);
+
+  // Render PDF pages
+  useEffect(() => {
+    if (!pdfUrl) return;
+    const loadPdf = async () => {
+      setPdfLoading(true);
+      try {
+        const pdfjsLib = await import('pdfjs-dist');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+        const pdf = await pdfjsLib.getDocument({ url: pdfUrl, isEvalSupported: false }).promise;
+        const pages: string[] = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1.5 });
+          if (i === 1) setPageSize({ width: viewport.width, height: viewport.height });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          await page.render({ canvasContext: canvas.getContext('2d')!, viewport }).promise;
+          pages.push(canvas.toDataURL('image/png'));
+        }
+        setPdfPages(pages);
+      } catch (err) {
+        console.error('PDF render failed:', err);
+      } finally {
+        setPdfLoading(false);
+      }
+    };
+    loadPdf();
+  }, [pdfUrl]);
+
+  const handleExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      const result = await apiFetcher<{ downloadUrl: string }>(
+        buildApiUrl(`/required-forms/export`, { orgId, projectId: doc.projectId, opportunityId: doc.opportunityId, formId: doc.formId }),
+      );
+      if (result?.downloadUrl) window.open(result.downloadUrl, '_blank');
+    } catch (err) {
+      toast({ title: 'Export failed', description: (err as Error)?.message, variant: 'destructive' });
+    } finally {
+      setExporting(false);
+    }
+  }, [doc, orgId, toast]);
+
+  const [reprocessing, setReprocessing] = useState(false);
+  const handleReprocess = useCallback(async () => {
+    setReprocessing(true);
+    try {
+      await apiMutate(
+        buildApiUrl('/required-forms/reprocess', { orgId, projectId: doc.projectId, opportunityId: doc.opportunityId, formId: doc.formId }),
+        'POST',
+        {},
+      );
+      toast({ title: 'Form reprocessed', description: 'Fields re-extracted and auto-filled.' });
+      onFieldUpdated?.();
+    } catch (err) {
+      toast({ title: 'Reprocess failed', description: (err as Error)?.message, variant: 'destructive' });
+    } finally {
+      setReprocessing(false);
+    }
+  }, [doc, orgId, toast, onFieldUpdated]);
+
+  const handleDeleteForm = useCallback(async () => {
+    const ok = await confirm({ title: 'Delete this form?', description: 'This will permanently remove the form and all its fields.', confirmLabel: 'Delete', variant: 'destructive' });
+    if (!ok) return;
+    try {
+      await apiMutate(buildApiUrl('/required-forms/delete', { orgId, projectId: doc.projectId, opportunityId: doc.opportunityId, formId: doc.formId }), 'DELETE');
+      toast({ title: 'Form deleted' });
+      window.location.href = backUrl;
+    } catch (err) {
+      toast({ title: 'Delete failed', description: (err as Error)?.message, variant: 'destructive' });
+    }
+  }, [doc, orgId, toast, backUrl, confirm]);
+
+  // Drag to move — uses direct DOM manipulation during drag, commits to state on mouseup
+  const dragRef = useRef<{ fieldId: string; startX: number; startY: number; origLeft: number; origTop: number; el: HTMLElement } | null>(null);
+
+  const handleDragStart = useCallback((e: React.MouseEvent, fieldId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const pos = fieldPositions[fieldId];
+    if (!pos) return;
+    const el = document.getElementById(`field-${fieldId}`);
+    if (!el) return;
+    dragRef.current = { fieldId, startX: e.clientX, startY: e.clientY, origLeft: pos.left, origTop: pos.top, el };
+
+    const handleMove = (ev: MouseEvent) => {
+      const drag = dragRef.current;
+      if (!drag) return;
+      const dx = (ev.clientX - drag.startX) / pageSize.width;
+      const dy = (ev.clientY - drag.startY) / pageSize.height;
+      const newLeft = drag.origLeft + dx;
+      const newTop = drag.origTop + dy;
+      drag.el.style.left = `${newLeft * 100}%`;
+      drag.el.style.top = `${newTop * 100}%`;
+    };
+
+    const handleUp = (ev: MouseEvent) => {
+      const drag = dragRef.current;
+      if (drag) {
+        const dx = (ev.clientX - drag.startX) / pageSize.width;
+        const dy = (ev.clientY - drag.startY) / pageSize.height;
+        setFieldPositions((prev) => ({
+          ...prev,
+          [drag.fieldId]: { ...prev[drag.fieldId]!, left: drag.origLeft + dx, top: drag.origTop + dy },
+        }));
+        markDirty();
+      }
+      dragRef.current = null;
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+  }, [fieldPositions, pageSize, markDirty]);
+
+  // Resize — uses direct DOM manipulation during resize, commits to state on mouseup
+  const resizeRef = useRef<{ fieldId: string; startX: number; startY: number; origWidth: number; origHeight: number; dir: 'x' | 'y' | 'xy'; el: HTMLElement } | null>(null);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent, fieldId: string, dir: 'x' | 'y' | 'xy') => {
+    e.preventDefault();
+    e.stopPropagation();
+    const pos = fieldPositions[fieldId];
+    if (!pos) return;
+    const el = document.getElementById(`field-${fieldId}`);
+    if (!el) return;
+    resizeRef.current = { fieldId, startX: e.clientX, startY: e.clientY, origWidth: pos.width, origHeight: pos.height, dir, el };
+
+    const handleMove = (ev: MouseEvent) => {
+      const rs = resizeRef.current;
+      if (!rs) return;
+      const dx = (ev.clientX - rs.startX) / pageSize.width;
+      const dy = (ev.clientY - rs.startY) / pageSize.height;
+      const newWidth = rs.dir !== 'y' ? Math.max(0.03, rs.origWidth + dx) : rs.origWidth;
+      const newHeight = rs.dir !== 'x' ? Math.max(0.015, rs.origHeight + dy) : rs.origHeight;
+      rs.el.style.width = `${newWidth * 100}%`;
+      rs.el.style.height = `${newHeight * 100}%`;
+    };
+
+    const handleUp = (ev: MouseEvent) => {
+      const rs = resizeRef.current;
+      if (rs) {
+        const dx = (ev.clientX - rs.startX) / pageSize.width;
+        const dy = (ev.clientY - rs.startY) / pageSize.height;
+        setFieldPositions((prev) => ({
+          ...prev,
+          [rs.fieldId]: {
+            ...prev[rs.fieldId]!,
+            width: rs.dir !== 'y' ? Math.max(0.03, rs.origWidth + dx) : prev[rs.fieldId]!.width,
+            height: rs.dir !== 'x' ? Math.max(0.015, rs.origHeight + dy) : prev[rs.fieldId]!.height,
+          },
+        }));
+        markDirty();
+      }
+      resizeRef.current = null;
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+  }, [fieldPositions, pageSize, markDirty]);
+
+  // Create field on double-click
+  const handleCreateField = useCallback((e: React.MouseEvent<HTMLDivElement>, pageIdx: number) => {
+    if (!creatingField) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const left = (e.clientX - rect.left) / rect.width;
+    const top = (e.clientY - rect.top) / rect.height;
+    const newFieldId = `field-${Date.now()}`;
+    const bbox = { top, left, width: 0.2, height: 0.025 };
+
+    setFieldPositions((prev) => ({ ...prev, [newFieldId]: bbox }));
+    setFieldValues((prev) => ({ ...prev, [newFieldId]: '' }));
+    setFieldLabels((prev) => ({ ...prev, [newFieldId]: 'New Field' }));
+    setCreatingField(false);
+    setActiveField(newFieldId);
+
+    markDirty();
+  }, [creatingField, markDirty]);
+
+  // Delete field
+  const handleDeleteField = useCallback((fieldId: string) => {
+    setFieldPositions((prev) => { const n = { ...prev }; delete n[fieldId]; return n; });
+    setFieldValues((prev) => { const n = { ...prev }; delete n[fieldId]; return n; });
+    setFieldLabels((prev) => { const n = { ...prev }; delete n[fieldId]; return n; });
+    markDirty();
+  }, [markDirty]);
+
+  // Value change (save on blur or debounced)
+  const handleValueChange = useCallback((fieldId: string, value: string) => {
+    setFieldValues((prev) => ({ ...prev, [fieldId]: value }));
+    markDirty();
+  }, [markDirty]);
+
+  const handleValueBlur = useCallback((_fieldId: string) => {
+    // no-op — save is manual now
+  }, []);
+
+  const handleLabelChange = useCallback((fieldId: string, label: string) => {
+    setFieldLabels((prev) => ({ ...prev, [fieldId]: label }));
+    markDirty();
+  }, [markDirty]);
+
+  const handleLabelBlur = useCallback((_fieldId: string) => {
+    setEditingLabel(null);
+  }, []);
+
+  const filledCount = Object.values(fieldValues).filter((v) => v).length;
+  const totalCount = Object.keys(fieldPositions).length;
+  const isProcessing = reprocessing || doc.status === 'IN_PROGRESS';
+
+  return (
+    <div className="flex flex-col h-screen">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-2.5 border-b bg-background shrink-0">
+        <Button variant="ghost" size="sm" asChild className="gap-1.5">
+          <Link href={backUrl}><ArrowLeft className="h-4 w-4" />Back</Link>
+        </Button>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium truncate">{doc.name}</p>
+        </div>
+        <Badge variant="outline" className="text-xs">{doc.status}</Badge>
+        <Button size="sm" variant="outline" onClick={async () => { const ok = await confirm({ title: 'Reprocess form?', description: 'This will re-extract all fields and re-fill from company profile. Any manual edits will be lost.', confirmLabel: 'Reprocess', variant: 'destructive' }); if (ok) handleReprocess(); }} disabled={reprocessing} className="gap-1.5">
+          <RefreshCw className={cn('h-3.5 w-3.5', reprocessing && 'animate-spin')} />
+          Reprocess
+        </Button>
+        <Button size="sm" variant={creatingField ? 'default' : 'outline'} onClick={() => setCreatingField(!creatingField)} className="gap-1.5">
+          <Plus className="h-3.5 w-3.5" />{creatingField ? 'Click on PDF...' : 'Add Field'}
+        </Button>
+        <Button size="sm" variant="outline" onClick={handleExport} disabled={exporting} className="gap-1.5">
+          {exporting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+          Export PDF
+        </Button>
+        <Button size="sm" variant={isDirty ? 'default' : 'outline'} onClick={handleSaveAll} disabled={isSaving || !isDirty || isProcessing} className="gap-1.5">
+          {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : null}
+          Save
+        </Button>
+        <Button size="sm" variant="ghost" onClick={handleDeleteForm} disabled={isProcessing} className="text-red-500 hover:text-red-700 hover:bg-red-50">
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+
+      <div className={cn('flex flex-1 overflow-hidden relative', isProcessing && 'opacity-50 pointer-events-none')}>
+        {/* PDF with overlays */}
+        <div className="flex-1 overflow-y-auto bg-gray-200 p-4" onClick={() => setActiveField(null)}>
+          {pdfLoading ? (
+            <div className="flex items-center justify-center h-full"><RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+          ) : (
+            <div className="space-y-4 flex flex-col items-center">
+              {pdfPages.map((dataUrl, pageIdx) => (
+                <div
+                  key={pageIdx}
+                  className={cn('relative bg-white shadow-lg', creatingField && 'cursor-crosshair')}
+                  style={{ width: pageSize.width, height: pageSize.height }}
+                  onDoubleClick={(e) => handleCreateField(e, pageIdx)}
+                >
+                  <img src={dataUrl} alt={`Page ${pageIdx + 1}`} className="w-full h-full pointer-events-none select-none" draggable={false} />
+
+                  {Object.entries(fieldPositions)
+                    .filter(([fid]) => {
+                      const f = fields.find((ff) => ff.fieldId === fid);
+                      return (f?.pageNumber ?? 1) === pageIdx + 1 || (!f && pageIdx === 0);
+                    })
+                    .map(([fid, bbox]) => {
+                      const value = fieldValues[fid] ?? '';
+                      const label = fieldLabels[fid] ?? 'Field';
+                      const isActive = activeField === fid;
+
+                      return (
+                        <div
+                          key={fid}
+                          id={`field-${fid}`}
+                          className={cn('absolute group', isActive && 'z-10')}
+                          style={{ left: `${bbox.left * 100}%`, top: `${bbox.top * 100}%`, width: `${bbox.width * 100}%`, height: `${bbox.height * 100}%` }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {/* Move handle — top-left */}
+                          <div
+                            className="absolute -top-2 -left-2 w-4 h-4 cursor-move opacity-0 group-hover:opacity-100 bg-violet-500 rounded-full flex items-center justify-center z-10 shadow-sm"
+                            onMouseDown={(e) => handleDragStart(e, fid)}
+                          >
+                            <Move className="h-2 w-2 text-white" />
+                          </div>
+                          <input
+                            type="text"
+                            value={value}
+                            onChange={(e) => handleValueChange(fid, e.target.value)}
+                            onFocus={() => setActiveField(fid)}
+                            onBlur={() => handleValueBlur(fid)}
+                            placeholder={label}
+                            className={cn(
+                              'w-full h-full bg-transparent text-[10px] leading-tight px-1.5 outline-none transition-all rounded-md cursor-text',
+                              isActive && 'bg-white/95 ring-2 ring-violet-400 shadow-lg text-gray-900',
+                              !isActive && value && 'bg-emerald-50/60 ring-1 ring-emerald-300/40 text-emerald-900',
+                              !isActive && !value && 'bg-slate-100/40 ring-1 ring-slate-300/30 placeholder:text-slate-400/70 placeholder:text-[9px] hover:bg-white/60 hover:ring-violet-300/50',
+                            )}
+                          />
+                          {/* Resize handles */}
+                          <div className="absolute top-0 -right-1 w-2 h-full cursor-ew-resize opacity-0 group-hover:opacity-100" onMouseDown={(e) => handleResizeStart(e, fid, 'x')} />
+                          <div className="absolute -bottom-1 left-0 w-full h-2 cursor-ns-resize opacity-0 group-hover:opacity-100" onMouseDown={(e) => handleResizeStart(e, fid, 'y')} />
+                          <div
+                            className="absolute -bottom-1 -right-1 w-3 h-3 cursor-nwse-resize opacity-0 group-hover:opacity-100 bg-violet-500/60 rounded-full shadow-sm"
+                            onMouseDown={(e) => handleResizeStart(e, fid, 'xy')}
+                          />
+                        </div>
+                      );
+                    })}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right: Field panel */}
+        <div className="w-[320px] border-l flex flex-col overflow-hidden bg-white">
+          <div className="px-4 py-3 border-b shrink-0 bg-gray-50/80">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-gray-700">Fields</p>
+              <p className="text-[10px] text-gray-500">{filledCount}/{totalCount} filled</p>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {Object.entries(fieldPositions).map(([fid]) => {
+              const val = fieldValues[fid] ?? '';
+              const label = fieldLabels[fid] ?? 'Field';
+              const isActive = activeField === fid;
+              const isEditingLbl = editingLabel === fid;
+              const field = fields.find((f) => f.fieldId === fid);
+              const isLowConfidence = field?.status === 'LOW_CONFIDENCE';
+
+              return (
+                <div key={fid} className={cn('px-3 py-2 group/item')} onClick={() => setActiveField(fid)}>
+                  <div className={cn(
+                    'rounded-md px-2.5 py-1.5 transition-all',
+                    isActive && 'bg-white ring-2 ring-violet-400 shadow-sm',
+                    !isActive && val && 'bg-emerald-50/60 ring-1 ring-emerald-300/40',
+                    !isActive && !val && 'bg-slate-100/40 ring-1 ring-slate-300/30 hover:ring-violet-300/50',
+                    isLowConfidence && !isActive && 'ring-amber-300/50',
+                  )}>
+                    <div className="flex items-center justify-between">
+                      {isEditingLbl ? (
+                        <input
+                          className="flex-1 text-[10px] font-medium border-b border-violet-400 outline-none bg-transparent text-gray-800"
+                          value={label}
+                          onChange={(e) => handleLabelChange(fid, e.target.value)}
+                          onBlur={() => handleLabelBlur(fid)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleLabelBlur(fid); }}
+                          autoFocus
+                        />
+                      ) : (
+                        <p
+                          className="text-[10px] font-medium text-slate-500 truncate cursor-pointer hover:text-slate-700"
+                          onClick={(e) => { e.stopPropagation(); setEditingLabel(fid); setActiveField(fid); }}
+                        >
+                          {isLowConfidence && <span className="text-amber-500 mr-0.5">⚠</span>}
+                          {label}
+                        </p>
+                      )}
+                      <button className="p-0.5 hover:bg-red-50 rounded opacity-0 group-hover/item:opacity-100 transition-opacity ml-1 shrink-0" onClick={(e) => { e.stopPropagation(); handleDeleteField(fid); }}>
+                        <Trash2 className="h-2.5 w-2.5 text-red-400" />
+                      </button>
+                    </div>
+                    {isActive ? (
+                      <input
+                        className="w-full mt-1 text-[11px] bg-transparent outline-none border-b border-violet-300 text-gray-900"
+                        value={val}
+                        onChange={(e) => handleValueChange(fid, e.target.value)}
+                        onBlur={() => handleValueBlur(fid)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleValueBlur(fid); }}
+                        placeholder="Type value..."
+                        autoFocus
+                      />
+                    ) : (
+                      <p className={cn('text-[11px] mt-0.5 truncate', val ? 'text-emerald-900' : 'text-slate-400 italic')}>
+                        {val || 'click to edit'}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <ConfirmDialog />
+    </div>
+  );
+};

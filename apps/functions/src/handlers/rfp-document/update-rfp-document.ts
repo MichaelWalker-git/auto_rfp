@@ -46,7 +46,6 @@ export const baseHandler = async (
     return apiResponse(403, { message: 'Access denied' });
   }
 
-  // Update document (business logic in helper)
   const updated = await updateRFPDocumentWithContent({
     orgId,
     projectId: dto.projectId,

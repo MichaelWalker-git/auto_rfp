@@ -29,6 +29,9 @@ import {
   QuestionFileUploadDialog,
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/question-extraction-dialog';
 import { useOpportunityContext } from './opportunity-context';
+import { useApi, buildApiUrl } from '@/lib/hooks/api-helpers';
+import type { RequiredFormsListResponse } from '@auto-rfp/core';
+import Link from 'next/link';
 import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { formatDateTime, getStatusChip, pickDisplayName, guessDownloadName } from './opportunity-helpers';
 import { formatFileSize } from '@/lib/format-file-size';
@@ -96,11 +99,24 @@ interface OpportunitySolicitationDocumentsProps {
 }
 
 export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicitationDocumentsProps = {}) {
-  const { projectId, oppId } = useOpportunityContext();
+  const { projectId, oppId, orgId } = useOpportunityContext();
   const { toast } = useToast();
   const { confirm, ConfirmDialog } = useConfirmDialog();
 
   const { items: qItems, isLoading: isLoadingFiles, isError: isFilesError, error: filesError, refetch: refetchFiles } = useQuestionFiles(projectId, { oppId });
+
+  // Fetch required forms to show "Forms Detected" badge on matching solicitation files
+  const formsUrl = orgId && projectId && oppId ? buildApiUrl('/required-forms/list', { orgId, projectId, opportunityId: oppId }) : null;
+  const { data: formsData } = useApi<RequiredFormsListResponse>(formsUrl, formsUrl, { refreshInterval: 10_000, dedupingInterval: 5_000 });
+  const formsBySourceFile = useMemo(() => {
+    const map = new Map<string, Array<{ formId: string; name: string }>>();
+    for (const form of formsData?.forms ?? []) {
+      const key = form.sourceFileName;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push({ formId: form.formId, name: form.name });
+    }
+    return map;
+  }, [formsData]);
   const { downloadFile, error: downloadError } = useDownloadFromS3();
   const { trigger: deleteQuestionFile } = useDeleteQuestionFile();
   const { trigger: presignDownload } = usePresignDownload();
@@ -389,6 +405,16 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
                                 Drive
                               </Badge>
                             </a>
+                          )}
+                          {f.status === 'PROCESSED' && formsBySourceFile.has(f.name) && (
+                            formsBySourceFile.get(f.name)!.map((form) => (
+                              <Link key={form.formId} href={`/organizations/${orgId}/projects/${projectId}/opportunities/${oppId}/forms/${form.formId}`} title={`Required form detected: "${form.name}". Click to open and fill in.`}>
+                                <Badge variant="secondary" className="text-xs gap-1 cursor-pointer bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200">
+                                  <FileText className="h-3 w-3" />
+                                  Form
+                                </Badge>
+                              </Link>
+                            ))
                           )}
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">

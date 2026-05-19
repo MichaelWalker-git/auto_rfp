@@ -13,6 +13,7 @@ import { deleteSolicitationFile } from './pinecone';
 import { startPipeline } from './solicitation';
 import { nowIso } from './date';
 import { v4 as uuidv4 } from 'uuid';
+import { REQUIRED_FORM_PK } from '../constants/required-form';
 
 // Resolved lazily so tests can set process.env before module-level code runs
 const getTableName = () => requireEnv('DB_TABLE_NAME');
@@ -462,6 +463,22 @@ export const reextractAllQuestions = async (
   const clustersDeleted = await batchDeleteDynamoItems(
     opportunityClusters.map((item) => ({ pk: item[PK_NAME], sk: item[SK_NAME] })),
   );
+
+  // 4.5. Delete all required forms for this opportunity
+  const orgId = (validFiles[0] as QuestionFileItem)?.orgId;
+  if (orgId) {
+    const requiredFormSkPrefix = `${orgId}#${projectId}#${oppId}#`;
+    const allForms = await queryAllBySkPrefix<{ partition_key: string; sort_key: string }>(
+      REQUIRED_FORM_PK,
+      requiredFormSkPrefix,
+    );
+    if (allForms.length > 0) {
+      await batchDeleteDynamoItems(
+        allForms.map((item) => ({ pk: item[PK_NAME], sk: item[SK_NAME] })),
+      );
+      console.log(`[reextractAll] Deleted ${allForms.length} required forms`);
+    }
+  }
 
   // 5. Reset each question file and restart pipelines
   const pipelinesStarted: ReextractAllQuestionsResult['pipelinesStarted'] = [];

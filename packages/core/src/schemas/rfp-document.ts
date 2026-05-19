@@ -155,6 +155,40 @@ export const RFPDocumentTypeSchema = z.enum(RFP_DOCUMENT_TYPE_ENUM).or(
 
 export type RFPDocumentType = z.infer<typeof RFPDocumentTypeSchema>;
 
+// ─── Document Status ───
+
+/**
+ * RFP Document lifecycle statuses:
+ * - GENERATING:    AI is creating the document content
+ * - DRAFT:         Created (auto-detected or uploaded) — user has not edited yet
+ * - IN_PROGRESS:   User has started editing the document
+ * - NEEDS_REVIEW:  Review requested — waiting for reviewer/approver
+ * - READY:         Content finalized, ready for inclusion in proposal
+ * - APPROVED:      Formally approved by a reviewer/manager
+ * - FAILED:        Generation or processing failed
+ */
+export const RFP_DOCUMENT_STATUSES = {
+  GENERATING: 'Generating',
+  DRAFT: 'Draft',
+  IN_PROGRESS: 'In Progress',
+  NEEDS_REVIEW: 'Needs Review',
+  READY: 'Ready',
+  APPROVED: 'Approved',
+  FAILED: 'Failed',
+} as const;
+
+export const RFPDocumentStatusSchema = z.enum([
+  'GENERATING',
+  'DRAFT',
+  'IN_PROGRESS',
+  'NEEDS_REVIEW',
+  'READY',
+  'APPROVED',
+  'FAILED',
+]);
+
+export type RFPDocumentStatus = z.infer<typeof RFPDocumentStatusSchema>;
+
 // ─── Signature Status ───
 
 export const SIGNATURE_STATUSES = {
@@ -270,8 +304,8 @@ export const RFPDocumentItemSchema = z.object({
   updatedAt: z.string(),
   /** Structured content for content-based documents. Raw HTML stored in content.content field. */
   content: RFPDocumentContentSchema.nullable().optional(),
-  /** Status for content-based documents */
-  status: z.string().nullable().optional(),
+  /** Document workflow status */
+  status: RFPDocumentStatusSchema.nullable().optional(),
   /** Title for content-based documents */
   title: z.string().nullable().optional(),
   /** Edit history for tracking modifications */
@@ -306,7 +340,7 @@ export const CreateRFPDocumentDTOSchema = z.object({
   originalFileName: z.string().nullable().optional(),
   /** For content-based documents */
   content: RFPDocumentContentSchema.nullable().optional(),
-  status: z.string().optional(),
+  status: RFPDocumentStatusSchema.optional(),
   title: z.string().nullable().optional(),
 });
 
@@ -322,7 +356,7 @@ export const UpdateRFPDocumentDTOSchema = z.object({
   description: z.string().nullable().optional(),
   documentType: RFPDocumentTypeSchema.optional(),
   content: RFPDocumentContentSchema.nullable().optional(),
-  status: z.string().optional(),
+  status: RFPDocumentStatusSchema.nullable().optional(),
   title: z.string().nullable().optional(),
 });
 

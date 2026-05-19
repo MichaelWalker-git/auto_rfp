@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import { getApprovalRecord, updateApprovalStatus, createApprovalRecord } from '@/helpers/document-approval';
-import { getRFPDocument } from '@/helpers/rfp-document';
+import { getRFPDocument, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
 import { getUserByOrgAndId } from '@/helpers/user';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
 import { reassignLinearTicket } from '@/helpers/linear';
@@ -144,6 +144,14 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     resource: 'document',
     resourceId: data.documentId,
     orgId,
+  });
+
+  await updateRFPDocumentMetadata({
+    projectId: data.projectId,
+    opportunityId: data.opportunityId,
+    documentId: data.documentId,
+    updates: { status: 'NEEDS_REVIEW' },
+    updatedBy: userId,
   });
 
   return apiResponse(200, { ok: true, approval: newApproval });
