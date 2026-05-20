@@ -12,7 +12,7 @@ import https from 'https';
 import { z } from 'zod';
 
 import { apiResponse, getOrgId } from '@/helpers/api';
-import { withSentryLambda } from '@/sentry-lambda';
+import { withSentryLambda, Sentry } from '@/sentry-lambda';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -24,9 +24,7 @@ import { SAM_GOV_SECRET_PREFIX } from '@/constants/samgov';
 import { DIBBS_SECRET_PREFIX } from '@/constants/dibbs';
 import { HIGHERGOV_SECRET_PREFIX, HIGHERGOV_BASE_URL } from '@/constants/highergov';
 import { requireEnv } from '@/helpers/env';
-import { searchSamOpportunities } from '@/helpers/search-opportunity';
-import { searchDibbsOpportunities } from '@/helpers/search-opportunity';
-import { searchHigherGovOpportunities } from '@/helpers/search-opportunity';
+import { searchSamOpportunities, searchDibbsOpportunities, searchHigherGovOpportunities, withSourceTimeout } from '@/helpers/search-opportunity';
 import {
   samSlimToSearchOpportunity,
   dibbsSlimToSearchOpportunity,
@@ -95,18 +93,21 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
       try {
         const apiKey = await getApiKey(orgId, SAM_GOV_SECRET_PREFIX);
         if (apiKey) {
-          const resp = await searchSamOpportunities(
-            { baseUrl: SAM_BASE_URL, apiKey, httpsAgent },
-            {
-              postedFrom:   data.postedFrom ?? '01/01/2025',
-              postedTo:     data.postedTo   ?? '12/31/2025',
-              rdlfrom:      data.closingFrom,
-              keywords:     data.keywords,
-              naics:        data.naics,
-              setAsideCode: data.setAsideCode,
-              limit:        data.limit ?? 25,
-              offset:       data.offset ?? 0,
-            },
+          const resp = await withSourceTimeout(
+            searchSamOpportunities(
+              { baseUrl: SAM_BASE_URL, apiKey, httpsAgent },
+              {
+                postedFrom:   data.postedFrom ?? '01/01/2025',
+                postedTo:     data.postedTo   ?? '12/31/2025',
+                rdlfrom:      data.closingFrom,
+                keywords:     data.keywords,
+                naics:        data.naics,
+                setAsideCode: data.setAsideCode,
+                limit:        data.limit ?? 25,
+                offset:       data.offset ?? 0,
+              },
+            ),
+            'SAM.gov',
           );
           totalSamGov = resp.totalRecords;
           results.push(...resp.opportunities.map(samSlimToSearchOpportunity));
@@ -122,18 +123,21 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
       try {
         const apiKey = await getApiKey(orgId, DIBBS_SECRET_PREFIX);
         if (apiKey) {
-          const resp = await searchDibbsOpportunities(
-            { baseUrl: DIBBS_BASE_URL, apiKey, httpsAgent },
-            {
-              keywords:    data.keywords,
-              naics:       data.naics,
-              postedFrom:  data.postedFrom,
-              postedTo:    data.postedTo,
-              closingFrom: data.closingFrom,
-              closingTo:   data.closingTo,
-              limit:       data.limit ?? 25,
-              offset:      data.offset ?? 0,
-            },
+          const resp = await withSourceTimeout(
+            searchDibbsOpportunities(
+              { baseUrl: DIBBS_BASE_URL, apiKey, httpsAgent },
+              {
+                keywords:    data.keywords,
+                naics:       data.naics,
+                postedFrom:  data.postedFrom,
+                postedTo:    data.postedTo,
+                closingFrom: data.closingFrom,
+                closingTo:   data.closingTo,
+                limit:       data.limit ?? 25,
+                offset:      data.offset ?? 0,
+              },
+            ),
+            'DIBBS',
           );
           totalDibbs = resp.totalRecords;
           results.push(...resp.opportunities.map(dibbsSlimToSearchOpportunity));
@@ -156,19 +160,22 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
             ? `${data.postedFrom.slice(6)}-${data.postedFrom.slice(0, 2)}-${data.postedFrom.slice(3, 5)}`
             : undefined;
 
-          const resp = await searchHigherGovOpportunities(
-            { baseUrl: HIGHERGOV_BASE_URL, apiKey, httpsAgent },
-            {
-              keywords:     hasSearchId ? undefined : data.keywords,
-              naics:        hasSearchId ? undefined : data.naics,
-              setAsideCode: hasSearchId ? undefined : data.setAsideCode,
-              searchId:     data.higherGovSearchId,
-              sourceType:   hasSearchId ? undefined : data.higherGovSourceType,
-              postedDate,
-              ordering:     '-captured_date',
-              pageSize,
-              pageNumber: data.offset ? Math.floor(data.offset / pageSize) + 1 : 1,
-            },
+          const resp = await withSourceTimeout(
+            searchHigherGovOpportunities(
+              { baseUrl: HIGHERGOV_BASE_URL, apiKey, httpsAgent },
+              {
+                keywords:     hasSearchId ? undefined : data.keywords,
+                naics:        hasSearchId ? undefined : data.naics,
+                setAsideCode: hasSearchId ? undefined : data.setAsideCode,
+                searchId:     data.higherGovSearchId,
+                sourceType:   hasSearchId ? undefined : data.higherGovSourceType,
+                postedDate,
+                ordering:     '-captured_date',
+                pageSize,
+                pageNumber: data.offset ? Math.floor(data.offset / pageSize) + 1 : 1,
+              },
+            ),
+            'HigherGov',
           );
           totalHigherGov = resp.totalCount;
           results.push(...resp.results.map(higherGovToSearchOpportunity));
@@ -180,6 +187,10 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
   }
 
   await Promise.all(sourcePromises);
+
+  if (Object.keys(errors).length) {
+    Sentry.addBreadcrumb({ category: 'search', message: `Partial results: ${Object.keys(errors).join(', ')} unavailable`, level: 'warning' });
+  }
 
   // Round-robin interleave across all sources for balanced display
   const bySource: Record<string, SearchOpportunitySlim[]> = {};

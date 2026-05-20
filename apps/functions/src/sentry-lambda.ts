@@ -44,6 +44,18 @@ if (sentryEnabled) {
           return null;
         }
       }
+
+      if (event.message?.startsWith('Possible function timeout:') && event.tags?.['timeout']) {
+        const funcName = process.env.AWS_LAMBDA_FUNCTION_NAME ?? '';
+        if (
+          funcName.includes('GenerateAnswer') ||
+          funcName.includes('AnswerGen') ||
+          funcName.includes('searchopportunities')
+        ) {
+          return null;
+        }
+      }
+
       return event;
     },
   });
