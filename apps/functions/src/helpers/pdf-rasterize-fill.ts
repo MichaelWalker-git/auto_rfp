@@ -28,17 +28,29 @@ export const rasterizeAndFillPdf = async (args: {
   if (!bytes) throw new Error(`Could not read PDF from S3: ${sourceFileKey}`);
 
   const { createCanvas } = await import('@napi-rs/canvas');
+  // Use the legacy build because the modern build uses ESM-only worker patterns
+  // that don't load cleanly in a Lambda runtime. Preload the worker module and
+  // hand it to GlobalWorkerOptions.workerPort so pdfjs skips its "fake worker"
+  // setup path (which expects workerSrc to be an HTTP URL).
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  // Disable worker — we run synchronously inside the Lambda main thread.
-  (pdfjs as { GlobalWorkerOptions: { workerSrc: string } }).GlobalWorkerOptions.workerSrc = '';
+  // @ts-expect-error — no published types for the worker bundle
+  await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
 
   const loadingTask = (pdfjs as unknown as {
-    getDocument: (params: { data: Uint8Array; isEvalSupported: boolean; useWorkerFetch: boolean; disableFontFace: boolean }) => { promise: Promise<unknown> };
+    getDocument: (params: {
+      data: Uint8Array;
+      isEvalSupported: boolean;
+      useWorkerFetch: boolean;
+      disableFontFace: boolean;
+      verbosity: number;
+    }) => { promise: Promise<unknown> };
   }).getDocument({
     data: new Uint8Array(bytes),
     isEvalSupported: false,
     useWorkerFetch: false,
     disableFontFace: true,
+    // 0 = errors only — pdfjs is otherwise extremely chatty in Lambda logs
+    verbosity: 0,
   });
   const pdf = await loadingTask.promise as {
     numPages: number;
