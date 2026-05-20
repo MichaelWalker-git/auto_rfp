@@ -1,0 +1,155 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [develop]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Get PR diff
+        id: diff
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr diff ${{ github.event.pull_request.number }} > /tmp/pr_diff.txt
+          DIFF_SIZE=$(wc -c < /tmp/pr_diff.txt | tr -d ' ')
+          TOTAL_LINES=$(wc -l < /tmp/pr_diff.txt | tr -d ' ')
+          echo "size=$DIFF_SIZE" >> $GITHUB_OUTPUT
+          echo "total_lines=$TOTAL_LINES" >> $GITHUB_OUTPUT
+
+      - name: Dismiss previous reviews
+        if: steps.diff.outputs.size > 0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REVIEWS=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews --jq '.[] | select(.user.login == "github-actions[bot]") | .id')
+          for REVIEW_ID in $REVIEWS; do
+            gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews/$REVIEW_ID/dismissals \
+              --method PUT -f message="Superseded by new review" || true
+          done
+
+      - name: Run Claude Review
+        if: steps.diff.outputs.size > 0
+        env:
+          CLAUDE_CODE_USE_BEDROCK: "1"
+          AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.CLAUDE_REVIEW_TOKEN }}
+          AWS_REGION: us-east-1
+        run: |
+          head -n 3000 /tmp/pr_diff.txt > /tmp/diff_trimmed.txt
+
+          cat > /tmp/prompt.txt << 'EOF'
+          You are a senior code reviewer. Review this PR diff and return a JSON response.
+
+          CRITICAL: Return ONLY a single-line JSON object. No markdown, no code fences, no newlines inside the JSON, no text before or after. The response must be exactly one line starting with { and ending with }.
+
+          Example response:
+          {"verdict":"APPROVE","summary":"Code looks good","comments":[]}
+
+          Rules:
+          - verdict: "APPROVE" if no bugs/security issues, "REQUEST_CHANGES" if there are real problems
+          - comments: only for actual issues (bugs, security, performance, logic errors). Empty array if code is clean.
+          - line: line number from the NEW version of the file (lines with + in the diff)
+          - path: relative path from repo root
+          - Do NOT comment on style preferences or nitpicks
+          - Keep summary under 200 characters
+          - Keep each comment body under 500 characters
+
+          Diff:
+          EOF
+
+          cat /tmp/diff_trimmed.txt >> /tmp/prompt.txt
+
+          if ! claude --print "$(cat /tmp/prompt.txt)" > /tmp/review_raw.txt 2>&1; then
+            echo '{"verdict":"COMMENT","summary":"Automated review failed - Claude/Bedrock unavailable. Manual review required.","comments":[]}' > /tmp/review.json
+            exit 0
+          fi
+
+          grep '^{' /tmp/review_raw.txt | head -1 > /tmp/review.json
+
+          if ! jq empty /tmp/review.json 2>/dev/null; then
+            sed -n '/^```/,/^```/p' /tmp/review_raw.txt | grep -v '^```' | tr -d '\n' > /tmp/review.json
+          fi
+
+          if ! jq empty /tmp/review.json 2>/dev/null; then
+            python3 -c "
+          import json, re, sys
+          text = open('/tmp/review_raw.txt').read()
+          match = re.search(r'\{.*\}', text, re.DOTALL)
+          if match:
+              try:
+                  obj = json.loads(match.group())
+                  json.dump(obj, sys.stdout)
+              except:
+                  pass
+          " > /tmp/review.json 2>/dev/null
+          fi
+
+          if ! jq empty /tmp/review.json 2>/dev/null; then
+            echo '{"verdict":"COMMENT","summary":"Review parsing failed. Manual review recommended.","comments":[]}' > /tmp/review.json
+          fi
+
+      - name: Submit PR review
+        if: steps.diff.outputs.size > 0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERDICT=$(jq -r '.verdict // "COMMENT"' /tmp/review.json)
+          SUMMARY=$(jq -r '.summary // "Review completed"' /tmp/review.json)
+
+          if [ "$VERDICT" = "REQUEST_CHANGES" ]; then
+            EVENT="REQUEST_CHANGES"
+          elif [ "$VERDICT" = "APPROVE" ]; then
+            EVENT="APPROVE"
+          else
+            EVENT="COMMENT"
+          fi
+
+          COMMENTS=$(jq -c '[.comments[]? | select(.path != null and .line != null) | {path: .path, line: (.line // 1), body: .body}]' /tmp/review.json)
+
+          if [ "$COMMENTS" = "null" ] || [ -z "$COMMENTS" ]; then
+            COMMENTS="[]"
+          fi
+
+          TRUNCATION_NOTE=""
+          if [ "${{ steps.diff.outputs.total_lines }}" -gt 3000 ]; then
+            TRUNCATION_NOTE=" (NOTE: diff truncated from ${{ steps.diff.outputs.total_lines }} to 3000 lines)"
+          fi
+
+          REVIEW_BODY="**Claude Review (Bedrock)**
+
+          $SUMMARY$TRUNCATION_NOTE"
+
+          jq -n \
+            --arg body "$REVIEW_BODY" \
+            --arg event "$EVENT" \
+            --argjson comments "$COMMENTS" \
+            --arg commit "${{ github.event.pull_request.head.sha }}" \
+            '{body: $body, event: $event, comments: $comments, commit_id: $commit}' > /tmp/review_payload.json
+
+          if ! gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews --input /tmp/review_payload.json; then
+            jq '.event = "COMMENT"' /tmp/review_payload.json | \
+            gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews --input -
+          fi
