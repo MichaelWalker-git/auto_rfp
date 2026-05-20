@@ -36,7 +36,10 @@ export const fillPdfForm = async (args: {
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const pages = pdfDoc.getPages();
 
-  const filledFields = fields.filter((f) => f.value && f.boundingBox && f.status !== 'MANUAL_REQUIRED');
+  // Export every field that has a value and a bbox — including MANUAL_REQUIRED
+  // ones the user filled in (e.g. signature lines, dates, contract numbers).
+  // Blank manual fields are skipped naturally because they have no value.
+  const filledFields = fields.filter((f) => f.value && f.boundingBox);
 
   for (const field of filledFields) {
     if (!field.boundingBox || !field.value) continue;

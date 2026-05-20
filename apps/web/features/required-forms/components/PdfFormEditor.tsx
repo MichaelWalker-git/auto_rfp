@@ -411,10 +411,21 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
   const handleExport = useCallback(async () => {
     setExporting(true);
     try {
-      const result = await apiFetcher<{ downloadUrl: string }>(
+      const result = await apiFetcher<{ downloadUrl: string; fileName?: string }>(
         buildApiUrl(`/required-forms/export`, { orgId, projectId: doc.projectId, opportunityId: doc.opportunityId, formId: doc.formId }),
       );
-      if (result?.downloadUrl) window.open(result.downloadUrl, '_blank');
+      if (!result?.downloadUrl) return;
+      // Trigger a download via a programmatic anchor click. window.open after an
+      // await is treated as a popup and blocked by Chrome (the user gesture is
+      // already consumed). An <a download> click is a download, not a popup.
+      const a = document.createElement('a');
+      a.href = result.downloadUrl;
+      a.rel = 'noopener';
+      a.target = '_blank';
+      if (result.fileName) a.download = result.fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     } catch (err) {
       toast({ title: 'Export failed', description: (err as Error)?.message, variant: 'destructive' });
     } finally {
