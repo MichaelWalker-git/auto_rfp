@@ -298,6 +298,7 @@ export function QuestionEditor({
               isUnsaved={isUnsaved}
               onSelectQuestion={onSelectQuestion}
               onAnswerApplied={onAnswerApplied}
+              onUseAnswer={onAnswerChange}
             />
           )}
 

@@ -171,6 +171,8 @@ export interface EnrichedSimilarQuestion {
   similarity: number;
   hasAnswer: boolean;
   answerPreview?: string;
+  /** Full answer text for "Use this answer" feature */
+  answerText?: string;
   inSameCluster: boolean;
   clusterId?: string;
 }
@@ -229,6 +231,7 @@ export const enrichSimilarMatches = async (
       similarity: match.similarity,
       hasAnswer: hasAnswerVal,
       answerPreview,
+      answerText: hasAnswerVal ? answer!.text : undefined,
       inSameCluster: !!(fullQuestion.clusterId && sourceClusterId && fullQuestion.clusterId === sourceClusterId),
       clusterId: fullQuestion.clusterId,
     });

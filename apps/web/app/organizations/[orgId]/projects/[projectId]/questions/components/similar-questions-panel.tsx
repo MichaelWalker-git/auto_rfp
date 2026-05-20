@@ -11,7 +11,7 @@ import {
   CollapsibleContent,
 } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronDown, ChevronRight, Copy, Link, CheckCircle2, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Copy, Link, CheckCircle2, Loader2, ArrowDownToLine } from 'lucide-react';
 import { useSimilarQuestions, useApplyClusterAnswer } from '@/lib/hooks/use-clustering';
 import { toast } from '@/components/ui/use-toast';
 import PermissionWrapper from '@/components/permission-wrapper';
@@ -27,6 +27,8 @@ interface SimilarQuestionsPanelProps {
   isUnsaved?: boolean;
   onSelectQuestion?: (questionId: string) => void;
   onAnswerApplied?: (targetQuestionIds: string[], answerText: string) => void;
+  /** Callback when user wants to use a similar question's answer for the current question */
+  onUseAnswer?: (answerText: string) => void;
 }
 
 export const SimilarQuestionsPanel = ({
@@ -38,6 +40,7 @@ export const SimilarQuestionsPanel = ({
   isUnsaved = false,
   onSelectQuestion,
   onAnswerApplied,
+  onUseAnswer,
 }: SimilarQuestionsPanelProps) => {
   // Get orgId from URL params instead of prop drilling
   const params = useParams();
@@ -46,6 +49,8 @@ export const SimilarQuestionsPanel = ({
   
   const [isOpen, setIsOpen] = useState(false);
   const [selectedQuestions, setSelectedQuestions] = useState<Set<string>>(new Set());
+  // Track when we just copied an answer to suppress the "save first" warning briefly
+  const [justCopiedAnswer, setJustCopiedAnswer] = useState(false);
   
   // Get org settings for cluster threshold
   const { data: orgData } = useOrganization(orgId);
@@ -224,7 +229,13 @@ export const SimilarQuestionsPanel = ({
                       className="gap-1 text-xs"
                       onClick={handleApplyAnswer}
                       disabled={isApplying || selectedQuestions.size === 0 || !currentAnswer?.trim() || isUnsaved}
-                      title={isUnsaved ? 'Save your answer first before applying to similar questions' : undefined}
+                      title={
+                        !currentAnswer?.trim()
+                          ? 'Write an answer first, then apply it to selected similar questions'
+                          : isUnsaved
+                            ? 'Save your answer first before applying to similar questions'
+                            : 'Copy your answer to the selected similar questions'
+                      }
                     >
                       {isApplying ? (
                         <>
@@ -267,7 +278,7 @@ export const SimilarQuestionsPanel = ({
                           {sq.questionText}
                         </p>
                         
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <Badge
                             variant="outline"
                             className={`text-xs ${getSimilarityColor(sq.similarity)}`}
@@ -284,6 +295,31 @@ export const SimilarQuestionsPanel = ({
                           {sq.hasAnswer && (
                             <CheckCircle2 className="h-3 w-3 text-green-500" />
                           )}
+                          
+                          {/* Use this answer button - shown when similar question has an answer */}
+                          {sq.hasAnswer && sq.answerText && onUseAnswer && (
+                            <PermissionWrapper requiredPermission="answer:edit">
+                              <Badge
+                                variant="outline"
+                                className="text-xs bg-primary/10 text-primary border-primary/30 hover:bg-primary/20 cursor-pointer gap-1"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // Suppress the "save first" warning briefly when copying answer
+                                  setJustCopiedAnswer(true);
+                                  setTimeout(() => setJustCopiedAnswer(false), 4000);
+                                  onUseAnswer(sq.answerText!);
+                                  toast({
+                                    title: 'Answer applied',
+                                    description: 'The similar question\'s answer has been copied to your editor.',
+                                  });
+                                }}
+                                title="Use this answer for the current question"
+                              >
+                                <ArrowDownToLine className="h-3 w-3" />
+                                Use this answer
+                              </Badge>
+                            </PermissionWrapper>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -294,7 +330,7 @@ export const SimilarQuestionsPanel = ({
                 <p className="text-xs text-muted-foreground italic">
                   Write an answer above to apply it to similar questions
                 </p>
-              ) : isUnsaved ? (
+              ) : isUnsaved && !justCopiedAnswer ? (
                 <p className="text-xs text-amber-600 italic">
                   ⚠️ Save your answer first before applying to similar questions
                 </p>
