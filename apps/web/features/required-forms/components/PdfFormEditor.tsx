@@ -656,7 +656,15 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
       const result = await apiMutate<{ value: string | null; source: string; confidence: number; reason?: string }>(
         buildApiUrl('/required-forms/ai-fill-field', { orgId }),
         'POST',
-        { projectId: doc.projectId, opportunityId: doc.opportunityId, formId: doc.formId, fieldId },
+        {
+          projectId: doc.projectId,
+          opportunityId: doc.opportunityId,
+          formId: doc.formId,
+          fieldId,
+          // Send the locally-edited label so the AI uses the user's wording even
+          // for fields the user just created or renamed and hasn't saved yet.
+          labelOverride: fieldLabels[fieldId],
+        },
       );
       if (!result || result.value == null) {
         toast({
@@ -677,7 +685,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     } finally {
       setAiFillingIds((prev) => { const n = new Set(prev); n.delete(fieldId); return n; });
     }
-  }, [doc, orgId, toast, markDirty]);
+  }, [doc, orgId, toast, markDirty, fieldLabels]);
 
   const handleLabelChange = useCallback((fieldId: string, label: string) => {
     setFieldLabels((prev) => ({ ...prev, [fieldId]: label }));

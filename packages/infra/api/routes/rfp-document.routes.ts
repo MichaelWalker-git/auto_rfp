@@ -33,10 +33,9 @@ export function rfpDocumentDomain(args?: {
         timeoutSeconds: 120,
         // pdfjs-dist + @napi-rs/canvas come in via the dynamic import of pdf-form-filler
         // (which falls back to rasterize-and-stamp for encrypted PDFs).
-        nodeModules: ['@sparticuz/chromium', 'puppeteer-core', 'html-to-docx', 'jszip', 'pdfjs-dist', '@napi-rs/canvas'],
-        // @napi-rs/canvas ships platform-specific binaries — install inside the
-        // Lambda runtime image so we ship Linux x64 regardless of the dev host.
-        forceDockerBundling: true,
+        // The explicit @napi-rs/canvas-linux-x64-gnu sub-package guarantees the
+        // Linux x64 native binary ships even when synth runs on a Mac dev host.
+        nodeModules: ['@sparticuz/chromium', 'puppeteer-core', 'html-to-docx', 'jszip', 'pdfjs-dist', '@napi-rs/canvas', '@napi-rs/canvas-linux-x64-gnu'],
       },
       {
         method: 'POST',

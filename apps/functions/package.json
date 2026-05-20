@@ -56,6 +56,7 @@
   "devDependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1030.0",
     "@aws-sdk/credential-providers": "^3.1032.0",
+    "@napi-rs/canvas-linux-x64-gnu": "^1.0.0",
     "@pinecone-database/pinecone": "^6.1.4",
     "@types/aws-lambda": "^8.10.160",
     "@types/jest": "^30.0.0",

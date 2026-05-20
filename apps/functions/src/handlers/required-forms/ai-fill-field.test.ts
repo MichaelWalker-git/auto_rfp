@@ -149,6 +149,20 @@ describe('ai-fill-field', () => {
     expect(res.statusCode).toBe(502);
   });
 
+  it('uses labelOverride when provided, even if the fieldId is not yet on the form (locally-created field)', async () => {
+    mockGetForm.mockResolvedValueOnce({ ...formStub, fields: [] });
+    mockGetProfile.mockResolvedValueOnce({ orgId: 'org-1', companyName: 'Acme Corp' });
+    mockInvokeModel.mockResolvedValueOnce(encodeModelResponse(JSON.stringify({
+      value: 'Acme Corp', source: 'companyName', confidence: 0.9,
+    })));
+
+    const res = await baseHandler(event({ ...validBody, labelOverride: 'Consultant Entity Name' }));
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toMatchObject({ value: 'Acme Corp', confidence: 0.9 });
+    // The label sent to the KB context loader should be the override
+    expect(mockGatherContext).toHaveBeenCalledWith(expect.objectContaining({ solicitation: 'Consultant Entity Name' }));
+  });
+
   it('still completes when KB context lookup fails (graceful degradation)', async () => {
     mockGetForm.mockResolvedValueOnce(formStub);
     mockGetProfile.mockResolvedValueOnce({ orgId: 'org-1', companyName: 'Acme Corp' });

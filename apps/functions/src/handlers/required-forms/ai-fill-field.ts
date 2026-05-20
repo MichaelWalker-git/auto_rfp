@@ -23,6 +23,12 @@ const BodySchema = z.object({
   opportunityId: z.string().min(1),
   formId: z.string().min(1),
   fieldId: z.string().min(1),
+  /**
+   * Optional override for the field label. The frontend sends the latest
+   * locally-edited label so the AI uses the user's renamed wording even
+   * before the form has been saved.
+   */
+  labelOverride: z.string().optional(),
 });
 
 const ModelOutputSchema = z.object({
@@ -102,7 +108,10 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
   if (!form) return apiResponse(404, { message: 'Form not found' });
 
   const field = form.fields.find((f) => f.fieldId === data.fieldId);
-  if (!field) return apiResponse(404, { message: 'Field not found on form' });
+  // Allow new fields the user just created in the UI (not yet persisted) to use AI fill —
+  // the frontend supplies labelOverride for those.
+  const fieldLabel = data.labelOverride?.trim() || field?.label;
+  if (!fieldLabel) return apiResponse(404, { message: 'Field not found on form' });
 
   const [profile, knowledgeContext] = await Promise.all([
     getCompanyProfile(orgId),
@@ -110,7 +119,7 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
       orgId,
       projectId: data.projectId,
       opportunityId: data.opportunityId,
-      solicitation: field.label, // tiny query — KB ranker will use the label as the search seed
+      solicitation: fieldLabel, // tiny query — KB ranker will use the label as the search seed
     }).catch((err) => {
       console.warn('[ai-fill-field] KB context load failed (non-fatal):', (err as Error)?.message);
       return '';
@@ -127,7 +136,7 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
   }
 
   const prompt = buildPrompt({
-    fieldLabel: field.label,
+    fieldLabel,
     formName: form.name,
     profileJson: buildProfileSummary(profile),
     knowledgeContext,
