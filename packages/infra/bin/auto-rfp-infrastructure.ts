@@ -158,6 +158,8 @@ const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {
   auditLogQueueName: `auto-rfp-audit-log-${stage.toLowerCase()}`,
   documentPipelineStateMachineArn: pipelineStack.stateMachine.stateMachineArn,
   questionPipelineStateMachineArn: questionsPipelineStack.stateMachine.stateMachineArn,
+  textractFormsTopicArn: questionsPipelineStack.textractFormsTopicArn,
+  textractFormsRoleArn: questionsPipelineStack.textractFormsRoleArn,
   sentryDNS,
   pineconeApiKey,
 });

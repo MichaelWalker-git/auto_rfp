@@ -23,6 +23,8 @@ interface Props extends StackProps {
 
 export class QuestionExtractionPipelineStack extends Stack {
   public readonly stateMachine: sfn.StateMachine;
+  public readonly textractFormsTopicArn: string;
+  public readonly textractFormsRoleArn: string;
 
   constructor(scope: Construct, id: string, props: Props) {
     super(scope, id, props);
@@ -52,6 +54,21 @@ export class QuestionExtractionPipelineStack extends Stack {
     });
 
     textractTopic.grantPublish(textractRole);
+
+    // Separate SNS topic + role for Textract AnalyzeDocument (FORMS) — keeps form-extraction
+    // callbacks isolated from text-detection callbacks.
+    const textractFormsTopic = new sns.Topic(this, 'TextractFormsCompletionTopic', {
+      topicName: `${prefix}-TextractFormsCompletion`,
+    });
+
+    const textractFormsRole = new iam.Role(this, 'TextractFormsServiceRole', {
+      assumedBy: new iam.ServicePrincipal('textract.amazonaws.com'),
+    });
+
+    textractFormsTopic.grantPublish(textractFormsRole);
+
+    this.textractFormsTopicArn = textractFormsTopic.topicArn;
+    this.textractFormsRoleArn = textractFormsRole.roleArn;
 
     const commonLambdaEnv = {
       REGION: this.region,
@@ -285,6 +302,8 @@ export class QuestionExtractionPipelineStack extends Stack {
         BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
         PINECONE_API_KEY: props.pineconeApiKey,
         PINECONE_INDEX: 'documents',
+        TEXTRACT_FORMS_SNS_TOPIC_ARN: textractFormsTopic.topicArn,
+        TEXTRACT_FORMS_ROLE_ARN: textractFormsRole.roleArn,
       },
     });
     documentsBucket.grantReadWrite(detectRequiredFormsLambda);
@@ -292,8 +311,15 @@ export class QuestionExtractionPipelineStack extends Stack {
 
     detectRequiredFormsLambda.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['textract:AnalyzeDocument'],
+        actions: ['textract:StartDocumentAnalysis'],
         resources: ['*'],
+      }),
+    );
+
+    detectRequiredFormsLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['iam:PassRole'],
+        resources: [textractFormsRole.roleArn],
       }),
     );
 
@@ -317,6 +343,46 @@ export class QuestionExtractionPipelineStack extends Stack {
         resources: [`arn:aws:secretsmanager:${this.region}:${this.account}:secret:auto-rfp/pinecone-api-key-*`],
       }),
     );
+
+    // Textract FORMS callback Lambda — finishes async form analysis kicked off by detect-required-forms.
+    const textractFormsCallbackLambda = new lambdaNode.NodejsFunction(this, 'TextractFormsCallbackLambda', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      logGroup: mkFnLogGroup('TextractFormsCallback'),
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/required-forms/textract-forms-callback.ts'),
+      handler: 'handler',
+      timeout: Duration.minutes(5),
+      memorySize: 1024,
+      environment: {
+        ...commonLambdaEnv,
+        BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
+        BEDROCK_REGION: 'us-east-1',
+      },
+    });
+    mainTable.grantReadWriteData(textractFormsCallbackLambda);
+    documentsBucket.grantRead(textractFormsCallbackLambda);
+
+    textractFormsCallbackLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['textract:GetDocumentAnalysis'],
+        resources: ['*'],
+      }),
+    );
+
+    textractFormsCallbackLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:InvokeModel'],
+        resources: ['*'],
+      }),
+    );
+
+    textractFormsCallbackLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [bedrockApiKeyParamArn],
+      }),
+    );
+
+    textractFormsTopic.addSubscription(new subs.LambdaSubscription(textractFormsCallbackLambda));
 
     // NEW: Index Solicitation Lambda for Opportunity Assistant RAG
     const indexSolicitationLambda = new lambdaNode.NodejsFunction(this, 'IndexSolicitationLambda', {

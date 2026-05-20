@@ -108,6 +108,7 @@ export class ApiDomainRoutesStack extends cdk.NestedStack {
             '@aws-sdk/client-rds-data',
           ],
           ...(route.nodeModules?.length ? { nodeModules: route.nodeModules } : {}),
+          ...(route.forceDockerBundling ? { forceDockerBundling: true } : {}),
           minify: true,
           sourceMap: false,
           target: 'es2022',

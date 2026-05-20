@@ -1,7 +1,7 @@
 import { GetCommand, QueryCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 
-import { createItem, DBItem, docClient } from './db';
+import { createItem, DBItem, docClient, scanByPkWithFilter } from './db';
 import { requireEnv } from './env';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { REQUIRED_FORM_PK } from '../constants/required-form';
@@ -141,6 +141,11 @@ export const updateRequiredForm = async (args: {
   );
 
   return res.Attributes as RequiredFormDBItem;
+};
+
+export const findRequiredFormByFormId = async (formId: string): Promise<RequiredFormDBItem | null> => {
+  const items = await scanByPkWithFilter<RequiredFormDBItem>(REQUIRED_FORM_PK, 'formId', formId);
+  return items[0] ?? null;
 };
 
 export const deleteRequiredForm = async (args: {

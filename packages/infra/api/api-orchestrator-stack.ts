@@ -76,6 +76,8 @@ export interface ApiOrchestratorStackProps extends cdk.StackProps {
   auditLogQueueName?: string;
   documentPipelineStateMachineArn: string;
   questionPipelineStateMachineArn: string;
+  textractFormsTopicArn: string;
+  textractFormsRoleArn: string;
   sentryDNS: string;
   pineconeApiKey: string;
 }
@@ -115,6 +117,8 @@ export class ApiOrchestratorStack extends cdk.Stack {
       auditLogQueueName,
       documentPipelineStateMachineArn,
       questionPipelineStateMachineArn,
+      textractFormsTopicArn,
+      textractFormsRoleArn,
       sentryDNS,
       pineconeApiKey,
     } = props;
@@ -184,6 +188,8 @@ export class ApiOrchestratorStack extends cdk.Stack {
       BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
       STATE_MACHINE_ARN: documentPipelineStateMachineArn,
       QUESTION_PIPELINE_STATE_MACHINE_ARN: questionPipelineStateMachineArn,
+      TEXTRACT_FORMS_SNS_TOPIC_ARN: textractFormsTopicArn,
+      TEXTRACT_FORMS_ROLE_ARN: textractFormsRoleArn,
       SENTRY_DSN: sentryDNS,
       SENTRY_ENVIRONMENT: stage,
       PINECONE_API_KEY: pineconeApiKey,
@@ -229,6 +235,21 @@ export class ApiOrchestratorStack extends cdk.Stack {
           `arn:aws:bedrock:us-east-1::foundation-model/*`,
           `arn:aws:bedrock:us-west-2::foundation-model/*`,
         ],
+      }),
+    );
+
+    // Allow REST handlers (reprocess-form) to start Textract FORMS analysis using the
+    // pipeline-owned Textract service role.
+    sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ['textract:StartDocumentAnalysis'],
+        resources: ['*'],
+      }),
+    );
+    sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ['iam:PassRole'],
+        resources: [textractFormsRoleArn],
       }),
     );
 

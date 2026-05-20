@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,13 +23,35 @@ export default function RequiredFormEditorPage() {
   const { data: formData, isLoading, mutate: mutateForm } = useApi<{ form: RequiredFormItem }>(
     apiUrl,
     apiUrl,
-    { refreshInterval: isPolling ? 3000 : 0 },
+    {
+      refreshInterval: isPolling ? 3000 : 0,
+      // The default dedupingInterval (60s) blocks polling refetches —
+      // override so the 3s poll actually hits the server while IN_PROGRESS.
+      dedupingInterval: isPolling ? 0 : 60_000,
+      revalidateIfStale: true,
+    },
   );
   const form = formData?.form ?? null;
 
+  // Bound the IN_PROGRESS poll to ~5 minutes per visit. If Textract is genuinely
+  // wedged or an SNS notification was lost, we stop hammering the API and rely on
+  // the user clicking Reprocess to retry.
+  const pollStartRef = useRef<number | null>(null);
   useEffect(() => {
-    setIsPolling(form?.status === 'IN_PROGRESS');
-  }, [form?.status]);
+    const inProgress = form?.status === 'IN_PROGRESS';
+    if (!inProgress) {
+      pollStartRef.current = null;
+      setIsPolling(false);
+      return;
+    }
+    if (pollStartRef.current === null) pollStartRef.current = Date.now();
+    const elapsed = Date.now() - pollStartRef.current;
+    if (elapsed > 5 * 60 * 1000) {
+      setIsPolling(false);
+      return;
+    }
+    setIsPolling(true);
+  }, [form?.status, formData]);
 
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const fetchPdfUrl = useCallback(async (fileKey: string) => {
