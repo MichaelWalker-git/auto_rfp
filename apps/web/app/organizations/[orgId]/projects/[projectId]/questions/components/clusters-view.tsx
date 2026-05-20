@@ -191,7 +191,7 @@ export const ClustersView = ({
                           key={member.questionId}
                           className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors ${
                             isSelected
-                              ? 'bg-blue-100 border border-blue-300'
+                              ? 'bg-primary/10 border border-primary/30 dark:bg-primary/20'
                               : 'bg-muted/30 hover:bg-muted/60 border border-transparent'
                           }`}
                           onClick={() => onSelectQuestion(member.questionId)}
