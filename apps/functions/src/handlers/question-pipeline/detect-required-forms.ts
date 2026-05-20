@@ -3,19 +3,18 @@ import { loadTextFromS3, copyS3Object } from '@/helpers/s3';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import { safeParseJsonFromModel } from '@/helpers/json';
 import { getQuestionFileItem, checkQuestionFileCancelled } from '@/helpers/questionFile';
-import { getCompanyProfile } from '@/helpers/company-profile';
-import { gatherAllContext } from '@/helpers/document-context';
-import { createRequiredForm, listRequiredFormsByOpportunity } from '@/helpers/required-form';
-import { extractFormFieldsWithVision } from '@/helpers/extract-form-fields-vision';
+import { createRequiredForm, listRequiredFormsByOpportunity, updateRequiredForm } from '@/helpers/required-form';
+import { startFormsAnalysis } from '@/helpers/textract-forms';
 import { parseXlsxForms } from '@/helpers/xlsx-form-parser';
-import { matchFieldsToProfile } from '@/helpers/form-field-matcher';
 import { withSentryLambda } from '@/sentry-lambda';
 
-import type { DetectedFormField, FormFieldStatus, FormType } from '@auto-rfp/core';
+import type { DetectedFormField, FormType } from '@auto-rfp/core';
 import { FormTypeSchema } from '@auto-rfp/core';
 
 const getDocumentsBucket = () => requireEnv('DOCUMENTS_BUCKET');
 const getBedrockModelId = () => requireEnv('BEDROCK_MODEL_ID');
+const getTextractFormsSnsTopicArn = () => requireEnv('TEXTRACT_FORMS_SNS_TOPIC_ARN');
+const getTextractFormsRoleArn = () => requireEnv('TEXTRACT_FORMS_ROLE_ARN');
 
 type DetectRequiredFormsEvent = {
   textFileKey: string;
@@ -113,145 +112,135 @@ export const baseHandler = async (
     throw new Error('Could not determine orgId');
   }
 
-  try {
-    const existingForms = await listRequiredFormsByOpportunity({ orgId, projectId, opportunityId });
-    const existingFormNames = new Set(
-      existingForms.map((f) => f.name.toLowerCase().trim()),
-    );
+  const existingForms = await listRequiredFormsByOpportunity({ orgId, projectId, opportunityId });
+  const existingFormNames = new Set(existingForms.map((f) => f.name.toLowerCase().trim()));
 
-    const docText = await loadTextFromS3(getDocumentsBucket(), textFileKey);
-    if (!docText || docText.length === 0) {
-      console.log(`Empty text for ${textFileKey}, skipping form detection`);
-      return { ok: true, formsDetected: 0 };
+  const docText = await loadTextFromS3(getDocumentsBucket(), textFileKey);
+  if (!docText || docText.length === 0) {
+    console.log(`Empty text for ${textFileKey}, skipping form detection`);
+    return { ok: true, formsDetected: 0 };
+  }
+
+  const responseBody = await invokeModel(
+    getBedrockModelId(),
+    JSON.stringify(buildDetectionPrompt(docText, mimeType)),
+  );
+  const responseJson = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as Record<string, unknown>;
+  const contentBlocks = (responseJson?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
+  const rawText = contentBlocks.find((c) => c?.type === 'text')?.text ?? null;
+  const modelOut = rawText ? (safeParseJsonFromModel(String(rawText)) as Record<string, unknown>) : null;
+
+  if (!modelOut) {
+    console.log(`Form detection returned non-JSON for ${sourceFileKey}, skipping`);
+    return { ok: true, formsDetected: 0 };
+  }
+
+  const confidence = typeof modelOut.confidence === 'number' ? modelOut.confidence : 0;
+  const forms = Array.isArray(modelOut.forms) ? (modelOut.forms as DetectedFormResult[]) : [];
+
+  if (confidence < 0.5 || forms.length === 0) {
+    console.log(`No forms detected (confidence=${confidence}, count=${forms.length}) for ${sourceFileKey}`);
+    return { ok: true, formsDetected: 0 };
+  }
+
+  const sourceFileName = sourceFileKey.split('/').pop() ?? sourceFileKey;
+  const isPdf = mimeType.includes('pdf') || sourceFileKey.toLowerCase().endsWith('.pdf');
+  const isXlsx = mimeType.includes('spreadsheet') || mimeType.includes('excel') ||
+    sourceFileKey.toLowerCase().endsWith('.xlsx') || sourceFileKey.toLowerCase().endsWith('.xls');
+
+  let createdCount = 0;
+
+  for (const form of forms) {
+    const formName = form.name || `Form from ${sourceFileName}`;
+    if (existingFormNames.has(formName.toLowerCase().trim())) {
+      console.log(`Skipping duplicate form: "${formName}"`);
+      continue;
     }
 
-    const responseBody = await invokeModel(
-      getBedrockModelId(),
-      JSON.stringify(buildDetectionPrompt(docText, mimeType)),
-    );
-    const responseJson = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as Record<string, unknown>;
-    const contentBlocks = (responseJson?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
-    const rawText = contentBlocks.find((c) => c?.type === 'text')?.text ?? null;
-    const modelOut = rawText ? (safeParseJsonFromModel(String(rawText)) as Record<string, unknown>) : null;
+    const parsedType = FormTypeSchema.safeParse(form.formType);
+    const validFormType: FormType = parsedType.success ? parsedType.data : 'PDF_SCANNED';
 
-    if (!modelOut) {
-      console.log(`Form detection returned non-JSON for ${sourceFileKey}, skipping`);
-      return { ok: true, formsDetected: 0 };
-    }
+    // Stable file key for the form's lifecycle. We use a content-addressable timestamp
+    // because we need this path before we have a formId (UpdateRequiredFormDTO doesn't allow sourceFileKey).
+    const stableFolder = `form-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const stableFileKey = `${orgId}/${projectId}/${opportunityId}/required-forms/${stableFolder}/${sourceFileName}`;
+    await copyS3Object(getDocumentsBucket(), sourceFileKey, stableFileKey);
 
-    const confidence = typeof modelOut.confidence === 'number' ? modelOut.confidence : 0;
-    const forms = Array.isArray(modelOut.forms) ? (modelOut.forms as DetectedFormResult[]) : [];
+    const placeholderFields: DetectedFormField[] = [];
 
-    if (confidence < 0.5) {
-      console.log(`Low confidence (${confidence}) for form detection in ${sourceFileKey}, skipping`);
-      return { ok: true, formsDetected: 0 };
-    }
-
-    if (forms.length === 0) {
-      console.log(`No forms detected in ${sourceFileKey}`);
-      return { ok: true, formsDetected: 0 };
-    }
-
-    const sourceFileName = sourceFileKey.split('/').pop() ?? sourceFileKey;
-
-    // Load company profile + KB context for auto-fill
-    const [profile, knowledgeContext] = await Promise.all([
-      getCompanyProfile(orgId),
-      gatherAllContext({ projectId, orgId, opportunityId, solicitation: docText.slice(0, 10_000) })
-        .catch((err) => { console.warn('KB context load failed (non-fatal):', (err as Error)?.message); return ''; }),
-    ]);
-
-    // Extract form fields
-    let detectedFields: DetectedFormField[] = [];
-    const isPdf = mimeType.includes('pdf') || sourceFileKey.toLowerCase().endsWith('.pdf');
-    const isXlsx = mimeType.includes('spreadsheet') || mimeType.includes('excel') ||
-      sourceFileKey.toLowerCase().endsWith('.xlsx') || sourceFileKey.toLowerCase().endsWith('.xls');
+    const { formId } = await createRequiredForm({
+      dto: {
+        orgId,
+        projectId,
+        opportunityId,
+        name: formName,
+        formType: validFormType,
+        sourceFileName,
+        sourceFileKey: stableFileKey,
+        sourcePageRange: form.pageRange ?? null,
+        sourceSheetName: form.sheetName ?? null,
+      },
+      fields: placeholderFields,
+    });
 
     if (isPdf) {
       try {
-        detectedFields = await extractFormFieldsWithVision(sourceFileKey);
-        console.log(`Vision extracted ${detectedFields.length} fields from ${sourceFileName}`);
+        await updateRequiredForm({
+          orgId, projectId, opportunityId, formId,
+          patch: { status: 'IN_PROGRESS' },
+        });
+        const jobId = await startFormsAnalysis({
+          bucket: getDocumentsBucket(),
+          fileKey: stableFileKey,
+          jobTag: formId,
+          snsTopicArn: getTextractFormsSnsTopicArn(),
+          roleArn: getTextractFormsRoleArn(),
+        });
+        console.log(`Started Textract FORMS job ${jobId} for form ${formId} (${formName})`);
       } catch (err) {
-        console.warn(`Vision field extraction failed for ${sourceFileName} (non-fatal):`, (err as Error)?.message);
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`Failed to start Textract FORMS for form ${formId}: ${message}`);
+        await updateRequiredForm({
+          orgId, projectId, opportunityId, formId,
+          patch: { status: 'FAILED', errorMessage: message },
+        });
       }
     } else if (isXlsx) {
+      // XLSX forms parse synchronously — no Textract roundtrip needed
       try {
-        const sheets = await parseXlsxForms(sourceFileKey);
+        const sheets = await parseXlsxForms(stableFileKey);
         const target = sheets[0];
-        if (target) {
-          detectedFields = target.fields;
-          console.log(`XLSX parser extracted ${detectedFields.length} fields from ${sourceFileName}`);
-        }
-      } catch (err) {
-        console.warn(`XLSX field extraction failed for ${sourceFileName} (non-fatal):`, (err as Error)?.message);
-      }
-    }
-
-    // Auto-fill fields from company profile
-    console.log(`Auto-fill check: profile=${!!profile} (${profile?.companyName ?? 'null'}), fields=${detectedFields.length}`);
-    if (profile && detectedFields.length > 0) {
-      try {
-        const matchResults = await matchFieldsToProfile(detectedFields, profile, docText);
-        detectedFields = detectedFields.map((f) => {
-          const match = matchResults.find((m) => m.fieldId === f.fieldId);
-          if (!match) return f;
-          if (match.manualReason) {
-            return { ...f, status: 'MANUAL_REQUIRED' as FormFieldStatus, manualReason: match.manualReason };
-          }
-          if (match.profileFieldKey && match.value) {
-            const status = match.confidence >= 0.7 ? 'AUTO_FILLED' as FormFieldStatus : 'LOW_CONFIDENCE' as FormFieldStatus;
-            return { ...f, value: match.value, status, confidence: match.confidence, profileFieldKey: match.profileFieldKey };
-          }
-          return f;
+        const fields = target?.fields ?? [];
+        const total = fields.length;
+        const manual = fields.filter((f) => f.status === 'MANUAL_REQUIRED').length;
+        await updateRequiredForm({
+          orgId, projectId, opportunityId, formId,
+          patch: {
+            fields,
+            status: 'READY',
+            totalFieldCount: total,
+            manualFieldCount: manual,
+            autoFillPercentage: 0,
+          },
         });
       } catch (err) {
-        console.warn('Field matching failed (non-fatal):', (err as Error)?.message);
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`XLSX parse failed for form ${formId}: ${message}`);
+        await updateRequiredForm({
+          orgId, projectId, opportunityId, formId,
+          patch: { status: 'FAILED', errorMessage: message },
+        });
       }
+    } else {
+      // Unknown mime type — leave the form record in NEW state for manual triage
+      console.warn(`Form ${formId} has unsupported mimeType ${mimeType}; left in NEW state`);
     }
 
-    let createdCount = 0;
-    for (const form of forms) {
-      const formName = form.name || `Form from ${sourceFileName}`;
-      if (existingFormNames.has(formName.toLowerCase().trim())) {
-        console.log(`Skipping duplicate form: "${formName}"`);
-        continue;
-      }
-
-      const parsedType = FormTypeSchema.safeParse(form.formType);
-      const validFormType: FormType = parsedType.success ? parsedType.data : 'PDF_SCANNED';
-
-      // Copy source file to a stable location
-      const formId = `form-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const stableFileKey = `${orgId}/${projectId}/${opportunityId}/required-forms/${formId}/${sourceFileName}`;
-      await copyS3Object(getDocumentsBucket(), sourceFileKey, stableFileKey);
-
-      const { formId: createdFormId } = await createRequiredForm({
-        dto: {
-          orgId,
-          projectId,
-          opportunityId,
-          name: formName,
-          formType: validFormType,
-          sourceFileName,
-          sourceFileKey: stableFileKey,
-          sourcePageRange: form.pageRange ?? null,
-          sourceSheetName: form.sheetName ?? null,
-        },
-        fields: detectedFields,
-      });
-
-      existingFormNames.add(formName.toLowerCase().trim());
-      createdCount++;
-      const autoFilledCount = detectedFields.filter((f) => f.status === 'AUTO_FILLED').length;
-      console.log(`Created required form "${formName}" (${createdFormId}): ${detectedFields.length} fields, ${autoFilledCount} auto-filled`);
-    }
-
-    return { ok: true, formsDetected: createdCount };
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('detect-required-forms error:', message);
-    return { ok: false, formsDetected: 0 };
+    existingFormNames.add(formName.toLowerCase().trim());
+    createdCount++;
   }
+
+  return { ok: true, formsDetected: createdCount };
 };
 
 export const handler = withSentryLambda(baseHandler);

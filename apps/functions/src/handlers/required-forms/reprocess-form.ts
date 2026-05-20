@@ -4,13 +4,9 @@ import { z } from 'zod';
 
 import { withSentryLambda } from '@/sentry-lambda';
 import { apiResponse, getOrgId } from '@/helpers/api';
+import { requireEnv } from '@/helpers/env';
 import { getRequiredForm, updateRequiredForm } from '@/helpers/required-form';
-import { extractFormFieldsWithVision } from '@/helpers/extract-form-fields-vision';
-import { matchFieldsToProfile } from '@/helpers/form-field-matcher';
-import { getCompanyProfile } from '@/helpers/company-profile';
-import { gatherAllContext } from '@/helpers/document-context';
-
-import type { DetectedFormField, FormFieldStatus } from '@auto-rfp/core';
+import { startFormsAnalysis } from '@/helpers/textract-forms';
 
 import {
   authContextMiddleware,
@@ -32,75 +28,37 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
   const { success, data, error } = QuerySchema.safeParse(event.queryStringParameters ?? {});
   if (!success) return apiResponse(400, { message: 'Invalid query parameters', issues: error.issues });
 
-  const form = await getRequiredForm({ orgId, projectId: data.projectId, opportunityId: data.opportunityId, formId: data.formId });
+  const form = await getRequiredForm({
+    orgId, projectId: data.projectId, opportunityId: data.opportunityId, formId: data.formId,
+  });
   if (!form) return apiResponse(404, { message: 'Form not found' });
 
-  // Set status to ANALYZING
+  const isPdf = form.sourceFileKey.toLowerCase().endsWith('.pdf');
+  if (!isPdf) {
+    return apiResponse(400, { message: 'Reprocessing is only supported for PDF forms' });
+  }
+
   await updateRequiredForm({
     orgId, projectId: data.projectId, opportunityId: data.opportunityId, formId: data.formId,
-    patch: { status: 'IN_PROGRESS' },
+    patch: { status: 'IN_PROGRESS', errorMessage: null },
   });
 
   try {
-    // Re-extract fields from the source file using vision
-    let fields: DetectedFormField[] = [];
-    const isPdf = form.sourceFileKey.toLowerCase().endsWith('.pdf');
-
-    if (isPdf) {
-      fields = await extractFormFieldsWithVision(form.sourceFileKey);
-    }
-
-    // Load document text for context (form instructions)
-    let documentText = '';
-    try {
-      const { loadTextFromS3 } = await import('@/helpers/s3');
-      const { requireEnv } = await import('@/helpers/env');
-      const textKey = form.sourceFileKey.replace(/\.(pdf|xlsx|xls|docx)$/i, '.txt');
-      documentText = await loadTextFromS3(requireEnv('DOCUMENTS_BUCKET'), textKey).catch(() => '');
-    } catch { /* non-fatal */ }
-
-    // Re-fill from company profile + document context
-    const profile = await getCompanyProfile(orgId);
-
-    if (profile && fields.length > 0) {
-      const matchResults = await matchFieldsToProfile(fields, profile, documentText);
-      fields = fields.map((f) => {
-        const match = matchResults.find((m) => m.fieldId === f.fieldId);
-        if (!match) return f;
-        if (match.manualReason) {
-          return { ...f, status: 'MANUAL_REQUIRED' as FormFieldStatus, manualReason: match.manualReason };
-        }
-        if (match.profileFieldKey && match.value) {
-          const status = match.confidence >= 0.7 ? 'AUTO_FILLED' as FormFieldStatus : 'LOW_CONFIDENCE' as FormFieldStatus;
-          return { ...f, value: match.value, status, confidence: match.confidence, profileFieldKey: match.profileFieldKey };
-        }
-        return f;
-      });
-    }
-
-    const autoFilled = fields.filter((f) => f.status === 'AUTO_FILLED').length;
-    const manual = fields.filter((f) => f.status === 'MANUAL_REQUIRED').length;
-    const total = fields.length;
-
-    await updateRequiredForm({
-      orgId, projectId: data.projectId, opportunityId: data.opportunityId, formId: data.formId,
-      patch: {
-        fields,
-        status: 'READY',
-        autoFillPercentage: total > 0 ? Math.round((autoFilled / total) * 100) : 0,
-        manualFieldCount: manual,
-        totalFieldCount: total,
-      },
+    const jobId = await startFormsAnalysis({
+      bucket: requireEnv('DOCUMENTS_BUCKET'),
+      fileKey: form.sourceFileKey,
+      jobTag: form.formId,
+      snsTopicArn: requireEnv('TEXTRACT_FORMS_SNS_TOPIC_ARN'),
+      roleArn: requireEnv('TEXTRACT_FORMS_ROLE_ARN'),
     });
-
-    return apiResponse(200, { ok: true, totalFields: total, autoFilled, manual });
+    return apiResponse(202, { ok: true, jobId, status: 'IN_PROGRESS' });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await updateRequiredForm({
       orgId, projectId: data.projectId, opportunityId: data.opportunityId, formId: data.formId,
       patch: { status: 'FAILED', errorMessage: message },
     });
-    return apiResponse(500, { message: `Reprocessing failed: ${message}` });
+    return apiResponse(500, { message: `Reprocessing failed to start: ${message}` });
   }
 };
 

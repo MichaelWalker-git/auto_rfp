@@ -2,6 +2,7 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { uploadToS3 } from './s3';
 import { requireEnv } from './env';
+import { rasterizeAndFillPdf } from './pdf-rasterize-fill';
 
 import type { DetectedFormField } from '@auto-rfp/core';
 
@@ -21,22 +22,15 @@ export const fillPdfForm = async (args: {
   if (!bytes) throw new Error(`Could not read PDF from S3: ${sourceFileKey}`);
 
   // Try loading without encryption first (clean PDFs).
-  // If encrypted (owner-password only), load with ignoreEncryption and strip the
-  // Encrypt dict so the output doesn't prompt for a password on open.
+  // Encrypted PDFs go through a rasterize-then-stamp fallback because pdf-lib's
+  // ignoreEncryption + strip-Encrypt path produces an output PDF without page
+  // content streams (blank background + only our overlaid text).
   let pdfDoc: PDFDocument;
-  let wasEncrypted = false;
   try {
     pdfDoc = await PDFDocument.load(bytes);
-  } catch {
-    pdfDoc = await PDFDocument.load(bytes, { ignoreEncryption: true });
-    wasEncrypted = true;
-  }
-
-  if (wasEncrypted) {
-    const context = (pdfDoc as unknown as { context: { trailerInfo: { Encrypt?: unknown } } }).context;
-    if (context?.trailerInfo?.Encrypt) {
-      delete context.trailerInfo.Encrypt;
-    }
+  } catch (err) {
+    console.log(`[fillPdfForm] PDF appears encrypted (${(err as Error)?.message}); using rasterize fallback`);
+    return rasterizeAndFillPdf({ sourceFileKey, fields, outputKey });
   }
 
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -60,11 +54,12 @@ export const fillPdfForm = async (args: {
     const w = bbox.width * pageWidth;
     const h = bbox.height * pageHeight;
 
-    // Position text at the top of the bbox (where the underline starts)
-    // bbox.top is distance from page top, so PDF y = pageHeight - bbox.top * pageHeight
-    // Then offset down by fontSize to place text baseline on the line
+    // Anchor the text baseline near the BOTTOM of the bbox (matching how a user
+    // writes on an underline) — this is where the HTML viewer's <input> renders too.
+    // Reserve ~20% of bbox height for descender so glyphs sit on the line.
     const fontSize = Math.min(h * 0.8, 11);
-    const y = pageHeight - (bbox.top * pageHeight) - fontSize;
+    const bboxBottomFromPdfBottom = pageHeight - (bbox.top + bbox.height) * pageHeight;
+    const y = bboxBottomFromPdfBottom + h * 0.2;
 
     page.drawText(field.value, {
       x: x + 2,
