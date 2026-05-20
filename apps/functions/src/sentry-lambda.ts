@@ -4,6 +4,20 @@ const environment = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'd
 const isProduction = environment === 'production';
 const sentryEnabled = !!process.env.SENTRY_DSN;
 
+const BEDROCK_HOST_MARKER = 'bedrock-runtime';
+
+type SpanLike = { op?: string; description?: string };
+
+export const relabelBedrockSpans = <T extends { spans?: SpanLike[] }>(event: T): T => {
+  if (!event.spans?.length) return event;
+  for (const span of event.spans) {
+    if (span.op === 'http.client' && span.description?.includes(BEDROCK_HOST_MARKER)) {
+      span.op = 'ai.http.bedrock';
+    }
+  }
+  return event;
+};
+
 /**
  * Business-level retry error — thrown to trigger SQS reprocessing
  * but intentionally excluded from Sentry error reporting.
@@ -57,6 +71,10 @@ if (sentryEnabled) {
       }
 
       return event;
+    },
+
+    beforeSendTransaction(event) {
+      return relabelBedrockSpans(event);
     },
   });
 

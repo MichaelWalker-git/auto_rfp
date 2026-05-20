@@ -69,3 +69,38 @@ describe('sentry-lambda beforeSend filter', () => {
     expect(result).toEqual(event);
   });
 });
+
+describe('sentry-lambda beforeSendTransaction filter', () => {
+  let beforeSendTransaction: (event: Record<string, unknown>) => Record<string, unknown> | null;
+
+  beforeAll(() => {
+    process.env.SENTRY_DSN = 'https://fake@sentry.io/123';
+    jest.resetModules();
+    const Sentry = jest.requireMock('@sentry/serverless');
+    require('./sentry-lambda');
+    beforeSendTransaction = Sentry.AWSLambda.init.mock.calls[0][0].beforeSendTransaction;
+  });
+
+  afterAll(() => {
+    delete process.env.SENTRY_DSN;
+  });
+
+  it('relabels Bedrock http.client spans to suppress Consecutive HTTP detector', () => {
+    const event = {
+      spans: [
+        { op: 'http.client', description: 'POST https://bedrock-runtime.us-east-1.amazonaws.com/model/foo/invoke' },
+        { op: 'http.client', description: 'POST https://bedrock-runtime.us-east-1.amazonaws.com/model/foo/invoke' },
+        { op: 'http.client', description: 'POST https://other.example.com/api' },
+      ],
+    };
+    const result = beforeSendTransaction(event) as { spans: Array<{ op: string }> };
+    expect(result.spans[0]!.op).toBe('ai.http.bedrock');
+    expect(result.spans[1]!.op).toBe('ai.http.bedrock');
+    expect(result.spans[2]!.op).toBe('http.client');
+  });
+
+  it('returns the event when there are no spans', () => {
+    const event = { spans: [] };
+    expect(beforeSendTransaction(event)).toBe(event);
+  });
+});
