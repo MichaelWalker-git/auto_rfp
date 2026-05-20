@@ -64,9 +64,11 @@ export const rasterizeAndFillPdf = async (args: {
   const font = await outputPdf.embedFont(StandardFonts.Helvetica);
 
   // Render each source page to PNG, embed as a full-page image, then stamp text.
+  // Export every field that has a value and a bbox — see pdf-form-filler.ts for
+  // why we no longer exclude MANUAL_REQUIRED fields.
   const fieldsByPage = new Map<number, DetectedFormField[]>();
   for (const f of fields) {
-    if (!f.value || !f.boundingBox || f.status === 'MANUAL_REQUIRED') continue;
+    if (!f.value || !f.boundingBox) continue;
     const p = f.pageNumber ?? 1;
     const arr = fieldsByPage.get(p);
     if (arr) arr.push(f);
