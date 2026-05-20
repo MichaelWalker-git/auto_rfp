@@ -31,7 +31,9 @@ export function rfpDocumentDomain(args?: {
         entry: lambdaEntry('rfp-document/export-all-rfp-documents.ts'),
         memorySize: 2048,
         timeoutSeconds: 120,
-        nodeModules: ['@sparticuz/chromium', 'puppeteer-core', 'html-to-docx', 'jszip'],
+        // pdfjs-dist + @napi-rs/canvas come in via the dynamic import of pdf-form-filler
+        // (which falls back to rasterize-and-stamp for encrypted PDFs).
+        nodeModules: ['@sparticuz/chromium', 'puppeteer-core', 'html-to-docx', 'jszip', 'pdfjs-dist', '@napi-rs/canvas'],
       },
       {
         method: 'POST',
