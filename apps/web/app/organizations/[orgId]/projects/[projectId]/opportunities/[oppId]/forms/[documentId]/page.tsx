@@ -23,7 +23,13 @@ export default function RequiredFormEditorPage() {
   const { data: formData, isLoading, mutate: mutateForm } = useApi<{ form: RequiredFormItem }>(
     apiUrl,
     apiUrl,
-    { refreshInterval: isPolling ? 3000 : 0 },
+    {
+      refreshInterval: isPolling ? 3000 : 0,
+      // The default dedupingInterval (60s) blocks polling refetches —
+      // override so the 3s poll actually hits the server while IN_PROGRESS.
+      dedupingInterval: isPolling ? 0 : 60_000,
+      revalidateIfStale: true,
+    },
   );
   const form = formData?.form ?? null;
 

@@ -431,6 +431,11 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
         {},
       );
       toast({ title: 'Form reprocessing', description: 'Re-extracting fields. This will take 10–60 seconds.' });
+      // Drop local edits so the new server-side fields actually overwrite the
+      // local maps (sync effect skips when isDirty is true).
+      setIsDirty(false);
+      // Trigger an immediate refetch — page-level SWR will then poll until
+      // status flips back to READY.
       onFieldUpdated?.();
     } catch (err) {
       toast({ title: 'Reprocess failed', description: (err as Error)?.message, variant: 'destructive' });
