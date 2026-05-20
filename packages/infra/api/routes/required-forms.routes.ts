@@ -16,6 +16,9 @@ export function requiredFormsDomain(): DomainRoutes {
       // pdfjs-dist + @napi-rs/canvas (with native binary) are installed into the
       // Lambda zip at synth time so esbuild doesn't try to bundle them.
       nodeModules: ['pdfjs-dist', '@napi-rs/canvas'],
+      // @napi-rs/canvas ships platform-specific binaries — install inside the
+      // Lambda runtime image so we ship Linux x64 regardless of the dev host.
+      forceDockerBundling: true,
     },
     { method: 'POST', path: 'reprocess', entry: lambdaEntry('required-forms/reprocess-form.ts'), timeoutSeconds: 120 },
     { method: 'POST', path: 'ai-fill-field', entry: lambdaEntry('required-forms/ai-fill-field.ts'), timeoutSeconds: 60 },
