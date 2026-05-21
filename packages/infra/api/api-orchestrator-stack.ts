@@ -635,7 +635,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
     // stacks below so the function name lands in commonEnv before route
     // Lambdas read it.
     const rasterizePdfFunctionName = `auto-rfp-rasterize-pdf-${stage}`;
-    const rasterizePdfWorker = new lambdaNodejs.NodejsFunction(this, `RasterizePdfWorker-${stage}`, {
+    new lambdaNodejs.NodejsFunction(this, `RasterizePdfWorker-${stage}`, {
       functionName: rasterizePdfFunctionName,
       entry: path.join(__dirname, '../../../apps/functions/src/handlers/required-forms/rasterize-pdf-worker.ts'),
       handler: 'handler',
@@ -662,7 +662,18 @@ export class ApiOrchestratorStack extends cdk.Stack {
     });
 
     // Allow the shared Lambda role (used by all route Lambdas) to invoke the worker.
-    rasterizePdfWorker.grantInvoke(sharedInfraStack.commonLambdaRole);
+    // Use a string-built ARN — calling rasterizePdfWorker.grantInvoke(role) would
+    // create a cycle (SharedInfra → RasterizePdfWorker via the IAM policy, and
+    // RasterizePdfWorker → SharedInfra via its execution role + commonEnv).
+    sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        sid: 'InvokeRasterizePdfWorker',
+        actions: ['lambda:InvokeFunction'],
+        resources: [
+          `arn:aws:lambda:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:function:${rasterizePdfFunctionName}`,
+        ],
+      }),
+    );
 
     // Pass the function name to every downstream route Lambda via commonEnv.
     sharedInfraStack.commonEnv.RASTERIZE_PDF_FUNCTION_NAME = rasterizePdfFunctionName;
