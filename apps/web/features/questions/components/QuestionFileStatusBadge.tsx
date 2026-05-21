@@ -18,6 +18,10 @@ const TONE: Record<string, string> = {
   TEXTRACT_RUNNING: 'bg-blue-100 text-blue-700',
   TEXT_READY: 'bg-blue-100 text-blue-700',
   PROCESSED: 'bg-emerald-100 text-emerald-800',
+  GENERATING_ANSWERS: 'bg-violet-100 text-violet-700',
+  ANSWERS_READY: 'bg-emerald-100 text-emerald-800',
+  FILLING_FORMS: 'bg-amber-100 text-amber-800',
+  FORMS_READY: 'bg-emerald-100 text-emerald-800',
   FAILED: 'bg-rose-100 text-rose-700',
   DELETED: 'bg-slate-100 text-slate-500',
   CANCELLED: 'bg-slate-100 text-slate-500',
@@ -25,17 +29,26 @@ const TONE: Record<string, string> = {
 
 const LABEL: Record<string, string> = {
   UPLOADED: 'Queued',
-  PROCESSING: 'Generating…',
-  TEXTRACT_RUNNING: 'Generating…',
-  TEXT_READY: 'Generating…',
-  PROCESSED: 'Ready',
+  PROCESSING: 'Extracting text…',
+  TEXTRACT_RUNNING: 'Extracting text…',
+  TEXT_READY: 'Parsing questions…',
+  PROCESSED: 'Questions ready',
+  GENERATING_ANSWERS: 'Generating answers…',
+  ANSWERS_READY: 'Answers ready',
+  FILLING_FORMS: 'Filling forms…',
+  FORMS_READY: 'Forms ready',
   FAILED: 'Failed',
   DELETED: 'Deleted',
   CANCELLED: 'Cancelled',
 };
 
-const isGenerating = (status: string) =>
-  status === 'PROCESSING' || status === 'TEXTRACT_RUNNING' || status === 'TEXT_READY' || status === 'UPLOADED';
+const isInProgress = (status: string) =>
+  status === 'PROCESSING' ||
+  status === 'TEXTRACT_RUNNING' ||
+  status === 'TEXT_READY' ||
+  status === 'UPLOADED' ||
+  status === 'GENERATING_ANSWERS' ||
+  status === 'FILLING_FORMS';
 
 /**
  * Status chip rendered next to a questionnaire file. Maps the raw QuestionFile
@@ -52,10 +65,10 @@ export const QuestionFileStatusBadge = ({
     ? AlertCircle
     : status === 'PROCESSED'
       ? CheckCircle2
-      : isGenerating(status)
+      : isInProgress(status)
         ? Loader2
         : Clock;
-  const animate = isGenerating(status);
+  const animate = isInProgress(status);
 
   return (
     <div className={cn('inline-flex items-center gap-1.5', className)}>
