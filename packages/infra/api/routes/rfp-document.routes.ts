@@ -31,11 +31,12 @@ export function rfpDocumentDomain(args?: {
         entry: lambdaEntry('rfp-document/export-all-rfp-documents.ts'),
         memorySize: 2048,
         timeoutSeconds: 120,
-        // pdfjs-dist + @napi-rs/canvas come in via the dynamic import of pdf-form-filler
-        // (which falls back to rasterize-and-stamp for encrypted PDFs).
-        // The explicit @napi-rs/canvas-linux-x64-gnu sub-package guarantees the
-        // Linux x64 native binary ships even when synth runs on a Mac dev host.
-        nodeModules: ['@sparticuz/chromium', 'puppeteer-core', 'html-to-docx', 'jszip', 'pdfjs-dist', '@napi-rs/canvas', '@napi-rs/canvas-linux-x64-gnu'],
+        // pdfjs-dist + @napi-rs/canvas are deliberately NOT bundled here.
+        // They live in the dedicated rasterize-pdf-worker Lambda which this
+        // function invokes synchronously when an encrypted PDF is hit.
+        // Keeping them out of every export bundle keeps us under the 250 MB
+        // unzipped Lambda hard limit.
+        nodeModules: ['@sparticuz/chromium', 'puppeteer-core', 'html-to-docx', 'jszip'],
       },
       {
         method: 'POST',
