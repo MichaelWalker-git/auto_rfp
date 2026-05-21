@@ -1,11 +1,20 @@
 import { z } from 'zod';
 
 export const QuestionFileStatusSchema = z.enum([
+  // Initial / text-extraction phase
   'UPLOADED',
   'PROCESSING',
   'TEXTRACT_RUNNING',
   'TEXT_READY',
+  // Question extraction has finished (questions are ready to view).
   'PROCESSED',
+  // Downstream sub-stages — set by post-extraction pipelines so the UI can
+  // surface what's still happening after questions are visible.
+  'GENERATING_ANSWERS',  // answer-pipeline running
+  'ANSWERS_READY',       // every question has an answer
+  'FILLING_FORMS',       // detect-required-forms / textract callbacks running
+  'FORMS_READY',         // every detected form has finished textract / matrix autofill
+  // Terminal
   'FAILED',
   'DELETED',
   'CANCELLED',

@@ -23,9 +23,11 @@ jest.mock('@/helpers/json', () => ({
 
 const mockGetQuestionFile = jest.fn();
 const mockCheckCancelled = jest.fn();
+const mockUpdateQuestionFile = jest.fn();
 jest.mock('@/helpers/questionFile', () => ({
   getQuestionFileItem: (...args: unknown[]) => mockGetQuestionFile(...args),
   checkQuestionFileCancelled: (...args: unknown[]) => mockCheckCancelled(...args),
+  updateQuestionFile: (...args: unknown[]) => mockUpdateQuestionFile(...args),
 }));
 
 const mockCreateForm = jest.fn();
@@ -74,6 +76,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockCheckCancelled.mockResolvedValue(false);
   mockListForms.mockResolvedValue([]);
+  mockUpdateQuestionFile.mockResolvedValue({ success: true });
 });
 
 describe('detect-required-forms', () => {

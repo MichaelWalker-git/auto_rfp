@@ -13,13 +13,12 @@ export function requiredFormsDomain(): DomainRoutes {
       path: 'export',
       entry: lambdaEntry('required-forms/export-filled-form.ts'),
       timeoutSeconds: 120,
-      // pdfjs-dist + @napi-rs/canvas (with native binary) are installed into the
-      // Lambda zip at synth time so esbuild doesn't try to bundle them.
-      // The explicit @napi-rs/canvas-linux-x64-gnu sub-package guarantees the
-      // Linux x64 native binary ships even when synth runs on a Mac dev host.
-      nodeModules: ['pdfjs-dist', '@napi-rs/canvas', '@napi-rs/canvas-linux-x64-gnu'],
+      // pdfjs-dist + @napi-rs/canvas live in the dedicated rasterize-pdf-worker
+      // Lambda — we invoke it synchronously when we hit an encrypted PDF.
     },
     { method: 'POST', path: 'reprocess', entry: lambdaEntry('required-forms/reprocess-form.ts'), timeoutSeconds: 120 },
     { method: 'POST', path: 'ai-fill-field', entry: lambdaEntry('required-forms/ai-fill-field.ts'), timeoutSeconds: 60 },
+    { method: 'POST', path: 'attach', entry: lambdaEntry('required-forms/attach-form-to-proposal.ts') },
+    { method: 'DELETE', path: 'attach', entry: lambdaEntry('required-forms/attach-form-to-proposal.ts') },
   ]};
 }

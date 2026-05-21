@@ -14,6 +14,7 @@ import { queryAllBySkPrefix } from '@/helpers/db';
 import { uploadToS3 } from '@/helpers/s3';
 import { buildRFPDocumentSK, buildRFPDocumentS3Key, putRFPDocument, listRFPDocumentsByProject } from '@/helpers/rfp-document';
 import { nowIso } from '@/helpers/date';
+import { updateQuestionFile } from '@/helpers/questionFile';
 
 const getTableName = () => requireEnv('DB_TABLE_NAME');
 const getDocumentsBucket = () => requireEnv('DOCUMENTS_BUCKET');
@@ -265,6 +266,16 @@ export const baseHandler = async (
       skipped++;
     }
   }
+
+  // Answer generation pipeline finished — mark every file in the opportunity
+  // as ANSWERS_READY so the UI's "Generating answers…" badge clears. This is
+  // the terminal step in the answer-generation state machine.
+  await Promise.all(
+    allFiles.map((qf) =>
+      updateQuestionFile(projectId, opportunityId, qf.questionFileId, { status: 'ANSWERS_READY' })
+        .catch((err) => console.warn(`Failed to set ANSWERS_READY on ${qf.questionFileId}:`, (err as Error)?.message)),
+    ),
+  );
 
   return { generated, skipped };
 };

@@ -140,6 +140,10 @@ export const mapBlocksToFields = (blocks: Block[]): DetectedFormField[] => {
     let status: FormFieldStatus = 'EMPTY';
     let manualReason: string | null = null;
     let isAlreadyFilled = false;
+    let markType: 'TEXT' | 'CHECKBOX' | 'CIRCLE' = 'TEXT';
+    let markChar: string | null = null;
+
+    const isCircleLabel = /\b(en)?circle\b/i.test(label);
 
     if (value) {
       const selected = childSelectionStatusOf(value, byId);
@@ -150,9 +154,30 @@ export const mapBlocksToFields = (blocks: Block[]): DetectedFormField[] => {
         fieldValue = selected === 'SELECTED' ? 'Yes' : 'No';
         status = 'MANUAL_REQUIRED';
         manualReason = 'Verify checkbox selection';
+        markType = 'CHECKBOX';
+        markChar = selected === 'SELECTED' ? 'X' : null;
       } else if (words) {
         // Already filled with text — skip unless the label forces manual review
         isAlreadyFilled = true;
+      }
+    }
+
+    let markGeometry: DetectedFormField['markGeometry'] = null;
+
+    if (isCircleLabel && markType === 'TEXT') {
+      // "Circle the correct option" style prompts — surface for manual circle stamp.
+      // Pre-seed geometry from the KEY bounding box so the editor knows where to drop
+      // the stamp; user can then drag/resize it.
+      markType = 'CIRCLE';
+      status = 'MANUAL_REQUIRED';
+      manualReason = manualReason ?? 'Mark the correct option';
+      const bb = bboxOf(value ?? k) ?? bboxOf(k);
+      if (bb) {
+        markGeometry = {
+          cx: bb.left + bb.width / 2,
+          cy: bb.top + bb.height / 2,
+          radius: Math.min(bb.width, bb.height) / 2,
+        };
       }
     }
 
@@ -177,6 +202,12 @@ export const mapBlocksToFields = (blocks: Block[]): DetectedFormField[] => {
       pageNumber: k.Page ?? value?.Page ?? 1,
       cellReference: null,
       boundingBox: targetBbox,
+      markType,
+      markChar,
+      markGeometry,
+      matrixCategory: null,
+      matrixFeature: null,
+      matrixColumn: 'OTHER',
     });
   }
 
@@ -194,6 +225,12 @@ export const mapBlocksToFields = (blocks: Block[]): DetectedFormField[] => {
       pageNumber: b.Page ?? 1,
       cellReference: null,
       boundingBox: bboxOf(b),
+      markType: 'TEXT',
+      markChar: null,
+      markGeometry: null,
+      matrixCategory: null,
+      matrixFeature: null,
+      matrixColumn: 'OTHER',
     });
   }
 

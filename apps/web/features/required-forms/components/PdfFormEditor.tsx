@@ -31,8 +31,11 @@ interface FieldOverlayProps {
   isActive: boolean;
   isManual: boolean;
   manualReason: string | null;
+  markType: DetectedFormField['markType'];
+  markChar: string | null;
   onActivate: (id: string) => void;
   onValueChange: (id: string, value: string) => void;
+  onMarkToggle: (id: string) => void;
   onDragStart: (e: React.MouseEvent, id: string) => void;
   onResizeStart: (e: React.MouseEvent, id: string, dir: 'x' | 'y' | 'xy') => void;
   onDelete: (id: string) => void;
@@ -40,7 +43,8 @@ interface FieldOverlayProps {
 
 const FieldOverlay = memo(function FieldOverlay({
   fieldId, bbox, value, label, isActive, isManual, manualReason,
-  onActivate, onValueChange, onDragStart, onResizeStart, onDelete,
+  markType, markChar,
+  onActivate, onValueChange, onMarkToggle, onDragStart, onResizeStart, onDelete,
 }: FieldOverlayProps) {
   // `contain: layout` isolates drag-induced reflow from siblings; the wrapping
   // <div> uses left/top for steady-state position but during drag we only
@@ -75,21 +79,40 @@ const FieldOverlay = memo(function FieldOverlay({
       >
         <X className="h-2 w-2 text-white" strokeWidth={3} />
       </button>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onValueChange(fieldId, e.target.value)}
-        onFocus={() => onActivate(fieldId)}
-        placeholder={isManual ? (manualReason ?? label) : label}
-        title={isManual ? manualReason ?? '' : undefined}
-        className={cn(
-          'w-full h-full bg-transparent text-[10px] leading-tight px-1.5 outline-none rounded-md cursor-text transition-colors duration-100',
-          isActive && 'bg-white/95 ring-2 ring-violet-400 shadow-lg text-gray-900',
-          !isActive && value && !isManual && 'bg-emerald-50/60 ring-1 ring-emerald-300/40 text-emerald-900',
-          !isActive && isManual && 'bg-amber-50/60 ring-1 ring-amber-400/60 placeholder:text-amber-700/80 placeholder:text-[9px] hover:bg-white/60',
-          !isActive && !value && !isManual && 'bg-slate-100/40 ring-1 ring-slate-300/30 placeholder:text-slate-400/70 placeholder:text-[9px] hover:bg-white/60 hover:ring-violet-300/50',
-        )}
-      />
+      {markType === 'CIRCLE' || markType === 'CHECKBOX' ? (
+        <button
+          type="button"
+          title={`Click to ${markChar ? 'clear mark' : `stamp ${markType === 'CIRCLE' ? '○' : 'X'}`}`}
+          onClick={(e) => { e.stopPropagation(); onActivate(fieldId); onMarkToggle(fieldId); }}
+          className={cn(
+            'w-full h-full flex items-center justify-center rounded-md transition-colors',
+            isActive && 'ring-2 ring-violet-400',
+            markChar
+              ? 'bg-rose-100/80 text-rose-700 ring-1 ring-rose-300'
+              : 'bg-amber-50/60 text-amber-700 ring-1 ring-amber-400/60 hover:bg-amber-100/70',
+          )}
+        >
+          <span className="text-[14px] font-bold leading-none">
+            {markChar ?? (markType === 'CIRCLE' ? '○' : 'X')}
+          </span>
+        </button>
+      ) : (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onValueChange(fieldId, e.target.value)}
+          onFocus={() => onActivate(fieldId)}
+          placeholder={isManual ? (manualReason ?? label) : label}
+          title={isManual ? manualReason ?? '' : undefined}
+          className={cn(
+            'w-full h-full bg-transparent text-[10px] leading-tight px-1.5 outline-none rounded-md cursor-text transition-colors duration-100',
+            isActive && 'bg-white/95 ring-2 ring-violet-400 shadow-lg text-gray-900',
+            !isActive && value && !isManual && 'bg-emerald-50/60 ring-1 ring-emerald-300/40 text-emerald-900',
+            !isActive && isManual && 'bg-amber-50/60 ring-1 ring-amber-400/60 placeholder:text-amber-700/80 placeholder:text-[9px] hover:bg-white/60',
+            !isActive && !value && !isManual && 'bg-slate-100/40 ring-1 ring-slate-300/30 placeholder:text-slate-400/70 placeholder:text-[9px] hover:bg-white/60 hover:ring-violet-300/50',
+          )}
+        />
+      )}
       <div className="absolute top-0 -right-1 w-2 h-full cursor-ew-resize opacity-0 group-hover:opacity-100" onMouseDown={(e) => onResizeStart(e, fieldId, 'x')} />
       <div className="absolute -bottom-1 left-0 w-full h-2 cursor-ns-resize opacity-0 group-hover:opacity-100" onMouseDown={(e) => onResizeStart(e, fieldId, 'y')} />
       <div
@@ -218,6 +241,8 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
   const [activeField, setActiveField] = useState<string | null>(null);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [fieldLabels, setFieldLabels] = useState<Record<string, string>>({});
+  // Per-field mark char (X / ○ / null). Seeded from server, toggled by FieldOverlay.
+  const [fieldMarkChars, setFieldMarkChars] = useState<Record<string, string | null>>({});
   const [fieldPositions, setFieldPositions] = useState<Record<string, BBox>>({});
   // Page assignment for fields not yet on the server (created locally before save).
   // Server fields use doc.fields[].pageNumber; unsaved ones look up here.
@@ -304,6 +329,20 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
       for (const k of Object.keys(prev)) if (!seen.has(k)) { changed = true; break; }
       return changed || Object.keys(prev).length !== Object.keys(next).length ? next : prev;
     });
+
+    setFieldMarkChars((prev) => {
+      const next: Record<string, string | null> = {};
+      let changed = false;
+      const seen = new Set<string>();
+      for (const f of fields) {
+        if (f.markType !== 'CHECKBOX' && f.markType !== 'CIRCLE') continue;
+        seen.add(f.fieldId);
+        next[f.fieldId] = f.markChar ?? null;
+        if (prev[f.fieldId] !== (f.markChar ?? null)) changed = true;
+      }
+      for (const k of Object.keys(prev)) if (!seen.has(k)) { changed = true; break; }
+      return changed || Object.keys(prev).length !== Object.keys(next).length ? next : prev;
+    });
   }, [fields, doc.formId, doc.updatedAt]);
 
   // Scroll to active field when selected from sidebar.
@@ -324,6 +363,10 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     try {
       const allFields = Object.entries(fieldPositions).map(([fid, pos]) => {
         const originalField = fieldsById.get(fid);
+        const markType = originalField?.markType ?? 'TEXT';
+        const markChar = (markType === 'CHECKBOX' || markType === 'CIRCLE')
+          ? fieldMarkChars[fid] ?? null
+          : originalField?.markChar ?? null;
         return {
           fieldId: fid,
           label: fieldLabels[fid] ?? originalField?.label ?? 'Field',
@@ -335,6 +378,12 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
           pageNumber: originalField?.pageNumber ?? localFieldPages[fid] ?? 1,
           cellReference: originalField?.cellReference ?? null,
           boundingBox: pos,
+          markType,
+          markChar,
+          markGeometry: originalField?.markGeometry ?? null,
+          matrixCategory: originalField?.matrixCategory ?? null,
+          matrixFeature: originalField?.matrixFeature ?? null,
+          matrixColumn: originalField?.matrixColumn ?? 'OTHER' as const,
         };
       });
 
@@ -353,7 +402,18 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     } finally {
       setIsSaving(false);
     }
-  }, [fieldPositions, fieldValues, fieldLabels, fieldsById, localFieldPages, doc, orgId, toast, onFieldUpdated]);
+  }, [fieldPositions, fieldValues, fieldLabels, fieldMarkChars, fieldsById, localFieldPages, doc, orgId, toast, onFieldUpdated]);
+
+  // Toggle the mark on a CHECKBOX/CIRCLE field — sets markChar to 'X'/'○' or clears it.
+  const handleMarkToggle = useCallback((fieldId: string) => {
+    const original = fieldsById.get(fieldId);
+    const desired = original?.markType === 'CIRCLE' ? '○' : 'X';
+    setFieldMarkChars((prev) => {
+      const current = prev[fieldId] ?? null;
+      return { ...prev, [fieldId]: current ? null : desired };
+    });
+    setIsDirty(true);
+  }, [fieldsById]);
 
   // Mark dirty on any change
   const markDirty = useCallback(() => setIsDirty(true), []);
@@ -830,8 +890,11 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
                           isActive={activeField === fid}
                           isManual={f?.status === 'MANUAL_REQUIRED'}
                           manualReason={f?.manualReason ?? null}
+                          markType={f?.markType ?? 'TEXT'}
+                          markChar={fieldMarkChars[fid] ?? null}
                           onActivate={setActiveField}
                           onValueChange={handleValueChange}
+                          onMarkToggle={handleMarkToggle}
                           onDragStart={handleDragStart}
                           onResizeStart={handleResizeStart}
                           onDelete={handleDeleteField}

@@ -349,7 +349,7 @@ export const updateDocumentStatus = async (
   projectId: string,
   opportunityId: string,
   documentId: string,
-  status: 'COMPLETE' | 'FAILED',
+  status: 'READY' | 'FAILED',
   content?: RFPDocumentContent,
   generationError?: string,
   orgId?: string,
@@ -357,7 +357,7 @@ export const updateDocumentStatus = async (
   let htmlContentKey: string | undefined;
 
   // Upload HTML to S3 when we have content and an orgId to build the key
-  if (status === 'COMPLETE' && content?.content && orgId) {
+  if (status === 'READY' && content?.content && orgId) {
     try {
       console.log(`[updateDocumentStatus] Uploading HTML to S3: ${content.content.length} chars`);
       htmlContentKey = await uploadRFPDocumentHtml({
@@ -387,7 +387,7 @@ export const updateDocumentStatus = async (
   // Safety net: if status is COMPLETE but we couldn't upload HTML to S3,
   // mark as FAILED to avoid leaving the document in an inconsistent state
   // (COMPLETE status but no htmlContentKey → "missing S3 key" error on read).
-  if (status === 'COMPLETE' && !htmlContentKey) {
+  if (status === 'READY' && !htmlContentKey) {
     const reason = !content?.content
       ? 'Document generation produced empty HTML content'
       : !orgId
@@ -435,7 +435,7 @@ export const updateDocumentStatus = async (
   });
 
   // Create version snapshot when document generation completes successfully
-  if (status === 'COMPLETE' && content?.content && orgId) {
+  if (status === 'READY' && content?.content && orgId) {
     try {
       const existingDoc = await getRFPDocument(projectId, opportunityId, documentId);
 

@@ -206,4 +206,49 @@ describe('mapBlocksToFields', () => {
     const blocks: Block[] = [wordBlock('w', 'plain text')];
     expect(mapBlocksToFields(blocks)).toEqual([]);
   });
+
+  it('tags a SELECTION_ELEMENT field with markType=CHECKBOX and markChar reflecting selection', () => {
+    const blocksSelected: Block[] = [
+      wordBlock('w-k1', 'Audit'),
+      selectionBlock('sel-1', 'SELECTED'),
+      kvBlock('val-1', 'VALUE', ['sel-1'], undefined),
+      kvBlock('key-1', 'KEY', ['w-k1'], 'val-1'),
+    ];
+    const fields = mapBlocksToFields(blocksSelected);
+    expect(fields[0]).toMatchObject({
+      markType: 'CHECKBOX',
+      markChar: 'X',
+      status: 'MANUAL_REQUIRED',
+    });
+
+    const blocksUnselected: Block[] = [
+      wordBlock('w-k2', 'Backup'),
+      selectionBlock('sel-2', 'NOT_SELECTED'),
+      kvBlock('val-2', 'VALUE', ['sel-2'], undefined),
+      kvBlock('key-2', 'KEY', ['w-k2'], 'val-2'),
+    ];
+    const fields2 = mapBlocksToFields(blocksUnselected);
+    expect(fields2[0]).toMatchObject({
+      markType: 'CHECKBOX',
+      markChar: null,
+    });
+  });
+
+  it('flags KEYs whose label says "circle" as markType=CIRCLE with seeded geometry', () => {
+    const blocks: Block[] = [
+      wordBlock('w1', 'Circle'),
+      wordBlock('w2', 'one'),
+      wordBlock('w3', 'option'),
+      kvBlock('val-1', 'VALUE', [], undefined, 1, { left: 0.5, top: 0.5 }),
+      kvBlock('key-1', 'KEY', ['w1', 'w2', 'w3'], 'val-1', 1, { left: 0.5, top: 0.5 }),
+    ];
+    const fields = mapBlocksToFields(blocks);
+    expect(fields[0]).toMatchObject({
+      markType: 'CIRCLE',
+      status: 'MANUAL_REQUIRED',
+    });
+    expect(fields[0].markGeometry).toBeDefined();
+    expect(fields[0].markGeometry?.cx).toBeCloseTo(0.6); // 0.5 + 0.2/2
+    expect(fields[0].markGeometry?.radius).toBeCloseTo(0.01); // min(0.2, 0.02)/2
+  });
 });

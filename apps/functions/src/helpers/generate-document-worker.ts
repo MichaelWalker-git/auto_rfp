@@ -198,10 +198,26 @@ export const cleanGeneratedHtml = (html: string): string => {
     .replace(/<!--\s*PRESERVE STYLING[^\n]*\n?/gi, '')
     .replace(/<!--\s*Section guidance:[^\n]*\n?/gi, '');
 
-  // Strip [CONTENT: ...] wrappers — the AI sometimes wraps generated text inside
-  // the placeholder markers instead of replacing them. Extract the inner content.
-  // Handles multi-line content inside the markers.
+  // Strip the [CONTENT: ...] placeholder when its inner text is the prompt
+  // instruction itself ("Write the complete document content...") — that means
+  // the AI echoed the placeholder verbatim instead of generating content.
+  // Removing the whole block (instead of unwrapping it) prevents prompt
+  // instructions from leaking into the final document.
+  cleaned = cleaned.replace(
+    /\[CONTENT:\s*Write the complete document content[\s\S]*?\]/gi,
+    '',
+  );
+  // For other [CONTENT: ...] wrappers (where the AI put real content inside the
+  // markers instead of replacing them), keep the inner content.
   cleaned = cleaned.replace(/\[CONTENT:\s*([\s\S]*?)\]/gi, '$1');
+  // Defense-in-depth: even when the AI dropped the brackets but reproduced the
+  // exact instruction text, strip the standalone sentence so it never reaches
+  // the rendered document. Match the literal opening that's unique enough to
+  // not collide with legitimate prose.
+  cleaned = cleaned.replace(
+    /Write the complete document content here based on the solicitation requirements and provided context\.[^<]*?(?:exactly as they appear\.|Include appropriate headings, sections, and structure\.)/gi,
+    '',
+  );
 
   // Strip leaked scaffold instruction text that the AI reproduced without HTML comment markers.
   // These are fragments from the TEMPLATE SCAFFOLD comment that leak into the output.
@@ -1013,7 +1029,8 @@ export const processJobInner = async (job: Job): Promise<void> => {
   await updateRFPDocumentMetadata({
     projectId, opportunityId, documentId,
     updates: {
-      status: 'COMPLETE',
+      status: 'READY',
+      generationError: '',
       content: dbContent,
       title: finalDocument.title || getDocumentTypeLabel(documentType),
       name: finalDocument.title || getDocumentTypeLabel(documentType),
@@ -1022,7 +1039,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
     updatedBy: 'system',
   });
 
-  console.log(`[worker] DynamoDB updated: status=COMPLETE, htmlContentKey=${htmlContentKey}`);
+  console.log(`[worker] DynamoDB updated: status=READY, htmlContentKey=${htmlContentKey}`);
 
   // ─── Step 7c: Create version snapshot ───
   try {

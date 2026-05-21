@@ -2,10 +2,11 @@ import { requireEnv } from '@/helpers/env';
 import { loadTextFromS3, copyS3Object } from '@/helpers/s3';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import { safeParseJsonFromModel } from '@/helpers/json';
-import { getQuestionFileItem, checkQuestionFileCancelled } from '@/helpers/questionFile';
+import { getQuestionFileItem, checkQuestionFileCancelled, updateQuestionFile } from '@/helpers/questionFile';
 import { createRequiredForm, listRequiredFormsByOpportunity, updateRequiredForm } from '@/helpers/required-form';
 import { startFormsAnalysis } from '@/helpers/textract-forms';
 import { parseXlsxForms } from '@/helpers/xlsx-form-parser';
+import { autofillMatrixComments } from '@/helpers/matrix-autofill';
 import { withSentryLambda } from '@/sentry-lambda';
 
 import type { DetectedFormField, FormType } from '@auto-rfp/core';
@@ -210,9 +211,20 @@ export const baseHandler = async (
       try {
         const sheets = await parseXlsxForms(stableFileKey);
         const target = sheets[0];
-        const fields = target?.fields ?? [];
+        let fields = target?.fields ?? [];
+
+        // For matrix forms, run Bedrock against the org's CompanyProfile
+        // CAPABILITY entries to populate the Comments column. Response
+        // columns stay MANUAL_REQUIRED — autofill never claims compliance.
+        if (validFormType === 'XLSX_MATRIX' && fields.length > 0) {
+          fields = await autofillMatrixComments({ orgId, fields });
+        }
+
         const total = fields.length;
         const manual = fields.filter((f) => f.status === 'MANUAL_REQUIRED').length;
+        const autoFilled = fields.filter((f) => f.status === 'AUTO_FILLED').length;
+        const autoFillPercentage = total > 0 ? Math.round((autoFilled / total) * 100) : 0;
+
         await updateRequiredForm({
           orgId, projectId, opportunityId, formId,
           patch: {
@@ -220,7 +232,9 @@ export const baseHandler = async (
             status: 'READY',
             totalFieldCount: total,
             manualFieldCount: manual,
-            autoFillPercentage: 0,
+            autoFillPercentage,
+            // Matrix forms always require human review before submission.
+            reviewRequired: validFormType === 'XLSX_MATRIX' ? true : undefined,
           },
         });
       } catch (err) {
@@ -238,6 +252,15 @@ export const baseHandler = async (
 
     existingFormNames.add(formName.toLowerCase().trim());
     createdCount++;
+  }
+
+  // If we created at least one form, mark the question file as FILLING_FORMS
+  // so the UI can surface that downstream form-fill processing is running.
+  // textract-forms-callback / parseXlsxForms transitions individual forms to
+  // READY; the question-file-level FORMS_READY is set once all forms are READY.
+  if (createdCount > 0) {
+    await updateQuestionFile(projectId, opportunityId, questionFileId, { status: 'FILLING_FORMS' })
+      .catch((err) => console.warn(`Failed to set FILLING_FORMS on ${questionFileId}:`, (err as Error)?.message));
   }
 
   return { ok: true, formsDetected: createdCount };

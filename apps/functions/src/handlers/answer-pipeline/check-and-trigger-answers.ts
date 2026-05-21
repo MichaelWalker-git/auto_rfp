@@ -13,6 +13,7 @@ import { getOrgMembers } from '@/helpers/user';
 import { writeAuditLog } from '@/helpers/audit-log';
 import { getHmacSecret } from '@/helpers/secret';
 import { nowIso } from '@/helpers/date';
+import { updateQuestionFile } from '@/helpers/questionFile';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const ANSWER_GENERATION_STATE_MACHINE_ARN = process.env.ANSWER_GENERATION_STATE_MACHINE_ARN || '';
@@ -239,9 +240,19 @@ export const baseHandler = async (
 
   console.log(`All ${processedFiles.length} files processed for opportunity ${opportunityId}! Triggering answer generation...`);
 
+  // Mark every processed question file as GENERATING_ANSWERS so the UI can
+  // surface that downstream answer generation is in flight. Best-effort —
+  // a status-write failure must not block triggering the state machine.
+  await Promise.all(
+    processedFiles.map((qf) =>
+      updateQuestionFile(projectId, opportunityId, qf.questionFileId, { status: 'GENERATING_ANSWERS' })
+        .catch((err) => console.warn(`Failed to set GENERATING_ANSWERS on ${qf.questionFileId}:`, (err as Error)?.message)),
+    ),
+  );
+
   // Include opportunityId in execution name for uniqueness and tracking
   const executionName = `${opportunityId}-${Date.now()}`;
-  
+
   const startResult = await sfnClient.send(
     new StartExecutionCommand({
       stateMachineArn: ANSWER_GENERATION_STATE_MACHINE_ARN,

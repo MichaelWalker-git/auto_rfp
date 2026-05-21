@@ -355,7 +355,8 @@ export function OpportunityRFPDocuments() {
 
                 const DocIcon = getDocIcon(doc);
                 const cardContent = (
-                  <div className="flex items-start gap-3" data-doc-status={doc.status ?? 'COMPLETE'}>
+                  <>
+                  <div className="flex items-start gap-3" data-doc-status={doc.status ?? 'READY'}>
                     <div className="h-10 w-10 rounded-lg bg-muted hidden sm:flex items-center justify-center shrink-0">
                       <DocIcon className="h-5 w-5 text-muted-foreground" />
                     </div>
@@ -435,6 +436,12 @@ export function OpportunityRFPDocuments() {
                       </DropdownMenu>
                     </div>
                   </div>
+                  {doc.status === 'FAILED' && doc.generationError && (
+                    <p className="mt-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-2 py-1">
+                      {doc.generationError}
+                    </p>
+                  )}
+                  </>
                 );
 
                 // Use explicit conditional rendering to avoid TypeScript error with dynamic component

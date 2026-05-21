@@ -41,9 +41,24 @@ export const QuestionItemSchema = z.object({
   isClusterMaster: z.boolean().optional(),
   similarityToMaster: z.number().min(0).max(1).optional(),
   linkedToMasterQuestionId: z.string().optional(),
+  // Approval (mirrors AnswerItem.approvedBy/approvedByName/approvedAt)
+  approvedBy: z.string().optional(),
+  approvedByName: z.string().optional(),
+  approvedAt: z.string().datetime().optional(),
 });
 
 export type QuestionItem = z.infer<typeof QuestionItemSchema>;
+
+// ─── Approve Question DTO ─────────────────────────────────────────────────────
+
+export const ApproveQuestionDTOSchema = z.object({
+  orgId: z.string().min(1),
+  projectId: z.string().min(1),
+  opportunityId: z.string().min(1),
+  questionFileId: z.string().min(1),
+  questionId: z.string().min(1),
+});
+export type ApproveQuestionDTO = z.infer<typeof ApproveQuestionDTOSchema>;
 
 export const GroupedQuestionSchema = z.object({
   id: z.string().min(1),

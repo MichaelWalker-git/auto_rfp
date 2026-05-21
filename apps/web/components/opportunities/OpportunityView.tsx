@@ -34,6 +34,7 @@ import {
   SubmissionHistoryCard,
   ComplianceReport,
 } from '@/features/proposal-submission';
+import { RequiredFormsList } from '@/features/required-forms';
 import PermissionWrapper from '@/components/permission-wrapper';
 
 interface OpportunityViewProps {
@@ -79,6 +80,7 @@ interface SectionNavItem {
 const SECTION_NAV_ITEMS: SectionNavItem[] = [
   { id: 'executive-brief', label: 'Analysis', icon: <HelpCircle className="h-3.5 w-3.5" /> },
   { id: 'solicitation-documents', label: 'Solicitations', icon: <Paperclip className="h-3.5 w-3.5" /> },
+  { id: 'required-forms', label: 'Required Forms', icon: <FileEdit className="h-3.5 w-3.5" /> },
   { id: 'rfp-documents', label: 'RFP Documents', icon: <FileEdit className="h-3.5 w-3.5" /> },
   { id: 'submission-compliance', label: 'Submission', icon: <ShieldCheck className="h-3.5 w-3.5" /> },
   { id: 'post-award', label: 'Post-Award', icon: <Trophy className="h-3.5 w-3.5" /> },
@@ -270,6 +272,11 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       {/* ── Solicitation Documents ────────────────────────────────────── */}
       <section id="solicitation-documents" className="scroll-mt-4">
         <OpportunitySolicitationDocuments onAskAI={() => setIsChatOpen(true)} />
+      </section>
+
+      {/* ── Required Forms (separated from solicitation docs) ────────── */}
+      <section id="required-forms" className="scroll-mt-4">
+        <RequiredFormsList orgId={orgId} projectId={projectId} opportunityId={oppId} />
       </section>
 
       {/* ── RFP Documents ─────────────────────────────────────────────── */}

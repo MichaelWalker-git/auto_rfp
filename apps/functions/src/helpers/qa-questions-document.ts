@@ -226,7 +226,7 @@ export const generateQaDocument = async (params: GenerateQaDocumentParams): Prom
     projectId,
     opportunityId,
     documentId,
-    'COMPLETE',
+    'READY',
     { title: 'Questions & Answers', content: finalHtml },
     undefined,
     orgId,

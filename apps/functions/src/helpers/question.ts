@@ -4,7 +4,7 @@ import { ANSWER_PK } from '../constants/answer';
 import { PK as COLLAB_PK } from '../constants/collaboration';
 import { requireEnv } from './env';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
-import { deleteItem, docClient, getItem, putItem, queryBySkPrefix, type DBItem } from './db';
+import { deleteItem, docClient, getItem, putItem, queryBySkPrefix, updateItem, type DBItem } from './db';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import type { CreateQuestions, QuestionItem } from '@auto-rfp/core';
@@ -211,3 +211,27 @@ export const buildQuestionSKPrefix = (
 ): string => fileId
   ? `${projectId}#${opportunityId}#${fileId}#`
   : `${projectId}#${opportunityId}#`;
+
+/**
+ * Mark a single question as approved by the given user. Mirrors the answer
+ * approval pattern (approvedBy / approvedByName / approvedAt). Returns the
+ * updated question, or null if the question does not exist.
+ */
+export const approveQuestion = async (args: {
+  projectId: string;
+  opportunityId: string;
+  questionFileId: string;
+  questionId: string;
+  userId: string;
+  userName: string;
+}): Promise<QuestionItemDynamo | null> => {
+  const sk = buildQuestionSK(args.projectId, args.opportunityId, args.questionFileId, args.questionId);
+  const existing = await getItem(QUESTION_PK, sk);
+  if (!existing) return null;
+  const updated = await updateItem<QuestionItemDynamo>(QUESTION_PK, sk, {
+    approvedBy: args.userId,
+    approvedByName: args.userName,
+    approvedAt: new Date().toISOString(),
+  });
+  return updated;
+};

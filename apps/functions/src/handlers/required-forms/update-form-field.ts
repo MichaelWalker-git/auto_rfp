@@ -27,7 +27,11 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
   const { success, data, error } = BodySchema.safeParse(raw);
   if (!success) return apiResponse(400, { message: 'Invalid payload', issues: error.issues });
 
-  const { formId, fieldId, value, label, status, boundingBox, projectId, opportunityId } = data;
+  const {
+    formId, fieldId, value, label, status, boundingBox,
+    markType, markChar, markGeometry,
+    projectId, opportunityId,
+  } = data;
 
   const form = await getRequiredForm({ orgId, projectId, opportunityId, formId });
   if (!form) return apiResponse(404, { message: 'Form not found' });
@@ -51,6 +55,12 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
         pageNumber: 1,
         cellReference: null,
         boundingBox: boundingBox ?? null,
+        markType: markType ?? 'TEXT',
+        markChar: markChar ?? null,
+        markGeometry: markGeometry ?? null,
+        matrixCategory: null,
+        matrixFeature: null,
+        matrixColumn: 'OTHER',
       });
     } else {
       const updates: Record<string, unknown> = {};
@@ -59,6 +69,9 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
       if (boundingBox !== undefined) updates.boundingBox = boundingBox;
       if (status !== undefined) updates.status = status;
       else if (value !== undefined) updates.status = value ? 'AUTO_FILLED' : 'EMPTY';
+      if (markType !== undefined) updates.markType = markType;
+      if (markChar !== undefined) updates.markChar = markChar;
+      if (markGeometry !== undefined) updates.markGeometry = markGeometry;
       updatedFields[fieldIdx] = { ...updatedFields[fieldIdx], ...updates };
     }
   }

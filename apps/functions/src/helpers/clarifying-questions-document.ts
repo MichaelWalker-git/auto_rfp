@@ -408,7 +408,7 @@ export const generateClarifyingQuestionsDocument = async (
     projectId,
     opportunityId,
     documentId,
-    'COMPLETE',
+    'READY',
     { title: 'Clarifying Questions', content: finalHtml },
     undefined,
     orgId,

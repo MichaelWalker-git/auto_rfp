@@ -15,6 +15,7 @@ import { SimilarQuestionsPanel } from './similar-questions-panel';
 import { getToolDisplayName } from './source-details-dialog';
 import { EditingIndicator, CollaborationPanel, FloatingPanel } from '@/features/collaboration';
 import { useComments } from '@/features/collaboration/hooks/useComments';
+import { QuestionApproveButton } from '@/features/questions';
 
 interface AnswerData {
   text: string;
@@ -135,6 +136,19 @@ export function QuestionEditor({
             <div className="flex-1 min-w-0 pr-2">
               <CardTitle className="text-base">{section.title}</CardTitle>
               <p className="text-sm text-muted-foreground mt-0.5">{question.question}</p>
+              {projectId && collaboration?.orgId && question?.id && question?.opportunityId && question?.questionFileId && (
+                <div className="mt-1.5">
+                  <QuestionApproveButton
+                    orgId={collaboration.orgId}
+                    projectId={projectId}
+                    opportunityId={question.opportunityId}
+                    questionFileId={question.questionFileId}
+                    questionId={question.id}
+                    approvedAt={question.approvedAt ?? null}
+                    approvedByName={question.approvedByName ?? null}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
