@@ -6,6 +6,7 @@ import { getQuestionFileItem, checkQuestionFileCancelled } from '@/helpers/quest
 import { createRequiredForm, listRequiredFormsByOpportunity, updateRequiredForm } from '@/helpers/required-form';
 import { startFormsAnalysis } from '@/helpers/textract-forms';
 import { parseXlsxForms } from '@/helpers/xlsx-form-parser';
+import { autofillMatrixComments } from '@/helpers/matrix-autofill';
 import { withSentryLambda } from '@/sentry-lambda';
 
 import type { DetectedFormField, FormType } from '@auto-rfp/core';
@@ -210,9 +211,20 @@ export const baseHandler = async (
       try {
         const sheets = await parseXlsxForms(stableFileKey);
         const target = sheets[0];
-        const fields = target?.fields ?? [];
+        let fields = target?.fields ?? [];
+
+        // For matrix forms, run Bedrock against the org's CompanyProfile
+        // CAPABILITY entries to populate the Comments column. Response
+        // columns stay MANUAL_REQUIRED — autofill never claims compliance.
+        if (validFormType === 'XLSX_MATRIX' && fields.length > 0) {
+          fields = await autofillMatrixComments({ orgId, fields });
+        }
+
         const total = fields.length;
         const manual = fields.filter((f) => f.status === 'MANUAL_REQUIRED').length;
+        const autoFilled = fields.filter((f) => f.status === 'AUTO_FILLED').length;
+        const autoFillPercentage = total > 0 ? Math.round((autoFilled / total) * 100) : 0;
+
         await updateRequiredForm({
           orgId, projectId, opportunityId, formId,
           patch: {
@@ -220,7 +232,9 @@ export const baseHandler = async (
             status: 'READY',
             totalFieldCount: total,
             manualFieldCount: manual,
-            autoFillPercentage: 0,
+            autoFillPercentage,
+            // Matrix forms always require human review before submission.
+            reviewRequired: validFormType === 'XLSX_MATRIX' ? true : undefined,
           },
         });
       } catch (err) {

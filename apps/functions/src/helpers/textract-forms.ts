@@ -162,11 +162,23 @@ export const mapBlocksToFields = (blocks: Block[]): DetectedFormField[] => {
       }
     }
 
+    let markGeometry: DetectedFormField['markGeometry'] = null;
+
     if (isCircleLabel && markType === 'TEXT') {
       // "Circle the correct option" style prompts — surface for manual circle stamp.
+      // Pre-seed geometry from the KEY bounding box so the editor knows where to drop
+      // the stamp; user can then drag/resize it.
       markType = 'CIRCLE';
       status = 'MANUAL_REQUIRED';
       manualReason = manualReason ?? 'Mark the correct option';
+      const bb = bboxOf(value ?? k) ?? bboxOf(k);
+      if (bb) {
+        markGeometry = {
+          cx: bb.left + bb.width / 2,
+          cy: bb.top + bb.height / 2,
+          radius: Math.min(bb.width, bb.height) / 2,
+        };
+      }
     }
 
     if (isAlreadyFilled && !isAlwaysManual) continue;
@@ -192,7 +204,7 @@ export const mapBlocksToFields = (blocks: Block[]): DetectedFormField[] => {
       boundingBox: targetBbox,
       markType,
       markChar,
-      markGeometry: null,
+      markGeometry,
       matrixCategory: null,
       matrixFeature: null,
       matrixColumn: 'OTHER',
