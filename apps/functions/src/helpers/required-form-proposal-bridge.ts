@@ -1,7 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
+import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { RFP_DOCUMENT_PK } from '@/constants/rfp-document';
+import { docClient } from './db';
+import { requireEnv } from './env';
+import { nowIso } from './date';
 import {
   putRFPDocument,
   softDeleteRFPDocument,
@@ -69,6 +73,45 @@ export const attachFormAsRfpDocument = async (args: {
 
   await putRFPDocument(item);
   return documentId;
+};
+
+/**
+ * Sync the bridge RFP document's fileKey with the form's latest filledFileKey.
+ * Called from export-filled-form so a freshly exported file replaces the
+ * stale (often unfilled) source the bridge was created with.
+ *
+ * Idempotent — silent no-op when there's no bridge document yet.
+ */
+export const syncFormFilledFileToProposal = async (args: {
+  projectId: string;
+  opportunityId: string;
+  proposalDocumentId: string | null;
+  filledFileKey: string;
+  userId: string;
+}): Promise<void> => {
+  if (!args.proposalDocumentId) return;
+  try {
+    const tableName = requireEnv('DB_TABLE_NAME');
+    const sk = buildRFPDocumentSK(args.projectId, args.opportunityId, args.proposalDocumentId);
+    await docClient.send(new UpdateCommand({
+      TableName: tableName,
+      Key: { [PK_NAME]: RFP_DOCUMENT_PK, [SK_NAME]: sk },
+      UpdateExpression: 'SET #fileKey = :fileKey, #updatedAt = :now, #updatedBy = :updatedBy',
+      ExpressionAttributeNames: {
+        '#fileKey': 'fileKey',
+        '#updatedAt': 'updatedAt',
+        '#updatedBy': 'updatedBy',
+      },
+      ExpressionAttributeValues: {
+        ':fileKey': args.filledFileKey,
+        ':now': nowIso(),
+        ':updatedBy': args.userId,
+      },
+    }));
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`syncFormFilledFileToProposal: failed for documentId=${args.proposalDocumentId}: ${message}`);
+  }
 };
 
 /**

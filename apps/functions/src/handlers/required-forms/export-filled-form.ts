@@ -1,17 +1,19 @@
-import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import type { APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
 import { z } from 'zod';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 import { withSentryLambda } from '@/sentry-lambda';
-import { apiResponse, getOrgId } from '@/helpers/api';
+import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { getRequiredForm, updateRequiredForm } from '@/helpers/required-form';
+import { syncFormFilledFileToProposal } from '@/helpers/required-form-proposal-bridge';
 import { fillPdfForm } from '@/helpers/pdf-form-filler';
 import { fillXlsxForm } from '@/helpers/xlsx-form-filler';
 import { requireEnv } from '@/helpers/env';
 
 import {
+  AuthedEvent,
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
@@ -27,9 +29,11 @@ const QuerySchema = z.object({
   formId: z.string().min(1),
 });
 
-const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   const orgId = getOrgId(event);
   if (!orgId) return apiResponse(400, { message: 'orgId is required' });
+
+  const userId = getUserId(event) ?? 'system';
 
   const { success, data, error } = QuerySchema.safeParse(event.queryStringParameters ?? {});
   if (!success) return apiResponse(400, { message: 'Invalid query parameters', issues: error.issues });
@@ -74,6 +78,20 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
     patch: { filledFileKey: outputKey },
   });
 
+  // If the form is already attached to the proposal, the bridge RFP document
+  // was created pointing at sourceFileKey (or a previous filledFileKey). Sync
+  // its fileKey to the freshly exported one so the proposal ships the latest
+  // filled file, not the stale source.
+  if (form.proposalDocumentId) {
+    await syncFormFilledFileToProposal({
+      projectId: data.projectId,
+      opportunityId: data.opportunityId,
+      proposalDocumentId: form.proposalDocumentId,
+      filledFileKey: outputKey,
+      userId,
+    });
+  }
+
   const cmd = new GetObjectCommand({
     Bucket: getDocumentsBucket(),
     Key: outputKey,
@@ -85,7 +103,7 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
 };
 
 export const handler = withSentryLambda(
-  middy<APIGatewayProxyEventV2, APIGatewayProxyResultV2>(baseHandler)
+  middy<AuthedEvent, APIGatewayProxyResultV2>(baseHandler)
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('document:read'))
