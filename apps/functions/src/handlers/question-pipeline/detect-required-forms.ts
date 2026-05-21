@@ -2,7 +2,7 @@ import { requireEnv } from '@/helpers/env';
 import { loadTextFromS3, copyS3Object } from '@/helpers/s3';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import { safeParseJsonFromModel } from '@/helpers/json';
-import { getQuestionFileItem, checkQuestionFileCancelled } from '@/helpers/questionFile';
+import { getQuestionFileItem, checkQuestionFileCancelled, updateQuestionFile } from '@/helpers/questionFile';
 import { createRequiredForm, listRequiredFormsByOpportunity, updateRequiredForm } from '@/helpers/required-form';
 import { startFormsAnalysis } from '@/helpers/textract-forms';
 import { parseXlsxForms } from '@/helpers/xlsx-form-parser';
@@ -252,6 +252,15 @@ export const baseHandler = async (
 
     existingFormNames.add(formName.toLowerCase().trim());
     createdCount++;
+  }
+
+  // If we created at least one form, mark the question file as FILLING_FORMS
+  // so the UI can surface that downstream form-fill processing is running.
+  // textract-forms-callback / parseXlsxForms transitions individual forms to
+  // READY; the question-file-level FORMS_READY is set once all forms are READY.
+  if (createdCount > 0) {
+    await updateQuestionFile(projectId, opportunityId, questionFileId, { status: 'FILLING_FORMS' })
+      .catch((err) => console.warn(`Failed to set FILLING_FORMS on ${questionFileId}:`, (err as Error)?.message));
   }
 
   return { ok: true, formsDetected: createdCount };
