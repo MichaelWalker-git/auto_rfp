@@ -27,6 +27,13 @@ jest.mock('@/helpers/required-form', () => ({
   updateRequiredForm: (...args: unknown[]) => mockUpdateForm(...args),
 }));
 
+const mockAttachFormAsRfpDocument = jest.fn();
+const mockDetachFormFromProposal = jest.fn();
+jest.mock('@/helpers/required-form-proposal-bridge', () => ({
+  attachFormAsRfpDocument: (...args: unknown[]) => mockAttachFormAsRfpDocument(...args),
+  detachFormFromProposal: (...args: unknown[]) => mockDetachFormFromProposal(...args),
+}));
+
 jest.mock('@/helpers/api', () => ({
   apiResponse: (statusCode: number, body: unknown) => ({ statusCode, body: JSON.stringify(body) }),
   getOrgId: (event: { queryStringParameters?: Record<string, string>; body?: string | null }) => {
@@ -41,6 +48,7 @@ jest.mock('@/helpers/api', () => ({
     }
     return undefined;
   },
+  getUserId: () => 'user-1',
 }));
 
 process.env.DB_TABLE_NAME = 'test-table';
@@ -67,28 +75,45 @@ beforeEach(() => {
 });
 
 describe('attach-form-to-proposal', () => {
-  it('attaches a form on POST and sets attachedAt', async () => {
-    mockGetForm.mockResolvedValueOnce({ formId: 'f', attachedToProposal: false });
-    mockUpdateForm.mockResolvedValueOnce({ formId: 'f', attachedToProposal: true });
+  it('attaches a form on POST, creates a bridge RFP document, and persists proposalDocumentId', async () => {
+    mockGetForm.mockResolvedValueOnce({ formId: 'f', attachedToProposal: false, proposalDocumentId: null });
+    mockAttachFormAsRfpDocument.mockResolvedValueOnce('rfp-doc-123');
+    mockUpdateForm.mockResolvedValueOnce({ formId: 'f', attachedToProposal: true, proposalDocumentId: 'rfp-doc-123' });
 
     const res = await baseHandler(postEvent({ orgId: 'org', projectId: 'p', opportunityId: 'o', formId: 'f' }));
 
     expect(res.statusCode).toBe(200);
+    expect(mockAttachFormAsRfpDocument).toHaveBeenCalledTimes(1);
+    expect(mockDetachFormFromProposal).not.toHaveBeenCalled();
     const patch = mockUpdateForm.mock.calls[0][0].patch;
     expect(patch.attachedToProposal).toBe(true);
     expect(patch.attachedAt).toEqual(expect.any(String));
+    expect(patch.proposalDocumentId).toBe('rfp-doc-123');
   });
 
-  it('detaches a form on DELETE and clears attachedAt', async () => {
-    mockGetForm.mockResolvedValueOnce({ formId: 'f', attachedToProposal: true });
-    mockUpdateForm.mockResolvedValueOnce({ formId: 'f', attachedToProposal: false });
+  it('reuses the existing proposalDocumentId on POST (idempotent re-attach)', async () => {
+    mockGetForm.mockResolvedValueOnce({ formId: 'f', attachedToProposal: true, proposalDocumentId: 'existing' });
+    mockUpdateForm.mockResolvedValueOnce({ formId: 'f', proposalDocumentId: 'existing' });
+
+    const res = await baseHandler(postEvent({ orgId: 'org', projectId: 'p', opportunityId: 'o', formId: 'f' }));
+
+    expect(res.statusCode).toBe(200);
+    expect(mockAttachFormAsRfpDocument).not.toHaveBeenCalled();
+  });
+
+  it('detaches a form on DELETE, soft-deletes the bridge RFP doc, and clears proposalDocumentId', async () => {
+    mockGetForm.mockResolvedValueOnce({ formId: 'f', attachedToProposal: true, proposalDocumentId: 'rfp-doc-123' });
+    mockDetachFormFromProposal.mockResolvedValueOnce(undefined);
+    mockUpdateForm.mockResolvedValueOnce({ formId: 'f', attachedToProposal: false, proposalDocumentId: null });
 
     const res = await baseHandler(deleteEvent({ orgId: 'org', projectId: 'p', opportunityId: 'o', formId: 'f' }));
 
     expect(res.statusCode).toBe(200);
+    expect(mockDetachFormFromProposal).toHaveBeenCalledTimes(1);
     const patch = mockUpdateForm.mock.calls[0][0].patch;
     expect(patch.attachedToProposal).toBe(false);
     expect(patch.attachedAt).toBeNull();
+    expect(patch.proposalDocumentId).toBeNull();
   });
 
   it('returns 404 when form is missing', async () => {

@@ -1,13 +1,15 @@
-import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import type { APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
 import { z } from 'zod';
 import { DetectedFormFieldSchema } from '@auto-rfp/core';
 
 import { withSentryLambda } from '@/sentry-lambda';
-import { apiResponse, getOrgId } from '@/helpers/api';
+import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { getRequiredForm, updateRequiredForm } from '@/helpers/required-form';
+import { attachFormAsRfpDocument } from '@/helpers/required-form-proposal-bridge';
 
 import {
+  AuthedEvent,
   authContextMiddleware,
   httpErrorMiddleware,
   orgMembershipMiddleware,
@@ -24,9 +26,11 @@ const BodySchema = z.object({
   status: FormProcessingStatusSchema.optional(),
 });
 
-const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   const orgId = getOrgId(event);
   if (!orgId) return apiResponse(400, { message: 'orgId is required' });
+
+  const userId = getUserId(event) ?? 'system';
 
   const raw = event.body ? JSON.parse(event.body) : {};
   const { success, data, error } = BodySchema.safeParse(raw);
@@ -42,7 +46,12 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
   // Auto-attach to the next proposal generation when the form transitions to DONE
   // for the first time. Once detached by the user, we don't re-attach.
   const transitioningToDone = data.status === 'DONE' && form.status !== 'DONE';
-  const shouldAutoAttach = transitioningToDone && !form.attachedToProposal;
+  const shouldAutoAttach = transitioningToDone && !form.attachedToProposal && !form.proposalDocumentId;
+
+  let proposalDocumentId: string | null | undefined;
+  if (shouldAutoAttach) {
+    proposalDocumentId = await attachFormAsRfpDocument({ form, userId });
+  }
 
   const updated = await updateRequiredForm({
     orgId, projectId: data.projectId, opportunityId: data.opportunityId, formId: data.formId,
@@ -52,7 +61,11 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
       manualFieldCount: manual,
       totalFieldCount: total,
       ...(data.status ? { status: data.status } : {}),
-      ...(shouldAutoAttach ? { attachedToProposal: true, attachedAt: new Date().toISOString() } : {}),
+      ...(shouldAutoAttach ? {
+        attachedToProposal: true,
+        attachedAt: new Date().toISOString(),
+        proposalDocumentId: proposalDocumentId ?? null,
+      } : {}),
     },
   });
 
@@ -60,7 +73,7 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
 };
 
 export const handler = withSentryLambda(
-  middy<APIGatewayProxyEventV2, APIGatewayProxyResultV2>(baseHandler)
+  middy<AuthedEvent, APIGatewayProxyResultV2>(baseHandler)
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
     .use(requirePermission('document:edit'))

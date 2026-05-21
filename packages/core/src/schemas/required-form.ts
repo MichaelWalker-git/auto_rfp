@@ -115,6 +115,9 @@ export const RequiredFormItemSchema = z.object({
   // Auto-set to true when status flips to DONE; user can detach from the UI.
   attachedToProposal: z.boolean().default(false),
   attachedAt: z.string().nullable().default(null),
+  // RFP document id created when the form was attached to the proposal.
+  // Cleared when the form is detached.
+  proposalDocumentId: z.string().nullable().default(null),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -152,6 +155,7 @@ export const UpdateRequiredFormDTOSchema = z.object({
   errorMessage: z.string().nullable().optional(),
   attachedToProposal: z.boolean().optional(),
   attachedAt: z.string().nullable().optional(),
+  proposalDocumentId: z.string().nullable().optional(),
 });
 
 export type UpdateRequiredFormDTO = z.infer<typeof UpdateRequiredFormDTOSchema>;
