@@ -24,6 +24,7 @@ type CellData = {
   fieldId?: string;
   isHeader: boolean;
   isCategoryRow: boolean;
+  markType?: DetectedFormField['markType'];
 };
 
 export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorProps) => {
@@ -102,6 +103,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
               fieldId: field?.fieldId,
               isHeader: isHeaderRow,
               isCategoryRow,
+              markType: field?.markType,
             });
           }
           rows.push(row);
@@ -146,7 +148,14 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
     try {
       const allFields = fields.map((f) => {
         const gridCell = grid.flat().find((c) => c.fieldId === f.fieldId);
-        return { ...f, value: gridCell?.value ?? f.value };
+        const value = gridCell?.value ?? f.value;
+        // Mirror the cell value into markChar for CHECKBOX/CIRCLE so the
+        // backend XLSX writer (which reads markChar) stays in sync with
+        // what the user toggled in the editor.
+        const markChar = (f.markType === 'CHECKBOX' || f.markType === 'CIRCLE')
+          ? (value && value.length > 0 ? value : null)
+          : f.markChar;
+        return { ...f, value, markChar };
       });
 
       await apiMutate(buildApiUrl('/required-forms/save-fields', { orgId }), 'PUT', {
@@ -253,19 +262,38 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
                 )}>
                   {row.map((cell, colIdx) => {
                     const isEditing = editingCell?.row === rowIdx && editingCell?.col === colIdx;
+                    const isMark = cell.markType === 'CHECKBOX' || cell.markType === 'CIRCLE';
+                    const markChar = cell.markType === 'CIRCLE' ? '○' : 'X';
+                    const isMarkSet = isMark && cell.value === markChar;
+
+                    const handleMarkToggle = () => {
+                      if (!cell.isEditable) return;
+                      handleCellChange(rowIdx, colIdx, isMarkSet ? '' : markChar);
+                    };
+
                     return (
                       <td
                         key={colIdx}
                         className={cn(
                           'border border-gray-200 px-2 py-1 align-top',
-                          cell.isEditable && !isEditing && 'cursor-text hover:bg-indigo-50/50',
+                          cell.isEditable && !isMark && !isEditing && 'cursor-text hover:bg-indigo-50/50',
+                          cell.isEditable && isMark && 'cursor-pointer hover:bg-indigo-50/50 text-center',
                           cell.isEditable && cell.value && 'bg-green-50/40',
                           cell.isEditable && !cell.value && 'bg-yellow-50/20',
                           cell.isCategoryRow && 'bg-blue-50 font-semibold',
                         )}
-                        onClick={() => cell.isEditable && setEditingCell({ row: rowIdx, col: colIdx })}
+                        onClick={() => {
+                          if (!cell.isEditable) return;
+                          if (isMark) handleMarkToggle();
+                          else setEditingCell({ row: rowIdx, col: colIdx });
+                        }}
+                        title={isMark ? `Click to ${isMarkSet ? 'clear' : `mark "${markChar}"`}` : undefined}
                       >
-                        {isEditing ? (
+                        {isMark ? (
+                          <span className={cn('inline-block w-5 text-center font-semibold', isMarkSet ? 'text-rose-600' : 'text-gray-300')}>
+                            {isMarkSet ? markChar : '·'}
+                          </span>
+                        ) : isEditing ? (
                           <input
                             type="text"
                             className="w-full bg-transparent outline-none text-[12px] border-b border-indigo-400"

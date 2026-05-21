@@ -17,6 +17,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CancelPipelineButton } from '@/components/cancel-pipeline-button';
+import { QuestionFileStatusBadge } from '@/features/questions';
 
 import type { OpportunityItem } from '@auto-rfp/core';
 import { usePresignUpload } from '@/lib/hooks/use-presign';
@@ -578,9 +579,9 @@ export function QuestionFileUploadDialog({
                             {it.questionFileId && ` • ID: ${it.questionFileId}`}
                           </p>
                           {it.status && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Status: <span className="font-medium">{it.status}</span>
-                            </p>
+                            <div className="mt-1">
+                              <QuestionFileStatusBadge status={it.status} />
+                            </div>
                           )}
                           
                           {it.error && (
