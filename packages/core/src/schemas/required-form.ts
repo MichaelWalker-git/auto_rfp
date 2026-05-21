@@ -35,6 +35,29 @@ export const FormProcessingStatusSchema = z.enum([
 
 export type FormProcessingStatus = z.infer<typeof FormProcessingStatusSchema>;
 
+// ─── Field Mark (checkbox / circle) ───
+
+export const FieldMarkTypeSchema = z.enum(['TEXT', 'CHECKBOX', 'CIRCLE']);
+export type FieldMarkType = z.infer<typeof FieldMarkTypeSchema>;
+
+// Geometry for stamped marks on PDFs. cx/cy/radius are normalized to 0..1 of the page.
+export const FieldMarkGeometrySchema = z.object({
+  cx: z.number(),
+  cy: z.number(),
+  radius: z.number().min(0).max(0.5),
+});
+export type FieldMarkGeometry = z.infer<typeof FieldMarkGeometrySchema>;
+
+// Which column of an XLSX response matrix a field belongs to.
+export const MatrixColumnSchema = z.enum([
+  'FULLY_MEETS',
+  'PARTIALLY_MEETS',
+  'CANNOT_MEET',
+  'COMMENTS',
+  'OTHER',
+]);
+export type MatrixColumn = z.infer<typeof MatrixColumnSchema>;
+
 // ─── Detected Form Field ───
 
 export const DetectedFormFieldSchema = z.object({
@@ -53,6 +76,14 @@ export const DetectedFormFieldSchema = z.object({
     width: z.number(),
     height: z.number(),
   }).nullable().default(null),
+  // Mark metadata for checkbox / circle fields. Default TEXT for back-compat.
+  markType: FieldMarkTypeSchema.default('TEXT'),
+  markChar: z.string().nullable().default(null),
+  markGeometry: FieldMarkGeometrySchema.nullable().default(null),
+  // XLSX response-matrix metadata (null on non-matrix forms).
+  matrixCategory: z.string().nullable().default(null),
+  matrixFeature: z.string().nullable().default(null),
+  matrixColumn: MatrixColumnSchema.default('OTHER'),
 });
 
 export type DetectedFormField = z.infer<typeof DetectedFormFieldSchema>;
@@ -80,6 +111,10 @@ export const RequiredFormItemSchema = z.object({
   reviewedBy: z.string().nullable().default(null),
   reviewedAt: z.string().nullable().default(null),
   errorMessage: z.string().nullable().default(null),
+  // Whether this filled form should be bundled into the next RFP proposal package.
+  // Auto-set to true when status flips to DONE; user can detach from the UI.
+  attachedToProposal: z.boolean().default(false),
+  attachedAt: z.string().nullable().default(null),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -115,6 +150,8 @@ export const UpdateRequiredFormDTOSchema = z.object({
   reviewedBy: z.string().nullable().optional(),
   reviewedAt: z.string().nullable().optional(),
   errorMessage: z.string().nullable().optional(),
+  attachedToProposal: z.boolean().optional(),
+  attachedAt: z.string().nullable().optional(),
 });
 
 export type UpdateRequiredFormDTO = z.infer<typeof UpdateRequiredFormDTOSchema>;
@@ -133,6 +170,9 @@ export const UpdateFormFieldDTOSchema = z.object({
     width: z.number(),
     height: z.number(),
   }).optional(),
+  markType: FieldMarkTypeSchema.optional(),
+  markChar: z.string().nullable().optional(),
+  markGeometry: FieldMarkGeometrySchema.nullable().optional(),
   delete: z.boolean().optional(),
 });
 
