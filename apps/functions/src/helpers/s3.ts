@@ -187,9 +187,13 @@ export async function deleteS3ObjectsFromKeys(
 }
 
 export async function copyS3Object(bucket: string, sourceKey: string, destinationKey: string): Promise<void> {
+  // CopySource is sent as the x-amz-copy-source HTTP header, which Node rejects
+  // if it contains characters outside Latin-1. URL-encode each path segment so
+  // Unicode/spaces in user-uploaded keys don't break the request.
+  const encodedKey = sourceKey.split('/').map(encodeURIComponent).join('/');
   await s3.send(new CopyObjectCommand({
     Bucket: bucket,
-    CopySource: `${bucket}/${sourceKey}`,
+    CopySource: `${bucket}/${encodedKey}`,
     Key: destinationKey,
   }));
 }
