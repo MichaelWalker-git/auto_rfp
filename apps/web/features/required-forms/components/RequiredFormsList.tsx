@@ -172,7 +172,10 @@ const FormRow = ({
  * for admins (mirrors the backend RBAC tightening).
  */
 export const RequiredFormsList = ({ orgId, projectId, opportunityId }: RequiredFormsListProps) => {
-  const url = buildApiUrl('/required-forms/list', { orgId, projectId, opportunityId });
+  // Skip the fetch until orgId is resolved — backend requires orgId and would 400 without it.
+  const url = orgId && projectId && opportunityId
+    ? buildApiUrl('/required-forms/list', { orgId, projectId, opportunityId })
+    : null;
   const { data, isLoading, mutate } = useApi<RequiredFormsListResponse>(url, url, {
     refreshInterval: 10_000,
     dedupingInterval: 5_000,
