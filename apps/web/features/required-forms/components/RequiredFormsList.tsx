@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,7 +66,7 @@ const formatDateTime = (iso: string): string => {
 };
 
 const FormRow = ({
-  form, orgId, projectId, opportunityId, onChanged, isAdmin,
+  form, orgId, projectId, opportunityId, onChanged, isAdmin, confirm,
 }: {
   form: RequiredFormItem;
   orgId: string;
@@ -73,6 +74,7 @@ const FormRow = ({
   opportunityId: string;
   onChanged: () => void;
   isAdmin: boolean;
+  confirm: (opts: { title?: string; description?: string; confirmLabel?: string; cancelLabel?: string; variant?: 'destructive' | 'default' }) => Promise<boolean>;
 }) => {
   const { toast } = useToast();
   const { attach, detach } = useAttachFormToProposal();
@@ -106,7 +108,13 @@ const FormRow = ({
   }, [detach, orgId, projectId, opportunityId, form.formId, form.name, toast, onChanged]);
 
   const handleDelete = useCallback(async () => {
-    if (!window.confirm(`Delete required form "${form.name}"? This cannot be undone.`)) return;
+    const ok = await confirm({
+      title: 'Delete this form?',
+      description: `"${form.name}" and all of its fields will be permanently removed. This cannot be undone.`,
+      confirmLabel: 'Delete',
+      variant: 'destructive',
+    });
+    if (!ok) return;
     try {
       const url = buildApiUrl('/required-forms/delete', { orgId, projectId, opportunityId, formId: form.formId });
       await apiMutate<{ ok: boolean }>(url, 'DELETE');
@@ -119,7 +127,7 @@ const FormRow = ({
         variant: 'destructive',
       });
     }
-  }, [orgId, projectId, opportunityId, form.formId, form.name, toast, onChanged]);
+  }, [confirm, orgId, projectId, opportunityId, form.formId, form.name, toast, onChanged]);
 
   const isMatrix = form.formType === 'XLSX_MATRIX';
   const isXlsx = form.formType === 'XLSX_MATRIX' || form.formType === 'XLSX_FORM';
@@ -252,6 +260,7 @@ export const RequiredFormsList = ({ orgId, projectId, opportunityId }: RequiredF
   });
   const { role } = useAuth();
   const isAdmin = role === 'ADMIN';
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   const forms = data?.forms ?? [];
   const attachedCount = forms.filter((f) => f.attachedToProposal).length;
@@ -297,11 +306,13 @@ export const RequiredFormsList = ({ orgId, projectId, opportunityId }: RequiredF
                 opportunityId={opportunityId}
                 isAdmin={isAdmin}
                 onChanged={() => mutate()}
+                confirm={confirm}
               />
             ))}
           </div>
         )}
       </CardContent>
+      <ConfirmDialog />
     </Card>
   );
 };
