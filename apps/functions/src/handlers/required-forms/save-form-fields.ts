@@ -14,11 +14,14 @@ import {
   requirePermission,
 } from '@/middleware/rbac-middleware';
 
+import { FormProcessingStatusSchema } from '@auto-rfp/core';
+
 const BodySchema = z.object({
   projectId: z.string().min(1),
   opportunityId: z.string().min(1),
   formId: z.string().min(1),
   fields: z.array(DetectedFormFieldSchema),
+  status: FormProcessingStatusSchema.optional(),
 });
 
 const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
@@ -36,6 +39,11 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
   const manual = data.fields.filter((f) => f.status === 'MANUAL_REQUIRED').length;
   const total = data.fields.length;
 
+  // Auto-attach to the next proposal generation when the form transitions to DONE
+  // for the first time. Once detached by the user, we don't re-attach.
+  const transitioningToDone = data.status === 'DONE' && form.status !== 'DONE';
+  const shouldAutoAttach = transitioningToDone && !form.attachedToProposal;
+
   const updated = await updateRequiredForm({
     orgId, projectId: data.projectId, opportunityId: data.opportunityId, formId: data.formId,
     patch: {
@@ -43,6 +51,8 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
       autoFillPercentage: total > 0 ? Math.round((autoFilled / total) * 100) : 0,
       manualFieldCount: manual,
       totalFieldCount: total,
+      ...(data.status ? { status: data.status } : {}),
+      ...(shouldAutoAttach ? { attachedToProposal: true, attachedAt: new Date().toISOString() } : {}),
     },
   });
 

@@ -21,5 +21,7 @@ export function requiredFormsDomain(): DomainRoutes {
     },
     { method: 'POST', path: 'reprocess', entry: lambdaEntry('required-forms/reprocess-form.ts'), timeoutSeconds: 120 },
     { method: 'POST', path: 'ai-fill-field', entry: lambdaEntry('required-forms/ai-fill-field.ts'), timeoutSeconds: 60 },
+    { method: 'POST', path: 'attach', entry: lambdaEntry('required-forms/attach-form-to-proposal.ts') },
+    { method: 'DELETE', path: 'attach', entry: lambdaEntry('required-forms/attach-form-to-proposal.ts') },
   ]};
 }
