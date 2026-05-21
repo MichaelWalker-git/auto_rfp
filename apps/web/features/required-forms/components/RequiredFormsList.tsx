@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
@@ -77,6 +78,7 @@ const FormRow = ({
   confirm: (opts: { title?: string; description?: string; confirmLabel?: string; cancelLabel?: string; variant?: 'destructive' | 'default' }) => Promise<boolean>;
 }) => {
   const { toast } = useToast();
+  const router = useRouter();
   const { attach, detach } = useAttachFormToProposal();
 
   const handleAttach = useCallback(async () => {
@@ -134,101 +136,115 @@ const FormRow = ({
   const FormIcon = isXlsx ? FileSpreadsheet : FileText;
   const detailHref = `/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}/forms/${form.formId}`;
 
+  // Whole-row click navigates to the form. Buttons inside stop propagation so
+  // they handle their own clicks. We don't wrap the row in <Link> because that
+  // would nest <a> elements (the action buttons / dropdown items also link).
+  const handleRowClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('[data-row-actions]')) return;
+    router.push(detailHref);
+  };
+
   return (
     <div
-      className={cn('rounded-xl border bg-background p-3 hover:bg-muted/50 transition-colors')}
+      className={cn('rounded-xl border bg-background p-3 hover:bg-muted/50 transition-colors cursor-pointer')}
       data-doc-status={form.status}
+      onClick={handleRowClick}
     >
-      <Link href={detailHref} className="block">
-        <div className="flex items-start gap-3">
-          <div className="h-10 w-10 rounded-lg bg-muted hidden sm:flex items-center justify-center shrink-0">
-            <FormIcon className="h-5 w-5 text-muted-foreground" />
+      <div className="flex items-start gap-3">
+        <div className="h-10 w-10 rounded-lg bg-muted hidden sm:flex items-center justify-center shrink-0">
+          <FormIcon className="h-5 w-5 text-muted-foreground" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={detailHref}
+              className="font-medium truncate text-sm hover:underline"
+              title={form.name}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {form.name}
+            </Link>
+            <span
+              className={cn('text-xs px-1.5 py-0.5 rounded font-medium', STATUS_TONE[form.status] ?? 'bg-slate-100 text-slate-700')}
+            >
+              {form.status}
+            </span>
+            {form.attachedToProposal && (
+              <Badge variant="secondary" className="gap-1 text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
+                <CheckCircle2 className="h-3 w-3" />
+                In proposal
+              </Badge>
+            )}
           </div>
 
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="font-medium truncate text-sm" title={form.name}>
-                {form.name}
-              </p>
-              <span
-                className={cn('text-xs px-1.5 py-0.5 rounded font-medium', STATUS_TONE[form.status] ?? 'bg-slate-100 text-slate-700')}
-              >
-                {form.status}
-              </span>
-              {form.attachedToProposal && (
-                <Badge variant="secondary" className="gap-1 text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
-                  <CheckCircle2 className="h-3 w-3" />
-                  In proposal
-                </Badge>
-              )}
-            </div>
-
-            <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
-              <span className="font-medium">{FORM_TYPE_LABEL[form.formType] ?? form.formType}</span>
-              <span>·</span>
-              <span>{form.totalFieldCount} fields</span>
-              {form.manualFieldCount > 0 && (
-                <>
-                  <span>·</span>
-                  <span className="text-amber-700">{form.manualFieldCount} need review</span>
-                </>
-              )}
-              {form.autoFillPercentage > 0 && (
-                <>
-                  <span>·</span>
-                  <span className="text-emerald-700">{form.autoFillPercentage}% auto-filled</span>
-                </>
-              )}
-              <span>·</span>
-              <span>{formatDateTime(form.createdAt)}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-            <Button asChild size="sm" variant="ghost" className="h-8 w-8 p-0" title="Edit form">
-              <Link href={detailHref}>
-                <Pencil className="h-4 w-4" />
-              </Link>
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.preventDefault()}>
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                  <Link href={detailHref} className="flex items-center">
-                    <Pencil className="h-4 w-4 mr-2" /> Edit
-                  </Link>
-                </DropdownMenuItem>
-                {form.status === 'DONE' && (
-                  form.attachedToProposal ? (
-                    <DropdownMenuItem onClick={handleDetach}>
-                      <PaperclipIcon className="h-4 w-4 mr-2" /> Detach from proposal
-                    </DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem onClick={handleAttach}>
-                      <Paperclip className="h-4 w-4 mr-2" /> Attach to proposal
-                    </DropdownMenuItem>
-                  )
-                )}
-                {isAdmin && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={handleDelete}
-                      className="text-rose-600 focus:text-rose-700 focus:bg-rose-50"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" /> Delete
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+          <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+            <span className="font-medium">{FORM_TYPE_LABEL[form.formType] ?? form.formType}</span>
+            <span>·</span>
+            <span>{form.totalFieldCount} fields</span>
+            {form.manualFieldCount > 0 && (
+              <>
+                <span>·</span>
+                <span className="text-amber-700">{form.manualFieldCount} need review</span>
+              </>
+            )}
+            {form.autoFillPercentage > 0 && (
+              <>
+                <span>·</span>
+                <span className="text-emerald-700">{form.autoFillPercentage}% auto-filled</span>
+              </>
+            )}
+            <span>·</span>
+            <span>{formatDateTime(form.createdAt)}</span>
           </div>
         </div>
-      </Link>
+
+        <div data-row-actions className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0"
+            title="Edit form"
+            onClick={() => router.push(detailHref)}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => router.push(detailHref)}>
+                <Pencil className="h-4 w-4 mr-2" /> Edit
+              </DropdownMenuItem>
+              {form.status === 'DONE' && (
+                form.attachedToProposal ? (
+                  <DropdownMenuItem onClick={handleDetach}>
+                    <PaperclipIcon className="h-4 w-4 mr-2" /> Detach from proposal
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={handleAttach}>
+                    <Paperclip className="h-4 w-4 mr-2" /> Attach to proposal
+                  </DropdownMenuItem>
+                )
+              )}
+              {isAdmin && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleDelete}
+                    className="text-rose-600 focus:text-rose-700 focus:bg-rose-50"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" /> Delete
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
 
       {form.status === 'FAILED' && form.errorMessage && (
         <p className="mt-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-2 py-1">
