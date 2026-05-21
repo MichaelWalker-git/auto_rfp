@@ -6,8 +6,9 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 import { withSentryLambda } from '@/sentry-lambda';
 import { apiResponse, getOrgId } from '@/helpers/api';
-import { getRequiredForm } from '@/helpers/required-form';
+import { getRequiredForm, updateRequiredForm } from '@/helpers/required-form';
 import { fillPdfForm } from '@/helpers/pdf-form-filler';
+import { fillXlsxForm } from '@/helpers/xlsx-form-filler';
 import { requireEnv } from '@/helpers/env';
 
 import {
@@ -36,9 +37,28 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
   const form = await getRequiredForm({ orgId, projectId: data.projectId, opportunityId: data.opportunityId, formId: data.formId });
   if (!form) return apiResponse(404, { message: 'Form not found' });
 
-  const isPdf = form.sourceFileKey.toLowerCase().endsWith('.pdf');
+  const lowerKey = form.sourceFileKey.toLowerCase();
+  const isPdf = lowerKey.endsWith('.pdf');
+  const isXlsx = lowerKey.endsWith('.xlsx') || lowerKey.endsWith('.xls');
 
-  if (!isPdf) {
+  let outputKey: string;
+
+  if (isPdf) {
+    outputKey = `${orgId}/${data.projectId}/${data.opportunityId}/required-forms/${data.formId}/filled.pdf`;
+    await fillPdfForm({
+      sourceFileKey: form.sourceFileKey,
+      fields: form.fields,
+      outputKey,
+    });
+  } else if (isXlsx) {
+    outputKey = `${orgId}/${data.projectId}/${data.opportunityId}/required-forms/${data.formId}/filled.xlsx`;
+    await fillXlsxForm({
+      sourceFileKey: form.sourceFileKey,
+      fields: form.fields,
+      outputKey,
+    });
+  } else {
+    // Unsupported type — fall back to streaming the source file unchanged.
     const cmd = new GetObjectCommand({
       Bucket: getDocumentsBucket(),
       Key: form.sourceFileKey,
@@ -48,12 +68,10 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
     return apiResponse(200, { downloadUrl, fileName: form.sourceFileName });
   }
 
-  const outputKey = `${orgId}/${data.projectId}/${data.opportunityId}/required-forms/${data.formId}/filled.pdf`;
-
-  await fillPdfForm({
-    sourceFileKey: form.sourceFileKey,
-    fields: form.fields,
-    outputKey,
+  // Persist the filled key on the form so the proposal-bridge picks it up.
+  await updateRequiredForm({
+    orgId, projectId: data.projectId, opportunityId: data.opportunityId, formId: data.formId,
+    patch: { filledFileKey: outputKey },
   });
 
   const cmd = new GetObjectCommand({

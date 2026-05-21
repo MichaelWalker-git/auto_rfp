@@ -39,31 +39,61 @@ export const fillPdfForm = async (args: {
   // Export every field that has a value and a bbox — including MANUAL_REQUIRED
   // ones the user filled in (e.g. signature lines, dates, contract numbers).
   // Blank manual fields are skipped naturally because they have no value.
-  const filledFields = fields.filter((f) => f.value && f.boundingBox);
+  // Also process mark fields (CHECKBOX/CIRCLE) regardless of `value`, since
+  // the mark itself is the user's response.
+  const filledFields = fields.filter((f) => {
+    if (f.markType === 'CIRCLE' && f.markGeometry) return true;
+    if (f.markType === 'CHECKBOX' && f.markChar && f.boundingBox) return true;
+    return f.value && f.boundingBox;
+  });
 
   for (const field of filledFields) {
-    if (!field.boundingBox || !field.value) continue;
-
     const pageNum = (field.pageNumber ?? 1) - 1;
     const page = pages[pageNum];
     if (!page) continue;
 
     const { width: pageWidth, height: pageHeight } = page.getSize();
-    const bbox = field.boundingBox;
 
-    // Bounding boxes are normalized (0-1) with origin top-left.
-    // PDF coordinates have origin bottom-left.
+    // Mark: CIRCLE — draw an unfilled ellipse at markGeometry.
+    if (field.markType === 'CIRCLE' && field.markGeometry) {
+      const { cx, cy, radius } = field.markGeometry;
+      page.drawEllipse({
+        x: cx * pageWidth,
+        y: pageHeight - cy * pageHeight,
+        xScale: radius * pageWidth,
+        yScale: radius * pageHeight,
+        borderColor: rgb(0.85, 0.1, 0.1),
+        borderWidth: 1.5,
+      });
+      continue;
+    }
+
+    if (!field.boundingBox) continue;
+    const bbox = field.boundingBox;
     const x = bbox.left * pageWidth;
     const w = bbox.width * pageWidth;
     const h = bbox.height * pageHeight;
-
-    // Anchor the text baseline near the BOTTOM of the bbox (matching how a user
-    // writes on an underline) — this is where the HTML viewer's <input> renders too.
-    // Reserve ~20% of bbox height for descender so glyphs sit on the line.
-    const fontSize = Math.min(h * 0.8, 11);
     const bboxBottomFromPdfBottom = pageHeight - (bbox.top + bbox.height) * pageHeight;
-    const y = bboxBottomFromPdfBottom + h * 0.2;
 
+    // Mark: CHECKBOX — draw the markChar (typically 'X') centered in the bbox.
+    if (field.markType === 'CHECKBOX' && field.markChar) {
+      const fontSize = Math.min(h * 0.9, 14);
+      const charWidth = font.widthOfTextAtSize(field.markChar, fontSize);
+      page.drawText(field.markChar, {
+        x: x + (w - charWidth) / 2,
+        y: bboxBottomFromPdfBottom + (h - fontSize * 0.7) / 2,
+        size: fontSize,
+        font,
+        color: rgb(0.85, 0.1, 0.1),
+      });
+      continue;
+    }
+
+    if (!field.value) continue;
+
+    // Text field: anchor the text baseline near the BOTTOM of the bbox.
+    const fontSize = Math.min(h * 0.8, 11);
+    const y = bboxBottomFromPdfBottom + h * 0.2;
     page.drawText(field.value, {
       x: x + 2,
       y,
