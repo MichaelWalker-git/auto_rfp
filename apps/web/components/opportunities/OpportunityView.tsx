@@ -275,11 +275,7 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       </section>
 
       {/* ── Required Forms (separated from solicitation docs) ────────── */}
-      <section id="required-forms" className="space-y-4 scroll-mt-4">
-        <SectionDivider
-          icon={<FileEdit className="h-4 w-4" />}
-          title="Required Forms"
-        />
+      <section id="required-forms" className="scroll-mt-4">
         <RequiredFormsList orgId={orgId} projectId={projectId} opportunityId={oppId} />
       </section>
 
