@@ -38,6 +38,44 @@ const MAX_S3_READ_RETRIES = 3;
 const S3_RETRY_BASE_DELAY_MS = 1000; // Exponential backoff: 1s, 2s, 4s
 
 /**
+ * Sanitize error messages for user-facing notifications.
+ * Removes sensitive info like stack traces, internal paths, and library versions.
+ */
+const sanitizeErrorForUser = (rawError: string): string => {
+  // Generic user-friendly message for common error patterns
+  if (rawError.includes('ECONNREFUSED') || rawError.includes('ETIMEDOUT') || rawError.includes('NetworkingError')) {
+    return 'A temporary network error occurred. Please try again.';
+  }
+  if (rawError.includes('AccessDenied') || rawError.includes('Forbidden')) {
+    return 'Access denied to required resources.';
+  }
+  if (rawError.includes('S3') || rawError.includes('s3://')) {
+    return 'Failed to access document storage.';
+  }
+  if (rawError.includes('Bedrock') || rawError.includes('bedrock')) {
+    return 'AI service temporarily unavailable.';
+  }
+  if (rawError.includes('DynamoDB') || rawError.includes('dynamodb')) {
+    return 'Database operation failed.';
+  }
+  // Remove file paths, stack traces, and sensitive patterns
+  const sanitized = rawError
+    .replace(/\/[^\s]+\.(ts|js|mjs)/g, '[file]') // Remove file paths
+    .replace(/at\s+[^\n]+/g, '') // Remove stack trace lines
+    .replace(/node_modules[^\s]*/g, '[module]') // Remove node_modules paths
+    .replace(/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/g, '[ip]') // Remove IP addresses
+    .replace(/arn:aws:[^\s]+/g, '[resource]') // Remove AWS ARNs
+    .trim();
+  
+  // If sanitized is too long or looks like a stack trace, use generic message
+  if (sanitized.length > 200 || sanitized.split('\n').length > 3) {
+    return 'An unexpected error occurred during generation.';
+  }
+  
+  return sanitized || 'An unexpected error occurred during generation.';
+};
+
+/**
  * Validate that the SQS queue URL is configured before attempting to enqueue.
  * Throws if not configured to fail fast rather than silently failing.
  */
@@ -123,10 +161,13 @@ const markAsPermanentlyFailed = async (job: Job, failureReason: string): Promise
       const documentTypeName = RFP_DOCUMENT_TYPES[documentType as keyof typeof RFP_DOCUMENT_TYPES]
         || documentType.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
 
+      // Sanitize error message for user notification (raw error is kept in DB for debugging)
+      const userSafeError = sanitizeErrorForUser(failureReason);
+
       const payload = buildNotification(
         'DOCUMENT_GENERATION_FAILED',
         'Document Generation Failed',
-        `Failed to generate "${documentTypeName}" after ${MAX_GENERATION_RETRIES} attempts. ${failureReason}`,
+        `Failed to generate "${documentTypeName}" after ${MAX_GENERATION_RETRIES} attempts. ${userSafeError}`,
         {
           orgId,
           projectId,
@@ -154,8 +195,15 @@ const processJob = async (job: Job): Promise<void> => {
 
   // Get current document to check retry count and existing content
   const existingDoc = await getRFPDocument(projectId, opportunityId, documentId);
-  const currentRetryCount = existingDoc?.retryCount ?? 0;
-  const alreadyHasContent = Boolean(existingDoc?.htmlContentKey);
+  
+  // If document was deleted while retry was pending, exit gracefully
+  if (!existingDoc) {
+    console.warn(`[worker] Document ${documentId} not found (may have been deleted). Skipping processing.`);
+    return; // Exit normally - don't retry, don't mark as failed (nothing to mark)
+  }
+  
+  const currentRetryCount = existingDoc.retryCount ?? 0;
+  const alreadyHasContent = Boolean(existingDoc.htmlContentKey);
 
   console.log(`[worker] Current retry count for documentId=${documentId}: ${currentRetryCount}/${MAX_GENERATION_RETRIES}`);
 
@@ -187,10 +235,20 @@ const processJob = async (job: Job): Promise<void> => {
             console.log(`[worker] Retrying S3 read in ${delayMs}ms...`);
             await new Promise((resolve) => setTimeout(resolve, delayMs));
           } else {
-            // All S3 read attempts failed - can't validate content, must mark as failed
+            // All S3 read attempts failed - check if generation retries remain
             console.error(`[worker] All S3 read attempts failed for documentId=${documentId}`);
-            await markAsPermanentlyFailed(job, `Cannot validate content: S3 read failed after ${MAX_S3_READ_RETRIES} attempts`);
-            return;
+            const s3FailureReason = `S3 read failed after ${MAX_S3_READ_RETRIES} attempts`;
+            
+            if (currentRetryCount < MAX_GENERATION_RETRIES - 1) {
+              // Still have retries - enqueue retry (will regenerate with fresh S3 upload)
+              console.log(`[worker] Using generation retry for S3 failure (retry ${currentRetryCount + 1}/${MAX_GENERATION_RETRIES})`);
+              await enqueueRetry(job, currentRetryCount);
+              return;
+            } else {
+              // No retries left - mark as permanently failed
+              await markAsPermanentlyFailed(job, `Cannot validate content: ${s3FailureReason}`);
+              return;
+            }
           }
         }
       }
