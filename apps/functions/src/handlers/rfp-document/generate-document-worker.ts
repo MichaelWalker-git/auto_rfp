@@ -33,6 +33,10 @@ import { RFP_DOCUMENT_TYPES } from '@auto-rfp/core';
 const sqs = new SQSClient({});
 const DOCUMENT_GENERATION_QUEUE_URL = process.env.DOCUMENT_GENERATION_QUEUE_URL || '';
 
+// S3 read retry configuration for validation step
+const MAX_S3_READ_RETRIES = 3;
+const S3_RETRY_BASE_DELAY_MS = 1000; // Exponential backoff: 1s, 2s, 4s
+
 /**
  * Validate that the SQS queue URL is configured before attempting to enqueue.
  * Throws if not configured to fail fast rather than silently failing.
@@ -148,29 +152,51 @@ const processJob = async (job: Job): Promise<void> => {
 
   console.log(`Processing document generation: documentId=${documentId}, type=${documentType}, orgId=${orgId}`);
 
-  // Get current document to check retry count
+  // Get current document to check retry count and existing content
   const existingDoc = await getRFPDocument(projectId, opportunityId, documentId);
   const currentRetryCount = existingDoc?.retryCount ?? 0;
+  const alreadyHasContent = Boolean(existingDoc?.htmlContentKey);
 
   console.log(`[worker] Current retry count for documentId=${documentId}: ${currentRetryCount}/${MAX_GENERATION_RETRIES}`);
 
   try {
-    await processJobInner(job);
+    // Check if document already has content (from a previous attempt that succeeded generation
+    // but failed S3 read during validation). If so, skip regeneration and just validate.
 
-    // After generation completes, validate the content quality
-    const updatedDoc = await getRFPDocument(projectId, opportunityId, documentId);
+    if (alreadyHasContent) {
+      console.log(`[worker] Document ${documentId} already has content (htmlContentKey: ${existingDoc?.htmlContentKey}), skipping regeneration`);
+    } else {
+      await processJobInner(job);
+    }
+
+    // After generation completes (or if skipped), validate the content quality
+    const updatedDoc = alreadyHasContent ? existingDoc : await getRFPDocument(projectId, opportunityId, documentId);
 
     // Load HTML content from S3 if htmlContentKey exists
+    // Retry S3 reads with exponential backoff to handle transient errors
     let htmlContent: string | null = null;
     if (updatedDoc?.htmlContentKey) {
-      try {
-        htmlContent = await loadRFPDocumentHtml(updatedDoc.htmlContentKey as string);
-      } catch (err) {
-        console.warn(`[worker] Failed to load HTML from S3 for validation: ${(err as Error).message}`);
+      for (let s3Attempt = 1; s3Attempt <= MAX_S3_READ_RETRIES; s3Attempt++) {
+        try {
+          htmlContent = await loadRFPDocumentHtml(updatedDoc.htmlContentKey as string);
+          break; // Success - exit retry loop
+        } catch (err) {
+          console.warn(`[worker] S3 read attempt ${s3Attempt}/${MAX_S3_READ_RETRIES} failed: ${(err as Error).message}`);
+          if (s3Attempt < MAX_S3_READ_RETRIES) {
+            const delayMs = S3_RETRY_BASE_DELAY_MS * Math.pow(2, s3Attempt - 1);
+            console.log(`[worker] Retrying S3 read in ${delayMs}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+          } else {
+            // All S3 read attempts failed - can't validate content, must mark as failed
+            console.error(`[worker] All S3 read attempts failed for documentId=${documentId}`);
+            await markAsPermanentlyFailed(job, `Cannot validate content: S3 read failed after ${MAX_S3_READ_RETRIES} attempts`);
+            return;
+          }
+        }
       }
     }
 
-    // Validate content quality
+    // Validate content quality (only if we successfully read the content or have no content)
     const validation = validateGeneratedContent(htmlContent);
 
     if (!validation.isValid) {
@@ -199,7 +225,7 @@ const processJob = async (job: Job): Promise<void> => {
       updates: {
         status: 'READY',
         retryCount: 0, // Reset retry count on success
-        generationError: '', // Clear any previous error
+        generationError: '', // Clear any previous error (empty string, not null - schema is string|undefined)
       },
       updatedBy: 'system',
     });
@@ -207,11 +233,12 @@ const processJob = async (job: Job): Promise<void> => {
 
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+
     console.error(`[FATAL] processJob failed for documentId=${documentId}:`, errorMessage, err);
 
     // Check if we should retry or mark as failed
     if (currentRetryCount < MAX_GENERATION_RETRIES - 1) {
-      // Retry on error
+      // Retry on error (content regeneration - clears content)
       console.log(`[worker] Retrying after error for documentId=${documentId}`);
       try {
         await enqueueRetry(job, currentRetryCount);
@@ -248,6 +275,7 @@ const baseHandler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
       await processJob(job);
     } catch (err) {
       const errorMessage = (err as Error)?.message ?? 'Unknown error';
+
       console.error(
         `Failed to process document generation message ${record.messageId}:`,
         errorMessage,
