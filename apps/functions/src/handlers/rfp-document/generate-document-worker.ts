@@ -70,7 +70,7 @@ const enqueueRetry = async (job: Job, currentRetryCount: number): Promise<void> 
       generationError: `Retry attempt ${newRetryCount}/${MAX_GENERATION_RETRIES}`,
       // Clear BOTH content fields so UI doesn't show "AI Generated" badge during retry
       // Empty string is used to clear (undefined skips the update, null may cause issues)
-      htmlContentKey: '',
+      htmlContentKey: null, // Clear S3 key - use null consistently with content
       content: null, // Clear inline content metadata
     },
     updatedBy: 'system',
