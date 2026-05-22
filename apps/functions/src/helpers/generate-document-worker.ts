@@ -1018,7 +1018,8 @@ export const processJobInner = async (job: Job): Promise<void> => {
     return;
   }
 
-  // ─── Step 7b: Update DynamoDB metadata (status + htmlContentKey, no inline HTML) ───
+  // ─── Step 7b: Update DynamoDB metadata (htmlContentKey only, no status change yet) ───
+  // NOTE: Status stays GENERATING — the handler will set READY only after validation passes
   const dbContent = {
     title: finalDocument.title,
     customerName: finalDocument.customerName,
@@ -1029,7 +1030,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
   await updateRFPDocumentMetadata({
     projectId, opportunityId, documentId,
     updates: {
-      status: 'READY',
+      // Don't set status here — let the handler set READY after validation passes
       generationError: '',
       content: dbContent,
       title: finalDocument.title || getDocumentTypeLabel(documentType),
@@ -1039,7 +1040,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
     updatedBy: 'system',
   });
 
-  console.log(`[worker] DynamoDB updated: status=READY, htmlContentKey=${htmlContentKey}`);
+  console.log(`[worker] DynamoDB updated: htmlContentKey=${htmlContentKey} (status unchanged, pending validation)`);
 
   // ─── Step 7c: Create version snapshot ───
   try {

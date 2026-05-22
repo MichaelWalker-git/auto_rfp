@@ -189,6 +189,15 @@ export function useRFPDocuments(
       if (!res.ok) throw new Error('Failed to fetch RFP documents');
       return res.json();
     },
+    {
+      // Auto-poll every 5s when any document is GENERATING or RETRYING
+      refreshInterval: (latestData) => {
+        const hasInProgress = latestData?.items?.some(
+          (doc) => doc.status === 'GENERATING' || doc.status === 'RETRYING',
+        );
+        return hasInProgress ? 5000 : 0;
+      },
+    },
   );
 
   // Sort documents newest first by updatedAt
@@ -340,8 +349,8 @@ export function useGenerateRFPDocument(orgId?: string) {
 }
 
 /**
- * Poll a single RFP document by documentId until its status is no longer GENERATING.
- * Returns null while the document is still being generated or not yet fetched.
+ * Poll a single RFP document by documentId until its status is no longer GENERATING or RETRYING.
+ * Returns null while the document is still being generated/retrying or not yet fetched.
  */
 export function useRFPDocumentPolling(
   projectId: string | null,
@@ -368,14 +377,16 @@ export function useRFPDocumentPolling(
       refreshInterval: (latestData) => {
         if (!latestData) return 3000;
         const status = latestData.document?.status;
-        return status === 'GENERATING' ? 3000 : 0;
+        // Continue polling while GENERATING or RETRYING
+        return status === 'GENERATING' || status === 'RETRYING' ? 3000 : 0;
       },
       revalidateOnFocus: false,
     },
   );
 
   const document = data?.document ?? null;
-  const isGenerating = !document || document.status === 'GENERATING';
+  // isGenerating is true while GENERATING or RETRYING (both are in-progress states)
+  const isGenerating = !document || document.status === 'GENERATING' || document.status === 'RETRYING';
 
   return {
     document,
