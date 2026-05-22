@@ -69,8 +69,8 @@ const enqueueRetry = async (job: Job, currentRetryCount: number): Promise<void> 
       retryCount: newRetryCount,
       generationError: `Retry attempt ${newRetryCount}/${MAX_GENERATION_RETRIES}`,
       // Clear BOTH content fields so UI doesn't show "AI Generated" badge during retry
-      // Empty string is used to clear (undefined skips the update, null may cause issues)
-      htmlContentKey: null, // Clear S3 key - use null consistently with content
+      // Use null to clear (undefined skips the update)
+      htmlContentKey: null, // Clear S3 key
       content: null, // Clear inline content metadata
     },
     updatedBy: 'system',
@@ -150,7 +150,7 @@ const processJob = async (job: Job): Promise<void> => {
 
   // Get current document to check retry count
   const existingDoc = await getRFPDocument(projectId, opportunityId, documentId);
-  const currentRetryCount = (existingDoc?.retryCount as number) ?? 0;
+  const currentRetryCount = existingDoc?.retryCount ?? 0;
 
   console.log(`[worker] Current retry count for documentId=${documentId}: ${currentRetryCount}/${MAX_GENERATION_RETRIES}`);
 
@@ -224,11 +224,15 @@ const processJob = async (job: Job): Promise<void> => {
     // Max retries reached or retry failed: mark as failed
     try {
       await markAsPermanentlyFailed(job, errorMessage.substring(0, 500));
+      // Successfully marked as failed - return normally so SQS deletes the message.
+      // If we throw here, SQS will re-deliver and we'd send duplicate notifications.
+      return;
     } catch (statusErr) {
       console.error(`[FATAL] Failed to mark documentId=${documentId} as FAILED:`, (statusErr as Error)?.message);
+      // Only throw if we couldn't record the failure state - this ensures SQS retries
+      // so we have another chance to properly mark the document as failed
+      throw err;
     }
-
-    throw err;
   }
 };
 
