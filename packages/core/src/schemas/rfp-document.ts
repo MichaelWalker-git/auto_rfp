@@ -172,6 +172,7 @@ export type RFPDocumentType = z.infer<typeof RFPDocumentTypeSchema>;
  */
 export const RFP_DOCUMENT_STATUSES = {
   GENERATING: 'Generating',
+  RETRYING: 'Retrying',
   DRAFT: 'Draft',
   IN_PROGRESS: 'In Progress',
   NEEDS_REVIEW: 'Needs Review',
@@ -188,6 +189,7 @@ export const RFPDocumentStatusSchema = z.enum([
   'READY',
   'APPROVED',
   'FAILED',
+  'RETRYING',
 ]);
 
 export type RFPDocumentStatus = z.infer<typeof RFPDocumentStatusSchema>;
@@ -326,6 +328,8 @@ export const RFPDocumentItemSchema = z.object({
   htmlContentKey: z.string().nullable().optional(),
   /** Generation error message when status is FAILED */
   generationError: z.string().nullable().optional(),
+  /** Number of generation retry attempts (0 = first attempt, max 3) */
+  retryCount: z.number().default(0).nullable().optional(),
 });
 
 export type RFPDocumentItem = z.infer<typeof RFPDocumentItemSchema>;
@@ -418,3 +422,8 @@ export const RFP_EXPORT_FORMAT_EXTENSIONS: Record<RFPExportFormat, string> = {
   pptx: '.pptx',
   md: '.md',
 };
+
+// ─── Generation Retry Constants ───
+
+/** Maximum number of generation retry attempts (3 total = 1 initial + 2 retries) */
+export const MAX_GENERATION_RETRIES = 3;

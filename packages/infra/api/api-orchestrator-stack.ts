@@ -523,6 +523,8 @@ export class ApiOrchestratorStack extends cdk.Stack {
           BEDROCK_TEMPERATURE: '0.1',
           // Required for CLARIFYING_QUESTIONS document type to auto-trigger question generation
           CLARIFYING_QUESTION_QUEUE_URL: clarifyingQuestionQueueUrl,
+          // Required for retry logic: worker needs to re-enqueue failed jobs
+          DOCUMENT_GENERATION_QUEUE_URL: docGenQueueUrl,
         },
         bundling: {
           minify: true,
