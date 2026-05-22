@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CancelPipelineButton } from '@/components/cancel-pipeline-button';
 import { QuestionFileStatusBadge } from '@/features/questions';
+import { isExtractedQuestionFile } from '@/lib/utils/question-file-status';
 
 import type { OpportunityItem } from '@auto-rfp/core';
 import { usePresignUpload } from '@/lib/hooks/use-presign';
@@ -140,7 +141,10 @@ export function QuestionFileUploadDialog({
         const current = next[idx];
         if (current.status === apiStatus && current.updatedAt === updatedAt) return prev;
 
-        if (apiStatus === 'PROCESSED') {
+        // Treat PROCESSED and any post-extraction status as "done" for the
+        // upload-progress UI — the file finished extraction even if the
+        // pipeline has moved on to answers / forms.
+        if (isExtractedQuestionFile(apiStatus)) {
           next[idx] = { ...current, step: 'done', status: apiStatus, updatedAt, error: null };
           if (onCompletedRef.current && next[idx].questionFileId) {
             try {

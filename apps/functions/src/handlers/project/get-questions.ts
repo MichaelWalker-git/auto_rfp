@@ -8,7 +8,7 @@ import { ANSWER_PK } from '@/constants/answer';
 import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
-import { listQuestionFilesByOpportunity } from '@/helpers/questionFile';
+import { isExtractedQuestionFile, listQuestionFilesByOpportunity } from '@/helpers/questionFile';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -95,11 +95,13 @@ const loadQuestions = async (projectId: string, opportunityId: string): Promise<
     lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
   } while (lastKey);
 
-  // Filter out questions from non-PROCESSED files (orphans from cancelled/failed pipelines)
+  // Filter out questions from files that haven't finished extraction (orphans
+  // from cancelled / failed pipelines). Treat any post-extraction status as
+  // valid — see isExtractedQuestionFile for the full set.
   const { items: questionFiles } = await listQuestionFilesByOpportunity({ projectId, oppId: opportunityId });
   const processedFileIds = new Set(
     (questionFiles as Array<{ questionFileId: string; status: string }>)
-      .filter((qf) => qf.status === 'PROCESSED')
+      .filter((qf) => isExtractedQuestionFile(qf.status))
       .map((qf) => qf.questionFileId),
   );
 

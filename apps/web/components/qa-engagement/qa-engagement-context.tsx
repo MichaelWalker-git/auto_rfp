@@ -5,6 +5,7 @@ import useSWR, { mutate } from 'swr';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
 import type { ClarifyingQuestionItem, EngagementLogItem, EngagementMetrics, Deadline, QuestionFileItem } from '@auto-rfp/core';
+import { isExtractedQuestionFile } from '@/lib/utils/question-file-status';
 
 const BASE_URL = env.BASE_API_URL;
 const QUESTION_FILE_BASE = `${env.BASE_API_URL}/questionfile`;
@@ -149,12 +150,12 @@ export function QAEngagementProvider({
     },
   });
 
-  // Compute documents state for UI validation
-  // Status values from QuestionFileStatusSchema: UPLOADED, PROCESSING, TEXTRACT_RUNNING, TEXT_READY, PROCESSED, FAILED, DELETED, CANCELLED
+  // Compute documents state for UI validation. Treat any post-extraction
+  // status (PROCESSED + downstream sub-states) as "processed enough to use".
   const documentsState = useMemo<DocumentsState>(() => {
     const items = documentsData?.items ?? [];
     const processedItems = items.filter(
-      (item) => item.status === 'PROCESSED' || item.status === 'TEXT_READY'
+      (item) => isExtractedQuestionFile(item.status) || item.status === 'TEXT_READY'
     );
     const processingItems = items.filter(
       (item) => item.status === 'PROCESSING' || item.status === 'UPLOADED' || item.status === 'TEXTRACT_RUNNING'

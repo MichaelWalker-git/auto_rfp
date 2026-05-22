@@ -3,6 +3,7 @@
 import { Loader2, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { isExtractedQuestionFile } from '@/lib/utils/question-file-status';
 
 import type { QuestionFileStatus } from '@auto-rfp/core';
 
@@ -61,9 +62,10 @@ export const QuestionFileStatusBadge = ({
 }: QuestionFileStatusBadgeProps) => {
   const tone = TONE[status] ?? 'bg-slate-100 text-slate-700';
   const label = LABEL[status] ?? status;
+  const isExtracted = isExtractedQuestionFile(status);
   const Icon = status === 'FAILED'
     ? AlertCircle
-    : status === 'PROCESSED'
+    : isExtracted
       ? CheckCircle2
       : isInProgress(status)
         ? Loader2
@@ -76,7 +78,7 @@ export const QuestionFileStatusBadge = ({
         <Icon className={cn('h-3 w-3', animate && 'animate-spin')} />
         {label}
       </span>
-      {needsApproval && status === 'PROCESSED' && (
+      {needsApproval && isExtracted && (
         <Badge variant="outline" className="border-amber-300 text-amber-800 bg-amber-50">
           Needs approval
         </Badge>
