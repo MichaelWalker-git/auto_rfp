@@ -49,6 +49,7 @@ import { useCurrentOrganization } from '@/context/organization-context';
 import { PermissionButton } from '@/components/ui/permission-button';
 import { useProjectOutcome } from '@/lib/hooks/use-project-outcome';
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
+import { isExtractedQuestionFile } from '@/lib/utils/question-file-status';
 import type { OpportunityItem } from '@auto-rfp/core';
 
 function sectionIcon(section: SectionKey) {
@@ -679,7 +680,7 @@ export function ExecutiveBriefView({
     if (questionFiles.length === 0) return;
 
     const allProcessed = questionFiles.every(
-      (f: Record<string, unknown>) => f.status === 'PROCESSED',
+      (f: Record<string, unknown>) => isExtractedQuestionFile(f.status as string | undefined),
     );
     if (!allProcessed) return;
 

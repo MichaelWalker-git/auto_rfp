@@ -10,6 +10,7 @@ import { requireEnv } from './env';
 import { docClient, getItem } from './db';
 import { nowIso } from './date';
 import { loadTextFromS3 } from './s3';
+import { isExtractedQuestionFile } from './questionFile';
 import { invokeModel } from './bedrock-http-client';
 import type { PineconeHit } from '@/types/pinecone';
 import { getEmbedding } from 'helpers/embeddings';
@@ -966,7 +967,7 @@ export async function loadSolicitationForBrief(
       (f: any) => f.status !== 'DELETED' && f.status !== 'CANCELLED' && f.status !== 'FAILED',
     );
     liveActiveCount = activeFiles.length;
-    const processedFiles = activeFiles.filter((f: any) => f.textFileKey && f.status === 'PROCESSED');
+    const processedFiles = activeFiles.filter((f: any) => f.textFileKey && isExtractedQuestionFile(f.status));
     dynamicTextKeys = processedFiles.map((f: any) => f.textFileKey).filter(Boolean) as string[];
     liveLookupSucceeded = true;
     console.log(`loadSolicitationForBrief: found ${dynamicTextKeys.length} live processed files (${liveActiveCount} active) for opportunityId=${brief.opportunityId}`);

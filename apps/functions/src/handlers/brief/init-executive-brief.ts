@@ -10,7 +10,7 @@ import {
   getExecutiveBriefByProjectId,
   putExecutiveBrief,
 } from '@/helpers/executive-opportunity-brief';
-import { listQuestionFilesByOpportunity } from '@/helpers/questionFile';
+import { isExtractedQuestionFile, listQuestionFilesByOpportunity } from '@/helpers/questionFile';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { EXEC_BRIEF_PK } from '@/constants/exec-brief';
 import {
@@ -71,9 +71,12 @@ export const initExecutiveBrief = async (
     oppId: opportunityId,
   });
 
-  // Filter to only processed files with textFileKey
+  // Filter to only files that finished extraction. Accept any post-extraction
+  // status (PROCESSED, GENERATING_ANSWERS, ANSWERS_READY, FILLING_FORMS,
+  // FORMS_READY) so a Textract-forms callback that ran past PROCESSED doesn't
+  // make the brief skip its source files.
   const processedFiles = questionFiles.filter(
-    (qf) => qf.textFileKey && qf.status === 'PROCESSED',
+    (qf) => qf.textFileKey && isExtractedQuestionFile(qf.status),
   );
 
   if (processedFiles.length === 0) {

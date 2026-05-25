@@ -35,6 +35,7 @@ import Link from 'next/link';
 import { usePermission } from '@/components/permission-wrapper';
 import { formatDateTime, getStatusChip, pickDisplayName, guessDownloadName } from './opportunity-helpers';
 import { formatFileSize } from '@/lib/format-file-size';
+import { isExtractedQuestionFile } from '@/lib/utils/question-file-status';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -417,7 +418,7 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
                               </Badge>
                             </a>
                           )}
-                          {f.status === 'PROCESSED' && formsBySourceFile.has(f.name) && (
+                          {isExtractedQuestionFile(f.status) && formsBySourceFile.has(f.name) && (
                             formsBySourceFile.get(f.name)!.map((form) => (
                               <Link key={form.formId} href={`/organizations/${orgId}/projects/${projectId}/opportunities/${oppId}/forms/${form.formId}`} title={`Required form detected: "${form.name}". Click to open and fill in.`}>
                                 <Badge variant="secondary" className="text-xs gap-1 cursor-pointer bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200">
@@ -501,8 +502,8 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
                                 Retry processing
                               </DropdownMenuItem>
                             )}
-                            {/* Re-extract — available for PROCESSED files */}
-                            {f.status === 'PROCESSED' && f.questionFileId && (
+                            {/* Re-extract — available once extraction has finished */}
+                            {isExtractedQuestionFile(f.status) && f.questionFileId && (
                               <DropdownMenuItem
                                 disabled={reextractingId === f.questionFileId}
                                 onClick={() => void handleReextract(f)}
@@ -529,7 +530,7 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
                                 <ExternalLink className="h-4 w-4 mr-2" /> Open in Google Drive
                               </DropdownMenuItem>
                             )}
-                            {(f.status === 'PROCESSED' || isFailed) && canDelete && (
+                            {(isExtractedQuestionFile(f.status) || isFailed) && canDelete && (
                               <>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem className="text-red-600" disabled={isDeleting} onClick={() => void handleDelete(f)}>

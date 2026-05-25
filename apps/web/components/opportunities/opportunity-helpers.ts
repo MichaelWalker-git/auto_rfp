@@ -61,6 +61,14 @@ export function getStatusChip(status?: string): { label: string; cls: string } {
   if (s === 'UPLOADED') return { label: 'Uploaded', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
   if (s === 'QUESTIONS_EXTRACTED' || s === 'PROCESSED')
     return { label: 'Completed', cls: 'bg-green-50 text-green-700 border-green-200' };
+  if (s === 'GENERATING_ANSWERS')
+    return { label: 'Generating answers', cls: 'bg-violet-50 text-violet-700 border-violet-200' };
+  if (s === 'ANSWERS_READY')
+    return { label: 'Answers ready', cls: 'bg-green-50 text-green-700 border-green-200' };
+  if (s === 'FILLING_FORMS')
+    return { label: 'Filling forms', cls: 'bg-amber-50 text-amber-800 border-amber-200' };
+  if (s === 'FORMS_READY')
+    return { label: 'Forms ready', cls: 'bg-green-50 text-green-700 border-green-200' };
   if (s === 'TEXT_READY' || s === 'TEXT_EXTRACTED')
     return { label: 'Text ready', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
   if (s === 'PROCESSING') return { label: 'Processing', cls: 'bg-blue-50 text-blue-700 border-blue-200' };

@@ -46,8 +46,10 @@ jest.mock('@/middleware/rbac-middleware', () => ({
 
 // Mock questionFile helper — loadQuestions now calls listQuestionFilesByOpportunity to filter orphans
 const mockListQuestionFilesByOpportunity = jest.fn();
+const EXTRACTED_STATUSES = new Set(['PROCESSED', 'GENERATING_ANSWERS', 'ANSWERS_READY', 'FILLING_FORMS', 'FORMS_READY']);
 jest.mock('@/helpers/questionFile', () => ({
   listQuestionFilesByOpportunity: (...args: unknown[]) => mockListQuestionFilesByOpportunity(...args),
+  isExtractedQuestionFile: (status: string | undefined) => !!status && EXTRACTED_STATUSES.has(status),
 }));
 
 process.env.DB_TABLE_NAME = 'test-table';

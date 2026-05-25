@@ -92,6 +92,25 @@ export const getQuestionFileItem = async (
 export const buildQuestionFileSK = (projectId: string, oppId: string, questionFileId: string): string =>
   `${projectId}#${oppId}#${questionFileId}`;
 
+/**
+ * Statuses that indicate the question-file has finished extraction successfully.
+ * PROCESSED is the canonical "extraction done" state; the downstream sub-states
+ * (set by check-and-trigger-answers, generate-questionnaire-exports,
+ *  detect-required-forms, textract-forms-callback) all imply extraction
+ * completed before they were set, so callers that need "is this file ready?"
+ * should accept any of them.
+ */
+export const QUESTION_FILE_EXTRACTED_STATUSES = new Set<string>([
+  'PROCESSED',
+  'GENERATING_ANSWERS',
+  'ANSWERS_READY',
+  'FILLING_FORMS',
+  'FORMS_READY',
+]);
+
+export const isExtractedQuestionFile = (status: string | undefined): boolean =>
+  !!status && QUESTION_FILE_EXTRACTED_STATUSES.has(status);
+
 export const createQuestionFile = async (
   request: CreateQuestionFileRequest,
 ): Promise<QuestionFileItem & DBItem> => {
