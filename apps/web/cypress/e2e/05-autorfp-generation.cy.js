@@ -14,6 +14,11 @@ const openGenerateDialog = () => {
   cy.get('#rfp-documents').contains('button', /^Generate$/).should('be.visible').click({ force: true })
   cy.get('[role="dialog"]', { timeout: 10000 }).should('be.visible')
   cy.get('[role="dialog"]').contains('Generate Documents').should('be.visible')
+  // Wait for the dialog's action buttons to render so subsequent .click()
+  // calls don't race the dialog content's mount. Without this the second
+  // run of this helper occasionally hit a half-rendered dialog where the
+  // title was visible but Cancel/Generate buttons hadn't mounted yet.
+  cy.get('[role="dialog"]').contains('button', 'Cancel', { timeout: 10000 }).should('be.visible')
 }
 
 describe('AutoRFP Generation', () => {
@@ -38,12 +43,13 @@ describe('AutoRFP Generation', () => {
         cy.contains('Technical Proposal').should('be.visible')
         cy.contains('Select all').should('be.visible')
       })
-      cy.get('[role="dialog"]').contains('Cancel').click()
+      cy.get('[role="dialog"]').contains('button', 'Cancel').click()
     })
 
     it('cancels Generate Documents dialog', () => {
       openGenerateDialog()
-      cy.get('[role="dialog"]').contains('Cancel').click()
+      cy.get('[role="dialog"]').contains('button', 'Cancel').click()
+      cy.get('[role="dialog"]').should('not.exist')
       cy.get('#rfp-documents').should('be.visible')
     })
   })
