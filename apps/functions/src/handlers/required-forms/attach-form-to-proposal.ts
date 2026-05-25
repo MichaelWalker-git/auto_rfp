@@ -52,9 +52,11 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
   if (!form) return apiResponse(404, { message: 'Form not found' });
 
   let proposalDocumentId: string | null = form.proposalDocumentId ?? null;
+  let createdNewBridge = false;
 
   if (isAttach && !proposalDocumentId) {
     proposalDocumentId = await attachFormAsRfpDocument({ form, userId });
+    createdNewBridge = true;
   } else if (!isAttach && proposalDocumentId) {
     await detachFormFromProposal({
       projectId: data.projectId,
@@ -65,19 +67,34 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     proposalDocumentId = null;
   }
 
-  const updated = await updateRequiredForm({
-    orgId,
-    projectId: data.projectId,
-    opportunityId: data.opportunityId,
-    formId: data.formId,
-    patch: {
-      attachedToProposal: isAttach,
-      attachedAt: isAttach ? new Date().toISOString() : null,
-      proposalDocumentId,
-    },
-  });
-
-  return apiResponse(200, { form: updated });
+  try {
+    const updated = await updateRequiredForm({
+      orgId,
+      projectId: data.projectId,
+      opportunityId: data.opportunityId,
+      formId: data.formId,
+      patch: {
+        attachedToProposal: isAttach,
+        attachedAt: isAttach ? new Date().toISOString() : null,
+        proposalDocumentId,
+      },
+      // Only enforce the "unattached" condition when we just minted a new
+      // bridge — concurrent re-attaches and detaches don't need it.
+      requireUnattached: createdNewBridge,
+    });
+    return apiResponse(200, { form: updated });
+  } catch (err) {
+    if (createdNewBridge && proposalDocumentId && (err as { name?: string })?.name === 'ConditionalCheckFailedException') {
+      await detachFormFromProposal({
+        projectId: data.projectId,
+        opportunityId: data.opportunityId,
+        proposalDocumentId,
+        userId,
+      });
+      return apiResponse(409, { message: 'Form was attached by another request — refresh and retry' });
+    }
+    throw err;
+  }
 };
 
 export const handler = withSentryLambda(

@@ -131,4 +131,41 @@ describe('attach-form-to-proposal', () => {
     const res = await baseHandler(deleteEvent({ projectId: 'p', opportunityId: 'o', formId: 'f' }));
     expect(res.statusCode).toBe(400);
   });
+
+  it('passes requireUnattached on the update when minting a new bridge doc', async () => {
+    mockGetForm.mockResolvedValueOnce({ formId: 'f', attachedToProposal: false, proposalDocumentId: null });
+    mockAttachFormAsRfpDocument.mockResolvedValueOnce('rfp-doc-new');
+    mockUpdateForm.mockResolvedValueOnce({ formId: 'f' });
+
+    await baseHandler(postEvent({ orgId: 'org', projectId: 'p', opportunityId: 'o', formId: 'f' }));
+
+    expect(mockUpdateForm.mock.calls[0][0].requireUnattached).toBe(true);
+  });
+
+  it('rolls back the bridge doc and returns 409 when a concurrent attach won the race', async () => {
+    mockGetForm.mockResolvedValueOnce({ formId: 'f', attachedToProposal: false, proposalDocumentId: null });
+    mockAttachFormAsRfpDocument.mockResolvedValueOnce('rfp-doc-new');
+    const conditionalErr = Object.assign(new Error('cond fail'), { name: 'ConditionalCheckFailedException' });
+    mockUpdateForm.mockRejectedValueOnce(conditionalErr);
+    mockDetachFormFromProposal.mockResolvedValueOnce(undefined);
+
+    const res = await baseHandler(postEvent({ orgId: 'org', projectId: 'p', opportunityId: 'o', formId: 'f' }));
+
+    expect(res.statusCode).toBe(409);
+    expect(mockDetachFormFromProposal).toHaveBeenCalledTimes(1);
+    expect(mockDetachFormFromProposal.mock.calls[0][0]).toMatchObject({
+      projectId: 'p',
+      opportunityId: 'o',
+      proposalDocumentId: 'rfp-doc-new',
+    });
+  });
+
+  it('does NOT pass requireUnattached on idempotent re-attach', async () => {
+    mockGetForm.mockResolvedValueOnce({ formId: 'f', attachedToProposal: true, proposalDocumentId: 'existing' });
+    mockUpdateForm.mockResolvedValueOnce({ formId: 'f' });
+
+    await baseHandler(postEvent({ orgId: 'org', projectId: 'p', opportunityId: 'o', formId: 'f' }));
+
+    expect(mockUpdateForm.mock.calls[0][0].requireUnattached).toBe(false);
+  });
 });

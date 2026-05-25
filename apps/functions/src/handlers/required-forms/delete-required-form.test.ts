@@ -21,14 +21,22 @@ jest.mock('@/middleware/rbac-middleware', () => ({
 }));
 
 const mockDelete = jest.fn();
+const mockGetForm = jest.fn();
 jest.mock('@/helpers/required-form', () => ({
   deleteRequiredForm: (...args: unknown[]) => mockDelete(...args),
+  getRequiredForm: (...args: unknown[]) => mockGetForm(...args),
+}));
+
+const mockDetachFromProposal = jest.fn();
+jest.mock('@/helpers/required-form-proposal-bridge', () => ({
+  detachFormFromProposal: (...args: unknown[]) => mockDetachFromProposal(...args),
 }));
 
 jest.mock('@/helpers/api', () => ({
   apiResponse: (statusCode: number, body: unknown) => ({ statusCode, body: JSON.stringify(body) }),
   getOrgId: (event: { queryStringParameters?: Record<string, string> }) =>
     event.queryStringParameters?.orgId,
+  getUserId: () => 'user-1',
 }));
 
 process.env.DB_TABLE_NAME = 'test-table';
@@ -75,14 +83,46 @@ describe('delete-required-form', () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it('deletes when caller is ADMIN', async () => {
+  it('deletes when caller is ADMIN and form has no bridge attachment', async () => {
+    mockGetForm.mockResolvedValueOnce({ formId: 'f', proposalDocumentId: null });
     mockDelete.mockResolvedValueOnce(undefined);
     const res = await baseHandler(
       eventFor('ADMIN', { orgId: 'org', projectId: 'p', opportunityId: 'o', formId: 'f' }),
     );
     expect(res.statusCode).toBe(200);
+    expect(mockDetachFromProposal).not.toHaveBeenCalled();
     expect(mockDelete).toHaveBeenCalledWith({
       orgId: 'org', projectId: 'p', opportunityId: 'o', formId: 'f',
     });
+  });
+
+  it('detaches the bridge RFP document before deleting when the form was attached', async () => {
+    mockGetForm.mockResolvedValueOnce({ formId: 'f', proposalDocumentId: 'rfp-doc-1' });
+    mockDetachFromProposal.mockResolvedValueOnce(undefined);
+    mockDelete.mockResolvedValueOnce(undefined);
+
+    const res = await baseHandler(
+      eventFor('ADMIN', { orgId: 'org', projectId: 'p', opportunityId: 'o', formId: 'f' }),
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(mockDetachFromProposal).toHaveBeenCalledWith({
+      projectId: 'p',
+      opportunityId: 'o',
+      proposalDocumentId: 'rfp-doc-1',
+      userId: 'user-1',
+    });
+    expect(mockDelete).toHaveBeenCalled();
+  });
+
+  it('proceeds with delete even when the form lookup returns null', async () => {
+    mockGetForm.mockResolvedValueOnce(null);
+    mockDelete.mockResolvedValueOnce(undefined);
+    const res = await baseHandler(
+      eventFor('ADMIN', { orgId: 'org', projectId: 'p', opportunityId: 'o', formId: 'f' }),
+    );
+    expect(res.statusCode).toBe(200);
+    expect(mockDetachFromProposal).not.toHaveBeenCalled();
+    expect(mockDelete).toHaveBeenCalled();
   });
 });

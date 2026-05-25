@@ -6,7 +6,7 @@ import { DetectedFormFieldSchema } from '@auto-rfp/core';
 import { withSentryLambda } from '@/sentry-lambda';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { getRequiredForm, updateRequiredForm } from '@/helpers/required-form';
-import { attachFormAsRfpDocument } from '@/helpers/required-form-proposal-bridge';
+import { attachFormAsRfpDocument, detachFormFromProposal } from '@/helpers/required-form-proposal-bridge';
 
 import {
   AuthedEvent,
@@ -26,7 +26,7 @@ const BodySchema = z.object({
   status: FormProcessingStatusSchema.optional(),
 });
 
-const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
+export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   const orgId = getOrgId(event);
   if (!orgId) return apiResponse(400, { message: 'orgId is required' });
 
@@ -53,23 +53,39 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     proposalDocumentId = await attachFormAsRfpDocument({ form, userId });
   }
 
-  const updated = await updateRequiredForm({
-    orgId, projectId: data.projectId, opportunityId: data.opportunityId, formId: data.formId,
-    patch: {
-      fields: data.fields,
-      autoFillPercentage: total > 0 ? Math.round((autoFilled / total) * 100) : 0,
-      manualFieldCount: manual,
-      totalFieldCount: total,
-      ...(data.status ? { status: data.status } : {}),
-      ...(shouldAutoAttach ? {
-        attachedToProposal: true,
-        attachedAt: new Date().toISOString(),
-        proposalDocumentId: proposalDocumentId ?? null,
-      } : {}),
-    },
-  });
-
-  return apiResponse(200, { ok: true, form: updated });
+  try {
+    const updated = await updateRequiredForm({
+      orgId, projectId: data.projectId, opportunityId: data.opportunityId, formId: data.formId,
+      patch: {
+        fields: data.fields,
+        autoFillPercentage: total > 0 ? Math.round((autoFilled / total) * 100) : 0,
+        manualFieldCount: manual,
+        totalFieldCount: total,
+        ...(data.status ? { status: data.status } : {}),
+        ...(shouldAutoAttach ? {
+          attachedToProposal: true,
+          attachedAt: new Date().toISOString(),
+          proposalDocumentId: proposalDocumentId ?? null,
+        } : {}),
+      },
+      requireUnattached: shouldAutoAttach,
+    });
+    return apiResponse(200, { ok: true, form: updated });
+  } catch (err) {
+    // Concurrent attach lost the race. Roll back the bridge doc we just
+    // created so it doesn't become an orphan, and surface a 409 so the
+    // client can re-fetch and present the winning state.
+    if (shouldAutoAttach && proposalDocumentId && (err as { name?: string })?.name === 'ConditionalCheckFailedException') {
+      await detachFormFromProposal({
+        projectId: data.projectId,
+        opportunityId: data.opportunityId,
+        proposalDocumentId,
+        userId,
+      });
+      return apiResponse(409, { message: 'Form was attached by another request — refresh and retry' });
+    }
+    throw err;
+  }
 };
 
 export const handler = withSentryLambda(

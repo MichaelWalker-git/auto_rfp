@@ -288,11 +288,13 @@ export const RequiredFormsList = ({ orgId, projectId, opportunityId }: RequiredF
           <div className="min-w-0">
             <CardTitle className="text-sm font-medium">Required Forms</CardTitle>
             <CardDescription className="mt-1">
-              {isLoading
-                ? 'Loading…'
-                : forms.length === 0
-                  ? 'No required forms detected for this opportunity'
-                  : `${forms.length} ${forms.length === 1 ? 'form' : 'forms'} detected${attachedCount > 0 ? ` · ${attachedCount} in proposal` : ''}`}
+              {isLoading ? (
+                <Skeleton className="h-4 w-64" />
+              ) : forms.length === 0 ? (
+                'No required forms detected for this opportunity'
+              ) : (
+                `${forms.length} ${forms.length === 1 ? 'form' : 'forms'} detected${attachedCount > 0 ? ` · ${attachedCount} in proposal` : ''}`
+              )}
             </CardDescription>
           </div>
         </div>

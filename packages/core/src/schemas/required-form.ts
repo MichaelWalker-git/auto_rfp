@@ -107,7 +107,7 @@ export const RequiredFormItemSchema = z.object({
   autoFillPercentage: z.number().min(0).max(100).default(0),
   manualFieldCount: z.number().default(0),
   totalFieldCount: z.number().default(0),
-  reviewRequired: z.boolean().default(true),
+  reviewRequired: z.boolean().default(false),
   reviewedBy: z.string().nullable().default(null),
   reviewedAt: z.string().nullable().default(null),
   errorMessage: z.string().nullable().default(null),
