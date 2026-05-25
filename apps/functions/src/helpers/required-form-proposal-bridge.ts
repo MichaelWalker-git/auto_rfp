@@ -35,7 +35,7 @@ export const attachFormAsRfpDocument = async (args: {
 }): Promise<string> => {
   const { form, userId } = args;
   const documentId = uuidv4();
-  const now = new Date().toISOString();
+  const now = nowIso();
 
   const fileKey = form.filledFileKey ?? form.sourceFileKey;
   const sk = buildRFPDocumentSK(form.projectId, form.opportunityId, documentId);
@@ -66,9 +66,6 @@ export const attachFormAsRfpDocument = async (args: {
     updatedBy: userId,
     createdAt: now,
     updatedAt: now,
-    // Marker so the UI can render an "auto-attached form" badge and so that
-    // queries can distinguish bridge documents from user-uploaded ones.
-    requiredFormId: form.formId,
   };
 
   await putRFPDocument(item);
@@ -97,15 +94,24 @@ export const syncFormFilledFileToProposal = async (args: {
       TableName: tableName,
       Key: { [PK_NAME]: RFP_DOCUMENT_PK, [SK_NAME]: sk },
       UpdateExpression: 'SET #fileKey = :fileKey, #updatedAt = :now, #updatedBy = :updatedBy',
+      // Don't resurrect a soft-deleted bridge doc. attribute_exists guards
+      // against an UpdateCommand creating a partial item with only fileKey
+      // when the keyed item is gone. The deletedAt = null check guards
+      // against re-stamping a row that was soft-deleted (detachFormFromProposal
+      // sets deletedAt to a timestamp).
+      ConditionExpression: 'attribute_exists(#pk) AND #deletedAt = :null',
       ExpressionAttributeNames: {
+        '#pk': PK_NAME,
         '#fileKey': 'fileKey',
         '#updatedAt': 'updatedAt',
         '#updatedBy': 'updatedBy',
+        '#deletedAt': 'deletedAt',
       },
       ExpressionAttributeValues: {
         ':fileKey': args.filledFileKey,
         ':now': nowIso(),
         ':updatedBy': args.userId,
+        ':null': null,
       },
     }));
   } catch (err) {

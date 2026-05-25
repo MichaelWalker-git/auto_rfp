@@ -80,6 +80,7 @@ describe('approve-question', () => {
     );
     expect(res.statusCode).toBe(200);
     expect(mockApprove).toHaveBeenCalledWith(expect.objectContaining({
+      orgId: 'org',
       questionId: 'q1',
       userId: 'user-1',
       userName: 'Ada Lovelace',

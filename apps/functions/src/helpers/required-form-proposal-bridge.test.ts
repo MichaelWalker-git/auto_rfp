@@ -9,6 +9,10 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
   UpdateCommand: jest.fn((params) => ({ type: 'Update', params })),
 }));
 
+jest.mock('./date', () => ({
+  nowIso: () => '2026-05-21T00:00:00.000Z',
+}));
+
 const mockPutRFPDocument = jest.fn();
 const mockSoftDeleteRFPDocument = jest.fn();
 jest.mock('./rfp-document', () => ({
@@ -79,14 +83,16 @@ describe('attachFormAsRfpDocument', () => {
       mimeType: 'application/pdf',
       originalFileName: 'tax.pdf',
       fileKey: 'org/p/o/required-forms/form-1/filled.pdf',
-      requiredFormId: 'form-1',
       createdBy: 'user-1',
       updatedBy: 'user-1',
       version: 1,
       signatureStatus: 'NOT_REQUIRED',
       linearSyncStatus: 'NOT_SYNCED',
+      createdAt: '2026-05-21T00:00:00.000Z',
+      updatedAt: '2026-05-21T00:00:00.000Z',
     });
     expect(item.sort_key).toBe('p#o#doc-uuid-1');
+    expect(item).not.toHaveProperty('requiredFormId');
   });
 
   it('falls back to sourceFileKey when filledFileKey is null', async () => {
@@ -150,6 +156,33 @@ describe('syncFormFilledFileToProposal', () => {
       'org/p/o/required-forms/form-1/filled.pdf',
     );
     expect(cmdParams.ExpressionAttributeValues[':updatedBy']).toBe('user-1');
+  });
+
+  it('uses a ConditionExpression that prevents resurrecting a missing or soft-deleted bridge doc', async () => {
+    mockDocClientSend.mockResolvedValueOnce(undefined);
+    await syncFormFilledFileToProposal({
+      projectId: 'p', opportunityId: 'o',
+      proposalDocumentId: 'rfp-doc-1',
+      filledFileKey: 'k',
+      userId: 'user-1',
+    });
+
+    const cmdParams = mockDocClientSend.mock.calls[0][0].params;
+    expect(cmdParams.ConditionExpression).toBe('attribute_exists(#pk) AND #deletedAt = :null');
+    expect(cmdParams.ExpressionAttributeNames['#deletedAt']).toBe('deletedAt');
+    expect(cmdParams.ExpressionAttributeValues[':null']).toBeNull();
+  });
+
+  it('swallows ConditionalCheckFailed when the bridge doc no longer exists or is soft-deleted', async () => {
+    const conditionalErr = Object.assign(new Error('cond fail'), { name: 'ConditionalCheckFailedException' });
+    mockDocClientSend.mockRejectedValueOnce(conditionalErr);
+
+    await expect(syncFormFilledFileToProposal({
+      projectId: 'p', opportunityId: 'o',
+      proposalDocumentId: 'rfp-doc-1',
+      filledFileKey: 'k',
+      userId: 'user-1',
+    })).resolves.toBeUndefined();
   });
 
   it('swallows errors so a failed sync does not break export flow', async () => {

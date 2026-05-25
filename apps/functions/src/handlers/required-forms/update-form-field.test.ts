@@ -114,7 +114,7 @@ describe('update-form-field', () => {
     expect(patch.fields[0]).toMatchObject({ value: 'new value', status: 'AUTO_FILLED' });
   });
 
-  it('clears status to EMPTY when value is set to empty string', async () => {
+  it('clears status to EMPTY when value is set to empty string on a non-manual field', async () => {
     mockGetForm.mockResolvedValueOnce({
       formId: 'f1',
       fields: [buildField({ fieldId: 'field-1', value: 'hello', status: 'AUTO_FILLED' })],
@@ -125,6 +125,47 @@ describe('update-form-field', () => {
 
     const patch = mockUpdateForm.mock.calls[0][0].patch;
     expect(patch.fields[0]).toMatchObject({ value: '', status: 'EMPTY' });
+  });
+
+  it('preserves MANUAL_REQUIRED status when the user clears the value', async () => {
+    mockGetForm.mockResolvedValueOnce({
+      formId: 'f1',
+      fields: [buildField({
+        fieldId: 'field-1',
+        value: 'partial answer',
+        status: 'MANUAL_REQUIRED',
+        manualReason: 'Compliance determination requires manual review',
+      })],
+    });
+    mockUpdateForm.mockResolvedValueOnce({ formId: 'f1' });
+
+    await baseHandler(eventFor(baseBody({ value: '' })));
+
+    const patch = mockUpdateForm.mock.calls[0][0].patch;
+    expect(patch.fields[0]).toMatchObject({
+      value: '',
+      status: 'MANUAL_REQUIRED',
+    });
+  });
+
+  it('still allows an explicit status override on a MANUAL_REQUIRED field', async () => {
+    mockGetForm.mockResolvedValueOnce({
+      formId: 'f1',
+      fields: [buildField({
+        fieldId: 'field-1',
+        value: null,
+        status: 'MANUAL_REQUIRED',
+      })],
+    });
+    mockUpdateForm.mockResolvedValueOnce({ formId: 'f1' });
+
+    await baseHandler(eventFor(baseBody({ value: 'final answer', status: 'AUTO_FILLED' })));
+
+    const patch = mockUpdateForm.mock.calls[0][0].patch;
+    expect(patch.fields[0]).toMatchObject({
+      value: 'final answer',
+      status: 'AUTO_FILLED',
+    });
   });
 
   it('updates mark fields (markType, markChar, markGeometry)', async () => {

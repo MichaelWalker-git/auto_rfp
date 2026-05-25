@@ -215,9 +215,11 @@ export const buildQuestionSKPrefix = (
 /**
  * Mark a single question as approved by the given user. Mirrors the answer
  * approval pattern (approvedBy / approvedByName / approvedAt). Returns the
- * updated question, or null if the question does not exist.
+ * updated question, or null if the question does not exist or the caller's
+ * orgId does not own the parent QuestionFile (cross-tenant guard).
  */
 export const approveQuestion = async (args: {
+  orgId: string;
   projectId: string;
   opportunityId: string;
   questionFileId: string;
@@ -225,6 +227,13 @@ export const approveQuestion = async (args: {
   userId: string;
   userName: string;
 }): Promise<QuestionItemDynamo | null> => {
+  // Tenant guard: questions are project-keyed (no orgId in SK), so we need
+  // to verify the caller's org owns the parent QuestionFile before mutating.
+  // Lazy-import to avoid a circular dep with questionFile -> question.
+  const { getQuestionFileItem } = await import('./questionFile');
+  const qf = await getQuestionFileItem(args.projectId, args.opportunityId, args.questionFileId);
+  if (!qf || qf.orgId !== args.orgId) return null;
+
   const sk = buildQuestionSK(args.projectId, args.opportunityId, args.questionFileId, args.questionId);
   const existing = await getItem(QUESTION_PK, sk);
   if (!existing) return null;

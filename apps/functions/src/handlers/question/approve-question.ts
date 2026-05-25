@@ -34,6 +34,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     userId;
 
   const updated = await approveQuestion({
+    orgId: data.orgId,
     projectId: data.projectId,
     opportunityId: data.opportunityId,
     questionFileId: data.questionFileId,

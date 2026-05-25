@@ -28,8 +28,10 @@ jest.mock('@/helpers/required-form', () => ({
 }));
 
 const mockAttachFormAsRfpDocument = jest.fn();
+const mockDetachFormFromProposal = jest.fn();
 jest.mock('@/helpers/required-form-proposal-bridge', () => ({
   attachFormAsRfpDocument: (...args: unknown[]) => mockAttachFormAsRfpDocument(...args),
+  detachFormFromProposal: (...args: unknown[]) => mockDetachFormFromProposal(...args),
 }));
 
 jest.mock('@/helpers/api', () => ({
@@ -222,5 +224,37 @@ describe('save-form-fields', () => {
     expect(patch.totalFieldCount).toBe(0);
     expect(patch.autoFillPercentage).toBe(0);
     expect(patch.manualFieldCount).toBe(0);
+  });
+
+  it('passes requireUnattached on the update when auto-attaching', async () => {
+    mockGetForm.mockResolvedValueOnce({
+      formId: 'f', status: 'READY', attachedToProposal: false, proposalDocumentId: null,
+    });
+    mockAttachFormAsRfpDocument.mockResolvedValueOnce('rfp-doc-1');
+    mockUpdateForm.mockResolvedValueOnce({ formId: 'f' });
+
+    await baseHandler(eventFor(validBody({ status: 'DONE' })));
+
+    expect(mockUpdateForm.mock.calls[0][0].requireUnattached).toBe(true);
+  });
+
+  it('rolls back the bridge doc and returns 409 when a concurrent attach won the race', async () => {
+    mockGetForm.mockResolvedValueOnce({
+      formId: 'f', status: 'READY', attachedToProposal: false, proposalDocumentId: null,
+    });
+    mockAttachFormAsRfpDocument.mockResolvedValueOnce('rfp-doc-1');
+    const conditionalErr = Object.assign(new Error('cond fail'), { name: 'ConditionalCheckFailedException' });
+    mockUpdateForm.mockRejectedValueOnce(conditionalErr);
+    mockDetachFormFromProposal.mockResolvedValueOnce(undefined);
+
+    const res = await baseHandler(eventFor(validBody({ status: 'DONE' })));
+
+    expect(res.statusCode).toBe(409);
+    expect(mockDetachFormFromProposal).toHaveBeenCalledWith({
+      projectId: 'p',
+      opportunityId: 'o',
+      proposalDocumentId: 'rfp-doc-1',
+      userId: 'user-1',
+    });
   });
 });

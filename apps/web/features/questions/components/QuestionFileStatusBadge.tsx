@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Clock, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { isExtractedQuestionFile } from '@/lib/utils/question-file-status';
@@ -68,14 +68,13 @@ export const QuestionFileStatusBadge = ({
     : isExtracted
       ? CheckCircle2
       : isInProgress(status)
-        ? Loader2
+        ? RefreshCw
         : Clock;
-  const animate = isInProgress(status);
 
   return (
     <div className={cn('inline-flex items-center gap-1.5', className)}>
       <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium', tone)}>
-        <Icon className={cn('h-3 w-3', animate && 'animate-spin')} />
+        <Icon className="h-3 w-3" />
         {label}
       </span>
       {needsApproval && isExtracted && (

@@ -63,16 +63,24 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
         matrixColumn: 'OTHER',
       });
     } else {
+      const existing = updatedFields[fieldIdx];
       const updates: Record<string, unknown> = {};
       if (value !== undefined) updates.value = value;
       if (label !== undefined) updates.label = label;
       if (boundingBox !== undefined) updates.boundingBox = boundingBox;
       if (status !== undefined) updates.status = status;
-      else if (value !== undefined) updates.status = value ? 'AUTO_FILLED' : 'EMPTY';
+      else if (value !== undefined) {
+        // Don't auto-derive status when the field still requires manual review.
+        // Otherwise clearing a MANUAL_REQUIRED cell silently drops the
+        // "needs review" signal — the user just hasn't typed yet.
+        if (existing.status !== 'MANUAL_REQUIRED') {
+          updates.status = value ? 'AUTO_FILLED' : 'EMPTY';
+        }
+      }
       if (markType !== undefined) updates.markType = markType;
       if (markChar !== undefined) updates.markChar = markChar;
       if (markGeometry !== undefined) updates.markGeometry = markGeometry;
-      updatedFields[fieldIdx] = { ...updatedFields[fieldIdx], ...updates };
+      updatedFields[fieldIdx] = { ...existing, ...updates };
     }
   }
 

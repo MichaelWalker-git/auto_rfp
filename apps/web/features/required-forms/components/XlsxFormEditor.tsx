@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { Download, RefreshCw, ArrowLeft, Trash2 } from 'lucide-react';
 import { apiMutate, apiFetcher, buildApiUrl } from '@/lib/hooks/api-helpers';
@@ -247,8 +248,13 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
         {/* Table */}
         <div className="flex-1 overflow-auto bg-white">
         {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="space-y-2 p-4">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-full" />
           </div>
         ) : grid.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-12">No data found.</p>

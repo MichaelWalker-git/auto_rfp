@@ -54,7 +54,10 @@ export const createRequiredForm = async (args: {
       autoFillPercentage: total > 0 ? Math.round((autoFilled / total) * 100) : 0,
       manualFieldCount: manual,
       totalFieldCount: total,
-      reviewRequired: true,
+      // Only matrix forms surface a "Review Required" banner. The detect-
+      // required-forms handler flips this to true for XLSX_MATRIX; everything
+      // else starts false so the schema default and the UI agree.
+      reviewRequired: false,
       reviewedBy: null,
       reviewedAt: null,
       errorMessage: null,
@@ -108,6 +111,13 @@ export const updateRequiredForm = async (args: {
   opportunityId: string;
   formId: string;
   patch: UpdateRequiredFormDTO & { fields?: DetectedFormField[] };
+  /**
+   * When true, the update only succeeds if the form does not already have a
+   * proposalDocumentId. Used by the auto-attach paths (save-form-fields,
+   * attach-form-to-proposal) so two concurrent requests can't both create a
+   * bridge RFP doc and leave one orphaned.
+   */
+  requireUnattached?: boolean;
 }): Promise<RequiredFormDBItem> => {
   const forbidden = new Set(['partition_key', 'sort_key', 'createdAt', 'updatedAt', 'formId', 'orgId', 'projectId', 'opportunityId']);
   const patchEntries = Object.entries(args.patch).filter(
@@ -125,6 +135,13 @@ export const updateRequiredForm = async (args: {
   }
   updates.push('#updatedAt = :u');
 
+  let conditionExpression = 'attribute_exists(#pk) AND attribute_exists(#sk)';
+  if (args.requireUnattached) {
+    names['#f_proposalDocumentId'] = 'proposalDocumentId';
+    values[':null'] = null;
+    conditionExpression += ' AND (attribute_not_exists(#f_proposalDocumentId) OR #f_proposalDocumentId = :null)';
+  }
+
   const res = await docClient.send(
     new UpdateCommand({
       TableName: DOCUMENTS_TABLE,
@@ -135,7 +152,7 @@ export const updateRequiredForm = async (args: {
       UpdateExpression: `SET ${updates.join(', ')}`,
       ExpressionAttributeNames: names,
       ExpressionAttributeValues: values,
-      ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
+      ConditionExpression: conditionExpression,
       ReturnValues: 'ALL_NEW',
     })
   );
