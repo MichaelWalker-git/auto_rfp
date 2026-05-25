@@ -49,6 +49,11 @@ jest.mock('@/helpers/xlsx-form-parser', () => ({
   parseXlsxForms: (...args: unknown[]) => mockParseXlsx(...args),
 }));
 
+const mockAutofillMatrix = jest.fn();
+jest.mock('@/helpers/matrix-autofill', () => ({
+  autofillMatrixComments: (...args: unknown[]) => mockAutofillMatrix(...args),
+}));
+
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.DOCUMENTS_BUCKET = 'docs-bucket';
 process.env.BEDROCK_MODEL_ID = 'anthropic.claude-test';
@@ -193,6 +198,78 @@ describe('detect-required-forms', () => {
         manualFieldCount: 1,
       }),
     }));
+  });
+
+  it('runs autofillMatrixComments and forces reviewRequired=true on XLSX_MATRIX forms', async () => {
+    const xlsxEvent = {
+      ...baseEvent,
+      sourceFileKey: 'org-1/proj-1/opp-1/matrix.xlsx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    };
+    mockLoadTextFromS3.mockResolvedValueOnce('document text');
+    mockInvokeModel.mockResolvedValueOnce(
+      encodeModelResponse(JSON.stringify({
+        forms: [{ name: 'Attachment-A', formType: 'XLSX_MATRIX' }],
+        confidence: 0.9,
+      })),
+    );
+    mockCreateForm.mockResolvedValueOnce({ formId: 'form-m', item: {} });
+    mockParseXlsx.mockResolvedValueOnce([{
+      fields: [
+        { fieldId: 'a', label: 'MFA — Comments', status: 'EMPTY', matrixColumn: 'COMMENTS', matrixFeature: 'MFA' },
+        { fieldId: 'b', label: 'MFA — Fully Meets', status: 'MANUAL_REQUIRED', matrixColumn: 'FULLY_MEETS' },
+      ],
+    }]);
+    mockAutofillMatrix.mockImplementationOnce(async ({ fields }: { fields: Array<{ fieldId: string; status: string; matrixColumn: string }> }) =>
+      fields.map((f) =>
+        f.matrixColumn === 'COMMENTS'
+          ? { ...f, status: 'AUTO_FILLED', value: 'We support MFA via Cognito + WebAuthn.' }
+          : f,
+      ),
+    );
+
+    await baseHandler(xlsxEvent);
+
+    expect(mockAutofillMatrix).toHaveBeenCalledTimes(1);
+    expect(mockAutofillMatrix).toHaveBeenCalledWith(expect.objectContaining({ orgId: 'org-1' }));
+    const updateCall = mockUpdateForm.mock.calls.find((c) => c[0].patch?.status === 'READY');
+    expect(updateCall).toBeDefined();
+    expect(updateCall![0]).toMatchObject({
+      formId: 'form-m',
+      patch: expect.objectContaining({
+        status: 'READY',
+        totalFieldCount: 2,
+        manualFieldCount: 1,
+        autoFillPercentage: 50,
+        reviewRequired: true,
+      }),
+    });
+  });
+
+  it('does NOT call autofillMatrixComments for non-matrix XLSX forms (XLSX_FORM)', async () => {
+    const xlsxEvent = {
+      ...baseEvent,
+      sourceFileKey: 'org-1/proj-1/opp-1/file.xlsx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    };
+    mockLoadTextFromS3.mockResolvedValueOnce('document text');
+    mockInvokeModel.mockResolvedValueOnce(
+      encodeModelResponse(JSON.stringify({
+        forms: [{ name: 'Vendor Q', formType: 'XLSX_FORM' }],
+        confidence: 0.9,
+      })),
+    );
+    mockCreateForm.mockResolvedValueOnce({ formId: 'form-x', item: {} });
+    mockParseXlsx.mockResolvedValueOnce([{
+      fields: [{ fieldId: 'a', label: 'Name', status: 'EMPTY' }],
+    }]);
+
+    await baseHandler(xlsxEvent);
+
+    expect(mockAutofillMatrix).not.toHaveBeenCalled();
+    const readyCall = mockUpdateForm.mock.calls.find((c) => c[0].patch?.status === 'READY');
+    // reviewRequired is left undefined (not forced) for XLSX_FORM
+    expect(readyCall![0].patch).not.toHaveProperty('reviewRequired', true);
   });
 
   it('skips duplicate forms by case-insensitive name match', async () => {

@@ -19,7 +19,7 @@ const BodySchema = UpdateFormFieldDTOSchema.extend({
   opportunityId: z.string().min(1),
 });
 
-const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   const orgId = getOrgId(event);
   if (!orgId) return apiResponse(400, { message: 'orgId is required' });
 

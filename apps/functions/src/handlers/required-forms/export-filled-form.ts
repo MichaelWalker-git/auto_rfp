@@ -29,7 +29,7 @@ const QuerySchema = z.object({
   formId: z.string().min(1),
 });
 
-const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
+export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   const orgId = getOrgId(event);
   if (!orgId) return apiResponse(400, { message: 'orgId is required' });
 
