@@ -120,9 +120,41 @@ const bboxOf = (block: Block): DetectedFormField['boundingBox'] => {
   return { top: bb.Top, left: bb.Left, width: bb.Width, height: bb.Height };
 };
 
-export const mapBlocksToFields = (blocks: Block[]): DetectedFormField[] => {
+/**
+ * Parse a Bedrock-emitted page range like "13", "17-19", or "20-21,25" into a
+ * Set of 1-indexed page numbers. Returns null for empty/malformed input so
+ * callers can treat that as "no filter, accept every page".
+ */
+export const parsePageRange = (range: string | null | undefined): Set<number> | null => {
+  if (!range) return null;
+  const pages = new Set<number>();
+  for (const part of range.split(',')) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const dash = trimmed.indexOf('-');
+    if (dash === -1) {
+      const n = Number.parseInt(trimmed, 10);
+      if (Number.isFinite(n) && n > 0) pages.add(n);
+      continue;
+    }
+    const start = Number.parseInt(trimmed.slice(0, dash), 10);
+    const end = Number.parseInt(trimmed.slice(dash + 1), 10);
+    if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
+    const lo = Math.min(start, end);
+    const hi = Math.max(start, end);
+    for (let p = lo; p <= hi; p++) if (p > 0) pages.add(p);
+  }
+  return pages.size > 0 ? pages : null;
+};
+
+export const mapBlocksToFields = (
+  blocks: Block[],
+  allowedPages?: Set<number> | null,
+): DetectedFormField[] => {
   const byId = indexBlocks(blocks);
   const fields: DetectedFormField[] = [];
+  const inRange = (page: number | undefined) =>
+    !allowedPages || allowedPages.has(page ?? 1);
 
   // KEY_VALUE_SET → field per KEY block. Only emit fields that the user still needs
   // to act on: blanks (EMPTY), checkboxes (MANUAL_REQUIRED), and signature/notary
@@ -130,6 +162,7 @@ export const mapBlocksToFields = (blocks: Block[]): DetectedFormField[] => {
   for (const k of blocks) {
     if (k.BlockType !== 'KEY_VALUE_SET') continue;
     if (!(k.EntityTypes ?? []).includes('KEY')) continue;
+    if (!inRange(k.Page)) continue;
 
     const label = childTextOf(k, byId) || 'Unknown Field';
     const value = valueBlockOf(k, byId);
@@ -214,6 +247,7 @@ export const mapBlocksToFields = (blocks: Block[]): DetectedFormField[] => {
   // SIGNATURE blocks → standalone manual fields
   for (const b of blocks) {
     if (b.BlockType !== 'SIGNATURE') continue;
+    if (!inRange(b.Page)) continue;
     fields.push({
       fieldId: uuidv4(),
       label: 'Signature',

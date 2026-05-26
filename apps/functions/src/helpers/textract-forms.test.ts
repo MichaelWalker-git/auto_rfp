@@ -17,6 +17,7 @@ import {
   startFormsAnalysis,
   fetchAllAnalysisBlocks,
   mapBlocksToFields,
+  parsePageRange,
 } from './textract-forms';
 
 const bbox = (left: number, top: number) => ({
@@ -205,6 +206,68 @@ describe('mapBlocksToFields', () => {
   it('returns an empty array when no KEY_VALUE_SET or SIGNATURE blocks exist', () => {
     const blocks: Block[] = [wordBlock('w', 'plain text')];
     expect(mapBlocksToFields(blocks)).toEqual([]);
+  });
+
+  it('drops fields outside allowedPages so each form sees only its own page range', () => {
+    const blocks: Block[] = [
+      wordBlock('w-p1', 'Field on page 1'),
+      kvBlock('val-p1', 'VALUE', [], undefined, 1),
+      kvBlock('key-p1', 'KEY', ['w-p1'], 'val-p1', 1),
+      wordBlock('w-p17', 'Field on page 17'),
+      kvBlock('val-p17', 'VALUE', [], undefined, 17),
+      kvBlock('key-p17', 'KEY', ['w-p17'], 'val-p17', 17),
+      wordBlock('w-p20', 'Field on page 20'),
+      kvBlock('val-p20', 'VALUE', [], undefined, 20),
+      kvBlock('key-p20', 'KEY', ['w-p20'], 'val-p20', 20),
+      { Id: 'sig-p1', BlockType: 'SIGNATURE', Page: 1, Geometry: bbox(0.6, 0.85) },
+      { Id: 'sig-p18', BlockType: 'SIGNATURE', Page: 18, Geometry: bbox(0.6, 0.85) },
+    ];
+    const fields = mapBlocksToFields(blocks, new Set([17, 18, 19]));
+    expect(fields.map((f) => f.label)).toEqual(['Field on page 17', 'Signature']);
+    expect(fields.every((f) => [17, 18].includes(f.pageNumber))).toBe(true);
+  });
+
+  it('treats undefined/null allowedPages as "no filter" (back-compat)', () => {
+    const blocks: Block[] = [
+      wordBlock('w', 'A'),
+      kvBlock('val', 'VALUE', [], undefined, 5),
+      kvBlock('key', 'KEY', ['w'], 'val', 5),
+    ];
+    expect(mapBlocksToFields(blocks)).toHaveLength(1);
+    expect(mapBlocksToFields(blocks, null)).toHaveLength(1);
+  });
+});
+
+describe('parsePageRange', () => {
+  it('returns null for null/undefined/empty inputs', () => {
+    expect(parsePageRange(null)).toBeNull();
+    expect(parsePageRange(undefined)).toBeNull();
+    expect(parsePageRange('')).toBeNull();
+  });
+
+  it('parses a single page number', () => {
+    expect(parsePageRange('13')).toEqual(new Set([13]));
+  });
+
+  it('expands a hyphenated range inclusively', () => {
+    expect(parsePageRange('17-19')).toEqual(new Set([17, 18, 19]));
+  });
+
+  it('expands a comma-separated mix of singles and ranges', () => {
+    expect(parsePageRange('1, 3-4, 7')).toEqual(new Set([1, 3, 4, 7]));
+  });
+
+  it('tolerates a swapped range (high-low) by treating it as low-high', () => {
+    expect(parsePageRange('19-17')).toEqual(new Set([17, 18, 19]));
+  });
+
+  it('returns null when nothing parsable was found', () => {
+    expect(parsePageRange('not-a-page')).toBeNull();
+    expect(parsePageRange('-')).toBeNull();
+  });
+
+  it('drops zero/negative numbers', () => {
+    expect(parsePageRange('0, -2, 4')).toEqual(new Set([4]));
   });
 
   it('tags a SELECTION_ELEMENT field with markType=CHECKBOX and markChar reflecting selection', () => {

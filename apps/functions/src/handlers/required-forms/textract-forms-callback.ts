@@ -1,7 +1,7 @@
 import type { Context, SNSEvent } from 'aws-lambda';
 
 import { withSentryLambda } from '@/sentry-lambda';
-import { fetchAllAnalysisBlocks, mapBlocksToFields } from '@/helpers/textract-forms';
+import { fetchAllAnalysisBlocks, mapBlocksToFields, parsePageRange } from '@/helpers/textract-forms';
 import { findRequiredFormByFormId, listRequiredFormsByOpportunity, updateRequiredForm } from '@/helpers/required-form';
 import { getCompanyProfile } from '@/helpers/company-profile';
 import { autofillFieldsWithTools } from '@/helpers/autofill-fields-with-tools';
@@ -107,7 +107,12 @@ export const baseHandler = async (event: SNSEvent, _context: Context): Promise<v
 
     try {
       const blocks = await fetchAllAnalysisBlocks(JobId);
-      const detected = mapBlocksToFields(blocks);
+      // Forms are detected from the *whole* solicitation PDF (one Textract job
+      // per source PDF, but multiple form records share that source file with
+      // different sourcePageRange values). Without this filter every form would
+      // get every KEY_VALUE_SET / SIGNATURE block from the entire PDF.
+      const allowedPages = parsePageRange(form.sourcePageRange);
+      const detected = mapBlocksToFields(blocks, allowedPages);
 
       let fields: DetectedFormField[] = detected;
       if (detected.length > 0) {
