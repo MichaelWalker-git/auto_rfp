@@ -21,6 +21,7 @@ interface RasterizePdfEvent {
   sourceFileKey: string;
   fields: DetectedFormField[];
   outputKey: string;
+  sourcePageRange?: string | null;
 }
 
 interface RasterizePdfResult {
@@ -37,6 +38,7 @@ export const baseHandler = async (event: RasterizePdfEvent): Promise<RasterizePd
       sourceFileKey: event.sourceFileKey,
       fields: event.fields ?? [],
       outputKey: event.outputKey,
+      sourcePageRange: event.sourcePageRange ?? null,
     });
     return { outputKey: out };
   } catch (err) {

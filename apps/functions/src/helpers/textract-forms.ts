@@ -8,6 +8,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { requireEnv } from './env';
 import type { DetectedFormField, FormFieldStatus } from '@auto-rfp/core';
+import { parsePageRange } from '@auto-rfp/core';
+
+// Re-export so existing callers (textract-forms-callback) keep working.
+export { parsePageRange };
 
 const REGION = requireEnv('REGION', 'us-east-1');
 
@@ -118,33 +122,6 @@ const bboxOf = (block: Block): DetectedFormField['boundingBox'] => {
   const bb = block.Geometry?.BoundingBox;
   if (!bb || bb.Top == null || bb.Left == null || bb.Width == null || bb.Height == null) return null;
   return { top: bb.Top, left: bb.Left, width: bb.Width, height: bb.Height };
-};
-
-/**
- * Parse a Bedrock-emitted page range like "13", "17-19", or "20-21,25" into a
- * Set of 1-indexed page numbers. Returns null for empty/malformed input so
- * callers can treat that as "no filter, accept every page".
- */
-export const parsePageRange = (range: string | null | undefined): Set<number> | null => {
-  if (!range) return null;
-  const pages = new Set<number>();
-  for (const part of range.split(',')) {
-    const trimmed = part.trim();
-    if (!trimmed) continue;
-    const dash = trimmed.indexOf('-');
-    if (dash === -1) {
-      const n = Number.parseInt(trimmed, 10);
-      if (Number.isFinite(n) && n > 0) pages.add(n);
-      continue;
-    }
-    const start = Number.parseInt(trimmed.slice(0, dash), 10);
-    const end = Number.parseInt(trimmed.slice(dash + 1), 10);
-    if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
-    const lo = Math.min(start, end);
-    const hi = Math.max(start, end);
-    for (let p = lo; p <= hi; p++) if (p > 0) pages.add(p);
-  }
-  return pages.size > 0 ? pages : null;
 };
 
 export const mapBlocksToFields = (

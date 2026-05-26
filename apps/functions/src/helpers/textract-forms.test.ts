@@ -238,36 +238,15 @@ describe('mapBlocksToFields', () => {
   });
 });
 
-describe('parsePageRange', () => {
-  it('returns null for null/undefined/empty inputs', () => {
-    expect(parsePageRange(null)).toBeNull();
-    expect(parsePageRange(undefined)).toBeNull();
-    expect(parsePageRange('')).toBeNull();
-  });
-
-  it('parses a single page number', () => {
-    expect(parsePageRange('13')).toEqual(new Set([13]));
-  });
-
+describe('parsePageRange (re-exported from @auto-rfp/core)', () => {
+  // Smoke test only — full coverage lives in packages/core/src/utils/page-range.test.ts.
+  // We keep this here to ensure the re-export from textract-forms.ts stays wired.
   it('expands a hyphenated range inclusively', () => {
     expect(parsePageRange('17-19')).toEqual(new Set([17, 18, 19]));
   });
 
-  it('expands a comma-separated mix of singles and ranges', () => {
-    expect(parsePageRange('1, 3-4, 7')).toEqual(new Set([1, 3, 4, 7]));
-  });
-
-  it('tolerates a swapped range (high-low) by treating it as low-high', () => {
-    expect(parsePageRange('19-17')).toEqual(new Set([17, 18, 19]));
-  });
-
-  it('returns null when nothing parsable was found', () => {
-    expect(parsePageRange('not-a-page')).toBeNull();
-    expect(parsePageRange('-')).toBeNull();
-  });
-
-  it('drops zero/negative numbers', () => {
-    expect(parsePageRange('0, -2, 4')).toEqual(new Set([4]));
+  it('returns null for empty input', () => {
+    expect(parsePageRange(null)).toBeNull();
   });
 
   it('tags a SELECTION_ELEMENT field with markType=CHECKBOX and markChar reflecting selection', () => {
