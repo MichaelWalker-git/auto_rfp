@@ -9,9 +9,9 @@ type Props = {
 }
 
 const PermissionWrapper = ({ requiredPermission, children, fallback }: Props) => {
-  const { orgId, permissions } = useAuth();
+  const { permissions } = useAuth();
 
-  if (!orgId || permissions && permissions.includes(requiredPermission)) {
+  if (permissions && permissions.includes(requiredPermission)) {
     return (
       <>
         {children}
@@ -23,8 +23,8 @@ const PermissionWrapper = ({ requiredPermission, children, fallback }: Props) =>
 };
 
 export function usePermission(requiredPermission: Permission): boolean {
-  const { orgId, permissions } = useAuth();
-  return !orgId || (permissions && permissions.includes(requiredPermission)) || false;
+  const { permissions } = useAuth();
+  return (permissions && permissions.includes(requiredPermission)) || false;
 }
 
 export default PermissionWrapper;

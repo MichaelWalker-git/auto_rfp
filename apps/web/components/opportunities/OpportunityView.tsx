@@ -5,9 +5,7 @@ import Link from 'next/link';
 import { useSWRConfig } from 'swr';
 import {
   ArrowLeft,
-  MessageSquare,
   HelpCircle,
-  FileText,
   Trophy,
   ShieldCheck,
   Paperclip,
@@ -21,9 +19,9 @@ import { OpportunityHeader } from './opportunity-header';
 import { AssigneeSelector } from './AssigneeSelector';
 import { OpportunitySolicitationDocuments } from './opportunity-attachments';
 import { OpportunityRFPDocuments } from './opportunity-rfp-documents';
+import { OpportunityChatDialog } from './OpportunityChatDialog';
 import { ExecutiveBriefView } from '@/components/brief/ExecutiveBriefView';
 import { QuestionsProvider } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components';
-import { OpportunityActionCard } from './opportunity-action-card';
 import { ProjectOutcomeCard } from '@/components/project-outcome/ProjectOutcomeCard';
 import { DebriefingCard } from '@/components/debriefing';
 import { FOIARequestCard } from '@/components/foia/FOIARequestCard';
@@ -36,6 +34,7 @@ import {
   SubmissionHistoryCard,
   ComplianceReport,
 } from '@/features/proposal-submission';
+import { RequiredFormsList } from '@/features/required-forms';
 import PermissionWrapper from '@/components/permission-wrapper';
 
 interface OpportunityViewProps {
@@ -81,6 +80,7 @@ interface SectionNavItem {
 const SECTION_NAV_ITEMS: SectionNavItem[] = [
   { id: 'executive-brief', label: 'Analysis', icon: <HelpCircle className="h-3.5 w-3.5" /> },
   { id: 'solicitation-documents', label: 'Solicitations', icon: <Paperclip className="h-3.5 w-3.5" /> },
+  { id: 'required-forms', label: 'Required Forms', icon: <FileEdit className="h-3.5 w-3.5" /> },
   { id: 'rfp-documents', label: 'RFP Documents', icon: <FileEdit className="h-3.5 w-3.5" /> },
   { id: 'submission-compliance', label: 'Submission', icon: <ShieldCheck className="h-3.5 w-3.5" /> },
   { id: 'post-award', label: 'Post-Award', icon: <Trophy className="h-3.5 w-3.5" /> },
@@ -208,6 +208,7 @@ const OpportunityContent = ({ className }: { className?: string }) => {
   const { projectId, oppId, orgId, opportunity, refetch } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id;
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Smart auto-reload: 5s if pending items, 30s if stable, stops after 3 unchanged
   useSmartPolling(orgId, projectId, oppId);
@@ -270,7 +271,12 @@ const OpportunityContent = ({ className }: { className?: string }) => {
 
       {/* ── Solicitation Documents ────────────────────────────────────── */}
       <section id="solicitation-documents" className="scroll-mt-4">
-        <OpportunitySolicitationDocuments />
+        <OpportunitySolicitationDocuments onAskAI={() => setIsChatOpen(true)} />
+      </section>
+
+      {/* ── Required Forms (separated from solicitation docs) ────────── */}
+      <section id="required-forms" className="scroll-mt-4">
+        <RequiredFormsList orgId={orgId} projectId={projectId} opportunityId={oppId} />
       </section>
 
       {/* ── RFP Documents ─────────────────────────────────────────────── */}
@@ -328,6 +334,15 @@ const OpportunityContent = ({ className }: { className?: string }) => {
           contractTitle={opportunity?.title ?? undefined}
         />
       </section>
+
+      {/* ── Floating AI Assistant ─────────────────────────────────────── */}
+      <OpportunityChatDialog 
+        opportunityId={oppId} 
+        orgId={orgId} 
+        projectId={projectId}
+        open={isChatOpen}
+        onOpenChange={setIsChatOpen}
+      />
     </div>
   );
 };

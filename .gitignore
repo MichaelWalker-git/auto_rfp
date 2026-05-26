@@ -33,6 +33,7 @@ packages/**/pnpm-workspace.yaml
 *.d.ts
 *.js
 !*.config.js
+!*.cy.js
 !jest.setup.js
 !jest.setup.env.js
 !jest.uuid-mock.js
@@ -51,3 +52,11 @@ packages/**/pnpm-workspace.yaml
 # Eval RFP fixtures (not committed)
 **/sections-rfps/
 **/rfp-texts/
+
+# Local ticket tracking
+.tickets/
+
+# Daily progress notes
+.daily-progress/
+cypress.env.json
+**/cypress.env.json

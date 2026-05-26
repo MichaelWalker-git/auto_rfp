@@ -14,3 +14,15 @@
 export * from './samgov';
 export * from './dibbs';
 export * from './highergov';
+
+// ─── Timeout utility for external API calls ─────────────────────────────────
+
+export const SOURCE_TIMEOUT_MS = 15_000;
+
+export const withSourceTimeout = <T>(promise: Promise<T>, label: string, ms = SOURCE_TIMEOUT_MS): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`${label} is responding slowly. Please try again later.`)), ms),
+    ),
+  ]);

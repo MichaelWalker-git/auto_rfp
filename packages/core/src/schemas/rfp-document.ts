@@ -84,6 +84,7 @@ export const RFP_DOCUMENT_TYPES = {
   CORRESPONDENCE: 'Correspondence',
   CLARIFYING_QUESTIONS: 'Clarifying Questions',
   QUESTIONS_AND_ANSWERS: 'Questions & Answers',
+  QUESTIONNAIRE: 'Questionnaire',
   OTHER: 'Other',
 } as const;
 
@@ -115,6 +116,7 @@ export const RFP_DOCUMENT_TYPE_DESCRIPTIONS: Record<keyof typeof RFP_DOCUMENT_TY
   CORRESPONDENCE: 'General correspondence related to the opportunity.',
   CLARIFYING_QUESTIONS: 'Questions to submit during the Q&A period. Generated from AI-identified ambiguities in the solicitation, filtered by status, and formatted for submission to the contracting officer.',
   QUESTIONS_AND_ANSWERS: 'Extracted questions from solicitation documents with AI-generated answers. Organized by section with question-answer pairs formatted for review and export.',
+  QUESTIONNAIRE: 'Filled questionnaire spreadsheet generated from a structured Q&A file. Contains the original questions with AI-generated answers written into the designated answer column, ready for submission.',
   OTHER: 'Miscellaneous document not covered by other categories.',
 };
 
@@ -145,6 +147,7 @@ const RFP_DOCUMENT_TYPE_ENUM = [
   'CORRESPONDENCE',
   'CLARIFYING_QUESTIONS',
   'QUESTIONS_AND_ANSWERS',
+  'QUESTIONNAIRE',
   'OTHER',
 ] as const;
 
@@ -154,6 +157,42 @@ export const RFPDocumentTypeSchema = z.enum(RFP_DOCUMENT_TYPE_ENUM).or(
 );
 
 export type RFPDocumentType = z.infer<typeof RFPDocumentTypeSchema>;
+
+// ─── Document Status ───
+
+/**
+ * RFP Document lifecycle statuses:
+ * - GENERATING:    AI is creating the document content
+ * - DRAFT:         Created (auto-detected or uploaded) — user has not edited yet
+ * - IN_PROGRESS:   User has started editing the document
+ * - NEEDS_REVIEW:  Review requested — waiting for reviewer/approver
+ * - READY:         Content finalized, ready for inclusion in proposal
+ * - APPROVED:      Formally approved by a reviewer/manager
+ * - FAILED:        Generation or processing failed
+ */
+export const RFP_DOCUMENT_STATUSES = {
+  GENERATING: 'Generating',
+  RETRYING: 'Retrying',
+  DRAFT: 'Draft',
+  IN_PROGRESS: 'In Progress',
+  NEEDS_REVIEW: 'Needs Review',
+  READY: 'Ready',
+  APPROVED: 'Approved',
+  FAILED: 'Failed',
+} as const;
+
+export const RFPDocumentStatusSchema = z.enum([
+  'GENERATING',
+  'DRAFT',
+  'IN_PROGRESS',
+  'NEEDS_REVIEW',
+  'READY',
+  'APPROVED',
+  'FAILED',
+  'RETRYING',
+]);
+
+export type RFPDocumentStatus = z.infer<typeof RFPDocumentStatusSchema>;
 
 // ─── Signature Status ───
 
@@ -270,8 +309,8 @@ export const RFPDocumentItemSchema = z.object({
   updatedAt: z.string(),
   /** Structured content for content-based documents. Raw HTML stored in content.content field. */
   content: RFPDocumentContentSchema.nullable().optional(),
-  /** Status for content-based documents */
-  status: z.string().nullable().optional(),
+  /** Document workflow status */
+  status: RFPDocumentStatusSchema.nullable().optional(),
   /** Title for content-based documents */
   title: z.string().nullable().optional(),
   /** Edit history for tracking modifications */
@@ -289,6 +328,8 @@ export const RFPDocumentItemSchema = z.object({
   htmlContentKey: z.string().nullable().optional(),
   /** Generation error message when status is FAILED */
   generationError: z.string().nullable().optional(),
+  /** Number of generation retry attempts (0 = first attempt, max 3) */
+  retryCount: z.number().default(0).nullable().optional(),
 });
 
 export type RFPDocumentItem = z.infer<typeof RFPDocumentItemSchema>;
@@ -306,7 +347,7 @@ export const CreateRFPDocumentDTOSchema = z.object({
   originalFileName: z.string().nullable().optional(),
   /** For content-based documents */
   content: RFPDocumentContentSchema.nullable().optional(),
-  status: z.string().optional(),
+  status: RFPDocumentStatusSchema.optional(),
   title: z.string().nullable().optional(),
 });
 
@@ -322,7 +363,7 @@ export const UpdateRFPDocumentDTOSchema = z.object({
   description: z.string().nullable().optional(),
   documentType: RFPDocumentTypeSchema.optional(),
   content: RFPDocumentContentSchema.nullable().optional(),
-  status: z.string().optional(),
+  status: RFPDocumentStatusSchema.nullable().optional(),
   title: z.string().nullable().optional(),
 });
 
@@ -381,3 +422,8 @@ export const RFP_EXPORT_FORMAT_EXTENSIONS: Record<RFPExportFormat, string> = {
   pptx: '.pptx',
   md: '.md',
 };
+
+// ─── Generation Retry Constants ───
+
+/** Maximum number of generation retry attempts (3 total = 1 initial + 2 retries) */
+export const MAX_GENERATION_RETRIES = 3;

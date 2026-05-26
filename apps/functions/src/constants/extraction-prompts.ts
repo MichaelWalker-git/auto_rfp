@@ -6,6 +6,22 @@ import { z } from 'zod';
  */
 
 // ================================
+// Shared Schema Helpers
+// ================================
+
+/** Coerce string prices like "$75.00" or "0.40" to numbers */
+const coerceToNumber = z.preprocess((val) => {
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') {
+    // Remove currency symbols, commas, and whitespace
+    const cleaned = val.replace(/[$,\s]/g, '');
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? null : parsed;
+  }
+  return null;
+}, z.number().nullable());
+
+// ================================
 // Document Classification Schema
 // ================================
 
@@ -198,7 +214,7 @@ Output JSON array of projects:
 
 export const ExtractedLaborRateSchema = z.object({
   position: z.string(),
-  baseRate: z.number().optional().nullable(),
+  baseRate: coerceToNumber,
   fullyLoadedRate: z.number().optional().nullable(),
   overhead: z.number().optional().nullable(),
   ga: z.number().optional().nullable(),
@@ -270,20 +286,52 @@ Output JSON array of labor rates:
 // BOM Item Extraction Schema
 // ================================
 
+// Helper to normalize category values to valid enum
+const BOM_CATEGORY_MAP: Record<string, 'HARDWARE' | 'SOFTWARE_LICENSE' | 'MATERIALS' | 'SUBCONTRACTOR' | 'TRAVEL' | 'ODC'> = {
+  hardware: 'HARDWARE',
+  software: 'SOFTWARE_LICENSE',
+  software_license: 'SOFTWARE_LICENSE',
+  license: 'SOFTWARE_LICENSE',
+  materials: 'MATERIALS',
+  material: 'MATERIALS',
+  supplies: 'MATERIALS',
+  services: 'ODC',
+  service: 'ODC',
+  subcontractor: 'SUBCONTRACTOR',
+  subcontract: 'SUBCONTRACTOR',
+  travel: 'TRAVEL',
+  odc: 'ODC',
+  other: 'ODC',
+};
+
+const coerceCategory = z.preprocess((val) => {
+  if (typeof val !== 'string') return 'ODC';
+  const normalized = val.toLowerCase().replace(/[\s-]/g, '_');
+  return BOM_CATEGORY_MAP[normalized] ?? 'ODC';
+}, z.enum(['HARDWARE', 'SOFTWARE_LICENSE', 'MATERIALS', 'SUBCONTRACTOR', 'TRAVEL', 'ODC']));
+
 export const ExtractedBOMItemSchema = z.object({
-  name: z.string(),
-  description: z.string().optional(),
-  category: z.enum(['HARDWARE', 'SOFTWARE_LICENSE', 'MATERIALS', 'SUBCONTRACTOR', 'TRAVEL', 'ODC']),
-  unitCost: z.number(),
-  quantity: z.number().optional(),
-  vendor: z.string().optional(),
-  partNumber: z.string().optional(),
+  name: z.string().min(1), // Must have a name
+  description: z.string().optional().nullable(),
+  category: coerceCategory, // Flexible category matching
+  unitCost: coerceToNumber.transform(v => v ?? 0), // Coerce strings, default to 0 if null
+  unit: z.string().optional().nullable().default('each'),
+  quantity: z.preprocess((val) => {
+    if (typeof val === 'number') return val;
+    if (typeof val === 'string') {
+      const parsed = parseFloat(val);
+      return isNaN(parsed) ? null : parsed;
+    }
+    return null;
+  }, z.number().optional().nullable()),
+  vendor: z.string().optional().nullable(),
+  partNumber: z.string().optional().nullable(),
   confidence: z.object({
-    name: z.number().min(0).max(100),
-    unitCost: z.number().min(0).max(100),
-    category: z.number().min(0).max(100),
-    overall: z.number().min(0).max(100),
-  }),
+    name: z.number().min(0).max(100).default(50),
+    unitCost: z.number().min(0).max(100).default(50),
+    category: z.number().min(0).max(100).default(50),
+    overall: z.number().min(0).max(100).default(50),
+  }).optional().default({}),
 });
 
 export type ExtractedBOMItem = z.infer<typeof ExtractedBOMItemSchema>;
@@ -295,6 +343,7 @@ For each item, extract:
 - description: Brief description of the item (optional)
 - category: One of: HARDWARE, SOFTWARE_LICENSE, MATERIALS, SUBCONTRACTOR, TRAVEL, ODC
 - unitCost: Cost per unit in USD
+- unit: Unit of measurement (e.g., "each", "per cubic foot", "per image", "per box", "per hour", "per month"). If the document has a "Unit" column, use that value exactly.
 - quantity: Quantity if specified (optional)
 - vendor: Vendor/supplier name (optional)
 - partNumber: Part/SKU number (optional)
@@ -302,7 +351,7 @@ For each item, extract:
 CATEGORIES:
 - HARDWARE: Physical equipment, servers, laptops, network gear
 - SOFTWARE_LICENSE: Software licenses, subscriptions, SaaS
-- MATERIALS: Office supplies, consumables, raw materials
+- MATERIALS: Office supplies, consumables, raw materials, storage services, imaging services
 - SUBCONTRACTOR: Subcontractor costs, consulting fees
 - TRAVEL: Travel expenses, per diem, lodging
 - ODC: Other Direct Costs that don't fit above
@@ -310,6 +359,7 @@ CATEGORIES:
 IMPORTANT:
 - Extract ALL line items found in the document
 - Prices should be in USD (convert if necessary)
+- The "unit" field is critical - look for columns like "Unit", "UOM", "Measurement" and extract the exact value (e.g., "per cubic foot", "per image", "per box")
 - Set confidence 0-100 based on how clearly data is stated
 
 Output ONLY valid JSON. No prose or commentary.`;
@@ -326,6 +376,7 @@ Output JSON array of BOM items:
     "description": "Rack-mounted server for application hosting",
     "category": "HARDWARE",
     "unitCost": 8500.00,
+    "unit": "each",
     "quantity": 4,
     "vendor": "Dell Technologies",
     "partNumber": "R750-BASE-001",
@@ -334,6 +385,19 @@ Output JSON array of BOM items:
       "unitCost": 90,
       "category": 95,
       "overall": 93
+    }
+  },
+  {
+    "name": "Storage",
+    "description": "Document storage services",
+    "category": "MATERIALS",
+    "unitCost": 0.40,
+    "unit": "per cubic foot",
+    "confidence": {
+      "name": 90,
+      "unitCost": 95,
+      "category": 80,
+      "overall": 88
     }
   }
 ]`;

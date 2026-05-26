@@ -8,15 +8,19 @@ import { Textarea } from '@/components/ui/textarea';
 import { Save, Sparkles, Trash2, MessageSquare, ChevronDown, ChevronRight } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { AnswerSource, ConfidenceBreakdown, ConfidenceBand, type CommentEntityType } from '@auto-rfp/core';
-import PermissionWrapper from '@/components/permission-wrapper';
+import { PermissionButton } from '@/components/ui/permission-button';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { ConfidenceScoreDisplay } from '@/components/confidence/confidence-score-display';
 import { SimilarQuestionsPanel } from './similar-questions-panel';
 import { getToolDisplayName } from './source-details-dialog';
 import { EditingIndicator, CollaborationPanel, FloatingPanel } from '@/features/collaboration';
 import { useComments } from '@/features/collaboration/hooks/useComments';
+import { QuestionApproveButton } from '@/features/questions';
 
 interface AnswerData {
   text: string;
+  /** The text that was last approved (used to detect if local edits match approved state) */
+  approvedText?: string;
   sources?: AnswerSource[];
   confidence?: number;
   confidenceBreakdown?: ConfidenceBreakdown;
@@ -132,6 +136,19 @@ export function QuestionEditor({
             <div className="flex-1 min-w-0 pr-2">
               <CardTitle className="text-base">{section.title}</CardTitle>
               <p className="text-sm text-muted-foreground mt-0.5">{question.question}</p>
+              {projectId && collaboration?.orgId && question?.id && question?.opportunityId && question?.questionFileId && (
+                <div className="mt-1.5">
+                  <QuestionApproveButton
+                    orgId={collaboration.orgId}
+                    projectId={projectId}
+                    opportunityId={question.opportunityId}
+                    questionFileId={question.questionFileId}
+                    questionId={question.id}
+                    approvedAt={question.approvedAt ?? null}
+                    approvedByName={question.approvedByName ?? null}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
@@ -295,6 +312,7 @@ export function QuestionEditor({
               isUnsaved={isUnsaved}
               onSelectQuestion={onSelectQuestion}
               onAnswerApplied={onAnswerApplied}
+              onUseAnswer={onAnswerChange}
             />
           )}
 
@@ -324,64 +342,75 @@ export function QuestionEditor({
 
           {/* Action area */}
           <div className="flex items-center justify-between pt-3 border-t">
-            <PermissionWrapper requiredPermission={'answer:generate'}>
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={onGenerateAnswer}
-                  disabled={isGenerating || isLockedByOther}
-                >
-                  {isGenerating ? (
-                    <><Spinner className="h-4 w-4" />Generating...</>
-                  ) : (
-                    <><Sparkles className="h-4 w-4" />Generate</>
-                  )}
-                </Button>
-                {selectedIndexes.size > 0 && (
-                  <Badge variant="secondary" className="text-xs">
-                    {selectedIndexes.size} {selectedIndexes.size === 1 ? 'index' : 'indexes'}
-                  </Badge>
+            <div className="flex items-center gap-3">
+              <PermissionButton
+                requiredPermission="answer:generate"
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={onGenerateAnswer}
+                disabled={isGenerating || isLockedByOther}
+              >
+                {isGenerating ? (
+                  <><Spinner className="h-4 w-4" />Generating...</>
+                ) : (
+                  <><Sparkles className="h-4 w-4" />Generate</>
                 )}
-              </div>
-            </PermissionWrapper>
+              </PermissionButton>
+              {selectedIndexes.size > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {selectedIndexes.size} {selectedIndexes.size === 1 ? 'index' : 'indexes'}
+                </Badge>
+              )}
+            </div>
 
             <div className="flex items-center gap-2">
-              <PermissionWrapper requiredPermission={'question:delete'}>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={onRemoveQuestion}
-                  disabled={isSaving || isGenerating || isRemoving || isLockedByOther}
-                >
-                  {isRemoving ? <><Spinner className="h-4 w-4 mr-1" />Removing...</> : <><Trash2 className="h-4 w-4 mr-1" />Remove</>}
-                </Button>
-              </PermissionWrapper>
-              <PermissionWrapper requiredPermission={'answer:edit'}>
-                {answer?.text && answer.status === 'APPROVED' && onUnapprove ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onUnapprove}
-                    disabled={isUnapproving || isRemoving || isLockedByOther}
-                    className="border-slate-300 text-slate-600 hover:bg-slate-50"
-                    title="Revert approval"
-                  >
-                    {isUnapproving ? <><Spinner className="h-4 w-4 mr-1" />Reverting...</> : 'Unapprove'}
-                  </Button>
-                ) : answer?.text ? (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={onApprove}
-                    disabled={isApproving || isRemoving || isGenerating || isLockedByOther}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
-                  >
-                    {isApproving ? <><Spinner className="h-4 w-4 mr-1" />Approving...</> : <><Save className="h-4 w-4 mr-1" />Approve</>}
-                  </Button>
-                ) : null}
-              </PermissionWrapper>
+              <PermissionDeleteButton
+                requiredPermission="question:delete"
+                variant="destructive"
+                size="sm"
+                onClick={onRemoveQuestion}
+                showLabel
+                label={isRemoving ? 'Removing...' : 'Remove'}
+                isLoading={isRemoving}
+              />
+              {/* Show Unapprove only if: has text + text matches approved text (user hasn't changed it) */}
+              {(() => {
+                const currentText = answer?.text?.trim() ?? '';
+                const approvedTextVal = answer?.approvedText?.trim() ?? '';
+                const isTextMatchingApproved = currentText === approvedTextVal && approvedTextVal.length > 0;
+                
+                if (currentText && isTextMatchingApproved && onUnapprove) {
+                  // Text matches what was approved — show Unapprove
+                  return (
+                    <PermissionButton
+                      requiredPermission="answer:edit"
+                      variant="outline"
+                      size="sm"
+                      onClick={onUnapprove}
+                      disabled={isUnapproving || isRemoving || isLockedByOther}
+                      className="border-slate-300 text-slate-600 hover:bg-slate-50"
+                    >
+                      {isUnapproving ? <><Spinner className="h-4 w-4 mr-1" />Reverting...</> : 'Unapprove'}
+                    </PermissionButton>
+                  );
+                } else if (currentText) {
+                  // Text exists but differs from approved (or never approved) — show Approve
+                  return (
+                    <PermissionButton
+                      requiredPermission="answer:edit"
+                      variant="default"
+                      size="sm"
+                      onClick={onApprove}
+                      disabled={isApproving || isRemoving || isGenerating || isLockedByOther}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+                    >
+                      {isApproving ? <><Spinner className="h-4 w-4 mr-1" />Approving...</> : <><Save className="h-4 w-4 mr-1" />Approve</>}
+                    </PermissionButton>
+                  );
+                }
+                return null;
+              })()}
             </div>
           </div>
         </CardContent>

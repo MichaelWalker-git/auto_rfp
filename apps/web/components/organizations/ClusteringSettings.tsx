@@ -10,7 +10,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useOrganization } from '@/lib/hooks/use-api';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
-import PermissionWrapper from '@/components/permission-wrapper';
+import { PermissionButton } from '@/components/ui/permission-button';
 import { CLUSTERING_THRESHOLDS } from '@auto-rfp/core';
 
 interface ClusteringSettingsProps {
@@ -185,18 +185,20 @@ export const ClusteringSettings = ({ orgId }: ClusteringSettingsProps) => {
         <Button variant="outline" onClick={handleReset} disabled={isSaving}>
           Reset to Defaults
         </Button>
-        <PermissionWrapper requiredPermission="org:edit">
-          <Button onClick={handleSave} disabled={isSaving || !hasChanges}>
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save Settings'
-            )}
-          </Button>
-        </PermissionWrapper>
+        <PermissionButton
+          requiredPermission="org:manage_settings"
+          onClick={handleSave}
+          disabled={isSaving || !hasChanges}
+        >
+          {isSaving ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            'Save Settings'
+          )}
+        </PermissionButton>
       </CardFooter>
     </Card>
   );

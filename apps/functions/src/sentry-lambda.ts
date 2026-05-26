@@ -2,22 +2,87 @@ import * as Sentry from '@sentry/serverless';
 
 const environment = process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV || 'development';
 const isProduction = environment === 'production';
+const sentryEnabled = !!process.env.SENTRY_DSN;
 
-Sentry.AWSLambda.init({
-  dsn: process.env.SENTRY_DSN,
-  environment,
+const BEDROCK_HOST_MARKER = 'bedrock-runtime';
 
-  // Performance monitoring - adjust based on environment
-  tracesSampleRate: isProduction ? 0.2 : 1.0,
+type SpanLike = { op?: string; description?: string };
 
-  // Enable profiling for Lambda functions
-  profilesSampleRate: isProduction ? 0.1 : 0.5,
+export const relabelBedrockSpans = <T extends { spans?: SpanLike[] }>(event: T): T => {
+  if (!event.spans?.length) return event;
+  for (const span of event.spans) {
+    if (span.op === 'http.client' && span.description?.includes(BEDROCK_HOST_MARKER)) {
+      span.op = 'ai.http.bedrock';
+    }
+  }
+  return event;
+};
 
-  // Enable sending PII for better debugging
-  sendDefaultPii: true,
-});
+/**
+ * Business-level retry error — thrown to trigger SQS reprocessing
+ * but intentionally excluded from Sentry error reporting.
+ */
+export class BusinessRetryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'BusinessRetryError';
+  }
+}
 
-Sentry.setTag('service', 'backend');
+/**
+ * Transient infrastructure error — thrown on temporary upstream failures
+ * (e.g., Bedrock 500). Triggers SQS retry but excluded from Sentry.
+ */
+export class TransientServiceError extends Error {
+  readonly statusCode: number;
+  constructor(message: string, statusCode: number) {
+    super(message);
+    this.name = 'TransientServiceError';
+    this.statusCode = statusCode;
+  }
+}
 
-export const withSentryLambda = Sentry.AWSLambda.wrapHandler;
+if (sentryEnabled) {
+  Sentry.AWSLambda.init({
+    dsn: process.env.SENTRY_DSN,
+    environment,
+
+    tracesSampleRate: isProduction ? 0.2 : 1.0,
+    profilesSampleRate: isProduction ? 0.1 : 0.5,
+    sendDefaultPii: true,
+
+    beforeSend(event, hint) {
+      const error = hint?.originalException;
+      if (error instanceof Error) {
+        if (error.name === 'BusinessRetryError' || error.name === 'TransientServiceError') {
+          return null;
+        }
+      }
+
+      if (event.message?.startsWith('Possible function timeout:') && event.tags?.['timeout']) {
+        const funcName = process.env.AWS_LAMBDA_FUNCTION_NAME ?? '';
+        if (
+          funcName.includes('GenerateAnswer') ||
+          funcName.includes('AnswerGen') ||
+          funcName.includes('searchopportunities')
+        ) {
+          return null;
+        }
+      }
+
+      return event;
+    },
+
+    beforeSendTransaction(event) {
+      return relabelBedrockSpans(event);
+    },
+  });
+
+  Sentry.setTag('service', 'backend');
+}
+
+export const withSentryLambda: typeof Sentry.AWSLambda.wrapHandler = sentryEnabled
+  ? Sentry.AWSLambda.wrapHandler
+  : ((handler) => handler) as typeof Sentry.AWSLambda.wrapHandler;
+
 export { Sentry };

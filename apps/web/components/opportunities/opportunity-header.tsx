@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { AlertCircle, Check, ExternalLink, Loader2, Pencil, Send, Target, Trash2, X } from 'lucide-react';
+import { AlertCircle, Check, ExternalLink, Loader2, Pencil, Send, Target, X } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -17,6 +17,8 @@ import {
   useOpportunityHeaderActions,
 } from './opportunity-header/';
 import { useEmitOpportunityEvent } from '@/lib/hooks/use-emit-opportunity-event';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
+import { PermissionButton } from '@/components/ui/permission-button';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -153,19 +155,22 @@ export const OpportunityHeader = () => {
                       </Button>
                     )
                   )}
-                  <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                  <PermissionButton
+                    requiredPermission="opportunity:edit"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditing(true)}
+                  >
                     <Pencil className="h-4 w-4 sm:mr-1" />
                     <span className="hidden sm:inline">Edit</span>
-                  </Button>
-                  <Button
+                  </PermissionButton>
+                  <PermissionDeleteButton
+                    requiredPermission="opportunity:delete"
                     variant="outline"
                     size="sm"
                     onClick={() => setShowDeleteConfirm(true)}
-                    disabled={isDeleting}
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  >
-                    {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                  </Button>
+                    isLoading={isDeleting}
+                  />
                 </>
               )}
             </div>

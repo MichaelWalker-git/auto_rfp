@@ -10,7 +10,7 @@ import {
   getLatestVersionNumber,
   saveVersionHtml,
 } from '@/helpers/rfp-document-version';
-import { RFP_DOCUMENT_TYPES, type RFPDocumentContent } from '@auto-rfp/core';
+import { RFP_DOCUMENT_TYPES, type RFPDocumentContent, MAX_GENERATION_RETRIES } from '@auto-rfp/core';
 import type { BedrockResponse, QaPair } from '@/types/document-generation';
 import { getProjectById } from '@/helpers/project';
 import { getOrganizationById } from '@/helpers/org';
@@ -349,7 +349,7 @@ export const updateDocumentStatus = async (
   projectId: string,
   opportunityId: string,
   documentId: string,
-  status: 'COMPLETE' | 'FAILED',
+  status: 'READY' | 'FAILED',
   content?: RFPDocumentContent,
   generationError?: string,
   orgId?: string,
@@ -357,7 +357,7 @@ export const updateDocumentStatus = async (
   let htmlContentKey: string | undefined;
 
   // Upload HTML to S3 when we have content and an orgId to build the key
-  if (status === 'COMPLETE' && content?.content && orgId) {
+  if (status === 'READY' && content?.content && orgId) {
     try {
       console.log(`[updateDocumentStatus] Uploading HTML to S3: ${content.content.length} chars`);
       htmlContentKey = await uploadRFPDocumentHtml({
@@ -387,7 +387,7 @@ export const updateDocumentStatus = async (
   // Safety net: if status is COMPLETE but we couldn't upload HTML to S3,
   // mark as FAILED to avoid leaving the document in an inconsistent state
   // (COMPLETE status but no htmlContentKey → "missing S3 key" error on read).
-  if (status === 'COMPLETE' && !htmlContentKey) {
+  if (status === 'READY' && !htmlContentKey) {
     const reason = !content?.content
       ? 'Document generation produced empty HTML content'
       : !orgId
@@ -435,7 +435,7 @@ export const updateDocumentStatus = async (
   });
 
   // Create version snapshot when document generation completes successfully
-  if (status === 'COMPLETE' && content?.content && orgId) {
+  if (status === 'READY' && content?.content && orgId) {
     try {
       const existingDoc = await getRFPDocument(projectId, opportunityId, documentId);
 
@@ -474,3 +474,97 @@ export const updateDocumentStatus = async (
     }
   }
 };
+
+// ─── Content Validation ──────────────────────────────────────────────────────
+// Detects empty, placeholder-only, or too-short generated content.
+
+export interface ContentValidationResult {
+  isValid: boolean;
+  reason?: string;
+}
+
+/** Minimum character count for valid document content (after stripping HTML and placeholders) */
+const MIN_CONTENT_LENGTH = 100;
+
+/**
+ * Validate that generated HTML content is not empty or placeholder-only.
+ * Returns { isValid: false, reason: "..." } if content is invalid.
+ */
+export const validateGeneratedContent = (html: string | null | undefined): ContentValidationResult => {
+  if (!html?.trim()) {
+    return { isValid: false, reason: 'Document content is completely empty' };
+  }
+
+  // Strip HTML tags
+  let text = html.replace(/<[^>]*>/g, '');
+
+  // Normalize whitespace
+  text = text.replace(/\s+/g, ' ').trim();
+
+  // Check 1: Completely empty after stripping HTML
+  if (!text) {
+    return { isValid: false, reason: 'Document contains only HTML tags with no text content' };
+  }
+
+  // Check 2: Remove unresolved placeholders and check what remains
+  const withoutPlaceholders = text
+    // {{MACRO}} style placeholders
+    .replace(/\{\{[A-Z_]+\}\}/g, '')
+    // [CONTENT: ...] style placeholders
+    .replace(/\[CONTENT:[^\]]*\]/gi, '')
+    // [placeholder] markers
+    .replace(/\[placeholder\]/gi, '')
+    // [Your ...] markers from templates
+    .replace(/\[Your [^\]]*\]/gi, '')
+    // Normalize again after removals
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!withoutPlaceholders) {
+    return { isValid: false, reason: 'Document only contains unresolved placeholders' };
+  }
+
+  // Check 3: Content too short (just title or minimal text)
+  if (withoutPlaceholders.length < MIN_CONTENT_LENGTH) {
+    return {
+      isValid: false,
+      reason: `Document content too short (${withoutPlaceholders.length} chars, minimum ${MIN_CONTENT_LENGTH})`,
+    };
+  }
+
+  return { isValid: true };
+};
+
+// ─── Retry Logic ─────────────────────────────────────────────────────────────
+
+// MAX_GENERATION_RETRIES is imported from @auto-rfp/core (see import at top of file)
+
+/** Base delay for retry attempts in seconds (used for exponential backoff) */
+export const RETRY_BASE_DELAY_SECONDS = 30;
+
+/** Maximum delay for retry attempts in seconds (cap for exponential backoff) */
+export const RETRY_MAX_DELAY_SECONDS = 120;
+
+/**
+ * Calculate delay for a retry attempt using exponential backoff.
+ * retryCount 1 → 30s, retryCount 2 → 60s, retryCount 3 → 120s (capped)
+ */
+export const calculateRetryDelay = (retryCount: number): number => {
+  const exponentialDelay = RETRY_BASE_DELAY_SECONDS * Math.pow(2, retryCount - 1);
+  return Math.min(exponentialDelay, RETRY_MAX_DELAY_SECONDS);
+};
+
+/**
+ * @deprecated Use calculateRetryDelay() for exponential backoff
+ */
+export const RETRY_DELAY_SECONDS = 30;
+
+export interface DocumentGenerationMessage {
+  orgId: string;
+  projectId: string;
+  opportunityId: string;
+  documentType: string;
+  templateId?: string;
+  documentId: string;
+  options?: Record<string, unknown>;
+}

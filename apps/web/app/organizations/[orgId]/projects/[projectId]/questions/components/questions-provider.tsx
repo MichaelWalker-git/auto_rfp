@@ -24,6 +24,8 @@ import { useProjectContext } from '@/context/project-context';
 // Interfaces
 interface AnswerData {
   text: string;
+  /** The text that was last approved (used to detect if local edits match approved state) */
+  approvedText?: string;
   sources?: AnswerSource[];
   confidence?: number;
   confidenceBreakdown?: ConfidenceBreakdown;
@@ -55,6 +57,8 @@ interface QuestionsContextType {
   setConfidenceFilter: (filter: ConfidenceBand | 'all') => void;
   sortByConfidence: boolean;
   setSortByConfidence: (sort: boolean) => void;
+  showPendingOnly: boolean;
+  setShowPendingOnly: (show: boolean) => void;
 
   // Data state
   isLoading: boolean;
@@ -149,6 +153,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   // Confidence filter/sort state
   const [confidenceFilter, setConfidenceFilter] = useState<ConfidenceBand | 'all'>('all');
   const [sortByConfidence, setSortByConfidence] = useState(false);
+  const [showPendingOnly, setShowPendingOnly] = useState(false);
 
   // Process state
   const [savingQuestions, setSavingQuestions] = useState<Set<string>>(new Set());
@@ -651,8 +656,18 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       });
     }
 
+    // Filter by pending approval only (has answer text but NOT approved)
+    if (showPendingOnly) {
+      result = result.filter((q: any) => {
+        const answerData = answers[q.id];
+        const hasText = answerData?.text && answerData.text.trim().length > 0;
+        const isApproved = answerData?.status === 'APPROVED';
+        return hasText && !isApproved;
+      });
+    }
+
     return result;
-  }, [questions, answers, confidenceFilter, searchQuery, sortByConfidence, opportunityId]);
+  }, [questions, answers, confidenceFilter, searchQuery, sortByConfidence, opportunityId, showPendingOnly]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const getCounts = useCallback(() => {
@@ -855,6 +870,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   // Sync server answer data to local state.
   // Merge server metadata (status, updatedByName, approvedByName, etc.)
   // while preserving local text edits for unsaved questions.
+  // Track approvedText for detecting when user reverts to original approved text.
   useEffect(() => {
     if (!serverAnswers) return;
     setAnswers((prev) => {
@@ -862,8 +878,12 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       for (const [qId, serverAnswer] of Object.entries(serverAnswers)) {
         const local = prev[qId];
         const hasLocalEdit = unsavedQuestionsRef.current.has(qId);
+        const serverStatus = (serverAnswer as AnswerData).status;
+        const serverText = (serverAnswer as AnswerData).text ?? '';
         next[qId] = {
           ...serverAnswer,
+          // Track the approved text for comparison when editing
+          approvedText: serverStatus === 'APPROVED' ? serverText : (local?.approvedText ?? undefined),
           // Preserve local text if user has unsaved edits
           ...(hasLocalEdit && local ? { text: local.text } : {}),
         };
@@ -889,7 +909,9 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     questionsRef.current = questions;
   }, [questions]);
 
-  // Autosave as DRAFT every 5 seconds for any unsaved questions
+  // Autosave every 5 seconds for any unsaved questions
+  // If text matches approvedText, save with APPROVED status to restore the approved state
+  // Otherwise save as DRAFT
   useEffect(() => {
     const interval = setInterval(async () => {
       const toSave = Array.from(unsavedQuestionsRef.current);
@@ -899,23 +921,42 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
         const answerData = answersRef.current[questionId];
         if (!answerData?.text?.trim()) continue;
 
+        // Check if text matches what was previously approved
+        const currentText = answerData.text.trim();
+        const approvedTextVal = answerData.approvedText?.trim() ?? '';
+        const textMatchesApproved = currentText === approvedTextVal && approvedTextVal.length > 0;
+        const statusToSave = textMatchesApproved ? 'APPROVED' : 'DRAFT';
+
         // Find the question to get opportunityId and questionFileId
         const question = questionsRef.current?.sections?.flatMap((s: any) => s.questions)?.find((q: any) => q.id === questionId);
         if (!question) continue;
 
         try {
-          await saveAnswer({
+          const response = await saveAnswer({
             questionId,
             projectId,
             opportunityId: question.opportunityId,
             questionFileId: question.questionFileId,
             text: answerData.text,
             sources: answerData.sources || [],
-            status: 'DRAFT',
+            status: statusToSave,
             ...(answerData.confidence !== undefined && { confidence: answerData.confidence }),
             ...(answerData.confidenceBreakdown && { confidenceBreakdown: answerData.confidenceBreakdown }),
             ...(answerData.confidenceBand && { confidenceBand: answerData.confidenceBand }),
           } as any);
+
+          if (response?.id) {
+            setAnswers((prev) => ({
+              ...prev,
+              [questionId]: {
+                ...prev[questionId],
+                status: statusToSave,
+                updatedBy: response.updatedBy,
+                updatedByName: response.updatedByName,
+                updatedAt: response.updatedAt,
+              },
+            }));
+          }
 
           setUnsavedQuestions((prev) => {
             const next = new Set(prev);
@@ -966,12 +1007,14 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       } as any);
 
       if (response?.id) {
+        const approvedText = response.text ?? answerData.text;
         // Update local answers state immediately so the UI reflects the new status
         setAnswers((prev) => ({
           ...prev,
           [questionId]: {
             ...prev[questionId],
-            text: response.text ?? prev[questionId]?.text ?? '',
+            text: approvedText,
+            approvedText, // Track the approved text for revert detection
             status: 'APPROVED',
             approvedBy: response.approvedBy,
             approvedByName: response.approvedByName,
@@ -1076,7 +1119,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     }
   };
 
-  // Compute the number of answers that can be approved (have text, not already APPROVED)
+  // Compute the number of answers that can be approved (have text that differs from approved text)
   // Filtered by opportunityId to only show count for current opportunity
   const approvableQuestionIds = useMemo(() => {
     if (!questions) return [];
@@ -1086,9 +1129,12 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     return allQuestions
       .filter((q) => {
         const answerData = answers[q.id];
-        const hasText = answerData?.text && answerData.text.trim().length > 0;
-        const isAlreadyApproved = answerData?.status === 'APPROVED';
-        return hasText && !isAlreadyApproved;
+        const currentText = answerData?.text?.trim() ?? '';
+        const approvedText = answerData?.approvedText?.trim() ?? '';
+        // Approvable if: has text AND text differs from approved text (or never approved)
+        const hasText = currentText.length > 0;
+        const isTextMatchingApproved = currentText === approvedText && approvedText.length > 0;
+        return hasText && !isTextMatchingApproved;
       })
       .map((q) => q.id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1104,21 +1150,31 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     const toApproveIds = [...approvableQuestionIds];
     setApprovingQuestions(new Set(toApproveIds));
 
+    console.log(`[approveAll] Starting batch approval for ${toApproveIds.length} questions`);
+
     let successCount = 0;
     let failCount = 0;
+    const failedQuestionIds: string[] = [];
 
     try {
       await Promise.all(
         toApproveIds.map(async (questionId) => {
           const answerData = answers[questionId];
-          if (!answerData?.text?.trim()) return;
+          if (!answerData?.text?.trim()) {
+            console.log(`[approveAll] Skipping questionId=${questionId} - no answer text`);
+            return;
+          }
 
           const question = questions?.sections
             ?.flatMap((s) => s.questions)
             ?.find((q) => q.id === questionId);
-          if (!question) return;
+          if (!question) {
+            console.log(`[approveAll] Skipping questionId=${questionId} - question not found in sections`);
+            return;
+          }
 
           try {
+            console.log(`[approveAll] Approving questionId=${questionId} opportunityId=${question.opportunityId} fileId=${question.questionFileId}`);
             const response = await approveAnswer({
               questionId,
               projectId,
@@ -1133,11 +1189,14 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
             } as SaveAnswerDTO);
 
             if (response?.id) {
+              console.log(`[approveAll] SUCCESS questionId=${questionId} answerId=${response.id}`);
+              const approvedTextValue = response.text ?? answerData.text;
               setAnswers((prev) => ({
                 ...prev,
                 [questionId]: {
                   ...prev[questionId],
-                  text: response.text ?? prev[questionId]?.text ?? '',
+                  text: approvedTextValue,
+                  approvedText: approvedTextValue, // Track the approved text for revert detection
                   status: 'APPROVED',
                   approvedBy: response.approvedBy,
                   approvedByName: response.approvedByName,
@@ -1154,10 +1213,16 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
               });
               successCount++;
             } else {
+              console.error(`[approveAll] FAILED questionId=${questionId} - No response.id returned`);
               failCount++;
+              failedQuestionIds.push(questionId);
             }
-          } catch {
+          } catch (err) {
+            const errorMsg = err instanceof Error ? err.message : String(err);
+            const errorStack = err instanceof Error ? err.stack : undefined;
+            console.error(`[approveAll] FAILED questionId=${questionId} error=${errorMsg}`, errorStack);
             failCount++;
+            failedQuestionIds.push(questionId);
           }
         }),
       );
@@ -1203,6 +1268,8 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     setConfidenceFilter,
     sortByConfidence,
     setSortByConfidence,
+    showPendingOnly,
+    setShowPendingOnly,
 
     // Data state
     isLoading,

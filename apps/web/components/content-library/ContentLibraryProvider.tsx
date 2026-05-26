@@ -37,7 +37,7 @@ export function ContentLibraryProvider({ children, orgId, kbId }: ContentLibrary
   const page = parseInt(searchParams.get('page') || '1', 10);
   const offset = (page - 1) * ITEMS_PER_PAGE;
 
-  // Fetch items with URL parameters
+  // Fetch items with URL parameters (standard pagination with offset)
   const {
     items = [],
     total = 0,

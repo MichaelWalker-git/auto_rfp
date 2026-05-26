@@ -8,6 +8,8 @@ import { z } from 'zod';
 import { useBOMItems, useCreateBOMItem, useDeleteBOMItem } from '@/lib/hooks/use-pricing';
 import { useDrafts } from '@/lib/hooks/use-extraction';
 import { Button } from '@/components/ui/button';
+import { PermissionButton } from '@/components/ui/permission-button';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,17 +17,17 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, Trash2, Package, Upload } from 'lucide-react';
 import { mutate } from 'swr';
-import { usePermission } from '@/components/permission-wrapper';
 import { ExtractionUploadDialog, ExtractionSourceBadge, type AnyDraft } from '@/components/extraction';
 import { PendingDraftsSection } from './PendingDraftsSection';
+import { DirectCostInfoPopover } from './DirectCostInfoPopover';
 import { cn } from '@/lib/utils';
 
 const BOM_CATEGORIES = BOMItemTypeSchema.options;
 
 const categoryLabels: Record<string, string> = {
-  HARDWARE: 'Hardware',
+  HARDWARE: 'Hardware & Equipment',
   SOFTWARE_LICENSE: 'Software License',
-  MATERIALS: 'Materials',
+  MATERIALS: 'Materials & Supplies',
   SUBCONTRACTOR: 'Subcontractor',
   TRAVEL: 'Travel',
   ODC: 'Other Direct Costs',
@@ -54,8 +56,6 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
   const { drafts: bomDrafts, refresh: refreshDrafts } = useDrafts<'BOM_ITEM'>(orgId, { draftType: 'BOM_ITEM', status: 'DRAFT' });
   
   const [showForm, setShowForm] = useState(false);
-  const canCreate = usePermission('pricing:create');
-  const canDelete = usePermission('pricing:delete');
 
   const bomItems = data?.bomItems ?? [];
 
@@ -96,17 +96,18 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">Bill of Materials</h2>
-          <p className="text-sm text-muted-foreground">Track hardware, software, materials, and other direct costs.</p>
-        </div>
-        {canCreate && (
-          <div className="flex gap-2">
-            <ExtractionUploadDialog orgId={orgId} targetType="BOM_ITEM"
-              onExtractionComplete={() => { mutate((key: string) => typeof key === 'string' && key.includes('/bom-items')); refreshDrafts(); }}
-              trigger={<Button variant="outline" size="sm"><Upload className="h-4 w-4 mr-1" />Upload Quote</Button>} />
-            <Button onClick={() => setShowForm(!showForm)} size="sm"><Plus className="h-4 w-4 mr-1" />Add Item</Button>
+          <h2 className="text-lg font-semibold">Direct Costs</h2>
+          <div className="flex items-center gap-1">
+            <p className="text-sm text-muted-foreground">Track software, equipment, subcontractors, travel, and other non-labor costs for proposals.</p>
+            <DirectCostInfoPopover />
           </div>
-        )}
+        </div>
+        <div className="flex gap-2">
+          <ExtractionUploadDialog orgId={orgId} targetType="BOM_ITEM"
+            onExtractionComplete={() => { mutate((key: string) => typeof key === 'string' && key.includes('/bom-items')); refreshDrafts(); }}
+            trigger={<PermissionButton requiredPermission="pricing:create" variant="outline" size="sm"><Upload className="h-4 w-4 mr-1" />Upload Quote</PermissionButton>} />
+          <PermissionButton requiredPermission="pricing:create" onClick={() => setShowForm(!showForm)} size="sm"><Plus className="h-4 w-4 mr-1" />Add Item</PermissionButton>
+        </div>
       </div>
 
       {/* Category Filter */}
@@ -124,8 +125,8 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
         <PendingDraftsSection
           orgId={orgId}
           drafts={bomDrafts}
-          title="Pending Draft BOM Items"
-          description="Review extracted BOM items before adding them to your inventory."
+          title="Pending Draft Cost Items"
+          description="Review extracted cost items before adding them to your inventory."
           mutateKey="/bom-items"
           onRefresh={refreshDrafts}
         />
@@ -133,7 +134,7 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
 
       {showForm && (
         <Card>
-          <CardHeader><CardTitle className="text-base">New BOM Item</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">New Direct Cost Item</CardTitle></CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
@@ -194,8 +195,8 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
       {bomItems.length === 0 ? (
         <Card><CardContent className="flex flex-col items-center justify-center py-12">
           <Package className="h-12 w-12 text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">No BOM items yet.</p>
-          <p className="text-sm text-muted-foreground">Add hardware, software, and other cost items.</p>
+          <p className="text-muted-foreground">No direct cost items yet.</p>
+          <p className="text-sm text-muted-foreground">Add software licenses, equipment, subcontractor costs, and other non-labor expenses.</p>
         </CardContent></Card>
       ) : (
         <>
@@ -224,11 +225,9 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
                     <td className="p-3 text-right font-semibold">${item.unitCost.toFixed(2)}</td>
                     <td className="p-3">{item.unit}</td>
                     <td className="p-3 text-muted-foreground">{item.vendor || '—'}</td>
-                    {canDelete && (
-                      <td className="p-3 text-right">
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(item.bomItemId)}><Trash2 className="h-4 w-4 text-red-500" /></Button>
-                      </td>
-                    )}
+                    <td className="p-3 text-right">
+                      <PermissionDeleteButton requiredPermission="pricing:delete" variant="ghost" size="sm" onClick={() => handleDelete(item.bomItemId)} />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -236,7 +235,7 @@ export const BOMCalculator = ({ orgId }: BOMCalculatorProps) => {
           </div>
           <div className="flex justify-end">
             <Card className="w-64"><CardContent className="p-4 flex justify-between items-center">
-              <span className="text-sm font-medium">Total BOM Value:</span>
+              <span className="text-sm font-medium">Total Direct Costs:</span>
               <span className="text-lg font-bold text-primary">${totalCost.toFixed(2)}</span>
             </CardContent></Card>
           </div>

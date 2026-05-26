@@ -90,6 +90,10 @@ const buildNotificationLink = (
     case 'OPPORTUNITY_ASSIGNED':
       // entityId is the opportunity ID (oppId)
       return entityId ? `${base}/opportunities/${entityId}` : `${base}/opportunities`;
+    case 'DECISION_DATE_7_DAYS':
+    case 'DECISION_DATE_3_DAYS':
+    case 'DECISION_DATE_1_DAY':
+      return entityId ? `${base}/opportunities/${entityId}` : `${base}/opportunities`;
     case 'DEADLINE_7_DAYS':
     case 'DEADLINE_3_DAYS':
     case 'DEADLINE_1_DAY':

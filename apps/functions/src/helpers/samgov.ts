@@ -272,9 +272,10 @@ function extractFilenameFromHeader(contentDisposition?: string): string | undefi
 
 export async function httpsGetBuffer(
   url: URL,
-  opts?: { maxRedirects?: number; httpsAgent?: https.Agent },
+  opts?: { maxRedirects?: number; httpsAgent?: https.Agent; urlValidator?: (url: string) => boolean; maxBytes?: number },
 ): Promise<{ buf: Buffer; contentType?: string; finalUrl: string; filename?: string }> {
   const maxRedirects = opts?.maxRedirects ?? 5;
+  const maxBytes = opts?.maxBytes;  // undefined = no limit
 
   const normalize = (v?: string) => (v ? (v.split(';')[0] ?? v).trim().toLowerCase() : undefined);
 
@@ -308,11 +309,20 @@ export async function httpsGetBuffer(
           }
 
           const nextUrl = new URL(loc, url);
+          
+          // SSRF protection: validate redirect URL if validator is provided
+          if (opts?.urlValidator && !opts.urlValidator(nextUrl.toString())) {
+            reject(new Error(`[SSRF] Redirect to blocked URL: ${nextUrl.toString()}`));
+            return;
+          }
+          
           res.resume();
 
           httpsGetBuffer(nextUrl, {
             maxRedirects: maxRedirects - 1,
             httpsAgent: opts?.httpsAgent,
+            urlValidator: opts?.urlValidator,
+            maxBytes: opts?.maxBytes,
           })
             .then((r) => {
               resolve({
@@ -330,8 +340,26 @@ export async function httpsGetBuffer(
         }
 
         const chunks: Buffer[] = [];
-        res.on('data', (c) => chunks.push(Buffer.isBuffer(c) ? c : Buffer.from(c)));
+        let totalBytes = 0;
+        let aborted = false;
+        
+        res.on('data', (c) => {
+          if (aborted) return;
+          const chunk = Buffer.isBuffer(c) ? c : Buffer.from(c);
+          totalBytes += chunk.length;
+          
+          // Streaming size enforcement - abort early if limit exceeded
+          if (maxBytes && totalBytes > maxBytes) {
+            aborted = true;
+            req.destroy();
+            reject(new Error(`[SIZE] Response exceeded ${maxBytes} bytes limit (received ${totalBytes}+) for ${url.toString()}`));
+            return;
+          }
+          
+          chunks.push(chunk);
+        });
         res.on('end', () => {
+          if (aborted) return;
           const body = Buffer.concat(chunks);
 
           if (status >= 200 && status < 300) {

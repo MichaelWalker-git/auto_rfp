@@ -10,6 +10,7 @@ import { requireEnv } from './env';
 import { docClient, getItem } from './db';
 import { nowIso } from './date';
 import { loadTextFromS3 } from './s3';
+import { isExtractedQuestionFile } from './questionFile';
 import { invokeModel } from './bedrock-http-client';
 import type { PineconeHit } from '@/types/pinecone';
 import { getEmbedding } from 'helpers/embeddings';
@@ -958,25 +959,47 @@ export async function loadSolicitationForBrief(
   // ── Step 1: Dynamically fetch ALL current processed question files for this opportunity ──
   // This ensures newly uploaded documents are always included, even if uploaded after init.
   let dynamicTextKeys: string[] = [];
+  let liveLookupSucceeded = false;
+  let liveActiveCount = 0;
   try {
     const liveFiles = await loadAllQuestionFiles(brief.projectId, brief.opportunityId as string);
-    const processedFiles = liveFiles.filter((f: any) => f.textFileKey && f.status === 'PROCESSED');
+    const activeFiles = liveFiles.filter(
+      (f: any) => f.status !== 'DELETED' && f.status !== 'CANCELLED' && f.status !== 'FAILED',
+    );
+    liveActiveCount = activeFiles.length;
+    const processedFiles = activeFiles.filter((f: any) => f.textFileKey && isExtractedQuestionFile(f.status));
     dynamicTextKeys = processedFiles.map((f: any) => f.textFileKey).filter(Boolean) as string[];
-    console.log(`loadSolicitationForBrief: found ${dynamicTextKeys.length} live processed files for opportunityId=${brief.opportunityId}`);
+    liveLookupSucceeded = true;
+    console.log(`loadSolicitationForBrief: found ${dynamicTextKeys.length} live processed files (${liveActiveCount} active) for opportunityId=${brief.opportunityId}`);
   } catch (err) {
     console.warn(`loadSolicitationForBrief: failed to fetch live question files, falling back to allTextKeys:`, (err as Error)?.message);
   }
 
+  // When the live lookup succeeds and there are no active files, the stored allTextKeys
+  // are stale (files were deleted). Surface the user-facing "no documents uploaded" error
+  // instead of attempting to load S3 objects that no longer exist.
+  if (liveLookupSucceeded && liveActiveCount === 0) {
+    throw new Error(
+      'No solicitation documents uploaded for this opportunity. Upload at least one document before generating an executive brief.',
+    );
+  }
+
+  // Files exist but none are processed yet → "still processing".
+  if (liveLookupSucceeded && liveActiveCount > 0 && dynamicTextKeys.length === 0) {
+    throw new Error(
+      'No processed question files found for this opportunity. Please wait for text extraction to complete.',
+    );
+  }
+
   // ── Step 2: Merge with stored allTextKeys (union, deduplicated) ──
   // Prefer live keys but keep any stored keys that may not be in the live query result.
-  const storedKeys = (brief.allTextKeys ?? []).filter(Boolean) as string[];
+  // Only trust stored keys when the live lookup failed — otherwise they may reference deleted S3 objects.
+  const storedKeys = liveLookupSucceeded ? [] : (brief.allTextKeys ?? []).filter(Boolean) as string[];
   const allKeys = Array.from(new Set([...dynamicTextKeys, ...storedKeys]));
 
   if (allKeys.length === 0) {
     throw new Error(
-      `No processed question files found for brief. ` +
-      `projectId=${brief.projectId}, opportunityId=${brief.opportunityId}. ` +
-      `Please upload and process solicitation documents before generating the brief.`
+      'No solicitation documents uploaded for this opportunity. Upload at least one document before generating an executive brief.',
     );
   }
 

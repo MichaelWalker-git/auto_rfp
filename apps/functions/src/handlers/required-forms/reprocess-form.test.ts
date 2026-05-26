@@ -1,0 +1,130 @@
+jest.mock('@middy/core', () => {
+  const middy = (handler: unknown) => ({ use: jest.fn().mockReturnThis(), handler });
+  return { __esModule: true, default: middy };
+});
+
+jest.mock('@aws-sdk/client-dynamodb', () => ({ DynamoDBClient: jest.fn(() => ({})) }));
+jest.mock('@aws-sdk/lib-dynamodb', () => ({
+  DynamoDBDocumentClient: { from: jest.fn(() => ({ send: jest.fn() })) },
+}));
+
+jest.mock('@/sentry-lambda', () => ({
+  withSentryLambda: (h: unknown) => h,
+  TransientServiceError: class extends Error {},
+}));
+
+jest.mock('@/middleware/rbac-middleware', () => ({
+  authContextMiddleware: () => ({}),
+  orgMembershipMiddleware: () => ({}),
+  requirePermission: () => ({}),
+  httpErrorMiddleware: () => ({}),
+}));
+
+const mockGetForm = jest.fn();
+const mockUpdateForm = jest.fn();
+jest.mock('@/helpers/required-form', () => ({
+  getRequiredForm: (...args: unknown[]) => mockGetForm(...args),
+  updateRequiredForm: (...args: unknown[]) => mockUpdateForm(...args),
+}));
+
+const mockStartTextract = jest.fn();
+jest.mock('@/helpers/textract-forms', () => ({
+  startFormsAnalysis: (...args: unknown[]) => mockStartTextract(...args),
+}));
+
+jest.mock('@/helpers/api', () => ({
+  apiResponse: (statusCode: number, body: unknown) => ({ statusCode, body: JSON.stringify(body) }),
+  getOrgId: (event: { queryStringParameters?: Record<string, string> }) =>
+    event.queryStringParameters?.orgId,
+}));
+
+process.env.DB_TABLE_NAME = 'test-table';
+process.env.REGION = 'us-east-1';
+process.env.DOCUMENTS_BUCKET = 'docs-bucket';
+process.env.TEXTRACT_FORMS_SNS_TOPIC_ARN = 'arn:sns:topic';
+process.env.TEXTRACT_FORMS_ROLE_ARN = 'arn:role';
+
+import type { APIGatewayProxyEventV2 } from 'aws-lambda';
+
+// Re-import after mocks
+import * as mod from './reprocess-form';
+const baseHandler = (mod as { handler: { handler: (event: APIGatewayProxyEventV2) => Promise<{ statusCode: number; body: string }> } }).handler.handler;
+
+const formStub = {
+  formId: 'form-1',
+  orgId: 'org-1',
+  projectId: 'proj-1',
+  opportunityId: 'opp-1',
+  sourceFileKey: 'org-1/proj-1/opp-1/required-forms/form-1/file.pdf',
+};
+
+const event = (q: Record<string, string>): APIGatewayProxyEventV2 =>
+  ({ queryStringParameters: q } as unknown as APIGatewayProxyEventV2);
+
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
+describe('reprocess-form', () => {
+  it('returns 400 when orgId is missing', async () => {
+    const res = await baseHandler(event({ projectId: 'p', opportunityId: 'o', formId: 'f' }));
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('returns 400 when query params are invalid', async () => {
+    const res = await baseHandler(event({ orgId: 'org-1' }));
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('returns 404 when form is not found', async () => {
+    mockGetForm.mockResolvedValueOnce(null);
+    const res = await baseHandler(event({ orgId: 'org-1', projectId: 'p', opportunityId: 'o', formId: 'f' }));
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('returns 400 when the form is not a PDF', async () => {
+    mockGetForm.mockResolvedValueOnce({ ...formStub, sourceFileKey: 'foo/bar.xlsx' });
+    const res = await baseHandler(event({
+      orgId: 'org-1', projectId: 'proj-1', opportunityId: 'opp-1', formId: 'form-1',
+    }));
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('starts Textract FORMS analysis and returns 202 on success', async () => {
+    mockGetForm.mockResolvedValueOnce(formStub);
+    mockUpdateForm.mockResolvedValue(formStub);
+    mockStartTextract.mockResolvedValueOnce('job-99');
+
+    const res = await baseHandler(event({
+      orgId: 'org-1', projectId: 'proj-1', opportunityId: 'opp-1', formId: 'form-1',
+    }));
+
+    expect(res.statusCode).toBe(202);
+    expect(JSON.parse(res.body)).toMatchObject({ ok: true, jobId: 'job-99', status: 'IN_PROGRESS' });
+    expect(mockUpdateForm).toHaveBeenCalledWith(expect.objectContaining({
+      patch: expect.objectContaining({ status: 'IN_PROGRESS' }),
+    }));
+    expect(mockStartTextract).toHaveBeenCalledWith({
+      bucket: 'docs-bucket',
+      fileKey: formStub.sourceFileKey,
+      jobTag: 'form-1',
+      snsTopicArn: 'arn:sns:topic',
+      roleArn: 'arn:role',
+    });
+  });
+
+  it('marks the form FAILED and returns 500 if Textract refuses to start', async () => {
+    mockGetForm.mockResolvedValueOnce(formStub);
+    mockUpdateForm.mockResolvedValue(formStub);
+    mockStartTextract.mockRejectedValueOnce(new Error('access denied'));
+
+    const res = await baseHandler(event({
+      orgId: 'org-1', projectId: 'proj-1', opportunityId: 'opp-1', formId: 'form-1',
+    }));
+
+    expect(res.statusCode).toBe(500);
+    expect(mockUpdateForm).toHaveBeenLastCalledWith(expect.objectContaining({
+      patch: expect.objectContaining({ status: 'FAILED', errorMessage: 'access denied' }),
+    }));
+  });
+});

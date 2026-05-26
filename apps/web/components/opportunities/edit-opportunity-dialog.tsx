@@ -54,6 +54,8 @@ const EditOpportunityFormSchema = z.object({
   setAside: z.string().trim().optional(),
   naicsCode: z.string().trim().optional(),
   pscCode: z.string().trim().optional(),
+  decisionDateIso: z.string().trim().optional().or(z.literal('')),
+  contractStartDateIso: z.string().trim().optional().or(z.literal('')),
   stage: z.enum([
     'IDENTIFIED', 'QUALIFYING', 'PURSUING', 'SUBMITTED',
     'WON', 'LOST', 'NO_BID', 'WITHDRAWN',
@@ -110,6 +112,8 @@ export function EditOpportunityDialog({ item, onUpdated, trigger }: EditOpportun
         setAside: item.setAside || '',
         naicsCode: item.naicsCode || '',
         pscCode: item.pscCode || '',
+        decisionDateIso: item.decisionDateIso ? item.decisionDateIso.split('T')[0] : '',
+        contractStartDateIso: item.contractStartDateIso ? item.contractStartDateIso.split('T')[0] : '',
         stage: (item.stage as OpportunityStage | undefined) ?? 'IDENTIFIED',
       });
       setSubmitError(null);
@@ -136,6 +140,8 @@ export function EditOpportunityDialog({ item, onUpdated, trigger }: EditOpportun
           naicsCode: values.naicsCode?.trim() || null,
           pscCode: values.pscCode?.trim() || null,
           organizationName: values.organizationName?.trim() || null,
+          decisionDateIso: values.decisionDateIso?.trim() || null,
+          contractStartDateIso: values.contractStartDateIso?.trim() || null,
         },
       });
 
@@ -210,6 +216,18 @@ export function EditOpportunityDialog({ item, onUpdated, trigger }: EditOpportun
               <div className="grid gap-2">
                 <Label htmlFor="edit-psc">PSC Code</Label>
                 <Input id="edit-psc" placeholder="e.g., D302" {...register('pscCode')} />
+              </div>
+            </div>
+
+            {/* Decision Date + Contract Start */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-decision-date">Decision Date</Label>
+                <Input id="edit-decision-date" type="date" {...register('decisionDateIso')} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-contract-start">Contract Start Date</Label>
+                <Input id="edit-contract-start" type="date" {...register('contractStartDateIso')} />
               </div>
             </div>
 

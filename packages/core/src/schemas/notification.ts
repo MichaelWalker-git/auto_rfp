@@ -34,6 +34,12 @@ export const NotificationTypeSchema = z.enum([
   'DOCUMENT_REJECTED',
   // Opportunity assignment
   'OPPORTUNITY_ASSIGNED',
+  // Decision date alerts
+  'DECISION_DATE_7_DAYS',
+  'DECISION_DATE_3_DAYS',
+  'DECISION_DATE_1_DAY',
+  // Document generation
+  'DOCUMENT_GENERATION_FAILED',
 ]);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 

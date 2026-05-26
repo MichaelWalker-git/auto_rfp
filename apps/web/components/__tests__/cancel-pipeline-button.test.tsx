@@ -32,6 +32,7 @@ jest.mock('../ui/use-toast', () => ({
 jest.mock('../permission-wrapper', () => ({
   __esModule: true,
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  usePermission: () => true, // Mock the hook to always return true (has permission)
 }));
 
 describe('CancelPipelineButton', () => {

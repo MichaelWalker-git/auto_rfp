@@ -4,6 +4,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import {
   Download,
   FileDown,
+  FileSpreadsheet,
   FileText,
   FolderOpen,
   Loader2,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PermissionButton } from '@/components/ui/permission-button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -35,7 +37,9 @@ import {
   useDocumentDownloadUrl,
   useDocumentPreviewUrl,
   useConvertToContent,
+  useGenerateRFPDocument,
 } from '@/lib/hooks/use-rfp-documents';
+import { MAX_GENERATION_RETRIES } from '@auto-rfp/core';
 import { RFPDocumentUploadDialog } from '@/components/rfp-documents/rfp-document-upload-dialog';
 import { RFPDocumentPreviewDialog } from '@/components/rfp-documents/rfp-document-preview-dialog';
 import { RFPDocumentExportDialog } from '@/components/rfp-documents/rfp-document-export-dialog';
@@ -47,6 +51,13 @@ import { useOpportunityContext } from './opportunity-context';
 import { formatDateTime } from './opportunity-helpers';
 import Link from 'next/link';
 import { useCurrentOrganization } from '@/context/organization-context';
+
+const getDocIcon = (doc: RFPDocumentItem) => {
+  if (doc.documentType === 'QUESTIONNAIRE' || doc.mimeType?.includes('spreadsheet') || doc.mimeType?.includes('excel')) {
+    return FileSpreadsheet;
+  }
+  return FileText;
+};
 import { useApprovalHistory } from '@/features/document-approval';
 import { ApprovalStatusBadge } from '@/features/document-approval';
 
@@ -87,6 +98,53 @@ function DocumentApprovalStatus({ doc, orgId, projectId }: { doc: RFPDocumentIte
   return null;
 }
 
+// Component to show generation status (GENERATING, RETRYING, FAILED)
+function DocumentGenerationStatus({ doc, isRequestingRetry }: { doc: RFPDocumentItem; isRequestingRetry?: boolean }) {
+  // Show "Requesting retry..." when user has clicked retry but API hasn't responded yet
+  if (isRequestingRetry) {
+    return (
+      <Badge variant="outline" className="text-xs border border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 animate-pulse">
+        <Loader2 className="h-3 w-3 mr-1 animate-spin inline" />
+        Requesting retry...
+      </Badge>
+    );
+  }
+
+  if (doc.status === 'GENERATING') {
+    return (
+      <Badge variant="outline" className="text-xs border border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 animate-pulse">
+        ⏳ Generating...
+      </Badge>
+    );
+  }
+  
+  if (doc.status === 'RETRYING') {
+    const retryCount = doc.retryCount ?? 0;
+    // Display current attempt number (retryCount is 1-indexed during retries)
+    // MAX_GENERATION_RETRIES = 3 means: initial + retry 1 + retry 2 = 3 total attempts
+    const attemptDisplay = retryCount + 1; // +1 to show which attempt is in progress
+    return (
+      <Badge 
+        variant="outline" 
+        className="text-xs border border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 animate-pulse"
+        title={`Attempt ${attemptDisplay} of ${MAX_GENERATION_RETRIES} total attempts`}
+      >
+        🔄 Retrying (attempt {attemptDisplay}/{MAX_GENERATION_RETRIES})...
+      </Badge>
+    );
+  }
+  
+  if (doc.status === 'FAILED') {
+    return (
+      <Badge variant="outline" className="text-xs border border-red-500/30 text-red-600 dark:text-red-400 bg-red-500/5">
+        ❌ Failed
+      </Badge>
+    );
+  }
+  
+  return null;
+}
+
 export function OpportunityRFPDocuments() {
   const { projectId, oppId, orgId, opportunity } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
@@ -107,8 +165,10 @@ export function OpportunityRFPDocuments() {
   const [convertingId, setConvertingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const { confirm, ConfirmDialog } = useConfirmDialog();
+  const { trigger: regenerateDocument } = useGenerateRFPDocument(orgId);
 
   // Determine if there are exportable documents (those with content, not generating)
   const hasExportableDocuments = useMemo(
@@ -206,6 +266,32 @@ export function OpportunityRFPDocuments() {
     }
   }, [deletingId, deleteDocument, toast, mutate]);
 
+  const handleRetry = useCallback(async (doc: RFPDocumentItem) => {
+    if (retryingId === doc.documentId) return;
+    try {
+      setRetryingId(doc.documentId);
+      await regenerateDocument({
+        projectId: doc.projectId,
+        opportunityId: doc.opportunityId,
+        documentType: doc.documentType,
+        documentId: doc.documentId,
+      });
+      toast({
+        title: 'Regenerating document',
+        description: `"${doc.name}" is being regenerated. This may take a few minutes.`,
+      });
+      await mutate();
+    } catch (err) {
+      toast({
+        title: 'Retry failed',
+        description: err instanceof Error ? err.message : 'Could not start document regeneration',
+        variant: 'destructive',
+      });
+    } finally {
+      setRetryingId(null);
+    }
+  }, [retryingId, regenerateDocument, toast, mutate]);
+
   // Compute available types and filtered documents
   const availableTypes = useMemo(() => {
     const typeCounts = new Map<string, number>();
@@ -272,10 +358,14 @@ export function OpportunityRFPDocuments() {
                 orgId={orgId}
                 onSuccess={() => mutate()}
               />
-              <Button size="sm" onClick={() => setUploadDialogOpen(true)}>
+              <PermissionButton 
+                size="sm" 
+                requiredPermission="rfp_document:upload"
+                onClick={() => setUploadDialogOpen(true)}
+              >
                 <Upload className="h-4 w-4 mr-2" />
                 Upload
-              </Button>
+              </PermissionButton>
             </div>
           </div>
         </CardHeader>
@@ -331,7 +421,7 @@ export function OpportunityRFPDocuments() {
                 const isDeleting = deletingId === doc.documentId;
                 const isDownloading = downloadingId === doc.documentId;
 
-                const canEdit = doc.content && doc.status !== 'GENERATING' && navOrgId;
+                const canEdit = (doc.content || doc.documentType === 'QUESTIONNAIRE') && doc.status !== 'GENERATING' && doc.status !== 'FAILED' && navOrgId;
                 const canConvert = !doc.content && doc.fileKey && (doc.mimeType?.includes('word') || doc.mimeType?.includes('text') || doc.mimeType?.includes('pdf') || doc.fileKey?.endsWith('.docx') || doc.fileKey?.endsWith('.pdf') || doc.fileKey?.endsWith('.txt') || doc.fileKey?.endsWith('.md'));
                 
                 const cardClassName = cn(
@@ -340,10 +430,12 @@ export function OpportunityRFPDocuments() {
                   (isDeleting || isDownloading) && 'opacity-80',
                 );
 
+                const DocIcon = getDocIcon(doc);
                 const cardContent = (
-                  <div className="flex items-start gap-3" data-doc-status={doc.status ?? 'COMPLETE'}>
+                  <>
+                  <div className="flex items-start gap-3" data-doc-status={doc.status ?? 'READY'}>
                     <div className="h-10 w-10 rounded-lg bg-muted hidden sm:flex items-center justify-center shrink-0">
-                      <FileText className="h-5 w-5 text-muted-foreground" />
+                      <DocIcon className="h-5 w-5 text-muted-foreground" />
                     </div>
 
                     <div className="min-w-0 flex-1">
@@ -351,22 +443,24 @@ export function OpportunityRFPDocuments() {
                         <p className="font-medium truncate text-sm" title={doc.name}>
                           {doc.name}
                         </p>
-                        <Badge variant="outline" className={cn('text-xs border', typeChip.cls)}>
-                          {RFP_DOCUMENT_TYPES[doc.documentType as keyof typeof RFP_DOCUMENT_TYPES] ?? doc.documentType}
-                        </Badge>
-                        <DocumentApprovalStatus 
-                          doc={doc} 
-                          orgId={orgId} 
-                          projectId={projectId} 
+                        <DocumentGenerationStatus doc={doc} isRequestingRetry={retryingId === doc.documentId} />
+                        <DocumentApprovalStatus
+                          doc={doc}
+                          orgId={orgId}
+                          projectId={projectId}
                         />
                       </div>
 
-                      <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-                        {doc.fileSizeBytes > 0 && <span>{formatFileSize(doc.fileSizeBytes)}</span>}
+                      <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+                        <span className={cn('font-medium', typeChip.cls.replace(/bg-\S+/g, '').replace(/border-\S+/g, '').trim())}>
+                          {RFP_DOCUMENT_TYPES[doc.documentType as keyof typeof RFP_DOCUMENT_TYPES] ?? doc.documentType}
+                        </span>
+                        <span>·</span>
+                        {doc.fileSizeBytes > 0 && <><span>{formatFileSize(doc.fileSizeBytes)}</span><span>·</span></>}
                         <span>{formatDateTime(doc.createdAt)}</span>
-                        {doc.createdByName && <span>by {doc.createdByName}</span>}
+                        {doc.createdByName && <><span>·</span><span>by {doc.createdByName}</span></>}
                         {doc.updatedBy && doc.updatedBy !== doc.createdBy && doc.updatedByName && (
-                          <span>• edited by {doc.updatedByName}</span>
+                          <><span>·</span><span>edited by {doc.updatedByName}</span></>
                         )}
                       </div>
                     </div>
@@ -377,11 +471,13 @@ export function OpportunityRFPDocuments() {
                           {convertingId === doc.documentId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
                         </Button>
                       )}
-                      <GoogleDriveSyncButton
-                        document={doc}
-                        orgId={orgId}
-                        onSyncComplete={() => mutate()}
-                      />
+                      {doc.status !== 'FAILED' && (
+                        <GoogleDriveSyncButton
+                          document={doc}
+                          orgId={orgId}
+                          onSyncComplete={() => mutate()}
+                        />
+                      )}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
@@ -389,21 +485,40 @@ export function OpportunityRFPDocuments() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {doc.content && navOrgId && (
+                          {(doc.content || doc.documentType === 'QUESTIONNAIRE') && doc.status !== 'FAILED' && navOrgId && (
                             <DropdownMenuItem asChild>
                               <Link href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/rfp-documents/${doc.documentId}/edit`} className="flex items-center">
-                                <Pencil className="h-4 w-4 mr-2" /> Edit Content
+                                <Pencil className="h-4 w-4 mr-2" /> {doc.documentType === 'QUESTIONNAIRE' ? 'Edit Spreadsheet' : 'Edit Content'}
                               </Link>
                             </DropdownMenuItem>
                           )}
-                          {!doc.content && doc.fileKey && (
+                          {!doc.content && doc.documentType !== 'QUESTIONNAIRE' && doc.fileKey && (
                             <DropdownMenuItem disabled={convertingId === doc.documentId} onClick={() => handleConvertAndEdit(doc)}>
                               <Pencil className="h-4 w-4 mr-2" /> Convert & Edit
                             </DropdownMenuItem>
                           )}
-                          {doc.content && (
+                          {doc.content && doc.status !== 'FAILED' && (
                             <DropdownMenuItem onClick={() => setExportDoc(doc)}>
                               <FileDown className="h-4 w-4 mr-2" /> Export
+                            </DropdownMenuItem>
+                          )}
+                          {doc.fileKey && (
+                            <DropdownMenuItem disabled={isDownloading} onClick={() => void handleDownload(doc)}>
+                              <Download className="h-4 w-4 mr-2" /> Download
+                            </DropdownMenuItem>
+                          )}
+                          {doc.status === 'FAILED' && !doc.fileKey && (
+                            <DropdownMenuItem 
+                              disabled={retryingId === doc.documentId} 
+                              onClick={() => handleRetry(doc)}
+                              className="text-amber-600"
+                            >
+                              {retryingId === doc.documentId ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                              )}
+                              Retry Generation
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />
@@ -415,6 +530,12 @@ export function OpportunityRFPDocuments() {
                       </DropdownMenu>
                     </div>
                   </div>
+                  {doc.status === 'FAILED' && doc.generationError && (
+                    <p className="mt-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-2 py-1">
+                      {doc.generationError}
+                    </p>
+                  )}
+                  </>
                 );
 
                 // Use explicit conditional rendering to avoid TypeScript error with dynamic component

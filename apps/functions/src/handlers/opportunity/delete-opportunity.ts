@@ -15,6 +15,7 @@ import {
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 import { deleteOpportunity } from '@/helpers/opportunity';
+import { deleteOpportunitySolicitationVectors } from '@/helpers/pinecone';
 import { listQuestionFilesByOpportunity, deleteQuestionFile } from '@/helpers/questionFile';
 import { requireEnv } from '@/helpers/env';
 import { queryBySkPrefix, deleteItem, batchDeleteItems } from '@/helpers/db';
@@ -25,6 +26,7 @@ import { ANSWER_PK } from '@/constants/answer';
 import { APN_REGISTRATION_PK } from '@/constants/apn';
 import { DEADLINE_PK } from '@/constants/deadline';
 import { RFP_DOCUMENT_PK } from '@/constants/rfp-document';
+import { REQUIRED_FORM_PK } from '@/constants/required-form';
 import { RFP_DOCUMENT_VERSION_PK } from '@/constants/rfp-document-version';
 import { PROPOSAL_SUBMISSION_PK } from '@/constants/proposal-submission';
 import { CLARIFYING_QUESTION_PK } from '@/constants/clarifying-question';
@@ -92,7 +94,7 @@ const deleteByPrefix = async (
  * - Document approvals
  * - Opportunity context
  */
-const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
     const { projectId, oppId, orgId } = event.queryStringParameters ?? {};
 
@@ -137,6 +139,15 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
       deletionResults.push({ entity: 's3Objects', count: objectsToDelete.length });
     }
 
+    // ── Step 1.5: Delete solicitation vectors from Pinecone ──────────────────
+    try {
+      const vectorsDeleted = await deleteOpportunitySolicitationVectors(orgId, oppId);
+      deletionResults.push({ entity: 'solicitationVectors', count: vectorsDeleted });
+    } catch (err) {
+      console.error('[delete-opportunity] Pinecone cleanup failed (continuing):', err);
+      deletionResults.push({ entity: 'solicitationVectors', count: 0 });
+    }
+
     // ── Step 2: Delete all related entities by SK prefix ──────────────────────
     // Most entities use SK format: {orgId}#{projectId}#{oppId}#...
     // Some use: {projectId}#{oppId}#...
@@ -156,6 +167,7 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
       [ENGAGEMENT_LOG_PK, 'engagementLogs'],
       [PROPOSAL_SUBMISSION_PK, 'proposalSubmissions'],
       [DOCUMENT_APPROVAL_PK, 'documentApprovals'],
+      [REQUIRED_FORM_PK, 'requiredForms'],
     ];
 
     // Entities with projectId#oppId SK prefix (no orgId)

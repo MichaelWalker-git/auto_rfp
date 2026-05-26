@@ -4,14 +4,16 @@ import { ANSWER_PK } from '../constants/answer';
 import { PK as COLLAB_PK } from '../constants/collaboration';
 import { requireEnv } from './env';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
-import { deleteItem, docClient, getItem, putItem, queryBySkPrefix, type DBItem } from './db';
+import { deleteItem, docClient, getItem, putItem, queryBySkPrefix, updateItem, type DBItem } from './db';
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import type { CreateQuestions, QuestionItem } from '@auto-rfp/core';
 
 export type QuestionItemDynamo = QuestionItem & DBItem;
 
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+// Lazy initialization to prevent Lambda cold start failures
+// (env vars may not be fully available during module initialization on Node.js 20+)
+const getTableName = () => requireEnv('DB_TABLE_NAME');
 
 export async function getQuestionItemById(
   projectId: string,
@@ -24,7 +26,7 @@ export async function getQuestionItemById(
     const sk = buildQuestionSK(projectId, opportunityId, fileId, questionId);
     const res = await docClient.send(
       new GetCommand({
-        TableName: DB_TABLE_NAME,
+        TableName: getTableName(),
         Key: {
           [PK_NAME]: QUESTION_PK,
           [SK_NAME]: sk,
@@ -209,3 +211,36 @@ export const buildQuestionSKPrefix = (
 ): string => fileId
   ? `${projectId}#${opportunityId}#${fileId}#`
   : `${projectId}#${opportunityId}#`;
+
+/**
+ * Mark a single question as approved by the given user. Mirrors the answer
+ * approval pattern (approvedBy / approvedByName / approvedAt). Returns the
+ * updated question, or null if the question does not exist or the caller's
+ * orgId does not own the parent QuestionFile (cross-tenant guard).
+ */
+export const approveQuestion = async (args: {
+  orgId: string;
+  projectId: string;
+  opportunityId: string;
+  questionFileId: string;
+  questionId: string;
+  userId: string;
+  userName: string;
+}): Promise<QuestionItemDynamo | null> => {
+  // Tenant guard: questions are project-keyed (no orgId in SK), so we need
+  // to verify the caller's org owns the parent QuestionFile before mutating.
+  // Lazy-import to avoid a circular dep with questionFile -> question.
+  const { getQuestionFileItem } = await import('./questionFile');
+  const qf = await getQuestionFileItem(args.projectId, args.opportunityId, args.questionFileId);
+  if (!qf || qf.orgId !== args.orgId) return null;
+
+  const sk = buildQuestionSK(args.projectId, args.opportunityId, args.questionFileId, args.questionId);
+  const existing = await getItem(QUESTION_PK, sk);
+  if (!existing) return null;
+  const updated = await updateItem<QuestionItemDynamo>(QUESTION_PK, sk, {
+    approvedBy: args.userId,
+    approvedByName: args.userName,
+    approvedAt: new Date().toISOString(),
+  });
+  return updated;
+};

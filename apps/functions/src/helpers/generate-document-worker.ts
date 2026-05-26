@@ -198,10 +198,26 @@ export const cleanGeneratedHtml = (html: string): string => {
     .replace(/<!--\s*PRESERVE STYLING[^\n]*\n?/gi, '')
     .replace(/<!--\s*Section guidance:[^\n]*\n?/gi, '');
 
-  // Strip [CONTENT: ...] wrappers — the AI sometimes wraps generated text inside
-  // the placeholder markers instead of replacing them. Extract the inner content.
-  // Handles multi-line content inside the markers.
+  // Strip the [CONTENT: ...] placeholder when its inner text is the prompt
+  // instruction itself ("Write the complete document content...") — that means
+  // the AI echoed the placeholder verbatim instead of generating content.
+  // Removing the whole block (instead of unwrapping it) prevents prompt
+  // instructions from leaking into the final document.
+  cleaned = cleaned.replace(
+    /\[CONTENT:\s*Write the complete document content[\s\S]*?\]/gi,
+    '',
+  );
+  // For other [CONTENT: ...] wrappers (where the AI put real content inside the
+  // markers instead of replacing them), keep the inner content.
   cleaned = cleaned.replace(/\[CONTENT:\s*([\s\S]*?)\]/gi, '$1');
+  // Defense-in-depth: even when the AI dropped the brackets but reproduced the
+  // exact instruction text, strip the standalone sentence so it never reaches
+  // the rendered document. Match the literal opening that's unique enough to
+  // not collide with legitimate prose.
+  cleaned = cleaned.replace(
+    /Write the complete document content here based on the solicitation requirements and provided context\.[^<]*?(?:exactly as they appear\.|Include appropriate headings, sections, and structure\.)/gi,
+    '',
+  );
 
   // Strip leaked scaffold instruction text that the AI reproduced without HTML comment markers.
   // These are fragments from the TEMPLATE SCAFFOLD comment that leak into the output.
@@ -594,6 +610,13 @@ export const processJobInner = async (job: Job): Promise<void> => {
   if (documentType === 'QUESTIONS_AND_ANSWERS') {
     const { generateQaDocument } = await import('@/helpers/qa-questions-document');
     await generateQaDocument({ orgId, projectId, opportunityId, documentId, templateId });
+    return;
+  }
+
+  // ─── QUESTIONNAIRE: No AI — fill answers into original XLSX ───
+  if (documentType === 'QUESTIONNAIRE') {
+    const { generateQuestionnaireDocument } = await import('@/helpers/questionnaire-document');
+    await generateQuestionnaireDocument({ orgId, projectId, opportunityId, documentId });
     return;
   }
 
@@ -995,7 +1018,8 @@ export const processJobInner = async (job: Job): Promise<void> => {
     return;
   }
 
-  // ─── Step 7b: Update DynamoDB metadata (status + htmlContentKey, no inline HTML) ───
+  // ─── Step 7b: Update DynamoDB metadata (htmlContentKey only, no status change yet) ───
+  // NOTE: Status stays GENERATING — the handler will set READY only after validation passes
   const dbContent = {
     title: finalDocument.title,
     customerName: finalDocument.customerName,
@@ -1006,7 +1030,8 @@ export const processJobInner = async (job: Job): Promise<void> => {
   await updateRFPDocumentMetadata({
     projectId, opportunityId, documentId,
     updates: {
-      status: 'COMPLETE',
+      // Don't set status here — let the handler set READY after validation passes
+      generationError: '',
       content: dbContent,
       title: finalDocument.title || getDocumentTypeLabel(documentType),
       name: finalDocument.title || getDocumentTypeLabel(documentType),
@@ -1015,7 +1040,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
     updatedBy: 'system',
   });
 
-  console.log(`[worker] DynamoDB updated: status=COMPLETE, htmlContentKey=${htmlContentKey}`);
+  console.log(`[worker] DynamoDB updated: htmlContentKey=${htmlContentKey} (status unchanged, pending validation)`);
 
   // ─── Step 7c: Create version snapshot ───
   try {

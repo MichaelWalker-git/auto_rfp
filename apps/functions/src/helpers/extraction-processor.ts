@@ -504,10 +504,10 @@ export const extractBOMItemsFromDocument = async (
         description: item.description ?? '',
         category: item.category,
         unitCost: item.unitCost,
-        unit: 'each',
+        unit: item.unit ?? 'each', // Use extracted unit or default to 'each'
         quantity: item.quantity ?? 1,
-        vendor: item.vendor,
-        partNumber: item.partNumber,
+        vendor: item.vendor ?? undefined,
+        partNumber: item.partNumber ?? undefined,
         extractionSource: {
           sourceType: 'DIRECT_UPLOAD',
           sourceDocumentKey: s3Key,

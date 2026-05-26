@@ -346,7 +346,7 @@ export const OpportunityItemCard = ({
   }, []);
 
   return (
-    <Card
+    <Card data-testid="opportunity-card" 
       className={`group cursor-pointer overflow-hidden transition-all duration-200 hover:shadow-md hover:border-primary/20 flex flex-col bg-gradient-to-br from-background to-muted/30 ${className || ''}`}
     >
       <CardContent className="p-3 flex-1 flex flex-col gap-1.5" onClick={() => onOpen?.(item)}>
@@ -387,6 +387,20 @@ export const OpportunityItemCard = ({
             <span className="flex items-center gap-1">
               <FileText className="h-3 w-3 shrink-0" />
               Due {new Date(item.responseDeadlineIso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
+          )}
+          {(item.decisionDateIso || item.contractStartDateIso) && (
+            <span className="flex items-center gap-1">
+              <FileText className="h-3 w-3 shrink-0" />
+              {item.decisionDateIso ? (
+                <>
+                  Decision {new Date(item.decisionDateIso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </>
+              ) : (
+                <>
+                  Contract Start {new Date(item.contractStartDateIso!).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </>
+              )}
             </span>
           )}
         </div>

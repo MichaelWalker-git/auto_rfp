@@ -31,6 +31,11 @@ export function rfpDocumentDomain(args?: {
         entry: lambdaEntry('rfp-document/export-all-rfp-documents.ts'),
         memorySize: 2048,
         timeoutSeconds: 120,
+        // pdfjs-dist + @napi-rs/canvas are deliberately NOT bundled here.
+        // They live in the dedicated rasterize-pdf-worker Lambda which this
+        // function invokes synchronously when an encrypted PDF is hit.
+        // Keeping them out of every export bundle keeps us under the 250 MB
+        // unzipped Lambda hard limit.
         nodeModules: ['@sparticuz/chromium', 'puppeteer-core', 'html-to-docx', 'jszip'],
       },
       {
@@ -38,6 +43,14 @@ export function rfpDocumentDomain(args?: {
         path: 'generate-document',
         entry: lambdaEntry('rfp-document/generate-document.ts'),
         extraEnv: { DOCUMENT_GENERATION_QUEUE_URL: docGenQueueUrl },
+      },
+      {
+        method: 'POST',
+        path: 'generate-questionnaire',
+        entry: lambdaEntry('rfp-document/generate-questionnaire-document.ts'),
+        memorySize: 512,
+        timeoutSeconds: 60,
+        nodeModules: ['exceljs'],
       },
       { method: 'POST', path: 'convert-to-content', entry: lambdaEntry('rfp-document/convert-to-content.ts') },
       { method: 'POST', path: 'sync-to-google-drive', entry: lambdaEntry('rfp-document/sync-to-google-drive.ts'), timeoutSeconds: 60 },

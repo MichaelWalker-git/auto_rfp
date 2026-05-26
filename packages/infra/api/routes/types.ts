@@ -11,6 +11,13 @@ export type RouteDef = {
   timeoutSeconds?: number;
   /** Extra npm packages to install alongside the bundle (not bundled by esbuild) */
   nodeModules?: string[];
+  /**
+   * Force the install step (`nodeModules`) to run inside the Lambda Docker image
+   * instead of locally. Required for any package that ships a native binary
+   * (e.g. `@napi-rs/canvas`) so the Linux x64 build is shipped regardless of
+   * the developer's host platform.
+   */
+  forceDockerBundling?: boolean;
 };
 
 export type DomainRoutes = {

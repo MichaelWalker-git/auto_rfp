@@ -22,19 +22,14 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { getApiKey } from '@/helpers/api-key-storage';
-import { uploadToS3 } from '@/helpers/s3';
 import { createOpportunity, findOpportunityBySourceId } from '@/helpers/opportunity';
 import { getProjectById } from '@/helpers/project';
 import { syncOpportunityToApn } from '@/helpers/apn-db';
-import { createQuestionFile } from '@/helpers/questionFile';
-import { startPipeline } from '@/helpers/solicitation';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
 import { resolveUserNames } from '@/helpers/resolve-users';
+import { importAttachments } from '@/helpers/attachment-importer';
 import {
   httpsGetBuffer,
-  guessContentType,
-  buildAttachmentFilename,
-  buildAttachmentS3Key,
   fetchOpportunityViaSearch,
   extractAttachmentsFromOpportunity,
   safeIsoOrNull,
@@ -56,7 +51,6 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const SAM_API_ORIGIN   = process.env.SAM_API_ORIGIN || 'https://api.sam.gov';
 const DIBBS_BASE_URL   = requireEnv('DIBBS_BASE_URL', 'https://www.dibbs.bsm.dla.mil');
 const httpsAgent = new https.Agent({ keepAlive: true });
@@ -534,65 +528,6 @@ const importHigherGov = async (
     higherGovOppKey: opp.opp_key, opportunityId: oppId,
     imported: files.length, opportunity: item, files,
   });
-};
-
-// ─── Shared attachment import ─────────────────────────────────────────────────
-
-type Attachment = { url: string; name?: string; mimeType?: string };
-
-const importAttachments = async (args: {
-  orgId: string;
-  projectId: string;
-  id: string;
-  attachments: Attachment[];
-  oppId: string;
-  sourceDocumentId?: string;
-}): Promise<Array<{ questionFileId: string; fileKey: string; executionArn?: string }>> => {
-  const files: Array<{ questionFileId: string; fileKey: string; executionArn?: string }> = [];
-
-  for (const a of args.attachments) {
-    const { buf, contentType, filename: headerFilename } = await httpsGetBuffer(new URL(a.url), { httpsAgent });
-
-    let filename = buildAttachmentFilename(a, headerFilename);
-    const ct = a.mimeType || contentType || guessContentType(filename);
-
-    if (filename && !filename.includes('.') && ct) {
-      const extFromCt = contentTypeToExt(ct);
-      if (extFromCt) filename = `${filename}${extFromCt}`;
-    }
-
-    const fileKey = buildAttachmentS3Key({
-      orgId: args.orgId,
-      projectId: args.projectId,
-      noticeId: args.id,
-      attachmentUrl: a.url,
-      filename,
-    });
-
-    await uploadToS3(DOCUMENTS_BUCKET, fileKey, buf, ct ?? 'application/octet-stream');
-
-    const qf = await createQuestionFile({
-      orgId: args.orgId,
-      oppId: args.oppId,
-      projectId: args.projectId,
-      fileKey,
-      originalFileName: filename,
-      mimeType: ct ?? 'application/octet-stream',
-      sourceDocumentId: args.sourceDocumentId,
-    });
-
-    const { executionArn } = await startPipeline(
-      args.projectId,
-      args.oppId,
-      qf.questionFileId,
-      qf.fileKey,
-      qf.mimeType ?? undefined,
-    );
-
-    files.push({ questionFileId: qf.questionFileId, fileKey, executionArn });
-  }
-
-  return files;
 };
 
 // ─── Export ───────────────────────────────────────────────────────────────────

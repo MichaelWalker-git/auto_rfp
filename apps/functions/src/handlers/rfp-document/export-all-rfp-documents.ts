@@ -22,6 +22,7 @@ import {
   loadDocumentHtmlForExport,
   expandTableOfContents,
 } from '@/helpers/export';
+import { getFileFromS3 } from '@/helpers/s3';
 import { htmlToPdfBuffer } from '@/helpers/export-pdf';
 import { htmlToDocxBuffer } from '@/helpers/export-docx';
 import { htmlToPptxBuffer } from '@/helpers/export-pptx';
@@ -295,6 +296,61 @@ export const baseHandler = async (
       });
     }
 
+    // ── Export Questionnaire Documents (filled XLSX files) ──
+    try {
+      const questionnaireDocs = documents.filter(
+        (doc) => doc.documentType === 'QUESTIONNAIRE' && doc.fileKey && !doc.deletedAt,
+      );
+
+      for (const doc of questionnaireDocs) {
+        try {
+          const body = await getFileFromS3(DOCUMENTS_BUCKET, doc.fileKey);
+          const bytes = await body.transformToByteArray();
+
+          const fileName = doc.originalFileName || doc.name || 'questionnaire.xlsx';
+          const sanitizedName = sanitizeFileName(fileName.replace(/\.xlsx$/i, '')).slice(0, 80);
+          zip.file(`Questionnaires/${sanitizedName}.xlsx`, bytes);
+          exportedDocs.push({ documentId: doc.documentId, title: doc.name, formats: ['xlsx'], skipped: false });
+        } catch (qErr) {
+          console.warn(`Failed to export questionnaire "${doc.name}":`, (qErr as Error)?.message);
+          exportedDocs.push({ documentId: doc.documentId, title: doc.name, formats: [], skipped: true, skipReason: 'Questionnaire export failed' });
+        }
+      }
+    } catch (err) {
+      console.warn('Questionnaire export failed (non-fatal):', (err as Error)?.message);
+    }
+
+    // ── Export Required Forms (filled PDFs) ──
+    try {
+      const { listRequiredFormsByOpportunity } = await import('@/helpers/required-form');
+      const { fillPdfForm } = await import('@/helpers/pdf-form-filler');
+
+      if (!opportunityId) throw new Error('opportunityId required for forms export');
+      const forms = await listRequiredFormsByOpportunity({ orgId, projectId, opportunityId });
+      const formsWithFields = forms.filter((f) => f.fields.length > 0 && f.sourceFileKey);
+
+      for (const form of formsWithFields) {
+        try {
+          const outputKey = `${orgId}/${projectId}/${opportunityId}/required-forms/${form.formId}/export-temp.pdf`;
+          await fillPdfForm({ sourceFileKey: form.sourceFileKey, fields: form.fields, outputKey });
+
+          const filledObj = await s3Client.send(new GetObjectCommand({ Bucket: DOCUMENTS_BUCKET, Key: outputKey }));
+          const filledBytes = await filledObj.Body?.transformToByteArray();
+
+          if (filledBytes) {
+            const sanitizedFormName = form.name.replace(/[^a-zA-Z0-9\s\-_()]/g, '').trim().slice(0, 80) || 'Form';
+            zip.file(`Required Forms/${sanitizedFormName}.pdf`, filledBytes);
+            exportedDocs.push({ documentId: form.formId, title: form.name, formats: ['pdf'], skipped: false });
+          }
+        } catch (formErr) {
+          console.warn(`Failed to export form "${form.name}":`, (formErr as Error)?.message);
+          exportedDocs.push({ documentId: form.formId, title: form.name, formats: [], skipped: true, skipReason: 'Form export failed' });
+        }
+      }
+    } catch (err) {
+      console.warn('Required forms export failed (non-fatal):', (err as Error)?.message);
+    }
+
     // Check if any documents were actually exported
     const successfulExports = exportedDocs.filter((d) => !d.skipped);
     if (successfulExports.length === 0) {
@@ -322,15 +378,19 @@ export const baseHandler = async (
       }),
     );
 
-    // Generate presigned URL
-    const url = await getSignedUrl(
-      s3Client as Parameters<typeof getSignedUrl>[0],
-      new GetObjectCommand({ Bucket: DOCUMENTS_BUCKET, Key: s3Key }),
-      { expiresIn: PRESIGN_EXPIRES_IN },
-    );
-
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const zipFileName = `RFP-Documents-Export-${timestamp}.zip`;
+
+    // Generate presigned URL with Content-Disposition to force download
+    const url = await getSignedUrl(
+      s3Client as Parameters<typeof getSignedUrl>[0],
+      new GetObjectCommand({
+        Bucket: DOCUMENTS_BUCKET,
+        Key: s3Key,
+        ResponseContentDisposition: `attachment; filename="${zipFileName}"`,
+      }),
+      { expiresIn: PRESIGN_EXPIRES_IN },
+    );
 
     setAuditContext(event, {
       action: 'DOCUMENTS_BULK_EXPORTED',

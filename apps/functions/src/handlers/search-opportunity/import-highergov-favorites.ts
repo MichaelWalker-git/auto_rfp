@@ -176,8 +176,9 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
           const qf = await createQuestionFile({
             orgId: data.orgId, oppId, projectId: data.projectId,
             fileKey, originalFileName: filename, mimeType: ct ?? 'application/octet-stream',
+            depth: 0,  // User-initiated import = depth 0
           });
-          await startPipeline(data.projectId, oppId, qf.questionFileId, qf.fileKey, qf.mimeType ?? undefined);
+          await startPipeline(data.orgId, data.projectId, oppId, qf.questionFileId, qf.fileKey, qf.mimeType ?? undefined);
         } catch (attachErr) {
           console.warn(`[importFavorites] Attachment failed ${a.url}:`, (attachErr as Error)?.message);
         }

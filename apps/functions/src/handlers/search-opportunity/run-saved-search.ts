@@ -213,6 +213,7 @@ async function createQuestionFile(args: {
     originalFileName: args.originalFileName ?? null,
     mimeType: args.mimeType ?? null,
     sourceDocumentId: args.sourceDocumentId ?? null,
+    depth: 0,  // Saved search imports are user-initiated = depth 0
 
     createdAt: now,
     updatedAt: now,
@@ -234,11 +235,11 @@ async function markProcessing(projectId: string, oppId: string, questionFileId: 
   });
 }
 
-async function startPipeline(projectId: string, questionFileId: string, oppId: string) {
+async function startPipeline(orgId: string | undefined, projectId: string, questionFileId: string, oppId: string) {
   const res = await sfn.send(
     new StartExecutionCommand({
       stateMachineArn: STATE_MACHINE_ARN,
-      input: JSON.stringify({ questionFileId, projectId, oppId }),
+      input: JSON.stringify({ orgId: orgId ?? '', questionFileId, projectId, oppId }),
     }),
   );
 
@@ -326,7 +327,7 @@ async function importNoticeUsingHelpers(args: {
     });
 
     await markProcessing(args.projectId, questionFileId, oppId);
-    await startPipeline(args.projectId, questionFileId, oppId);
+    await startPipeline(args.orgId, args.projectId, questionFileId, oppId);
 
     imported++;
   }
@@ -463,7 +464,7 @@ async function runForOrg(args: {
               await uploadToS3(DOCUMENTS_BUCKET, fileKey, buf, ct);
               const { questionFileId } = await createQuestionFile({ projectId, fileKey, oppId, originalFileName: filename, mimeType: ct });
               await markProcessing(projectId, questionFileId, oppId);
-              await startPipeline(projectId, questionFileId, oppId);
+              await startPipeline(args.orgId, projectId, questionFileId, oppId);
               importedQuestionFiles++;
             }
           } catch (e) {
@@ -556,7 +557,7 @@ async function runForOrg(args: {
                 await uploadToS3(DOCUMENTS_BUCKET, fileKey, buf, ct);
                 const { questionFileId } = await createQuestionFile({ projectId, fileKey, oppId, originalFileName: filename, mimeType: ct });
                 await markProcessing(projectId, questionFileId, oppId);
-                await startPipeline(projectId, questionFileId, oppId);
+                await startPipeline(args.orgId, projectId, questionFileId, oppId);
                 importedQuestionFiles++;
               } catch (attachErr) {
                 console.warn(`[runner] HigherGov attachment failed ${a.url}:`, (attachErr as Error)?.message);

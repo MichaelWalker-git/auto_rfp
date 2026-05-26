@@ -32,9 +32,18 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
     const doc = await getRFPDocument(projectId, opportunityId, documentId);
     if (!doc || doc.deletedAt) return apiResponse(404, { message: 'Document not found' });
     if (doc.orgId !== orgId) return apiResponse(403, { message: 'Access denied' });
+    if (!doc.fileKey) return apiResponse(400, { message: 'Document has no associated file' });
 
-    const cmd = new GetObjectCommand({ Bucket: DOCUMENTS_BUCKET, Key: doc.fileKey, ResponseContentDisposition: `attachment; filename="${doc.name}"`, ResponseContentType: doc.mimeType });
-    const url = await getSignedUrl(s3Client as any, cmd, { expiresIn: 3600 });
+    // Sanitize filename for Content-Disposition header — removes special characters
+    // that could break the header or trigger double-encoding in browsers like Edge.
+    const safeFileName = doc.name.replace(/[^\w\s.-]/g, '_').replace(/\s+/g, '_');
+    const cmd = new GetObjectCommand({
+      Bucket: DOCUMENTS_BUCKET,
+      Key: doc.fileKey,
+      ResponseContentDisposition: `attachment; filename="${safeFileName}"`,
+      ResponseContentType: doc.mimeType,
+    });
+    const url = await getSignedUrl(s3Client as Parameters<typeof getSignedUrl>[0], cmd, { expiresIn: 3600 });
 
     return apiResponse(200, { ok: true, url, mimeType: doc.mimeType, fileName: doc.name, expiresIn: 3600 });
   } catch (err) {

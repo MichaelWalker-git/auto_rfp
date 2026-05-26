@@ -1,4 +1,4 @@
-import { Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import { ArnFormat, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
@@ -23,6 +23,8 @@ interface Props extends StackProps {
 
 export class QuestionExtractionPipelineStack extends Stack {
   public readonly stateMachine: sfn.StateMachine;
+  public readonly textractFormsTopicArn: string;
+  public readonly textractFormsRoleArn: string;
 
   constructor(scope: Construct, id: string, props: Props) {
     super(scope, id, props);
@@ -53,8 +55,24 @@ export class QuestionExtractionPipelineStack extends Stack {
 
     textractTopic.grantPublish(textractRole);
 
+    // Separate SNS topic + role for Textract AnalyzeDocument (FORMS) — keeps form-extraction
+    // callbacks isolated from text-detection callbacks.
+    const textractFormsTopic = new sns.Topic(this, 'TextractFormsCompletionTopic', {
+      topicName: `${prefix}-TextractFormsCompletion`,
+    });
+
+    const textractFormsRole = new iam.Role(this, 'TextractFormsServiceRole', {
+      assumedBy: new iam.ServicePrincipal('textract.amazonaws.com'),
+    });
+
+    textractFormsTopic.grantPublish(textractFormsRole);
+
+    this.textractFormsTopicArn = textractFormsTopic.topicArn;
+    this.textractFormsRoleArn = textractFormsRole.roleArn;
+
     const commonLambdaEnv = {
       REGION: this.region,
+      AWS_ACCOUNT_ID: this.account,  // Used by detect-attachments Lambda to construct state machine ARN
       DB_TABLE_NAME: mainTable.tableName,
       DOCUMENTS_BUCKET: documentsBucket.bucketName,
       SENTRY_DSN: sentryDNS,
@@ -231,6 +249,182 @@ export class QuestionExtractionPipelineStack extends Stack {
     });
     mainTable.grantReadWriteData(unsupportedFileLambda);
 
+    // NEW: Detect and Import Attachments Lambda
+    // Scans extracted text for attachment URLs (SAM.gov, DIBBS, etc.) and auto-imports them
+    // NOTE: QUESTION_PIPELINE_STATE_MACHINE_ARN is constructed at runtime using the naming convention
+    // to avoid circular dependency (Lambda → StateMachine → Lambda)
+    const detectAttachmentsLambda = new lambdaNode.NodejsFunction(this, 'DetectAttachmentsLambda', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      logGroup: mkFnLogGroup('DetectAttachments'),
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/question-pipeline/detect-and-import-attachments.ts'),
+      handler: 'handler',
+      timeout: Duration.minutes(5),
+      memorySize: 512,
+      environment: {
+        ...commonLambdaEnv,
+        // Lambda constructs the ARN at runtime: arn:aws:states:{region}:{account}:stateMachine:AutoRfp-{stage}-Question-Pipeline
+      },
+    });
+    documentsBucket.grantReadWrite(detectAttachmentsLambda);
+    mainTable.grantReadWriteData(detectAttachmentsLambda);
+
+    // Allow starting new pipeline executions for imported attachments
+    // Construct the state machine ARN deterministically to avoid circular dependency
+    // while following least-privilege (state machine name is `${prefix}-Pipeline`)
+    // Note: Step Functions ARNs use colon separator (stateMachine:name), not slash
+    const questionPipelineArn = Stack.of(this).formatArn({
+      service: 'states',
+      resource: 'stateMachine',
+      resourceName: `${prefix}-Pipeline`,
+      arnFormat: ArnFormat.COLON_RESOURCE_NAME,
+    });
+    detectAttachmentsLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['states:StartExecution'],
+        resources: [questionPipelineArn],
+      }),
+    );
+
+    // NEW: Detect Required Forms Lambda
+    // Scans extracted text for vendor forms, analyzes fields via Textract/XLSX,
+    // auto-fills from company profile, and creates REQUIRED_FORM RFP documents.
+    const detectRequiredFormsLambda = new lambdaNode.NodejsFunction(this, 'DetectRequiredFormsLambda', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      logGroup: mkFnLogGroup('DetectRequiredForms'),
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/question-pipeline/detect-required-forms.ts'),
+      handler: 'handler',
+      timeout: Duration.minutes(5),
+      memorySize: 1024,
+      environment: {
+        ...commonLambdaEnv,
+        BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
+        BEDROCK_REGION: 'us-east-1',
+        BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
+        PINECONE_API_KEY: props.pineconeApiKey,
+        PINECONE_INDEX: 'documents',
+        TEXTRACT_FORMS_SNS_TOPIC_ARN: textractFormsTopic.topicArn,
+        TEXTRACT_FORMS_ROLE_ARN: textractFormsRole.roleArn,
+      },
+    });
+    documentsBucket.grantReadWrite(detectRequiredFormsLambda);
+    mainTable.grantReadWriteData(detectRequiredFormsLambda);
+
+    detectRequiredFormsLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['textract:StartDocumentAnalysis'],
+        resources: ['*'],
+      }),
+    );
+
+    detectRequiredFormsLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['iam:PassRole'],
+        resources: [textractFormsRole.roleArn],
+      }),
+    );
+
+    detectRequiredFormsLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:InvokeModel'],
+        resources: ['*'],
+      }),
+    );
+
+    detectRequiredFormsLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [bedrockApiKeyParamArn],
+      }),
+    );
+
+    detectRequiredFormsLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [`arn:aws:secretsmanager:${this.region}:${this.account}:secret:auto-rfp/pinecone-api-key-*`],
+      }),
+    );
+
+    // Textract FORMS callback Lambda — finishes async form analysis kicked off by detect-required-forms.
+    const textractFormsCallbackLambda = new lambdaNode.NodejsFunction(this, 'TextractFormsCallbackLambda', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      logGroup: mkFnLogGroup('TextractFormsCallback'),
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/required-forms/textract-forms-callback.ts'),
+      handler: 'handler',
+      timeout: Duration.minutes(5),
+      memorySize: 1024,
+      environment: {
+        ...commonLambdaEnv,
+        BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
+        BEDROCK_REGION: 'us-east-1',
+      },
+    });
+    mainTable.grantReadWriteData(textractFormsCallbackLambda);
+    documentsBucket.grantRead(textractFormsCallbackLambda);
+
+    textractFormsCallbackLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['textract:GetDocumentAnalysis'],
+        resources: ['*'],
+      }),
+    );
+
+    textractFormsCallbackLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:InvokeModel'],
+        resources: ['*'],
+      }),
+    );
+
+    textractFormsCallbackLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [bedrockApiKeyParamArn],
+      }),
+    );
+
+    textractFormsTopic.addSubscription(new subs.LambdaSubscription(textractFormsCallbackLambda));
+
+    // NEW: Index Solicitation Lambda for Opportunity Assistant RAG
+    const indexSolicitationLambda = new lambdaNode.NodejsFunction(this, 'IndexSolicitationLambda', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      logGroup: mkFnLogGroup('IndexSolicitation'),
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/opportunity-assistant/index-solicitation.ts'),
+      handler: 'handler',
+      timeout: Duration.minutes(5),
+      memorySize: 1024,
+      environment: {
+        ...commonLambdaEnv,
+        PINECONE_API_KEY: props.pineconeApiKey,
+        PINECONE_INDEX: 'documents',
+        BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
+      },
+    });
+    documentsBucket.grantReadWrite(indexSolicitationLambda);
+    mainTable.grantReadWriteData(indexSolicitationLambda);
+
+    indexSolicitationLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:InvokeModel'],
+        resources: ['*'],
+      }),
+    );
+
+    // Allow reading Bedrock API key from SSM Parameter Store
+    indexSolicitationLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [bedrockApiKeyParamArn],
+      }),
+    );
+
+    // Allow reading Pinecone API key from Secrets Manager (scoped to specific secret)
+    indexSolicitationLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [`arn:aws:secretsmanager:${this.region}:${this.account}:secret:auto-rfp/pinecone-api-key-*`],
+      }),
+    );
+
     // Check and Trigger Answer Generation Lambda
     // Checks if all question files are processed, then triggers Answer Generation SF
     const checkAndTriggerLambda = new lambdaNode.NodejsFunction(this, 'CheckAndTriggerLambda', {
@@ -255,6 +449,36 @@ export class QuestionExtractionPipelineStack extends Stack {
         }),
       );
     }
+
+    // Classify Document Lambda — determines if the file is a QUESTIONNAIRE or OTHER
+    const classifyDocumentLambda = new lambdaNode.NodejsFunction(this, 'ClassifyDocumentLambda', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      logGroup: mkFnLogGroup('ClassifyDocument'),
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/question-pipeline/classify-document.ts'),
+      handler: 'handler',
+      timeout: Duration.minutes(2),
+      environment: {
+        ...commonLambdaEnv,
+        BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
+        BEDROCK_REGION: 'us-east-1',
+      },
+    });
+    documentsBucket.grantRead(classifyDocumentLambda);
+    mainTable.grantReadWriteData(classifyDocumentLambda);
+
+    classifyDocumentLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:InvokeModel'],
+        resources: ['*'],
+      }),
+    );
+
+    classifyDocumentLambda.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [bedrockApiKeyParamArn],
+      }),
+    );
 
     const startTextract = new tasks.LambdaInvoke(this, 'Start Textract', {
       lambdaFunction: startTextractLambda,
@@ -314,6 +538,8 @@ export class QuestionExtractionPipelineStack extends Stack {
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
+        mimeType: sfn.JsonPath.stringAt('$.mimeType'),
       }),
       resultPath: '$.unsupported',
       payloadResponseOnly: true,
@@ -325,7 +551,50 @@ export class QuestionExtractionPipelineStack extends Stack {
     });
 
     // IMPORTANT: do NOT reuse the same State instance across branches.
-    // NEW: Fulfill Opportunity Fields tasks (one per branch)
+    // Classify Document tasks (one per branch)
+    const classifyAfterPdf = new tasks.LambdaInvoke(this, 'Classify Document (PDF)', {
+      lambdaFunction: classifyDocumentLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
+        mimeType: sfn.JsonPath.stringAt('$.mimeType'),
+      }),
+      resultPath: '$.classify',
+      payloadResponseOnly: true,
+    });
+
+    const classifyAfterXlsx = new tasks.LambdaInvoke(this, 'Classify Document (XLSX)', {
+      lambdaFunction: classifyDocumentLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
+        mimeType: sfn.JsonPath.stringAt('$.mimeType'),
+      }),
+      resultPath: '$.classify',
+      payloadResponseOnly: true,
+    });
+
+    const classifyAfterDocx = new tasks.LambdaInvoke(this, 'Classify Document (DOCX)', {
+      lambdaFunction: classifyDocumentLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
+        mimeType: sfn.JsonPath.stringAt('$.mimeType'),
+      }),
+      resultPath: '$.classify',
+      payloadResponseOnly: true,
+    });
+
+    // Fulfill Opportunity Fields tasks (one per branch)
     const fulfillOppAfterPdf = new tasks.LambdaInvoke(this, 'Fulfill Opportunity Fields (PDF)', {
       lambdaFunction: fulfillOpportunityFieldsLambda,
       payload: sfn.TaskInput.fromObject({
@@ -370,6 +639,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        docType: sfn.JsonPath.stringAt('$.classify.docType'),
       }),
       resultPath: '$.extractResult',
       payloadResponseOnly: true,
@@ -382,6 +652,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        docType: sfn.JsonPath.stringAt('$.classify.docType'),
       }),
       resultPath: '$.extractResult',
       payloadResponseOnly: true,
@@ -394,8 +665,142 @@ export class QuestionExtractionPipelineStack extends Stack {
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        docType: sfn.JsonPath.stringAt('$.classify.docType'),
       }),
       resultPath: '$.extractResult',
+      payloadResponseOnly: true,
+    });
+
+    // NEW: Detect and Import Attachments tasks (one per branch)
+    // Scans extracted text for attachment URLs and auto-imports them
+    // NOTE: Result discarded to avoid 256KB Step Functions state limit (large arrays possible)
+    const detectAttachmentsAfterPdf = new tasks.LambdaInvoke(this, 'Detect Attachments (PDF)', {
+      lambdaFunction: detectAttachmentsLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        oppId: sfn.JsonPath.stringAt('$.oppId'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
+    const detectAttachmentsAfterXlsx = new tasks.LambdaInvoke(this, 'Detect Attachments (XLSX)', {
+      lambdaFunction: detectAttachmentsLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        oppId: sfn.JsonPath.stringAt('$.oppId'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
+    const detectAttachmentsAfterDocx = new tasks.LambdaInvoke(this, 'Detect Attachments (DOCX)', {
+      lambdaFunction: detectAttachmentsLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        oppId: sfn.JsonPath.stringAt('$.oppId'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
+    // NEW: Detect Required Forms tasks (one per branch)
+    // Skips processing inside Lambda when docType !== 'REQUIRED_FORM'
+    const detectFormsAfterPdf = new tasks.LambdaInvoke(this, 'Detect Required Forms (PDF)', {
+      lambdaFunction: detectRequiredFormsLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
+        mimeType: sfn.JsonPath.stringAt('$.mimeType'),
+        docType: sfn.JsonPath.stringAt('$.classify.docType'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
+    const detectFormsAfterXlsx = new tasks.LambdaInvoke(this, 'Detect Required Forms (XLSX)', {
+      lambdaFunction: detectRequiredFormsLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
+        mimeType: sfn.JsonPath.stringAt('$.mimeType'),
+        docType: sfn.JsonPath.stringAt('$.classify.docType'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
+    const detectFormsAfterDocx = new tasks.LambdaInvoke(this, 'Detect Required Forms (DOCX)', {
+      lambdaFunction: detectRequiredFormsLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
+        mimeType: sfn.JsonPath.stringAt('$.mimeType'),
+        docType: sfn.JsonPath.stringAt('$.classify.docType'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
+    // NEW: Index Solicitation tasks for Opportunity Assistant RAG
+    // Indexes document chunks to Pinecone for semantic search
+    const indexSolicitationAfterPdf = new tasks.LambdaInvoke(this, 'Index Solicitation (PDF)', {
+      lambdaFunction: indexSolicitationLambda,
+      payload: sfn.TaskInput.fromObject({
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        fileName: sfn.JsonPath.stringAt('$.sourceFileKey'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
+    const indexSolicitationAfterXlsx = new tasks.LambdaInvoke(this, 'Index Solicitation (XLSX)', {
+      lambdaFunction: indexSolicitationLambda,
+      payload: sfn.TaskInput.fromObject({
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        fileName: sfn.JsonPath.stringAt('$.sourceFileKey'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
+    const indexSolicitationAfterDocx = new tasks.LambdaInvoke(this, 'Index Solicitation (DOCX)', {
+      lambdaFunction: indexSolicitationLambda,
+      payload: sfn.TaskInput.fromObject({
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        fileName: sfn.JsonPath.stringAt('$.sourceFileKey'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
       payloadResponseOnly: true,
     });
 
@@ -477,22 +882,34 @@ export class QuestionExtractionPipelineStack extends Stack {
       sfn.Condition.stringMatches('$.sourceFileKey', '*.TIF'),
     );
 
+    // Pipeline flow: Extract Text → Classify → Detect Attachments → Detect Forms → Fulfill Opp → Index → Extract Questions → Check & Trigger
     const pdfBranch = sfn.Chain.start(startTextract)
       .next(processResult)
+      .next(classifyAfterPdf)
+      .next(detectAttachmentsAfterPdf)
+      .next(detectFormsAfterPdf)
       .next(fulfillOppAfterPdf)
+      .next(indexSolicitationAfterPdf)
       .next(extractQuestionsAfterPdf)
       .next(checkAndTriggerAfterPdf)
       .next(done);
 
     const docxBranch = sfn.Chain.start(extractDocxText)
+      .next(classifyAfterDocx)
+      .next(detectAttachmentsAfterDocx)
+      .next(detectFormsAfterDocx)
       .next(fulfillOppAfterDocx)
+      .next(indexSolicitationAfterDocx)
       .next(extractQuestionsAfterDocx)
       .next(checkAndTriggerAfterDocx)
       .next(done);
 
-
     const xlsxBranch = sfn.Chain.start(extractXlsxText)
+      .next(classifyAfterXlsx)
+      .next(detectAttachmentsAfterXlsx)
+      .next(detectFormsAfterXlsx)
       .next(fulfillOppAfterXlsx)
+      .next(indexSolicitationAfterXlsx)
       .next(extractQuestionsAfterXlsx)
       .next(checkAndTriggerAfterXlsx)
       .next(done);
@@ -511,5 +928,8 @@ export class QuestionExtractionPipelineStack extends Stack {
       timeout: Duration.minutes(30),
       logs: { destination: sfLogGroup, level: sfn.LogLevel.ERROR },
     });
+
+    // NOTE: detectAttachmentsLambda constructs the state machine ARN at runtime using STAGE env var
+    // to avoid circular dependency. ARN pattern: arn:aws:states:{region}:{account}:stateMachine:AutoRfp-{stage}-Question-Pipeline
   }
 }

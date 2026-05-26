@@ -57,6 +57,9 @@ import { proposalSubmissionDomain } from './routes/proposal-submission.routes';
 import { documentApprovalDomain } from './routes/document-approval.routes';
 import { pricingDomain } from './routes/pricing.routes';
 import { extractionDomain } from './routes/extraction.routes';
+import { opportunityAssistantDomain } from './routes/opportunity-assistant.routes';
+import { companyProfileDomain } from './routes/company-profile.routes';
+import { requiredFormsDomain } from './routes/required-forms.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -73,6 +76,8 @@ export interface ApiOrchestratorStackProps extends cdk.StackProps {
   auditLogQueueName?: string;
   documentPipelineStateMachineArn: string;
   questionPipelineStateMachineArn: string;
+  textractFormsTopicArn: string;
+  textractFormsRoleArn: string;
   sentryDNS: string;
   pineconeApiKey: string;
 }
@@ -112,6 +117,8 @@ export class ApiOrchestratorStack extends cdk.Stack {
       auditLogQueueName,
       documentPipelineStateMachineArn,
       questionPipelineStateMachineArn,
+      textractFormsTopicArn,
+      textractFormsRoleArn,
       sentryDNS,
       pineconeApiKey,
     } = props;
@@ -181,6 +188,8 @@ export class ApiOrchestratorStack extends cdk.Stack {
       BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
       STATE_MACHINE_ARN: documentPipelineStateMachineArn,
       QUESTION_PIPELINE_STATE_MACHINE_ARN: questionPipelineStateMachineArn,
+      TEXTRACT_FORMS_SNS_TOPIC_ARN: textractFormsTopicArn,
+      TEXTRACT_FORMS_ROLE_ARN: textractFormsRoleArn,
       SENTRY_DSN: sentryDNS,
       SENTRY_ENVIRONMENT: stage,
       PINECONE_API_KEY: pineconeApiKey,
@@ -226,6 +235,21 @@ export class ApiOrchestratorStack extends cdk.Stack {
           `arn:aws:bedrock:us-east-1::foundation-model/*`,
           `arn:aws:bedrock:us-west-2::foundation-model/*`,
         ],
+      }),
+    );
+
+    // Allow REST handlers (reprocess-form) to start Textract FORMS analysis using the
+    // pipeline-owned Textract service role.
+    sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ['textract:StartDocumentAnalysis'],
+        resources: ['*'],
+      }),
+    );
+    sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        actions: ['iam:PassRole'],
+        resources: [textractFormsRoleArn],
       }),
     );
 
@@ -393,7 +417,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
         bundling: {
           minify: true,
           sourceMap: true,
-          externalModules: ['@aws-sdk/*'],
+          externalModules: ['@aws-sdk/*', '@smithy/*'],
         },
       });
 
@@ -426,7 +450,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
         bundling: {
           minify: true,
           sourceMap: true,
-          externalModules: ['@aws-sdk/*'],
+          externalModules: ['@aws-sdk/*', '@smithy/*'],
         },
       });
 
@@ -458,7 +482,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
         bundling: {
           minify: true,
           sourceMap: true,
-          externalModules: ['@aws-sdk/*'],
+          externalModules: ['@aws-sdk/*', '@smithy/*'],
         },
       });
 
@@ -497,11 +521,16 @@ export class ApiOrchestratorStack extends cdk.Stack {
           PROPOSAL_MAX_SOLICITATION_CHARS: '80000',
           BEDROCK_MAX_TOKENS: '40000',
           BEDROCK_TEMPERATURE: '0.1',
+          // Required for CLARIFYING_QUESTIONS document type to auto-trigger question generation
+          CLARIFYING_QUESTION_QUEUE_URL: clarifyingQuestionQueueUrl,
+          // Required for retry logic: worker needs to re-enqueue failed jobs
+          DOCUMENT_GENERATION_QUEUE_URL: docGenQueueUrl,
         },
         bundling: {
           minify: true,
           sourceMap: true,
-          externalModules: ['@aws-sdk/*'],
+          externalModules: ['@aws-sdk/*', '@smithy/*'],
+          nodeModules: ['exceljs'],
         },
       });
 
@@ -535,7 +564,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
         bundling: {
           minify: true,
           sourceMap: true,
-          externalModules: ['@aws-sdk/*', 'pdf-parse'],
+          externalModules: ['@aws-sdk/*', '@smithy/*', 'pdf-parse'],
           nodeModules: ['pdf-parse'], // pdf-parse uses dynamic require, must be installed
         },
       });
@@ -596,7 +625,60 @@ export class ApiOrchestratorStack extends cdk.Stack {
       documentApprovalDomain(),
       pricingDomain(),
       extractionDomain({ extractionQueueUrl }),
+      opportunityAssistantDomain(),
+      companyProfileDomain(),
+      requiredFormsDomain(),
     ];
+
+    // ─── Rasterize PDF worker ─────────────────────────────────────────────
+    // Owns the heavy pdfjs-dist + @napi-rs/canvas deps so callers
+    // (export-rfp-document, export-all-rfp-documents, etc.) stay under the
+    // 250 MB unzipped Lambda hard limit. Must be created BEFORE the domain
+    // stacks below so the function name lands in commonEnv before route
+    // Lambdas read it.
+    const rasterizePdfFunctionName = `auto-rfp-rasterize-pdf-${stage}`;
+    new lambdaNodejs.NodejsFunction(this, `RasterizePdfWorker-${stage}`, {
+      functionName: rasterizePdfFunctionName,
+      entry: path.join(__dirname, '../../../apps/functions/src/handlers/required-forms/rasterize-pdf-worker.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.minutes(2),
+      memorySize: 2048,
+      role: sharedInfraStack.commonLambdaRole,
+      environment: { ...commonEnv },
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'es2022',
+        format: lambdaNodejs.OutputFormat.CJS,
+        mainFields: ['module', 'main'],
+        externalModules: ['@aws-sdk/*', '@smithy/*'],
+        nodeModules: ['pdfjs-dist', '@napi-rs/canvas', '@napi-rs/canvas-linux-x64-gnu'],
+      },
+    });
+
+    new logs.LogGroup(this, `RasterizePdfWorkerLogs-${stage}`, {
+      logGroupName: `/aws/lambda/${rasterizePdfFunctionName}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Allow the shared Lambda role (used by all route Lambdas) to invoke the worker.
+    // Use a string-built ARN — calling rasterizePdfWorker.grantInvoke(role) would
+    // create a cycle (SharedInfra → RasterizePdfWorker via the IAM policy, and
+    // RasterizePdfWorker → SharedInfra via its execution role + commonEnv).
+    sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        sid: 'InvokeRasterizePdfWorker',
+        actions: ['lambda:InvokeFunction'],
+        resources: [
+          `arn:aws:lambda:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:function:${rasterizePdfFunctionName}`,
+        ],
+      }),
+    );
+
+    // Pass the function name to every downstream route Lambda via commonEnv.
+    sharedInfraStack.commonEnv.RASTERIZE_PDF_FUNCTION_NAME = rasterizePdfFunctionName;
 
     // 4. Create nested stacks per domain (Lambda + LogGroup + Route registration)
     //    Each nested stack stays under CloudFormation's 500 resource limit.
@@ -615,6 +697,9 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'NotificationRoutes', 'AuditRoutes', 'AnalyticsRoutes', 'ClarifyingQuestionRoutes',
       'EngagementLogRoutes', 'ApnRoutes', 'ProposalSubmissionRoutes',
       'DocumentApprovalRoutes', 'PricingRoutes', 'ExtractionRoutes',
+      'OpportunityAssistantRoutes',
+      'CompanyProfileRoutes',
+      'RequiredFormsRoutes',
     ];
 
     for (let i = 0; i < allDomains.length; i++) {
@@ -647,7 +732,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       memorySize: 256,
       role: sharedInfraStack.commonLambdaRole,
       environment: { ...commonEnv },
-      bundling: { minify: true, sourceMap: true, externalModules: ['@aws-sdk/*'] },
+      bundling: { minify: true, sourceMap: true, externalModules: ['@aws-sdk/*', '@smithy/*'] },
     });
 
     new logs.LogGroup(this, `DibbsRunSavedSearchLogs-${stage}`, {

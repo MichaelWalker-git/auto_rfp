@@ -4,10 +4,11 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PermissionButton } from '@/components/ui/permission-button';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { formatDate } from '@/components/brief/helpers';
 import { KnowledgeBase } from '@auto-rfp/core';
 import { Edit2, Trash2 } from 'lucide-react';
-import { usePermission } from '@/components/permission-wrapper';
 
 type Props = {
   kb: KnowledgeBase;
@@ -17,8 +18,6 @@ type Props = {
 };
 
 const KnowledgeBaseCard = ({ kb, onOpen, onEdit, onDelete }: Props) => {
-  const canEdit = usePermission('kb:edit');
-  const canDelete = usePermission('kb:delete');
   const countLabel = `${kb?._count?.documents ?? 0} documents`;
 
   const handleEdit = (e: React.MouseEvent) => {
@@ -52,7 +51,7 @@ const KnowledgeBaseCard = ({ kb, onOpen, onEdit, onDelete }: Props) => {
           </CardTitle>
 
           {/* Actions — right side, hover only */}
-          {((onEdit && canEdit) || (onDelete && canDelete)) && (
+          {(onEdit || onDelete) && (
             <div
               className="
           flex items-center gap-1 shrink-0 ml-auto
@@ -62,8 +61,9 @@ const KnowledgeBaseCard = ({ kb, onOpen, onEdit, onDelete }: Props) => {
         "
               onClick={(e) => e.stopPropagation()}
             >
-              {onEdit && canEdit && (
-                <Button
+              {onEdit && (
+                <PermissionButton
+                  requiredPermission="kb:edit"
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7"
@@ -71,19 +71,17 @@ const KnowledgeBaseCard = ({ kb, onOpen, onEdit, onDelete }: Props) => {
                   title="Edit knowledge base"
                 >
                   <Edit2 className="size-4"/>
-                </Button>
+                </PermissionButton>
               )}
 
-              {onDelete && canDelete && (
-                <Button
+              {onDelete && (
+                <PermissionDeleteButton
+                  requiredPermission="kb:delete"
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 hover:text-destructive hover:bg-destructive/10"
-                  onClick={handleDelete}
-                  title="Delete knowledge base"
-                >
-                  <Trash2 className="size-4"/>
-                </Button>
+                  className="h-7 w-7"
+                  onClick={() => onDelete(kb)}
+                />
               )}
             </div>
           )}

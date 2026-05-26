@@ -135,6 +135,19 @@ export class AnswerGenerationPipelineStack extends Stack {
     });
     mainTable.grantReadWriteData(copyClusterAnswersLambda);
 
+    // Generate Questionnaire Exports Lambda - fills XLSX questionnaires with answers
+    const generateQuestionnaireExportsLambda = new lambdaNode.NodejsFunction(this, 'GenerateQuestionnaireExportsLambda', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      logGroup: mkFnLogGroup('GenerateQuestionnaireExports'),
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/answer-pipeline/generate-questionnaire-exports.ts'),
+      handler: 'handler',
+      timeout: Duration.minutes(2),
+      memorySize: 512,
+      environment: commonLambdaEnv,
+    });
+    documentsBucket.grantReadWrite(generateQuestionnaireExportsLambda);
+    mainTable.grantReadWriteData(generateQuestionnaireExportsLambda);
+
     // Step Function Definition
     const prepareQuestions = new tasks.LambdaInvoke(this, 'Prepare Questions', {
       lambdaFunction: prepareQuestionsLambda,
@@ -195,12 +208,24 @@ export class AnswerGenerationPipelineStack extends Stack {
       payloadResponseOnly: true,
     });
 
+    const generateQuestionnaireExports = new tasks.LambdaInvoke(this, 'Generate Questionnaire Exports', {
+      lambdaFunction: generateQuestionnaireExportsLambda,
+      payload: sfn.TaskInput.fromObject({
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
+        opportunityId: sfn.JsonPath.stringAt('$.opportunityId'),
+      }),
+      resultPath: '$.questionnaireResult',
+      payloadResponseOnly: true,
+    });
+
     const done = new sfn.Succeed(this, 'Done');
 
     // Build the chain
     const definition = prepareQuestions
       .next(generateAnswersMap)
       .next(copyClusterAnswers)
+      .next(generateQuestionnaireExports)
       .next(done);
 
     this.stateMachine = new sfn.StateMachine(this, 'AnswerGenerationStateMachine', {

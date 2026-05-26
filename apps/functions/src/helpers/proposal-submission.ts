@@ -4,7 +4,7 @@ import { createItem, putItem, queryBySkPrefix, docClient } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
 import { nowIso } from '@/helpers/date';
 import { listRFPDocumentsByProject } from '@/helpers/rfp-document';
-import { listQuestionFilesByOpportunity } from '@/helpers/questionFile';
+import { isExtractedQuestionFile, listQuestionFilesByOpportunity } from '@/helpers/questionFile';
 import { PROPOSAL_SUBMISSION_PK } from '@/constants/proposal-submission';
 import { QUESTION_PK } from '@/constants/question';
 import { ANSWER_PK } from '@/constants/answer';
@@ -65,11 +65,14 @@ const listQuestionsForOpportunity = async (
   );
   const allQuestions = (res.Items ?? []) as Array<{ questionId: string; questionFileId?: string }>;
 
-  // Build set of PROCESSED file IDs to filter out orphaned questions
+  // Build set of file IDs whose extraction completed (PROCESSED or any
+  // downstream sub-state) so orphaned questions from cancelled/failed
+  // pipelines are filtered out, but questions from files that finished
+  // extraction but moved on to answer/forms generation are kept.
   const { items: questionFiles } = await listQuestionFilesByOpportunity({ projectId, oppId });
   const processedFileIds = new Set(
     (questionFiles as Array<{ questionFileId: string; status: string }>)
-      .filter((qf) => qf.status === 'PROCESSED')
+      .filter((qf) => isExtractedQuestionFile(qf.status))
       .map((qf) => qf.questionFileId),
   );
 

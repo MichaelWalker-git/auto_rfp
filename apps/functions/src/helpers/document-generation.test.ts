@@ -600,3 +600,139 @@ describe('prepareTemplateScaffoldForAI', () => {
     expect(prepareTemplateScaffoldForAI('   ')).toBe('');
   });
 });
+
+// ─── Content Validation & Retry Logic Tests ────────────────────────────────────
+import {
+  validateGeneratedContent,
+  calculateRetryDelay,
+  RETRY_BASE_DELAY_SECONDS,
+  RETRY_MAX_DELAY_SECONDS,
+} from './document-generation';
+import { MAX_GENERATION_RETRIES } from '@auto-rfp/core';
+
+describe('validateGeneratedContent', () => {
+  it('should return isValid: false for null content', () => {
+    const result = validateGeneratedContent(null);
+    expect(result.isValid).toBe(false);
+    expect(result.reason).toContain('empty');
+  });
+
+  it('should return isValid: false for undefined content', () => {
+    const result = validateGeneratedContent(undefined);
+    expect(result.isValid).toBe(false);
+    expect(result.reason).toContain('empty');
+  });
+
+  it('should return isValid: false for empty string', () => {
+    const result = validateGeneratedContent('');
+    expect(result.isValid).toBe(false);
+    expect(result.reason).toContain('empty');
+  });
+
+  it('should return isValid: false for whitespace-only content', () => {
+    const result = validateGeneratedContent('   \n\t   ');
+    expect(result.isValid).toBe(false);
+    expect(result.reason).toContain('empty');
+  });
+
+  it('should return isValid: false for HTML-only content (no text)', () => {
+    const result = validateGeneratedContent('<div><span></span></div>');
+    expect(result.isValid).toBe(false);
+    expect(result.reason).toContain('only HTML tags');
+  });
+
+  it('should return isValid: false for placeholder-only content', () => {
+    const result = validateGeneratedContent('<h1>{{TITLE}}</h1><p>{{CONTENT}}</p>');
+    expect(result.isValid).toBe(false);
+    expect(result.reason).toContain('placeholder');
+  });
+
+  it('should return isValid: false for [CONTENT: ...] placeholder content', () => {
+    // When content is only placeholders, the stripping leaves very little text which triggers "too short"
+    const result = validateGeneratedContent('<h1>Title</h1><p>[CONTENT: Write something here]</p>');
+    expect(result.isValid).toBe(false);
+    // After stripping HTML and placeholders, only "Title" remains (5 chars) → triggers "too short"
+    expect(result.reason).toContain('too short');
+  });
+
+  it('should return isValid: false for content that is too short', () => {
+    const result = validateGeneratedContent('<h1>Short Title</h1><p>Brief.</p>');
+    expect(result.isValid).toBe(false);
+    expect(result.reason).toContain('too short');
+  });
+
+  it('should return isValid: true for valid content with sufficient length', () => {
+    const validHtml = `
+      <h1>Executive Summary</h1>
+      <p>This is a comprehensive executive summary document that provides detailed 
+      information about our proposal for the federal contract. We have extensive 
+      experience in delivering similar solutions and our team is well-qualified 
+      to meet all requirements specified in the solicitation.</p>
+    `;
+    const result = validateGeneratedContent(validHtml);
+    expect(result.isValid).toBe(true);
+    expect(result.reason).toBeUndefined();
+  });
+
+  it('should strip HTML tags when calculating content length', () => {
+    const htmlWithTags = `
+      <div class="container">
+        <h1 style="color: blue;">Title</h1>
+        <p><strong>This is sufficient content</strong> that should pass validation 
+        because it has enough text characters after stripping the HTML tags and 
+        normalizing whitespace to meet the minimum requirement.</p>
+      </div>
+    `;
+    const result = validateGeneratedContent(htmlWithTags);
+    expect(result.isValid).toBe(true);
+  });
+
+  it('should handle mixed valid content with some placeholders', () => {
+    // Content has both real text AND placeholders - should pass if real text is sufficient
+    const mixedContent = `
+      <h1>Executive Summary for {{PROJECT_TITLE}}</h1>
+      <p>Our company provides comprehensive solutions for government contracts. 
+      We have delivered over 50 similar projects with excellent results. Our team 
+      includes certified professionals with relevant clearances. We propose a 
+      cost-effective approach that meets all technical requirements.</p>
+    `;
+    const result = validateGeneratedContent(mixedContent);
+    expect(result.isValid).toBe(true);
+  });
+});
+
+describe('calculateRetryDelay', () => {
+  it('should return base delay for first retry (retryCount=1)', () => {
+    const delay = calculateRetryDelay(1);
+    expect(delay).toBe(RETRY_BASE_DELAY_SECONDS); // 30 seconds
+  });
+
+  it('should use exponential backoff for subsequent retries', () => {
+    const delay1 = calculateRetryDelay(1);
+    const delay2 = calculateRetryDelay(2);
+    const delay3 = calculateRetryDelay(3);
+
+    expect(delay1).toBe(RETRY_BASE_DELAY_SECONDS); // 30
+    expect(delay2).toBe(RETRY_BASE_DELAY_SECONDS * 2); // 60
+    expect(delay3).toBe(RETRY_BASE_DELAY_SECONDS * 4); // 120
+  });
+
+  it('should cap delay at RETRY_MAX_DELAY_SECONDS', () => {
+    // With base=30 and retryCount=5, exponential would be 30 * 2^4 = 480
+    // But it should be capped at RETRY_MAX_DELAY_SECONDS (120)
+    const delay = calculateRetryDelay(5);
+    expect(delay).toBeLessThanOrEqual(RETRY_MAX_DELAY_SECONDS);
+  });
+
+  it('should handle edge case of retryCount=0', () => {
+    // 2^(-1) = 0.5, so 30 * 0.5 = 15
+    const delay = calculateRetryDelay(0);
+    expect(delay).toBe(15);
+  });
+});
+
+describe('MAX_GENERATION_RETRIES constant', () => {
+  it('should be 3 (1 initial + 2 retries)', () => {
+    expect(MAX_GENERATION_RETRIES).toBe(3);
+  });
+});

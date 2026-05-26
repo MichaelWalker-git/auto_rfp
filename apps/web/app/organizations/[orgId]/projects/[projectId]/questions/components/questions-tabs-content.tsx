@@ -79,6 +79,7 @@ export function QuestionsTabsContent({
 }: QuestionsTabsContentProps) {
   const {
     confidenceFilter,
+    showPendingOnly,
     handleBatchAnswerApplied,
     handleApproveAnswer,
     approvingQuestions,
@@ -242,7 +243,9 @@ export function QuestionsTabsContent({
 
   const canComment = permissions.includes('collaboration:comment');
 
-  const visibleQuestionIds = confidenceFilter !== 'all'
+  // When any filter is active (confidence or pending), pass the filtered question IDs
+  // to the QuestionNavigator so it only shows matching questions
+  const visibleQuestionIds = (confidenceFilter !== 'all' || showPendingOnly)
     ? new Set(filteredQuestions.map((q: any) => q.id))
     : null;
 

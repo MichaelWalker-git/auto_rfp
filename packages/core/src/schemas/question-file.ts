@@ -1,17 +1,29 @@
 import { z } from 'zod';
 
 export const QuestionFileStatusSchema = z.enum([
+  // Initial / text-extraction phase
   'UPLOADED',
   'PROCESSING',
   'TEXTRACT_RUNNING',
   'TEXT_READY',
+  // Question extraction has finished (questions are ready to view).
   'PROCESSED',
+  // Downstream sub-stages — set by post-extraction pipelines so the UI can
+  // surface what's still happening after questions are visible.
+  'GENERATING_ANSWERS',  // answer-pipeline running
+  'ANSWERS_READY',       // every question has an answer
+  'FILLING_FORMS',       // detect-required-forms / textract callbacks running
+  'FORMS_READY',         // every detected form has finished textract / matrix autofill
+  // Terminal
   'FAILED',
   'DELETED',
   'CANCELLED',
 ]);
 
 export type QuestionFileStatus = z.infer<typeof QuestionFileStatusSchema>;
+
+export const DocTypeSchema = z.enum(['QUESTIONNAIRE', 'REQUIRED_FORM', 'OTHER']);
+export type DocType = z.infer<typeof DocTypeSchema>;
 
 export const IsoDateStringSchema = z
   .string()
@@ -47,6 +59,12 @@ export const UpdateQuestionFileDTOSchema = z.object({
   // optionally store results metadata
   pages: z.number().int().min(0).optional(),
   extractedQuestionsCount: z.number().int().min(0).optional(),
+  // Document classification
+  docType: DocTypeSchema.optional(),
+  questionColumn: z.string().optional(),
+  answerColumn: z.string().optional(),
+  firstDataRow: z.number().int().min(1).optional(),
+  sheetName: z.string().optional(),
 });
 
 export type UpdateQuestionFileDTO = z.infer<typeof UpdateQuestionFileDTOSchema>;
@@ -59,19 +77,32 @@ export const QuestionFileItemSchema = z
     questionFileId: UuidSchema,
     status: QuestionFileStatusSchema.default('UPLOADED'),
     fileKey: z.string().min(1).optional(),
+    textFileKey: z.string().min(1).optional(),  // S3 key for extracted text
     originalFileName: z.string().min(1).optional(),
     mimeType: z.string().min(1).optional(),
     source: z.string().min(1).optional(),
+    sourceDocumentId: z.string().optional(),  // ID of source document (for imports)
     errorMessage: z.string().min(1).optional(),
     pages: z.number().int().min(0).optional(),
     extractedQuestionsCount: z.number().int().min(0).optional(),
     fileSize: z.number().int().min(0).optional(),  // file size in bytes
     jobId: z.string().optional(),
-    totalQuestions: z.number().int().min(0).default(0).optional(),
+    totalQuestions: z.number().int().min(0).optional().default(0),
     taskToken: z.string().optional(),
     createdAt: IsoDateStringSchema,
     updatedAt: IsoDateStringSchema.optional(),
     executionArn: z.string().optional(),
+
+    // Document classification
+    docType: DocTypeSchema.default('OTHER'),
+    questionColumn: z.string().optional(),
+    answerColumn: z.string().optional(),
+    firstDataRow: z.number().int().min(1).optional(),
+    sheetName: z.string().optional(),
+
+    // Linked attachment tracking
+    depth: z.number().int().min(0).max(3).optional().default(0),  // 0=user upload, 1=child, 2=grandchild, 3=great-grandchild
+    parentFileName: z.string().optional(),  // Display name of parent document (for UI tooltip)
 
     // Google Drive integration
     googleDriveFileId: z.string().optional(),
@@ -90,8 +121,10 @@ export const CreateQuestionFileRequestSchema = z.object({
   originalFileName: z.string().min(1),
   fileKey: z.string().min(1),
   mimeType: z.string().min(1),
-  sourceDocumentId: z.string().optional(),
+  sourceDocumentId: z.string().optional(),  // ID of parent doc (for linked attachments)
   fileSize: z.number().int().min(0).optional(),  // file size in bytes
+  depth: z.number().int().min(0).max(3).default(0),  // 0=user upload, 1/2/3=linked children
+  parentFileName: z.string().optional(),  // Display name of parent document (for UI tooltip)
 });
 
 export type CreateQuestionFileRequest = z.infer<typeof CreateQuestionFileRequestSchema>;

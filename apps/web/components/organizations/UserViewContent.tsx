@@ -38,6 +38,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 import { PageHeader } from '@/components/layout/page-header';
 import PermissionWrapper, { usePermission } from '@/components/permission-wrapper';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 
 import {
   editUserApi,
@@ -639,19 +640,14 @@ function KBAccessSection({ userId, orgId }: { userId: string; orgId: string }) {
                     </div>
                   </div>
                   {hasAccess ? (
-                    <Button
+                    <PermissionDeleteButton
+                      requiredPermission="kb:delete"
                       variant="ghost"
                       size="sm"
                       onClick={() => handleRevokeKB(kb.id)}
-                      disabled={!!mutatingKbId}
-                      className="text-destructive hover:text-destructive shrink-0"
-                    >
-                      {isMutating ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <X className="h-4 w-4" />
-                      )}
-                    </Button>
+                      isLoading={isMutating}
+                      deniedTooltip="You don't have permission to revoke KB access. Contact your admin."
+                    />
                   ) : (
                     <Button
                       variant="outline"

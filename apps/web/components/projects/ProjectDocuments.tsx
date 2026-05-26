@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useDeleteQuestionFile, useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { useDownloadFromS3 } from '@/lib/hooks/use-file';
-import PermissionWrapper from '@/components/permission-wrapper';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import {
   QuestionFileUploadDialog,
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/question-extraction-dialog';
@@ -18,6 +18,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { AlertCircle, Download, FileText, FolderOpen, Loader2, Trash2 } from 'lucide-react';
 import { formatFileSize } from '@/lib/format-file-size';
+import { isExtractedQuestionFile } from '@/lib/utils/question-file-status';
 
 interface ProjectDocumentsProps {
   projectId: string;
@@ -37,6 +38,10 @@ function statusChip(status?: string) {
   const s = String(status ?? '').toUpperCase();
   if (s === 'UPLOADED') return { label: 'Uploaded', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
   if (s === 'QUESTIONS_EXTRACTED' || s === 'PROCESSED') return { label: 'Completed', cls: 'bg-green-50 text-green-700 border-green-200' };
+  if (s === 'GENERATING_ANSWERS') return { label: 'Generating answers', cls: 'bg-violet-50 text-violet-700 border-violet-200' };
+  if (s === 'ANSWERS_READY') return { label: 'Answers ready', cls: 'bg-green-50 text-green-700 border-green-200' };
+  if (s === 'FILLING_FORMS') return { label: 'Filling forms', cls: 'bg-amber-50 text-amber-800 border-amber-200' };
+  if (s === 'FORMS_READY') return { label: 'Forms ready', cls: 'bg-green-50 text-green-700 border-green-200' };
   if (s === 'TEXT_READY' || s === 'TEXT_EXTRACTED') return { label: 'Text ready', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
   if (s === 'PROCESSING') return { label: 'Processing', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
   if (s === 'TEXT_EXTRACTION_FAILED' || s === 'ERROR' || s === 'FAILED') return { label: 'Error', cls: 'bg-red-50 text-red-700 border-red-200' };
@@ -219,16 +224,15 @@ export function ProjectDocuments({ projectId }: ProjectDocumentsProps) {
                         >
                           {rowDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                         </Button>
-                        {(f.status === 'PROCESSED' || f.status === 'FAILED') && (
-                          <PermissionWrapper requiredPermission="question:delete">
-                            <Button
-                              size="sm" variant="destructive" className="gap-2"
-                              disabled={!f.questionFileId || rowDeleting}
-                              onClick={() => void handleDelete({ questionFileId: f.questionFileId, name: f.originalFileName || 'unknown', oppId: f.oppId })}
-                            >
-                              {rowDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                            </Button>
-                          </PermissionWrapper>
+                        {(isExtractedQuestionFile(f.status) || f.status === 'FAILED') && (
+                          <PermissionDeleteButton
+                            requiredPermission="question:delete"
+                            size="sm"
+                            variant="destructive"
+                            className="gap-2"
+                            isLoading={rowDeleting}
+                            onClick={() => void handleDelete({ questionFileId: f.questionFileId, name: f.originalFileName || 'unknown', oppId: f.oppId })}
+                          />
                         )}
                         {f.status !== 'PROCESSED' && f.status !== 'FAILED' && f.status !== 'DELETED' && (
                           <CancelPipelineButton

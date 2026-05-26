@@ -121,13 +121,17 @@ export async function updateRFPDocumentMetadata(args: {
     description?: string | null;
     documentType?: string;
     content?: Record<string, any> | null;
-    status?: string;
+    status?: string | null;
     title?: string | null;
     editHistory?: Record<string, any>[];
-    /** S3 key for the HTML content — replaces storing HTML inline in DynamoDB */
-    htmlContentKey?: string;
+    /** S3 key for the HTML content — replaces storing HTML inline in DynamoDB. Pass null to clear. */
+    htmlContentKey?: string | null;
     generationError?: string;
     signatureStatus?: string;
+    formFields?: unknown;
+    pageImagesKey?: string;
+    /** Number of generation retry attempts (0 = first attempt, max 3) */
+    retryCount?: number;
   };
   updatedBy: string;
 }): Promise<Record<string, any>> {
@@ -193,6 +197,21 @@ export async function updateRFPDocumentMetadata(args: {
     setParts.push('#signatureStatus = :signatureStatus');
     names['#signatureStatus'] = 'signatureStatus';
     values[':signatureStatus'] = args.updates.signatureStatus;
+  }
+  if (args.updates.formFields !== undefined) {
+    setParts.push('#formFields = :formFields');
+    names['#formFields'] = 'formFields';
+    values[':formFields'] = args.updates.formFields;
+  }
+  if (args.updates.pageImagesKey !== undefined) {
+    setParts.push('#pageImagesKey = :pageImagesKey');
+    names['#pageImagesKey'] = 'pageImagesKey';
+    values[':pageImagesKey'] = args.updates.pageImagesKey;
+  }
+  if (args.updates.retryCount !== undefined) {
+    setParts.push('#retryCount = :retryCount');
+    names['#retryCount'] = 'retryCount';
+    values[':retryCount'] = args.updates.retryCount;
   }
 
   const res = await docClient.send(
@@ -360,7 +379,7 @@ export async function updateRFPDocumentWithContent(args: {
     description?: string | null;
     documentType?: string;
     content?: Record<string, unknown> | null;
-    status?: string;
+    status?: string | null;
     title?: string | null;
   };
   userId: string;

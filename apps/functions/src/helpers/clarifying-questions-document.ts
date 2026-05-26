@@ -2,6 +2,9 @@
  * Helper for generating Clarifying Questions export documents.
  * No AI generation — formats existing clarifying questions data into semantic HTML
  * that works well in TipTap editor, DOCX export, and PDF export.
+ *
+ * If no clarifying questions exist, this module will automatically trigger
+ * question generation via SQS and poll until questions are ready.
  */
 import type {
   ClarifyingQuestionItem,
@@ -14,6 +17,7 @@ import {
   buildMacroValues,
 } from '@/helpers/document-generation';
 import { getTemplate, findBestTemplate, loadTemplateHtml, replaceMacros } from '@/helpers/template';
+import { enqueueClarifyingQuestionGeneration } from '@/helpers/clarifying-question-queue';
 
 // ─── Constants ───
 
@@ -36,6 +40,63 @@ const CATEGORY_LABELS: Record<string, string> = {
   COMPLIANCE: 'Compliance',
   EVALUATION: 'Evaluation',
   OTHER: 'Other',
+};
+
+/** Maximum time to wait for question generation (90 seconds) */
+const MAX_POLL_WAIT_MS = 90_000;
+/** Interval between polling attempts (5 seconds) */
+const POLL_INTERVAL_MS = 5_000;
+/** Default number of questions to generate */
+const DEFAULT_TOP_K = 10;
+
+// ─── Polling Helper ───
+
+/**
+ * Poll DynamoDB for clarifying questions until they appear or timeout.
+ * Used when no questions exist and we've triggered generation via SQS.
+ *
+ * @returns The list of questions if found, or empty array on timeout.
+ */
+const pollForClarifyingQuestions = async (args: {
+  orgId: string;
+  projectId: string;
+  opportunityId: string;
+  maxWaitMs?: number;
+  intervalMs?: number;
+}) => {
+  const maxWait = args.maxWaitMs ?? MAX_POLL_WAIT_MS;
+  const interval = args.intervalMs ?? POLL_INTERVAL_MS;
+  const start = Date.now();
+
+  console.log(`Polling for clarifying questions (max ${maxWait / 1000}s, every ${interval / 1000}s)`);
+
+  while (Date.now() - start < maxWait) {
+    const result = await listClarifyingQuestionsByOpportunity({
+      orgId: args.orgId,
+      projectId: args.projectId,
+      opportunityId: args.opportunityId,
+      limit: 1, // Just check if any exist
+    });
+
+    if (result.items.length > 0) {
+      const elapsed = Math.round((Date.now() - start) / 1000);
+      console.log(`Questions found after ${elapsed}s — fetching all`);
+
+      // Questions are ready — fetch all
+      return listClarifyingQuestionsByOpportunity({
+        orgId: args.orgId,
+        projectId: args.projectId,
+        opportunityId: args.opportunityId,
+        limit: 1000,
+      });
+    }
+
+    // Wait before next poll
+    await new Promise((r) => setTimeout(r, interval));
+  }
+
+  console.warn(`Polling timed out after ${maxWait / 1000}s — no questions found`);
+  return { items: [], nextToken: null };
 };
 
 // ─── Filter & Sort ───
@@ -242,24 +303,66 @@ export const generateClarifyingQuestionsDocument = async (
   console.log(`Processing clarifying questions document for documentId=${documentId}`);
 
   // 1. Load clarifying questions
-  const { items: allQuestions } = await listClarifyingQuestionsByOpportunity({
+  let questionsResult = await listClarifyingQuestionsByOpportunity({
     orgId,
     projectId,
     opportunityId,
     limit: 1000, // Get all questions
   });
 
-  if (!allQuestions.length) {
-    await updateDocumentStatus(
-      projectId,
-      opportunityId,
-      documentId,
-      'FAILED',
-      undefined,
-      'No clarifying questions found for this opportunity',
-    );
-    return;
+  // 2. If no questions exist, trigger generation and wait for them
+  if (!questionsResult.items.length) {
+    console.log('No clarifying questions found — triggering generation via SQS');
+
+    try {
+      // Enqueue question generation (uses existing SQS worker)
+      await enqueueClarifyingQuestionGeneration({
+        orgId,
+        projectId,
+        opportunityId,
+        topK: DEFAULT_TOP_K,
+        force: false, // Don't regenerate if questions appear between check and enqueue
+        userId: 'document-worker',
+        userName: 'Document Generation System',
+      });
+
+      // Poll until questions appear or timeout
+      questionsResult = await pollForClarifyingQuestions({
+        orgId,
+        projectId,
+        opportunityId,
+      });
+
+      if (!questionsResult.items.length) {
+        await updateDocumentStatus(
+          projectId,
+          opportunityId,
+          documentId,
+          'FAILED',
+          undefined,
+          'Question generation timed out. Please try again or generate questions from the Q&A section first.',
+        );
+        return;
+      }
+
+      console.log(`Auto-generated ${questionsResult.items.length} clarifying questions`);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error('Failed to trigger question generation:', errorMessage);
+
+      await updateDocumentStatus(
+        projectId,
+        opportunityId,
+        documentId,
+        'FAILED',
+        undefined,
+        `Failed to generate clarifying questions: ${errorMessage}`,
+      );
+      return;
+    }
   }
+
+  const allQuestions = questionsResult.items;
 
   // 2. Filter and sort questions
   const filtered = filterQuestions(allQuestions, effectiveOptions);
@@ -305,7 +408,7 @@ export const generateClarifyingQuestionsDocument = async (
     projectId,
     opportunityId,
     documentId,
-    'COMPLETE',
+    'READY',
     { title: 'Clarifying Questions', content: finalHtml },
     undefined,
     orgId,

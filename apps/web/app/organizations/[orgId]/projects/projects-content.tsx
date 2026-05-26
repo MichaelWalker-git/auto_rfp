@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { useProjects } from '@/lib/hooks/use-api';
 import { useCurrentOrganization } from '@/context/organization-context';
 import type { Project } from '@/types/project';
-import PermissionWrapper from '@/components/permission-wrapper';
+import { PermissionButton } from '@/components/ui/permission-button';
 import { PageHeader } from '@/components/layout/page-header';
 import { PageSearch } from '@/components/layout/page-search';
 import { DeleteProjectDialog } from './components/delete-project-dialog';
@@ -159,12 +159,10 @@ function ProjectsList({ orgId }: { orgId: string }) {
         actions={
           <>
             <PageSearch value={searchQuery} onChange={setSearchQuery} placeholder="Search projects..." />
-            <PermissionWrapper requiredPermission="project:create">
-              <Button onClick={handleCreateClick}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                New Project
-              </Button>
-            </PermissionWrapper>
+            <PermissionButton requiredPermission="project:create" onClick={handleCreateClick}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              New Project
+            </PermissionButton>
           </>
         }
       />
@@ -201,11 +199,11 @@ function EmptyState({ onCreateClick }: { onCreateClick: () => void }) {
   return (
     <div className="border rounded-lg p-8 text-center">
       <h3 className="text-lg font-medium mb-2">No projects yet</h3>
-      <p className="text-gray-600 mb-4">Create your first project to get started</p>
-      <Button onClick={onCreateClick}>
+      <p className="text-muted-foreground mb-4">Create your first project to get started</p>
+      <PermissionButton requiredPermission="project:create" onClick={onCreateClick}>
         <PlusCircle className="mr-2 h-4 w-4" />
         Create Project
-      </Button>
+      </PermissionButton>
     </div>
   );
 }

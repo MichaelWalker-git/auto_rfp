@@ -2,8 +2,8 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  AlertCircle, Download, ExternalLink, Eye, FileText, FolderOpen,
-  Loader2, MoreHorizontal, RefreshCw, RotateCcw, Trash2, X,
+  AlertCircle, Download, ExternalLink, Eye, FileSpreadsheet, FileText, FolderOpen,
+  Link2, Loader2, MoreHorizontal, RefreshCw, RotateCcw, Sparkles, Trash2, X,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import type { QuestionFileItem } from '@auto-rfp/core';
 import { CancelPipelineButton } from '@/components/cancel-pipeline-button';
 import { useDeleteQuestionFile, useQuestionFiles, useReextractQuestions, useReextractAllQuestions, useStartQuestionFilePipeline } from '@/lib/hooks/use-question-file';
 import { useDownloadFromS3 } from '@/lib/hooks/use-file';
@@ -28,8 +29,13 @@ import {
   QuestionFileUploadDialog,
 } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components/question-extraction-dialog';
 import { useOpportunityContext } from './opportunity-context';
+import { useApi, buildApiUrl } from '@/lib/hooks/api-helpers';
+import type { RequiredFormsListResponse } from '@auto-rfp/core';
+import Link from 'next/link';
+import { usePermission } from '@/components/permission-wrapper';
 import { formatDateTime, getStatusChip, pickDisplayName, guessDownloadName } from './opportunity-helpers';
 import { formatFileSize } from '@/lib/format-file-size';
+import { isExtractedQuestionFile } from '@/lib/utils/question-file-status';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -40,6 +46,14 @@ const getFileExtension = (key: string): string =>
 
 const isImage = (key: string): boolean =>
   IMAGE_EXTENSIONS.has(getFileExtension(key));
+
+const SPREADSHEET_EXTENSIONS = new Set(['xlsx', 'xls', 'csv']);
+
+const getFileIcon = (fileKey: string | undefined, docType: string | undefined) => {
+  if (docType === 'QUESTIONNAIRE' || docType === 'REQUIRED_FORM') return FileSpreadsheet;
+  if (fileKey && SPREADSHEET_EXTENSIONS.has(getFileExtension(fileKey))) return FileSpreadsheet;
+  return FileText;
+};
 
 // ─── Image Lightbox ───────────────────────────────────────────────────────────
 
@@ -85,14 +99,35 @@ interface AttachmentRow {
   googleDriveUrl: string | undefined;
   googleDriveFileId: string | undefined;
   fileSize: number | undefined;
+  depth: number | undefined;
+  parentFileName: string | undefined;
+  docType: string | undefined;
 }
 
-export function OpportunitySolicitationDocuments() {
-  const { projectId, oppId } = useOpportunityContext();
+interface OpportunitySolicitationDocumentsProps {
+  onAskAI?: () => void;
+}
+
+export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicitationDocumentsProps = {}) {
+  const { projectId, oppId, orgId } = useOpportunityContext();
   const { toast } = useToast();
   const { confirm, ConfirmDialog } = useConfirmDialog();
+  const canDelete = usePermission('document:delete');
 
   const { items: qItems, isLoading: isLoadingFiles, isError: isFilesError, error: filesError, refetch: refetchFiles } = useQuestionFiles(projectId, { oppId });
+
+  // Fetch required forms to show "Forms Detected" badge on matching solicitation files
+  const formsUrl = orgId && projectId && oppId ? buildApiUrl('/required-forms/list', { orgId, projectId, opportunityId: oppId }) : null;
+  const { data: formsData } = useApi<RequiredFormsListResponse>(formsUrl, formsUrl, { refreshInterval: 10_000, dedupingInterval: 5_000 });
+  const formsBySourceFile = useMemo(() => {
+    const map = new Map<string, Array<{ formId: string; name: string }>>();
+    for (const form of formsData?.forms ?? []) {
+      const key = form.sourceFileName;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push({ formId: form.formId, name: form.name });
+    }
+    return map;
+  }, [formsData]);
   const { downloadFile, error: downloadError } = useDownloadFromS3();
   const { trigger: deleteQuestionFile } = useDeleteQuestionFile();
   const { trigger: presignDownload } = usePresignDownload();
@@ -109,17 +144,20 @@ export function OpportunitySolicitationDocuments() {
   const [previewState, setPreviewState] = useState<{ name: string; url: string; fileKey: string } | null>(null);
 
   const rows = useMemo<AttachmentRow[]>(
-    () => (qItems ?? []).map((qf: any) => ({
-      questionFileId: qf?.questionFileId,
+    () => ((qItems ?? []) as QuestionFileItem[]).map((qf) => ({
+      questionFileId: qf.questionFileId,
       name: pickDisplayName(qf),
-      status: qf?.status,
-      createdAt: qf?.createdAt,
-      updatedAt: qf?.updatedAt,
-      fileKey: qf?.fileKey,
-      errorMessage: qf?.errorMessage,
-      googleDriveUrl: qf?.googleDriveUrl,
-      googleDriveFileId: qf?.googleDriveFileId,
-      fileSize: qf?.fileSize,
+      status: qf.status,
+      createdAt: qf.createdAt,
+      updatedAt: qf.updatedAt,
+      fileKey: qf.fileKey,
+      errorMessage: qf.errorMessage,
+      googleDriveUrl: qf.googleDriveUrl,
+      googleDriveFileId: qf.googleDriveFileId,
+      fileSize: qf.fileSize,
+      depth: qf.depth,
+      parentFileName: qf.parentFileName,
+      docType: qf.docType,
     })),
     [qItems],
   );
@@ -278,6 +316,18 @@ export function OpportunitySolicitationDocuments() {
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
+            {rows.length > 0 && onAskAI && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onAskAI}
+                title="Ask AI about these documents"
+                className="gap-1"
+              >
+                <Sparkles className="h-4 w-4" />
+                Ask AI
+              </Button>
+            )}
             {rows.length > 0 && (
               <Button
                 size="sm"
@@ -337,12 +387,22 @@ export function OpportunitySolicitationDocuments() {
                   <div key={f.questionFileId ?? f.name} className={cn('rounded-xl border bg-background p-3', (isDeleting || isDownloading) && 'opacity-80')}>
                     <div className="flex items-start gap-3" data-doc-status={f.status ?? 'COMPLETE'}>
                       <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                        <FileText className="h-5 w-5 text-muted-foreground" />
+                        {React.createElement(getFileIcon(f.fileKey, f.docType), { className: 'h-5 w-5 text-muted-foreground' })}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-medium truncate text-sm" title={f.name}>{f.name}</p>
                           <Badge variant="outline" className={cn('text-xs border', st.cls)}>{st.label}</Badge>
+                          {(f.depth ?? 0) > 0 && (
+                            <Badge 
+                              variant="secondary" 
+                              className="text-xs gap-1 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800"
+                              title={f.parentFileName ? `Linked from "${f.parentFileName}"` : 'Auto-imported linked attachment'}
+                            >
+                              <Link2 className="h-3 w-3" />
+                              Linked
+                            </Badge>
+                          )}
                           {f.googleDriveUrl && (
                             <a href={f.googleDriveUrl} target="_blank" rel="noopener noreferrer" title="Open in Google Drive">
                               <Badge variant="secondary" className="text-xs gap-1 cursor-pointer hover:bg-blue-100">
@@ -358,13 +418,34 @@ export function OpportunitySolicitationDocuments() {
                               </Badge>
                             </a>
                           )}
-                        </div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {formatFileSize(f.fileSize) && (
-                            <>{formatFileSize(f.fileSize)} · </>
+                          {isExtractedQuestionFile(f.status) && formsBySourceFile.has(f.name) && (
+                            formsBySourceFile.get(f.name)!.map((form) => (
+                              <Link key={form.formId} href={`/organizations/${orgId}/projects/${projectId}/opportunities/${oppId}/forms/${form.formId}`} title={`Required form detected: "${form.name}". Click to open and fill in.`}>
+                                <Badge variant="secondary" className="text-xs gap-1 cursor-pointer bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200">
+                                  <FileText className="h-3 w-3" />
+                                  Form
+                                </Badge>
+                              </Link>
+                            ))
                           )}
-                          {formatDateTime(f.createdAt)}
-                          {f.updatedAt && f.updatedAt !== f.createdAt ? ` • Updated: ${formatDateTime(f.updatedAt)}` : ''}
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+                          {f.docType && f.docType !== 'OTHER' && (
+                            <span className={cn('font-medium',
+                              f.docType === 'QUESTIONNAIRE' && 'text-teal-600 dark:text-teal-400',
+                              f.docType === 'REQUIRED_FORM' && 'text-orange-600 dark:text-orange-400',
+                            )}>
+                              {f.docType === 'QUESTIONNAIRE' ? 'Questionnaire' : 'Required Form'}
+                            </span>
+                          )}
+                          {f.docType && f.docType !== 'OTHER' && <span>·</span>}
+                          {formatFileSize(f.fileSize) && (
+                            <><span>{formatFileSize(f.fileSize)}</span><span>·</span></>
+                          )}
+                          <span>{formatDateTime(f.createdAt)}</span>
+                          {f.updatedAt && f.updatedAt !== f.createdAt && (
+                            <><span>·</span><span>Updated {formatDateTime(f.updatedAt)}</span></>
+                          )}
                         </div>
                         {isFailed && f.errorMessage && (
                           <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700">{f.errorMessage}</div>
@@ -421,8 +502,8 @@ export function OpportunitySolicitationDocuments() {
                                 Retry processing
                               </DropdownMenuItem>
                             )}
-                            {/* Re-extract — available for PROCESSED files */}
-                            {f.status === 'PROCESSED' && f.questionFileId && (
+                            {/* Re-extract — available once extraction has finished */}
+                            {isExtractedQuestionFile(f.status) && f.questionFileId && (
                               <DropdownMenuItem
                                 disabled={reextractingId === f.questionFileId}
                                 onClick={() => void handleReextract(f)}
@@ -449,10 +530,10 @@ export function OpportunitySolicitationDocuments() {
                                 <ExternalLink className="h-4 w-4 mr-2" /> Open in Google Drive
                               </DropdownMenuItem>
                             )}
-                            {(f.status === 'PROCESSED' || isFailed) && (
+                            {(isExtractedQuestionFile(f.status) || isFailed) && canDelete && (
                               <>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-red-600" disabled={!f.questionFileId || isDeleting} onClick={() => void handleDelete(f)}>
+                                <DropdownMenuItem className="text-red-600" disabled={isDeleting} onClick={() => void handleDelete(f)}>
                                   {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
                                   Delete
                                 </DropdownMenuItem>

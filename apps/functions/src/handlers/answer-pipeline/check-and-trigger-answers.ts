@@ -13,6 +13,7 @@ import { getOrgMembers } from '@/helpers/user';
 import { writeAuditLog } from '@/helpers/audit-log';
 import { getHmacSecret } from '@/helpers/secret';
 import { nowIso } from '@/helpers/date';
+import { updateQuestionFile } from '@/helpers/questionFile';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const ANSWER_GENERATION_STATE_MACHINE_ARN = process.env.ANSWER_GENERATION_STATE_MACHINE_ARN || '';
@@ -43,8 +44,31 @@ interface QuestionFileItem {
   opportunityId?: string;
 }
 
-// Terminal states - file processing is complete (success or failure)
-const TERMINAL_STATUSES = ['PROCESSED', 'FAILED'];
+// Terminal states - file extraction is complete (success or failure).
+// PROCESSED is the post-extraction state; the downstream sub-states
+// (GENERATING_ANSWERS, ANSWERS_READY, FILLING_FORMS, FORMS_READY) all imply
+// that extraction has already finished, so they should be treated as
+// terminal for the purpose of triggering answer generation. Without this,
+// a Textract-forms callback that races past PROCESSED and writes
+// FORMS_READY would block the answer pipeline forever.
+const TERMINAL_STATUSES = [
+  'PROCESSED',
+  'GENERATING_ANSWERS',
+  'ANSWERS_READY',
+  'FILLING_FORMS',
+  'FORMS_READY',
+  'FAILED',
+];
+
+// Statuses that indicate extraction completed successfully and the file
+// counts as "processed" for the all-files-done check.
+const PROCESSED_EQUIVALENT_STATUSES = [
+  'PROCESSED',
+  'GENERATING_ANSWERS',
+  'ANSWERS_READY',
+  'FILLING_FORMS',
+  'FORMS_READY',
+];
 
 // Ignored states - these files should not block answer generation
 const IGNORED_STATUSES = ['DELETED', 'CANCELLED'];
@@ -156,8 +180,10 @@ export const baseHandler = async (
     return (now - updatedAtMs) > staleThresholdMs;
   };
 
-  // Categorize — treat stale non-terminal files as effectively FAILED
-  const processedFiles = relevantFiles.filter(f => f.status === 'PROCESSED');
+  // Categorize — treat stale non-terminal files as effectively FAILED.
+  // "Processed" includes any file whose extraction succeeded, even if a
+  // downstream sub-stage already moved its status forward.
+  const processedFiles = relevantFiles.filter(f => PROCESSED_EQUIVALENT_STATUSES.includes(f.status));
   const failedFiles = relevantFiles.filter(f => f.status === 'FAILED');
   const staleFiles = relevantFiles.filter(f => !TERMINAL_STATUSES.includes(f.status) && isStale(f));
   const activePendingFiles = relevantFiles.filter(f => !TERMINAL_STATUSES.includes(f.status) && !isStale(f));
@@ -191,6 +217,21 @@ export const baseHandler = async (
       reason: 'No successfully processed files',
       totalFiles: relevantFiles.length,
       processedFiles: 0,
+    };
+  }
+
+  // Skip if the answer pipeline has already produced answers for this opportunity.
+  // Without this guard, a Textract-forms callback that fires after answer generation
+  // (e.g. for a slow encrypted PDF) would re-trigger the whole answer state machine.
+  const allAnswersAlreadyReady = processedFiles.every(
+    (f) => f.status === 'ANSWERS_READY' || f.status === 'GENERATING_ANSWERS',
+  );
+  if (allAnswersAlreadyReady) {
+    return {
+      triggered: false,
+      reason: 'Answer generation already completed or in flight for this opportunity',
+      totalFiles: relevantFiles.length,
+      processedFiles: processedFiles.length,
     };
   }
 
@@ -239,9 +280,19 @@ export const baseHandler = async (
 
   console.log(`All ${processedFiles.length} files processed for opportunity ${opportunityId}! Triggering answer generation...`);
 
+  // Mark every processed question file as GENERATING_ANSWERS so the UI can
+  // surface that downstream answer generation is in flight. Best-effort —
+  // a status-write failure must not block triggering the state machine.
+  await Promise.all(
+    processedFiles.map((qf) =>
+      updateQuestionFile(projectId, opportunityId, qf.questionFileId, { status: 'GENERATING_ANSWERS' })
+        .catch((err) => console.warn(`Failed to set GENERATING_ANSWERS on ${qf.questionFileId}:`, (err as Error)?.message)),
+    ),
+  );
+
   // Include opportunityId in execution name for uniqueness and tracking
   const executionName = `${opportunityId}-${Date.now()}`;
-  
+
   const startResult = await sfnClient.send(
     new StartExecutionCommand({
       stateMachineArn: ANSWER_GENERATION_STATE_MACHINE_ARN,

@@ -18,6 +18,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { AlertCircle, Key, Loader2, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { PermissionButton } from '@/components/ui/permission-button';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 
 interface ApiKeyConfigurationProps {
   title: string;
@@ -131,24 +133,23 @@ export function ApiKeyConfiguration({
               <Badge variant={hasApiKey ? "default" : "secondary"}>
                 {hasApiKey ? "Configured" : "Not Configured"}
               </Badge>
-              <Button
+              <PermissionButton
+                requiredPermission="org:manage_settings"
                 size="sm"
                 variant="outline"
                 onClick={() => setShowDialog(true)}
               >
                 <Key className="h-4 w-4 mr-2" />
                 {hasApiKey ? "Update" : "Configure"}
-              </Button>
+              </PermissionButton>
               {hasApiKey && (
-                <Button
+                <PermissionDeleteButton
+                  requiredPermission="org:manage_settings"
                   size="sm"
                   variant="ghost"
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
                   onClick={() => setShowDeleteDialog(true)}
-                  title="Remove API key"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                  deniedTooltip="You don't have permission to manage organization settings. Contact your admin."
+                />
               )}
             </div>
           </div>

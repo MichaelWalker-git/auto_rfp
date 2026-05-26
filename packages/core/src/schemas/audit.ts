@@ -112,6 +112,8 @@ export const AuditActionSchema = z.enum([
   'QUESTION_FILE_REEXTRACT_ALL',
   // Solicitation import
   'SOLICITATION_IMPORTED',
+  // Attachment auto-import (link detection)
+  'ATTACHMENTS_AUTO_IMPORTED',
   // AI section editing (chat-based)
   'DOCUMENT_SECTION_EDIT_STARTED',
   'DOCUMENT_SECTION_EDIT_COMPLETED',
@@ -127,6 +129,9 @@ export const AuditActionSchema = z.enum([
   'EXTRACTION_DRAFT_CREATED',
   'EXTRACTION_DRAFT_CONFIRMED',
   'EXTRACTION_DRAFT_DISCARDED',
+  // Opportunity assistant (RAG chat)
+  'OPPORTUNITY_ASSISTANT_MESSAGE_SENT',
+  'SOLICITATION_DOCUMENT_INDEXED',
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 
@@ -168,6 +173,9 @@ export const AuditResourceSchema = z.enum([
   'past_project',
   'labor_rate',
   'bom_item',
+  // Opportunity assistant
+  'opportunity_assistant_chat',
+  'solicitation_chunk',
 ]);
 export type AuditResource = z.infer<typeof AuditResourceSchema>;
 

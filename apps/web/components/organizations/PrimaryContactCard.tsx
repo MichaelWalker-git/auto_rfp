@@ -6,6 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2, Mail, MapPin, Phone, Trash2, User, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PermissionButton } from '@/components/ui/permission-button';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -138,20 +140,14 @@ export const PrimaryContactCard = ({ orgId }: PrimaryContactCardProps) => {
             </div>
           </div>
           {contact && (
-            <Button
-              type="button"
+            <PermissionDeleteButton
+              requiredPermission="org:manage_settings"
               variant="ghost"
               size="sm"
-              className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
               onClick={handleDelete}
-              disabled={isDeleting}
-            >
-              {isDeleting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-            </Button>
+              isLoading={isDeleting}
+              deniedTooltip="You don't have permission to manage organization settings. Contact your admin."
+            />
           )}
         </div>
         <p className="text-xs text-muted-foreground mt-2">
@@ -256,7 +252,8 @@ export const PrimaryContactCard = ({ orgId }: PrimaryContactCardProps) => {
 
           {/* Save button */}
           <div className="flex justify-end pt-1">
-            <Button
+            <PermissionButton
+              requiredPermission="org:manage_settings"
               type="submit"
               size="sm"
               disabled={isSaving || !isDirty || !isValid}
@@ -269,7 +266,7 @@ export const PrimaryContactCard = ({ orgId }: PrimaryContactCardProps) => {
               ) : (
                 'Save Contact'
               )}
-            </Button>
+            </PermissionButton>
           </div>
         </CardContent>
       </form>

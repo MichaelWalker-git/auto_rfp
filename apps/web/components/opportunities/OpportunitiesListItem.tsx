@@ -21,7 +21,8 @@ import { cn } from '@/lib/utils';
 import { useDeleteOpportunity } from '@/lib/hooks/use-opportunities';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { EditOpportunityDialog } from './edit-opportunity-dialog';
-import { usePermission } from '@/components/permission-wrapper';
+import { PermissionButton } from '@/components/ui/permission-button';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 
 type Props = {
   item: OpportunityItem;
@@ -43,8 +44,6 @@ export function OpportunitiesListItem({ item, onOpen, onDeleted, onUpdated, clas
   const due = useMemo(() => fmt(item.responseDeadlineIso), [item.responseDeadlineIso]);
   const { currentOrganization } = useCurrentOrganization();
   const params = useParams();
-  const canEdit = usePermission('opportunity:edit');
-  const canDelete = usePermission('opportunity:delete');
 
   const { trigger: deleteOpportunity, isMutating: isDeleting } = useDeleteOpportunity();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -164,38 +163,30 @@ export function OpportunitiesListItem({ item, onOpen, onDeleted, onUpdated, clas
               <ChevronRight className="h-4 w-4"/>
             </Button>
 
-            {canEdit && (
-              <EditOpportunityDialog
-                item={item}
-                onUpdated={onUpdated}
-                trigger={
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    title="Edit opportunity"
-                  >
-                    <Pencil className="h-4 w-4"/>
-                  </Button>
-                }
-              />
-            )}
+            <EditOpportunityDialog
+              item={item}
+              onUpdated={onUpdated}
+              trigger={
+                <PermissionButton
+                  requiredPermission="opportunity:edit"
+                  size="sm"
+                  variant="outline"
+                  title="Edit opportunity"
+                >
+                  <Pencil className="h-4 w-4"/>
+                </PermissionButton>
+              }
+            />
 
-            {canDelete && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleDeleteClick}
-                disabled={isDeleting}
-                className="text-destructive hover:text-destructive"
-                title="Delete opportunity"
-              >
-                {isDeleting ? (
-                  <Loader2 className="h-4 w-4 animate-spin"/>
-                ) : (
-                  <Trash2 className="h-4 w-4"/>
-                )}
-              </Button>
-            )}
+            <PermissionDeleteButton
+              requiredPermission="opportunity:delete"
+              size="sm"
+              variant="outline"
+              onClick={handleDeleteClick}
+              isLoading={isDeleting}
+              className="text-destructive hover:text-destructive"
+              ariaLabel="Delete opportunity"
+            />
           </div>
         </div>
       </CardHeader>

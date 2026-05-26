@@ -19,7 +19,7 @@ export const PricingContent = ({ orgId }: PricingContentProps) => {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Pricing & Cost Estimation</h1>
         <p className="text-muted-foreground mt-1">
-          Manage labor rates, bill of materials, staffing plans, and cost estimates.
+          Manage labor rates, direct costs, and staffing plans for your proposals.
         </p>
       </div>
 
@@ -31,7 +31,7 @@ export const PricingContent = ({ orgId }: PricingContentProps) => {
           </TabsTrigger>
           <TabsTrigger value="bom" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
-            Bill of Materials
+            Direct Costs
           </TabsTrigger>
           <TabsTrigger value="staffing" className="flex items-center gap-2">
             <Users className="h-4 w-4" />

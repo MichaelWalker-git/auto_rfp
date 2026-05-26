@@ -55,6 +55,8 @@ export const SimilarQuestionSchema = z.object({
   similarity: z.number().min(0).max(1),
   hasAnswer: z.boolean(),
   answerPreview: z.string().optional(),
+  /** Full answer text for "Use this answer" feature */
+  answerText: z.string().optional(),
   inSameCluster: z.boolean(),
   clusterId: z.string().optional(),
 });

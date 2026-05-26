@@ -1,0 +1,1 @@
+export const COMPANY_PROFILE_PK = 'COMPANY_PROFILE';

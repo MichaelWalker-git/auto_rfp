@@ -368,19 +368,26 @@ export default function SearchOpportunitiesPage({ orgId }: Props) {
             <SearchOpportunityForm orgId={orgId} onSearch={handleSearch} isLoading={isLoading} initialValues={initialFormValues.current ?? undefined} />
           </div>
 
-          {/* Source errors */}
+          {/* Source warnings — partial results from slow/unavailable providers */}
           {result?.samGovError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>SAM.gov error</AlertTitle>
+            <Alert variant="default" className="border-orange-200 bg-orange-50 text-orange-900">
+              <AlertCircle className="h-4 w-4 text-orange-500" />
+              <AlertTitle>SAM.gov unavailable</AlertTitle>
               <AlertDescription className="text-xs">{result.samGovError}</AlertDescription>
             </Alert>
           )}
           {result?.dibbsError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>DIBBS error</AlertTitle>
+            <Alert variant="default" className="border-orange-200 bg-orange-50 text-orange-900">
+              <AlertCircle className="h-4 w-4 text-orange-500" />
+              <AlertTitle>DIBBS unavailable</AlertTitle>
               <AlertDescription className="text-xs">{result.dibbsError}</AlertDescription>
+            </Alert>
+          )}
+          {result?.higherGovError && (
+            <Alert variant="default" className="border-orange-200 bg-orange-50 text-orange-900">
+              <AlertCircle className="h-4 w-4 text-orange-500" />
+              <AlertTitle>HigherGov unavailable</AlertTitle>
+              <AlertDescription className="text-xs">{result.higherGovError}</AlertDescription>
             </Alert>
           )}
 

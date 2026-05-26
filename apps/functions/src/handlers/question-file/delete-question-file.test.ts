@@ -38,6 +38,13 @@ jest.mock('@aws-sdk/client-s3', () => ({
   DeleteObjectCommand: jest.fn((params) => ({ type: 'S3Delete', params })),
 }));
 
+// Mock Pinecone helper — cascade calls deleteSolicitationFile
+// eslint-disable-next-line no-var
+var mockDeleteSolicitationFile = jest.fn().mockResolvedValue(0);
+jest.mock('@/helpers/pinecone', () => ({
+  deleteSolicitationFile: (...args: unknown[]) => mockDeleteSolicitationFile(...args),
+}));
+
 // Set required environment variables
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.REGION = 'us-east-1';
@@ -55,6 +62,8 @@ describe('delete-question-file', () => {
     jest.clearAllMocks();
     mockSend.mockReset();
     mockS3Send.mockReset();
+    mockDeleteSolicitationFile.mockClear();
+    mockDeleteSolicitationFile.mockResolvedValue(0);
   });
 
   // ─── deleteQuestionFileWithCascade helper ─────────────────────────────────────
@@ -177,6 +186,68 @@ describe('delete-question-file', () => {
           }),
         }),
       );
+    });
+
+    it('calls deleteSolicitationFile with (orgId, oppId, questionFileId) from the record', async () => {
+      mockSend.mockResolvedValueOnce({
+        Item: {
+          partition_key: 'QUESTION_FILE',
+          sort_key: 'proj-1#opp-1#qf-1',
+          questionFileId: 'qf-1',
+          orgId: 'org-xyz',
+          fileKey: 'uploads/rfp.pdf',
+          status: 'PROCESSED',
+        },
+      });
+      mockS3Send.mockResolvedValueOnce({});
+      mockSend.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined });
+      mockSend.mockResolvedValueOnce({});
+
+      await deleteQuestionFileWithCascade('proj-1', 'opp-1', 'qf-1');
+
+      expect(mockDeleteSolicitationFile).toHaveBeenCalledWith('org-xyz', 'opp-1', 'qf-1');
+    });
+
+    it('skips deleteSolicitationFile when the record has no orgId (legacy data)', async () => {
+      mockSend.mockResolvedValueOnce({
+        Item: {
+          partition_key: 'QUESTION_FILE',
+          sort_key: 'proj-1#opp-1#qf-1',
+          questionFileId: 'qf-1',
+          // orgId deliberately missing
+          fileKey: 'uploads/rfp.pdf',
+          status: 'PROCESSED',
+        },
+      });
+      mockS3Send.mockResolvedValueOnce({});
+      mockSend.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined });
+      mockSend.mockResolvedValueOnce({});
+
+      await deleteQuestionFileWithCascade('proj-1', 'opp-1', 'qf-1');
+
+      expect(mockDeleteSolicitationFile).not.toHaveBeenCalled();
+    });
+
+    it('continues cascade when Pinecone deletion fails', async () => {
+      mockSend.mockResolvedValueOnce({
+        Item: {
+          partition_key: 'QUESTION_FILE',
+          sort_key: 'proj-1#opp-1#qf-1',
+          questionFileId: 'qf-1',
+          orgId: 'org-xyz',
+          fileKey: 'uploads/rfp.pdf',
+          status: 'PROCESSED',
+        },
+      });
+      mockS3Send.mockResolvedValueOnce({});
+      mockDeleteSolicitationFile.mockRejectedValueOnce(new Error('pinecone down'));
+      mockSend.mockResolvedValueOnce({ Items: [], LastEvaluatedKey: undefined });
+      mockSend.mockResolvedValueOnce({});
+
+      const result = await deleteQuestionFileWithCascade('proj-1', 'opp-1', 'qf-1');
+
+      expect(result).not.toBeNull();
+      expect(result!.questionFileId).toBe('qf-1');
     });
 
     it('deduplicates S3 keys when fileKey and textFileKey are the same', async () => {

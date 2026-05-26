@@ -22,7 +22,7 @@ import {
   useEditKnowledgeBase,
   useKnowledgeBases
 } from '@/lib/hooks/use-knowledgebase';
-import PermissionWrapper from '@/components/permission-wrapper';
+import { PermissionButton } from '@/components/ui/permission-button';
 import { KnowledgeBase } from '@auto-rfp/core';
 import KnowledgeBaseCard from '@/components/kb/KnowledgeBaseCard';
 
@@ -169,14 +169,12 @@ export function KnowledgeBaseContent({}: KnowledgeBaseContentProps) {
             if (!open) resetForm();
           }}
         >
-          <PermissionWrapper requiredPermission={'kb:create'}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                New Folder
-              </Button>
-            </DialogTrigger>
-          </PermissionWrapper>
+          <DialogTrigger asChild>
+            <PermissionButton requiredPermission="kb:create">
+              <Plus className="mr-2 h-4 w-4" />
+              New Folder
+            </PermissionButton>
+          </DialogTrigger>
 
           <DialogContent>
             <DialogHeader>
@@ -329,12 +327,10 @@ export function KnowledgeBaseContent({}: KnowledgeBaseContentProps) {
           <p className="text-muted-foreground text-center max-w-md mb-6">
             Create folders to organize and index your documents for Q&amp;A and retrieval.
           </p>
-          <PermissionWrapper requiredPermission="kb:create">
-            <Button size="lg" onClick={() => setIsCreateKBOpen(true)}>
-              <Plus className="mr-2 h-5 w-5" />
-              Create Your First Folder
-            </Button>
-          </PermissionWrapper>
+          <PermissionButton requiredPermission="kb:create" size="lg" onClick={() => setIsCreateKBOpen(true)}>
+            <Plus className="mr-2 h-5 w-5" />
+            Create Your First Folder
+          </PermissionButton>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

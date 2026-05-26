@@ -3,11 +3,14 @@
 import { useState } from 'react';
 import { useLaborRates } from '@/lib/hooks/use-pricing';
 import { Button } from '@/components/ui/button';
+import { PermissionButton } from '@/components/ui/permission-button';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, Trash2, Users, Calculator } from 'lucide-react';
+import { StaffingPlanInfoPopover } from './StaffingPlanInfoPopover';
 
 interface StaffingPlanBuilderProps {
   orgId: string;
@@ -87,9 +90,12 @@ export const StaffingPlanBuilder = ({ orgId }: StaffingPlanBuilderProps) => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold">Staffing Plan Builder</h2>
-          <p className="text-sm text-muted-foreground">
-            Build staffing plans by selecting positions and hours. Rates are auto-populated from your labor rate table.
-          </p>
+          <div className="flex items-center gap-1">
+            <p className="text-sm text-muted-foreground">
+              Build staffing plans by selecting positions and hours. Rates are auto-populated from your labor rate table.
+            </p>
+            <StaffingPlanInfoPopover />
+          </div>
         </div>
       </div>
 
@@ -166,9 +172,7 @@ export const StaffingPlanBuilder = ({ orgId }: StaffingPlanBuilderProps) => {
                         {row.totalCost > 0 ? `$${row.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
                       </td>
                       <td className="p-2 text-right">
-                        <Button variant="ghost" size="sm" onClick={() => removeRow(row.id)}>
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
+                        <PermissionDeleteButton requiredPermission="pricing:edit" variant="ghost" size="sm" onClick={() => removeRow(row.id)} />
                       </td>
                     </tr>
                   ))}
@@ -177,10 +181,10 @@ export const StaffingPlanBuilder = ({ orgId }: StaffingPlanBuilderProps) => {
             </div>
           )}
 
-          <Button variant="outline" size="sm" onClick={addRow}>
+          <PermissionButton requiredPermission="pricing:edit" variant="outline" size="sm" onClick={addRow}>
             <Plus className="h-4 w-4 mr-1" />
             Add Position
-          </Button>
+          </PermissionButton>
 
           {rows.length > 0 && (
             <div className="flex justify-end gap-4">

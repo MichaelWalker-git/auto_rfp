@@ -9,21 +9,23 @@ import { createItem, DBItem, deleteItem, docClient, queryAllBySkPrefix } from '.
 import { buildQuestionSK } from './question';
 import { ANSWER_PK } from '../constants/answer';
 import { QUESTION_CLUSTER_PK } from '../constants/clustering';
+import { deleteSolicitationFile } from './pinecone';
 import { startPipeline } from './solicitation';
 import { nowIso } from './date';
 import { v4 as uuidv4 } from 'uuid';
+import { REQUIRED_FORM_PK } from '../constants/required-form';
 
 // Resolved lazily so tests can set process.env before module-level code runs
 const getTableName = () => requireEnv('DB_TABLE_NAME');
 const getDocumentsBucket = () => requireEnv('DOCUMENTS_BUCKET');
 
-export async function updateQuestionFile(
+export const updateQuestionFile = async (
   projectId: string,
   oppId: string,
   questionFileId: string,
   questionFile: Partial<QuestionFileItem>
-): Promise<{ success: boolean; deleted?: boolean }> {
-  const { status, textFileKey, jobId, taskToken, totalQuestions, errorMessage, executionArn } = questionFile;
+): Promise<{ success: boolean; deleted?: boolean }> => {
+  const { status, textFileKey, jobId, taskToken, totalQuestions, errorMessage, executionArn, docType, questionColumn, answerColumn, firstDataRow, sheetName } = questionFile;
   const sk = buildQuestionFileSK(projectId, oppId, questionFileId);
 
   const fields: string[] = ['#updatedAt = :now'];
@@ -42,6 +44,11 @@ export async function updateQuestionFile(
   if (totalQuestions !== undefined) { fields.push('#totalQuestions = :totalQuestions'); names['#totalQuestions'] = 'totalQuestions'; values[':totalQuestions'] = totalQuestions; }
   if (errorMessage !== undefined) { fields.push('#errorMessage = :errorMessage'); names['#errorMessage'] = 'errorMessage'; values[':errorMessage'] = errorMessage; }
   if (executionArn !== undefined) { fields.push('#executionArn = :executionArn'); names['#executionArn'] = 'executionArn'; values[':executionArn'] = executionArn; }
+  if (docType !== undefined) { fields.push('#docType = :docType'); names['#docType'] = 'docType'; values[':docType'] = docType; }
+  if (questionColumn !== undefined) { fields.push('#questionColumn = :questionColumn'); names['#questionColumn'] = 'questionColumn'; values[':questionColumn'] = questionColumn; }
+  if (answerColumn !== undefined) { fields.push('#answerColumn = :answerColumn'); names['#answerColumn'] = 'answerColumn'; values[':answerColumn'] = answerColumn; }
+  if (firstDataRow !== undefined) { fields.push('#firstDataRow = :firstDataRow'); names['#firstDataRow'] = 'firstDataRow'; values[':firstDataRow'] = firstDataRow; }
+  if (sheetName !== undefined) { fields.push('#sheetName = :sheetName'); names['#sheetName'] = 'sheetName'; values[':sheetName'] = sheetName; }
 
   try {
     await docClient.send(
@@ -85,26 +92,50 @@ export const getQuestionFileItem = async (
 export const buildQuestionFileSK = (projectId: string, oppId: string, questionFileId: string): string =>
   `${projectId}#${oppId}#${questionFileId}`;
 
+/**
+ * Statuses that indicate the question-file has finished extraction successfully.
+ * PROCESSED is the canonical "extraction done" state; the downstream sub-states
+ * (set by check-and-trigger-answers, generate-questionnaire-exports,
+ *  detect-required-forms, textract-forms-callback) all imply extraction
+ * completed before they were set, so callers that need "is this file ready?"
+ * should accept any of them.
+ */
+export const QUESTION_FILE_EXTRACTED_STATUSES = new Set<string>([
+  'PROCESSED',
+  'GENERATING_ANSWERS',
+  'ANSWERS_READY',
+  'FILLING_FORMS',
+  'FORMS_READY',
+]);
+
+export const isExtractedQuestionFile = (status: string | undefined): boolean =>
+  !!status && QUESTION_FILE_EXTRACTED_STATUSES.has(status);
+
 export const createQuestionFile = async (
   request: CreateQuestionFileRequest,
 ): Promise<QuestionFileItem & DBItem> => {
   const questionFileId = uuidv4();
-  const { orgId, oppId, projectId, fileKey, originalFileName, mimeType, sourceDocumentId, fileSize } = request;
+  const { orgId, oppId, projectId, fileKey, originalFileName, mimeType, sourceDocumentId, fileSize, depth } = request;
   const sk = buildQuestionFileSK(projectId, oppId, questionFileId);
 
-  const item = await createItem<QuestionFileItem>(QUESTION_FILE_PK, sk, {
+  // Build payload with consistent undefined handling (omit undefined fields)
+  const payload: Omit<QuestionFileItem, 'createdAt' | 'updatedAt'> = {
     orgId,
     projectId,
     oppId,
     questionFileId,
     fileKey,
-    textFileKey: null,
+    textFileKey: undefined,
     status: 'UPLOADED',
-    originalFileName: originalFileName ?? null,
+    originalFileName: originalFileName ?? undefined,
     mimeType,
-    sourceDocumentId: sourceDocumentId ?? null,
-    ...(fileSize !== undefined ? { fileSize } : {}),
-  } as any);
+    sourceDocumentId: sourceDocumentId ?? undefined,
+    depth: depth ?? 0,
+    ...(fileSize !== undefined && { fileSize }),
+    ...(request.parentFileName && { parentFileName: request.parentFileName }),
+  };
+
+  const item = await createItem<QuestionFileItem>(QUESTION_FILE_PK, sk, payload);
 
   return item as QuestionFileItem & DBItem;
 };
@@ -290,6 +321,17 @@ export const deleteQuestionFileWithCascade = async (
     ? await Promise.all(keysToDelete.map((k) => deleteS3ObjectBestEffort(documentsBucket, k)))
     : [];
 
+  // 1.5 Delete Pinecone vectors for this file (best-effort — don't block cascade on failure).
+  //     Skip if orgId is missing on legacy records; the legacy `opp_{oppId}` namespace
+  //     is still drained when the whole opportunity is deleted.
+  if (qf.orgId) {
+    try {
+      await deleteSolicitationFile(qf.orgId, oppId, questionFileId);
+    } catch (err) {
+      console.error('[deleteQuestionFileWithCascade] Pinecone cleanup failed (continuing):', err);
+    }
+  }
+
   // 2. Cascade delete associated questions
   const questionKeys = await queryQuestionKeysByFile(projectId, oppId, questionFileId);
   const questionsDeleted = await batchDeleteDynamoItems(questionKeys);
@@ -358,6 +400,7 @@ export const reextractQuestions = async (
 
   // 3. Start the pipeline
   const { executionArn, startDate } = await startPipeline(
+    qf.orgId,
     projectId,
     oppId,
     questionFileId,
@@ -445,6 +488,22 @@ export const reextractAllQuestions = async (
     opportunityClusters.map((item) => ({ pk: item[PK_NAME], sk: item[SK_NAME] })),
   );
 
+  // 4.5. Delete all required forms for this opportunity
+  const orgId = (validFiles[0] as QuestionFileItem)?.orgId;
+  if (orgId) {
+    const requiredFormSkPrefix = `${orgId}#${projectId}#${oppId}#`;
+    const allForms = await queryAllBySkPrefix<{ partition_key: string; sort_key: string }>(
+      REQUIRED_FORM_PK,
+      requiredFormSkPrefix,
+    );
+    if (allForms.length > 0) {
+      await batchDeleteDynamoItems(
+        allForms.map((item) => ({ pk: item[PK_NAME], sk: item[SK_NAME] })),
+      );
+      console.log(`[reextractAll] Deleted ${allForms.length} required forms`);
+    }
+  }
+
   // 5. Reset each question file and restart pipelines
   const pipelinesStarted: ReextractAllQuestionsResult['pipelinesStarted'] = [];
 
@@ -460,6 +519,7 @@ export const reextractAllQuestions = async (
     // Start the pipeline
     try {
       const { executionArn } = await startPipeline(
+        qf.orgId,
         projectId,
         oppId,
         qf.questionFileId,
