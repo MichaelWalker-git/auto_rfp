@@ -15,9 +15,11 @@ jest.mock('@/sentry-lambda', () => ({
 
 const mockFetchBlocks = jest.fn();
 const mockMapBlocks = jest.fn();
+const mockParsePageRange = jest.fn();
 jest.mock('@/helpers/textract-forms', () => ({
   fetchAllAnalysisBlocks: (...args: unknown[]) => mockFetchBlocks(...args),
   mapBlocksToFields: (...args: unknown[]) => mockMapBlocks(...args),
+  parsePageRange: (...args: unknown[]) => mockParsePageRange(...args),
 }));
 
 const mockFindForm = jest.fn();
@@ -162,6 +164,32 @@ describe('textract-forms-callback', () => {
         autoFillPercentage: 50,
       }),
     });
+  });
+
+  it('passes the form\'s sourcePageRange through parsePageRange to mapBlocksToFields', async () => {
+    mockFindForm.mockResolvedValueOnce({ ...formStub, sourcePageRange: '17-19' });
+    const blocks = [{ Id: 'b1' }];
+    mockFetchBlocks.mockResolvedValueOnce(blocks);
+    const allowed = new Set([17, 18, 19]);
+    mockParsePageRange.mockReturnValueOnce(allowed);
+    mockMapBlocks.mockReturnValueOnce([]);
+
+    await baseHandler(event({ JobId: 'j-1', Status: 'SUCCEEDED', JobTag: 'form-1' }), ctx);
+
+    expect(mockParsePageRange).toHaveBeenCalledWith('17-19');
+    expect(mockMapBlocks).toHaveBeenCalledWith(blocks, allowed);
+  });
+
+  it('passes a null page filter through when the form has no sourcePageRange', async () => {
+    mockFindForm.mockResolvedValueOnce({ ...formStub, sourcePageRange: null });
+    mockFetchBlocks.mockResolvedValueOnce([]);
+    mockParsePageRange.mockReturnValueOnce(null);
+    mockMapBlocks.mockReturnValueOnce([]);
+
+    await baseHandler(event({ JobId: 'j-1', Status: 'SUCCEEDED', JobTag: 'form-1' }), ctx);
+
+    expect(mockParsePageRange).toHaveBeenCalledWith(null);
+    expect(mockMapBlocks).toHaveBeenCalledWith([], null);
   });
 
   it('skips autofill (and writes detected fields verbatim) when no profile exists', async () => {

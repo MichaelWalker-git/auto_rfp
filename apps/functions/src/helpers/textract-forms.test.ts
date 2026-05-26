@@ -17,6 +17,7 @@ import {
   startFormsAnalysis,
   fetchAllAnalysisBlocks,
   mapBlocksToFields,
+  parsePageRange,
 } from './textract-forms';
 
 const bbox = (left: number, top: number) => ({
@@ -205,6 +206,47 @@ describe('mapBlocksToFields', () => {
   it('returns an empty array when no KEY_VALUE_SET or SIGNATURE blocks exist', () => {
     const blocks: Block[] = [wordBlock('w', 'plain text')];
     expect(mapBlocksToFields(blocks)).toEqual([]);
+  });
+
+  it('drops fields outside allowedPages so each form sees only its own page range', () => {
+    const blocks: Block[] = [
+      wordBlock('w-p1', 'Field on page 1'),
+      kvBlock('val-p1', 'VALUE', [], undefined, 1),
+      kvBlock('key-p1', 'KEY', ['w-p1'], 'val-p1', 1),
+      wordBlock('w-p17', 'Field on page 17'),
+      kvBlock('val-p17', 'VALUE', [], undefined, 17),
+      kvBlock('key-p17', 'KEY', ['w-p17'], 'val-p17', 17),
+      wordBlock('w-p20', 'Field on page 20'),
+      kvBlock('val-p20', 'VALUE', [], undefined, 20),
+      kvBlock('key-p20', 'KEY', ['w-p20'], 'val-p20', 20),
+      { Id: 'sig-p1', BlockType: 'SIGNATURE', Page: 1, Geometry: bbox(0.6, 0.85) },
+      { Id: 'sig-p18', BlockType: 'SIGNATURE', Page: 18, Geometry: bbox(0.6, 0.85) },
+    ];
+    const fields = mapBlocksToFields(blocks, new Set([17, 18, 19]));
+    expect(fields.map((f) => f.label)).toEqual(['Field on page 17', 'Signature']);
+    expect(fields.every((f) => [17, 18].includes(f.pageNumber))).toBe(true);
+  });
+
+  it('treats undefined/null allowedPages as "no filter" (back-compat)', () => {
+    const blocks: Block[] = [
+      wordBlock('w', 'A'),
+      kvBlock('val', 'VALUE', [], undefined, 5),
+      kvBlock('key', 'KEY', ['w'], 'val', 5),
+    ];
+    expect(mapBlocksToFields(blocks)).toHaveLength(1);
+    expect(mapBlocksToFields(blocks, null)).toHaveLength(1);
+  });
+});
+
+describe('parsePageRange (re-exported from @auto-rfp/core)', () => {
+  // Smoke test only — full coverage lives in packages/core/src/utils/page-range.test.ts.
+  // We keep this here to ensure the re-export from textract-forms.ts stays wired.
+  it('expands a hyphenated range inclusively', () => {
+    expect(parsePageRange('17-19')).toEqual(new Set([17, 18, 19]));
+  });
+
+  it('returns null for empty input', () => {
+    expect(parsePageRange(null)).toBeNull();
   });
 
   it('tags a SELECTION_ELEMENT field with markType=CHECKBOX and markChar reflecting selection', () => {

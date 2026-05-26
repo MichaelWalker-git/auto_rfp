@@ -5,6 +5,7 @@ import { uploadToS3 } from './s3';
 import { requireEnv } from './env';
 
 import type { DetectedFormField } from '@auto-rfp/core';
+import { parsePageRange } from '@auto-rfp/core';
 
 const s3 = new S3Client({});
 const lambdaClient = new LambdaClient({});
@@ -16,8 +17,16 @@ export const fillPdfForm = async (args: {
   sourceFileKey: string;
   fields: DetectedFormField[];
   outputKey: string;
+  /**
+   * Page range from the form's `sourcePageRange` (e.g. "17-19", "13", "1,3-4").
+   * When provided, only those pages are copied into the exported PDF, and
+   * field overlays are stamped onto the new (sliced) page index. This keeps
+   * proposal submissions tight: the agency receives only the form, not the
+   * entire 50-page solicitation. Pass null/undefined to export the whole PDF.
+   */
+  sourcePageRange?: string | null;
 }): Promise<string> => {
-  const { sourceFileKey, fields, outputKey } = args;
+  const { sourceFileKey, fields, outputKey, sourcePageRange } = args;
   const bucket = getDocumentsBucket();
 
   const s3Obj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: sourceFileKey }));
@@ -28,9 +37,9 @@ export const fillPdfForm = async (args: {
   // Encrypted PDFs go through a rasterize-then-stamp fallback because pdf-lib's
   // ignoreEncryption + strip-Encrypt path produces an output PDF without page
   // content streams (blank background + only our overlaid text).
-  let pdfDoc: PDFDocument;
+  let srcDoc: PDFDocument;
   try {
-    pdfDoc = await PDFDocument.load(bytes);
+    srcDoc = await PDFDocument.load(bytes);
   } catch (err) {
     console.log(`[fillPdfForm] PDF appears encrypted (${(err as Error)?.message}); delegating to rasterize worker`);
     // Encrypted PDFs require pdfjs + canvas to rasterize and re-stamp. Those
@@ -44,7 +53,7 @@ export const fillPdfForm = async (args: {
     const res = await lambdaClient.send(new InvokeCommand({
       FunctionName: fnName,
       InvocationType: 'RequestResponse',
-      Payload: Buffer.from(JSON.stringify({ sourceFileKey, fields, outputKey })),
+      Payload: Buffer.from(JSON.stringify({ sourceFileKey, fields, outputKey, sourcePageRange })),
     }));
     if (res.FunctionError) {
       const text = res.Payload ? Buffer.from(res.Payload).toString('utf8') : '';
@@ -56,6 +65,24 @@ export const fillPdfForm = async (args: {
     if (parsed.error) throw new Error(`Rasterize worker error: ${parsed.error}`);
     return parsed.outputKey ?? outputKey;
   }
+
+  // Slice the source PDF down to the form's page range. When the form has no
+  // sourcePageRange (e.g. legacy data, or a single-form PDF) we fall through
+  // to copying every page so behaviour matches the pre-slicing exporter.
+  const allowedPages = parsePageRange(sourcePageRange);
+  const srcCount = srcDoc.getPageCount();
+  const indicesToCopy = allowedPages
+    ? [...allowedPages].sort((a, b) => a - b).map((p) => p - 1).filter((i) => i >= 0 && i < srcCount)
+    : srcDoc.getPageIndices();
+
+  // origPageNum (1-indexed) → outputPage (0-indexed). Lets us stamp fields
+  // whose `pageNumber` references the original PDF onto the right sliced page.
+  const origToOut = new Map<number, number>();
+  indicesToCopy.forEach((srcIndex, outIndex) => origToOut.set(srcIndex + 1, outIndex));
+
+  const pdfDoc = await PDFDocument.create();
+  const copied = await pdfDoc.copyPages(srcDoc, indicesToCopy);
+  copied.forEach((p) => pdfDoc.addPage(p));
 
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const pages = pdfDoc.getPages();
@@ -72,8 +99,10 @@ export const fillPdfForm = async (args: {
   });
 
   for (const field of filledFields) {
-    const pageNum = (field.pageNumber ?? 1) - 1;
-    const page = pages[pageNum];
+    const origPage = field.pageNumber ?? 1;
+    const outIndex = origToOut.get(origPage);
+    if (outIndex === undefined) continue; // field is on a page we didn't slice in
+    const page = pages[outIndex];
     if (!page) continue;
 
     const { width: pageWidth, height: pageHeight } = page.getSize();

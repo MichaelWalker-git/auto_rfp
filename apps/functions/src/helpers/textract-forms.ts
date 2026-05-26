@@ -8,6 +8,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { requireEnv } from './env';
 import type { DetectedFormField, FormFieldStatus } from '@auto-rfp/core';
+import { parsePageRange } from '@auto-rfp/core';
+
+// Re-export so existing callers (textract-forms-callback) keep working.
+export { parsePageRange };
 
 const REGION = requireEnv('REGION', 'us-east-1');
 
@@ -120,9 +124,14 @@ const bboxOf = (block: Block): DetectedFormField['boundingBox'] => {
   return { top: bb.Top, left: bb.Left, width: bb.Width, height: bb.Height };
 };
 
-export const mapBlocksToFields = (blocks: Block[]): DetectedFormField[] => {
+export const mapBlocksToFields = (
+  blocks: Block[],
+  allowedPages?: Set<number> | null,
+): DetectedFormField[] => {
   const byId = indexBlocks(blocks);
   const fields: DetectedFormField[] = [];
+  const inRange = (page: number | undefined) =>
+    !allowedPages || allowedPages.has(page ?? 1);
 
   // KEY_VALUE_SET → field per KEY block. Only emit fields that the user still needs
   // to act on: blanks (EMPTY), checkboxes (MANUAL_REQUIRED), and signature/notary
@@ -130,6 +139,7 @@ export const mapBlocksToFields = (blocks: Block[]): DetectedFormField[] => {
   for (const k of blocks) {
     if (k.BlockType !== 'KEY_VALUE_SET') continue;
     if (!(k.EntityTypes ?? []).includes('KEY')) continue;
+    if (!inRange(k.Page)) continue;
 
     const label = childTextOf(k, byId) || 'Unknown Field';
     const value = valueBlockOf(k, byId);
@@ -214,6 +224,7 @@ export const mapBlocksToFields = (blocks: Block[]): DetectedFormField[] => {
   // SIGNATURE blocks → standalone manual fields
   for (const b of blocks) {
     if (b.BlockType !== 'SIGNATURE') continue;
+    if (!inRange(b.Page)) continue;
     fields.push({
       fieldId: uuidv4(),
       label: 'Signature',

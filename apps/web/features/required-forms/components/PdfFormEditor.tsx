@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import Link from 'next/link';
 import type { DetectedFormField, RequiredFormItem } from '@auto-rfp/core';
+import { parsePageRange } from '@auto-rfp/core';
 
 interface PdfFormEditorProps {
   doc: RequiredFormItem;
@@ -248,7 +249,10 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
   // Server fields use doc.fields[].pageNumber; unsaved ones look up here.
   const [localFieldPages, setLocalFieldPages] = useState<Record<string, number>>({});
   const [exporting, setExporting] = useState(false);
-  const [pdfPages, setPdfPages] = useState<string[]>([]);
+  // Each rendered page tracks its 1-indexed page number from the *source* PDF.
+  // We render only the form's pages (sourcePageRange), so the array index !=
+  // the page number — overlay lookups must use pageNumber, not index+1.
+  const [pdfPages, setPdfPages] = useState<{ url: string; pageNumber: number }[]>([]);
   const [pdfLoading, setPdfLoading] = useState(true);
   const [pageSize, setPageSize] = useState<{ width: number; height: number }>({ width: 612, height: 792 });
   const [creatingField, setCreatingField] = useState(false);
@@ -433,12 +437,22 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
         const pdf = await pdfjsLib.getDocument({ url: pdfUrl, isEvalSupported: false }).promise;
         if (cancelled) return;
 
-        const pages: string[] = [];
+        // Limit rendering to the form's own pages. Without this we'd rasterize
+        // every page of the source RFP (sometimes 50+) for every form, which
+        // is both slow and visually noisy. Falls back to "all pages" when the
+        // form has no sourcePageRange (legacy data, single-form PDFs).
+        const allowed = parsePageRange(doc.sourcePageRange);
+        const pages: { url: string; pageNumber: number }[] = [];
+        let pageSizeSet = false;
         for (let i = 1; i <= pdf.numPages; i++) {
           if (cancelled) return;
+          if (allowed && !allowed.has(i)) continue;
           const page = await pdf.getPage(i);
           const viewport = page.getViewport({ scale: 1.5 });
-          if (i === 1) setPageSize({ width: viewport.width, height: viewport.height });
+          if (!pageSizeSet) {
+            setPageSize({ width: viewport.width, height: viewport.height });
+            pageSizeSet = true;
+          }
           const canvas = document.createElement('canvas');
           canvas.width = viewport.width;
           canvas.height = viewport.height;
@@ -450,7 +464,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
           if (!blob || cancelled) continue;
           const url = URL.createObjectURL(blob);
           blobUrls.push(url);
-          pages.push(url);
+          pages.push({ url, pageNumber: i });
         }
         if (!cancelled) setPdfPages(pages);
       } catch (err) {
@@ -466,7 +480,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
       cancelled = true;
       for (const u of blobUrls) URL.revokeObjectURL(u);
     };
-  }, [pdfUrl]);
+  }, [pdfUrl, doc.sourcePageRange]);
 
   const handleExport = useCallback(async () => {
     setExporting(true);
@@ -865,17 +879,16 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
             </div>
           ) : (
             <div className="space-y-4 flex flex-col items-center">
-              {pdfPages.map((url, pageIdx) => {
-                const pageNum = pageIdx + 1;
-                const ids = fieldIdsByPage.get(pageNum) ?? (pageIdx === 0 ? (fieldIdsByPage.get(0) ?? []) : []);
+              {pdfPages.map(({ url, pageNumber }, pageIdx) => {
+                const ids = fieldIdsByPage.get(pageNumber) ?? (pageIdx === 0 ? (fieldIdsByPage.get(0) ?? []) : []);
                 return (
                   <div
-                    key={pageIdx}
+                    key={pageNumber}
                     className={cn('relative bg-white shadow-lg', creatingField && 'cursor-crosshair ring-2 ring-violet-400 ring-offset-2')}
                     style={{ width: pageSize.width, height: pageSize.height }}
-                    onClick={creatingField ? (e) => handleCreateField(e, pageNum) : undefined}
+                    onClick={creatingField ? (e) => handleCreateField(e, pageNumber) : undefined}
                   >
-                    <img src={url} alt={`Page ${pageNum}`} className="w-full h-full pointer-events-none select-none" draggable={false} />
+                    <img src={url} alt={`Page ${pageNumber}`} className="w-full h-full pointer-events-none select-none" draggable={false} />
                     {ids.map((fid) => {
                       const bbox = fieldPositions[fid];
                       if (!bbox) return null;
