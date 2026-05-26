@@ -53,6 +53,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
       sourceFileKey: form.sourceFileKey,
       fields: form.fields,
       outputKey,
+      sourcePageRange: form.sourcePageRange,
     });
   } else if (isXlsx) {
     outputKey = `${orgId}/${data.projectId}/${data.opportunityId}/required-forms/${data.formId}/filled.xlsx`;

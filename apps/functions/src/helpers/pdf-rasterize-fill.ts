@@ -4,6 +4,7 @@ import { uploadToS3 } from './s3';
 import { requireEnv } from './env';
 
 import type { DetectedFormField } from '@auto-rfp/core';
+import { parsePageRange } from '@auto-rfp/core';
 
 const s3 = new S3Client({});
 const getDocumentsBucket = () => requireEnv('DOCUMENTS_BUCKET');
@@ -19,8 +20,15 @@ export const rasterizeAndFillPdf = async (args: {
   sourceFileKey: string;
   fields: DetectedFormField[];
   outputKey: string;
+  /**
+   * Page range to slice from the source PDF (e.g. "17-19"). When provided,
+   * only those pages are rasterized into the output. Mirrors fillPdfForm so
+   * the encrypted-PDF fallback produces the same shape of output as the
+   * regular path. See {@link fillPdfForm} for context.
+   */
+  sourcePageRange?: string | null;
 }): Promise<string> => {
-  const { sourceFileKey, fields, outputKey } = args;
+  const { sourceFileKey, fields, outputKey, sourcePageRange } = args;
   const bucket = getDocumentsBucket();
 
   const s3Obj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: sourceFileKey }));
@@ -77,7 +85,10 @@ export const rasterizeAndFillPdf = async (args: {
 
   const SCALE = 2; // 2x raster looks sharper at print size
 
+  const allowedPages = parsePageRange(sourcePageRange);
+
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    if (allowedPages && !allowedPages.has(pageNum)) continue;
     const srcPage = await pdf.getPage(pageNum);
     const viewport = srcPage.getViewport({ scale: SCALE });
 
