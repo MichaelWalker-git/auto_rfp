@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Download, RefreshCw, ArrowLeft, Trash2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PermissionDeleteButton } from '@/components/ui/delete-button';
+import { usePermission } from '@/components/permission-wrapper';
 import { apiMutate, apiFetcher, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { cn } from '@/lib/utils';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -33,6 +34,7 @@ type CellData = {
 export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorProps) => {
   const { toast } = useToast();
   const { confirm, ConfirmDialog } = useConfirmDialog();
+  const canEdit = usePermission('form:edit');
   const fields = (doc.fields ?? []) as DetectedFormField[];
   const [grid, setGrid] = useState<CellData[][]>([]);
   const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null);
@@ -234,10 +236,12 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
           <p className="text-xs text-muted-foreground">{doc.sourceFileName}</p>
         </div>
         <Badge variant="outline" className="text-xs">{doc.status}</Badge>
-        <Button size="sm" variant="outline" onClick={handleReprocess} disabled={reprocessing} className="gap-1.5">
-          <RefreshCw className={cn('h-3.5 w-3.5', reprocessing && 'animate-spin')} />
-          Reprocess
-        </Button>
+        {canEdit && (
+          <Button size="sm" variant="outline" onClick={handleReprocess} disabled={reprocessing} className="gap-1.5">
+            <RefreshCw className={cn('h-3.5 w-3.5', reprocessing && 'animate-spin')} />
+            Reprocess
+          </Button>
+        )}
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -315,7 +319,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
                           cell.isCategoryRow && 'bg-blue-50 font-semibold',
                         )}
                         onClick={() => {
-                          if (!cell.isEditable) return;
+                          if (!cell.isEditable || !canEdit) return;
                           if (isMark) handleMarkToggle();
                           else setEditingCell({ row: rowIdx, col: colIdx });
                         }}
@@ -369,19 +373,21 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
                   <div key={field.fieldId} className="px-4 py-2.5 border-b border-gray-100 group">
                     <div className="flex items-center justify-between">
                       <p className="text-[11px] font-medium text-gray-500 truncate">{field.label}</p>
-                      <button
-                        className="p-0.5 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100"
-                        onClick={() => {
-                          setDeletedFieldIds((prev) => new Set([...prev, field.fieldId]));
-                          setIsDirty(true);
-                          toast({ title: 'Field marked for deletion', description: 'Save the form to apply changes.' });
-                        }}
-                        title="Delete field"
-                      >
-                        <Trash2 className="h-3 w-3 text-red-400" />
-                      </button>
+                      {canEdit && (
+                        <button
+                          className="p-0.5 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100"
+                          onClick={() => {
+                            setDeletedFieldIds((prev) => new Set([...prev, field.fieldId]));
+                            setIsDirty(true);
+                            toast({ title: 'Field marked for deletion', description: 'Save the form to apply changes.' });
+                          }}
+                          title="Delete field"
+                        >
+                          <Trash2 className="h-3 w-3 text-red-400" />
+                        </button>
+                      )}
                     </div>
-                    {isEditingSidebar ? (
+                    {isEditingSidebar && canEdit ? (
                       <input
                         className="w-full mt-0.5 text-xs border-b border-indigo-400 outline-none bg-transparent"
                         value={sidebarVal}
@@ -392,10 +398,10 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
                       />
                     ) : (
                       <p
-                        className={cn('text-xs mt-0.5 truncate cursor-pointer', sidebarVal ? 'text-gray-900' : 'text-gray-300 italic')}
-                        onClick={() => setEditingSidebarField(field.fieldId)}
+                        className={cn('text-xs mt-0.5 truncate', canEdit && 'cursor-pointer', sidebarVal ? 'text-gray-900' : 'text-gray-300 italic')}
+                        onClick={() => canEdit && setEditingSidebarField(field.fieldId)}
                       >
-                        {sidebarVal || 'click to edit'}
+                        {sidebarVal || (canEdit ? 'click to edit' : '—')}
                       </p>
                     )}
                   </div>

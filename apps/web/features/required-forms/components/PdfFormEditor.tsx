@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Download, RefreshCw, ArrowLeft, Plus, Move, AlertTriangle, Loader2, AlertCircle, Sparkles, X, Trash2 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { PermissionDeleteButton } from '@/components/ui/delete-button';
+import { usePermission } from '@/components/permission-wrapper';
 import { apiMutate, apiFetcher, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { cn } from '@/lib/utils';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -36,6 +37,7 @@ interface FieldOverlayProps {
   manualReason: string | null;
   markType: DetectedFormField['markType'];
   markChar: string | null;
+  canEdit: boolean;
   onActivate: (id: string) => void;
   onValueChange: (id: string, value: string) => void;
   onMarkToggle: (id: string) => void;
@@ -46,7 +48,7 @@ interface FieldOverlayProps {
 
 const FieldOverlay = memo(function FieldOverlay({
   fieldId, bbox, value, label, isActive, isManual, manualReason,
-  markType, markChar,
+  markType, markChar, canEdit,
   onActivate, onValueChange, onMarkToggle, onDragStart, onResizeStart, onDelete,
 }: FieldOverlayProps) {
   // `contain: layout` isolates drag-induced reflow from siblings; the wrapping
@@ -66,27 +68,32 @@ const FieldOverlay = memo(function FieldOverlay({
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      <div
-        className="absolute -top-2 -left-2 w-4 h-4 cursor-move opacity-0 group-hover:opacity-100 bg-violet-500 rounded-full flex items-center justify-center z-10 shadow-sm"
-        onMouseDown={(e) => onDragStart(e, fieldId)}
-      >
-        <Move className="h-2 w-2 text-white" />
-      </div>
-      <button
-        type="button"
-        title="Delete field"
-        aria-label="Delete field"
-        className="absolute -top-2 -right-2 w-4 h-4 opacity-0 group-hover:opacity-100 bg-red-500 hover:bg-red-600 active:bg-red-700 rounded-full flex items-center justify-center shadow-sm transition-colors z-10"
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => { e.stopPropagation(); onDelete(fieldId); }}
-      >
-        <X className="h-2 w-2 text-white" strokeWidth={3} />
-      </button>
+      {canEdit && (
+        <div
+          className="absolute -top-2 -left-2 w-4 h-4 cursor-move opacity-0 group-hover:opacity-100 bg-violet-500 rounded-full flex items-center justify-center z-10 shadow-sm"
+          onMouseDown={(e) => onDragStart(e, fieldId)}
+        >
+          <Move className="h-2 w-2 text-white" />
+        </div>
+      )}
+      {canEdit && (
+        <button
+          type="button"
+          title="Delete field"
+          aria-label="Delete field"
+          className="absolute -top-2 -right-2 w-4 h-4 opacity-0 group-hover:opacity-100 bg-red-500 hover:bg-red-600 active:bg-red-700 rounded-full flex items-center justify-center shadow-sm transition-colors z-10"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onDelete(fieldId); }}
+        >
+          <X className="h-2 w-2 text-white" strokeWidth={3} />
+        </button>
+      )}
       {markType === 'CIRCLE' || markType === 'CHECKBOX' ? (
         <button
           type="button"
-          title={`Click to ${markChar ? 'clear mark' : `stamp ${markType === 'CIRCLE' ? '○' : 'X'}`}`}
-          onClick={(e) => { e.stopPropagation(); onActivate(fieldId); onMarkToggle(fieldId); }}
+          disabled={!canEdit}
+          title={!canEdit ? label : `Click to ${markChar ? 'clear mark' : `stamp ${markType === 'CIRCLE' ? '○' : 'X'}`}`}
+          onClick={(e) => { e.stopPropagation(); if (canEdit) { onActivate(fieldId); onMarkToggle(fieldId); } }}
           className={cn(
             'w-full h-full flex items-center justify-center rounded-md transition-colors',
             isActive && 'ring-2 ring-violet-400',
@@ -103,25 +110,33 @@ const FieldOverlay = memo(function FieldOverlay({
         <input
           type="text"
           value={value}
-          onChange={(e) => onValueChange(fieldId, e.target.value)}
+          onChange={(e) => canEdit && onValueChange(fieldId, e.target.value)}
           onFocus={() => onActivate(fieldId)}
+          readOnly={!canEdit}
           placeholder={isManual ? (manualReason ?? label) : label}
           title={isManual ? manualReason ?? '' : undefined}
           className={cn(
-            'w-full h-full bg-transparent text-[10px] leading-tight px-1.5 outline-none rounded-md cursor-text transition-colors duration-100',
-            isActive && 'bg-white/95 ring-2 ring-violet-400 shadow-lg text-gray-900',
+            'w-full h-full bg-transparent text-[10px] leading-tight px-1.5 outline-none rounded-md transition-colors duration-100',
+            !canEdit ? 'cursor-default' : 'cursor-text',
+            isActive && canEdit && 'bg-white/95 ring-2 ring-violet-400 shadow-lg text-gray-900',
             !isActive && value && !isManual && 'bg-emerald-50/60 ring-1 ring-emerald-300/40 text-emerald-900',
-            !isActive && isManual && 'bg-amber-50/60 ring-1 ring-amber-400/60 placeholder:text-amber-700/80 placeholder:text-[9px] hover:bg-white/60',
-            !isActive && !value && !isManual && 'bg-slate-100/40 ring-1 ring-slate-300/30 placeholder:text-slate-400/70 placeholder:text-[9px] hover:bg-white/60 hover:ring-violet-300/50',
+            !isActive && isManual && 'bg-amber-50/60 ring-1 ring-amber-400/60 placeholder:text-amber-700/80 placeholder:text-[9px]',
+            !isActive && !value && !isManual && 'bg-slate-100/40 ring-1 ring-slate-300/30 placeholder:text-slate-400/70 placeholder:text-[9px]',
+            canEdit && !isActive && isManual && 'hover:bg-white/60',
+            canEdit && !isActive && !value && !isManual && 'hover:bg-white/60 hover:ring-violet-300/50',
           )}
         />
       )}
-      <div className="absolute top-0 -right-1 w-2 h-full cursor-ew-resize opacity-0 group-hover:opacity-100" onMouseDown={(e) => onResizeStart(e, fieldId, 'x')} />
-      <div className="absolute -bottom-1 left-0 w-full h-2 cursor-ns-resize opacity-0 group-hover:opacity-100" onMouseDown={(e) => onResizeStart(e, fieldId, 'y')} />
-      <div
-        className="absolute -bottom-1 -right-1 w-3 h-3 cursor-nwse-resize"
-        onMouseDown={(e) => onResizeStart(e, fieldId, 'xy')}
-      />
+      {canEdit && (
+        <>
+          <div className="absolute top-0 -right-1 w-2 h-full cursor-ew-resize opacity-0 group-hover:opacity-100" onMouseDown={(e) => onResizeStart(e, fieldId, 'x')} />
+          <div className="absolute -bottom-1 left-0 w-full h-2 cursor-ns-resize opacity-0 group-hover:opacity-100" onMouseDown={(e) => onResizeStart(e, fieldId, 'y')} />
+          <div
+            className="absolute -bottom-1 -right-1 w-3 h-3 cursor-nwse-resize"
+            onMouseDown={(e) => onResizeStart(e, fieldId, 'xy')}
+          />
+        </>
+      )}
     </div>
   );
 });
@@ -137,6 +152,7 @@ interface FieldRowProps {
   isActive: boolean;
   isEditingLabel: boolean;
   isAiFilling: boolean;
+  canEdit: boolean;
   onActivate: (id: string) => void;
   onStartEditLabel: (id: string) => void;
   onLabelChange: (id: string, label: string) => void;
@@ -147,7 +163,7 @@ interface FieldRowProps {
 }
 
 const FieldRow = memo(function FieldRow({
-  fieldId, value, label, status, manualReason, isActive, isEditingLabel, isAiFilling,
+  fieldId, value, label, status, manualReason, isActive, isEditingLabel, isAiFilling, canEdit,
   onActivate, onStartEditLabel, onLabelChange, onLabelBlur, onValueChange, onDelete, onAiFill,
 }: FieldRowProps) {
   const isLowConfidence = status === 'LOW_CONFIDENCE';
@@ -174,7 +190,7 @@ const FieldRow = memo(function FieldRow({
         !isActive && !status && !value && 'bg-slate-100/40 ring-1 ring-slate-300/30 hover:ring-violet-300/50',
       )}>
         <div className="flex items-center justify-between">
-          {isEditingLabel ? (
+          {isEditingLabel && canEdit ? (
             <input
               className="flex-1 text-[10px] font-medium border-b border-violet-400 outline-none bg-transparent text-gray-800"
               value={label}
@@ -185,29 +201,31 @@ const FieldRow = memo(function FieldRow({
             />
           ) : (
             <p
-              className="text-[10px] font-medium text-slate-500 truncate cursor-pointer hover:text-slate-700"
-              onClick={(e) => { e.stopPropagation(); onStartEditLabel(fieldId); }}
+              className={cn('text-[10px] font-medium text-slate-500 truncate', canEdit && 'cursor-pointer hover:text-slate-700')}
+              onClick={(e) => { e.stopPropagation(); if (canEdit) onStartEditLabel(fieldId); }}
             >
               {isManual && <AlertTriangle className="inline h-2.5 w-2.5 text-amber-500 mr-0.5 -mt-0.5" />}
               {isLowConfidence && !isManual && <span className="text-amber-500 mr-0.5">⚠</span>}
               {label}
             </p>
           )}
-          <div className="flex items-center gap-0.5 ml-1 shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity">
-            <button
-              title="Fill with AI"
-              className="p-0.5 hover:bg-violet-50 rounded disabled:opacity-50"
-              disabled={isAiFilling}
-              onClick={(e) => { e.stopPropagation(); onAiFill(fieldId); }}
-            >
-              {isAiFilling
-                ? <Loader2 className="h-2.5 w-2.5 text-violet-500 animate-spin" />
-                : <Sparkles className="h-2.5 w-2.5 text-violet-500" />}
-            </button>
-            <button title="Delete field" className="p-0.5 hover:bg-red-50 rounded" onClick={(e) => { e.stopPropagation(); onDelete(fieldId); }}>
-              <Trash2 className="h-2.5 w-2.5 text-red-400" />
-            </button>
-          </div>
+          {canEdit && (
+            <div className="flex items-center gap-0.5 ml-1 shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity">
+              <button
+                title="Fill with AI"
+                className="p-0.5 hover:bg-violet-50 rounded disabled:opacity-50"
+                disabled={isAiFilling}
+                onClick={(e) => { e.stopPropagation(); onAiFill(fieldId); }}
+              >
+                {isAiFilling
+                  ? <Loader2 className="h-2.5 w-2.5 text-violet-500 animate-spin" />
+                  : <Sparkles className="h-2.5 w-2.5 text-violet-500" />}
+              </button>
+              <button title="Delete field" className="p-0.5 hover:bg-red-50 rounded" onClick={(e) => { e.stopPropagation(); onDelete(fieldId); }}>
+                <Trash2 className="h-2.5 w-2.5 text-red-400" />
+              </button>
+            </div>
+          )}
         </div>
         {/* Always-mounted input: avoids unmount/mount + focus thrash on active-field switch.
             Visually styled to match the previous <p> when inactive. */}
@@ -215,19 +233,20 @@ const FieldRow = memo(function FieldRow({
           ref={inputRef}
           className={cn(
             'w-full text-[11px] bg-transparent outline-none truncate',
-            isActive
+            isActive && canEdit
               ? 'mt-1 border-b border-violet-300 text-gray-900'
               : value
                 ? 'mt-0.5 text-emerald-900 cursor-pointer'
                 : isManual
                   ? 'mt-0.5 text-amber-700 cursor-pointer'
                   : 'mt-0.5 text-slate-400 italic cursor-pointer',
+            !canEdit && 'cursor-default',
           )}
           value={value}
-          onChange={(e) => onValueChange(fieldId, e.target.value)}
-          readOnly={!isActive}
-          tabIndex={isActive ? 0 : -1}
-          placeholder={isActive ? 'Type value...' : (isManual ? (manualReason ?? 'Needs your input') : 'click to edit')}
+          onChange={(e) => canEdit && onValueChange(fieldId, e.target.value)}
+          readOnly={!isActive || !canEdit}
+          tabIndex={isActive && canEdit ? 0 : -1}
+          placeholder={!canEdit ? (value || '—') : (isActive ? 'Type value...' : (isManual ? (manualReason ?? 'Needs your input') : 'click to edit'))}
         />
         {isManual && manualReason && value && (
           <p className="text-[10px] mt-0.5 text-amber-700/80 italic">{manualReason}</p>
@@ -241,6 +260,7 @@ const FieldRow = memo(function FieldRow({
 
 export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEditorProps) => {
   const { toast } = useToast();
+  const canEdit = usePermission('form:edit');
   const [activeField, setActiveField] = useState<string | null>(null);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [fieldLabels, setFieldLabels] = useState<Record<string, string>>({});
@@ -822,13 +842,17 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
           <p className="text-sm font-medium truncate">{doc.name}</p>
         </div>
         <Badge variant="outline" className="text-xs">{doc.status}</Badge>
-        <Button size="sm" variant="outline" onClick={async () => { const ok = await confirm({ title: 'Reprocess form?', description: 'This will re-extract all fields and re-fill from company profile. Any manual edits will be lost.', confirmLabel: 'Reprocess', variant: 'destructive' }); if (ok) handleReprocess(); }} disabled={reprocessing || isProcessing} className="gap-1.5">
-          <RefreshCw className={cn('h-3.5 w-3.5', (reprocessing || isProcessing) && 'animate-spin')} />
-          Reprocess
-        </Button>
-        <Button size="sm" variant={creatingField ? 'default' : 'outline'} onClick={() => setCreatingField(!creatingField)} disabled={isProcessing} className="gap-1.5">
-          <Plus className="h-3.5 w-3.5" />{creatingField ? 'Click on PDF...' : 'Add Field'}
-        </Button>
+        {canEdit && (
+          <Button size="sm" variant="outline" onClick={async () => { const ok = await confirm({ title: 'Reprocess form?', description: 'This will re-extract all fields and re-fill from company profile. Any manual edits will be lost.', confirmLabel: 'Reprocess', variant: 'destructive' }); if (ok) handleReprocess(); }} disabled={reprocessing || isProcessing} className="gap-1.5">
+            <RefreshCw className={cn('h-3.5 w-3.5', (reprocessing || isProcessing) && 'animate-spin')} />
+            Reprocess
+          </Button>
+        )}
+        {canEdit && (
+          <Button size="sm" variant={creatingField ? 'default' : 'outline'} onClick={() => setCreatingField(!creatingField)} disabled={isProcessing} className="gap-1.5">
+            <Plus className="h-3.5 w-3.5" />{creatingField ? 'Click on PDF...' : 'Add Field'}
+          </Button>
+        )}
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -926,6 +950,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
                           manualReason={f?.manualReason ?? null}
                           markType={f?.markType ?? 'TEXT'}
                           markChar={fieldMarkChars[fid] ?? null}
+                          canEdit={canEdit}
                           onActivate={setActiveField}
                           onValueChange={handleValueChange}
                           onMarkToggle={handleMarkToggle}
@@ -979,6 +1004,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
                   isActive={activeField === fid}
                   isEditingLabel={editingLabel === fid}
                   isAiFilling={aiFillingIds.has(fid)}
+                  canEdit={canEdit}
                   onActivate={setActiveField}
                   onStartEditLabel={handleStartEditLabel}
                   onLabelChange={handleLabelChange}
