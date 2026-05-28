@@ -102,7 +102,7 @@ interface QuestionsContextType {
   handleIndexToggle: (indexId: string) => void;
   handleSelectAllIndexes: () => void;
 
-  handleApproveAnswer: (questionId: string) => Promise<void>;
+  handleApproveAnswer: (questionId: string) => Promise<{ approvedByName?: string; approvedAt?: string; updatedByName?: string; updatedAt?: string } | void>;
   approvingQuestions: Set<string>;
   handleUnapproveAnswer: (questionId: string) => Promise<void>;
   unapprovingQuestions: Set<string>;
@@ -1106,6 +1106,14 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
         });
         setLastSaved(response.updatedAt);
         toast({ title: 'Answer Approved', description: 'Answer has been approved successfully.' });
+        
+        // Return the updated answer data to avoid stale closure issues in callers
+        return {
+          approvedByName: response.approvedByName,
+          approvedAt: response.approvedAt,
+          updatedByName: response.updatedByName,
+          updatedAt: response.updatedAt,
+        };
       } else {
         throw new Error('Failed to approve answer');
       }

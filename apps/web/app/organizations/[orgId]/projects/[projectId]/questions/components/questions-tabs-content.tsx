@@ -205,23 +205,20 @@ export function QuestionsTabsContent({
   const handleApproveWithBroadcast = useCallback(
     async (questionId: string) => {
       // Capture the text being approved BEFORE the async call
-      // (React state updates after await are guaranteed since handleApproveAnswer calls setAnswers synchronously)
       const textBeingApproved = answers[questionId]?.text;
       const now = new Date().toISOString();
       
-      await handleApproveAnswer(questionId);
+      // handleApproveAnswer returns the updated answer data to avoid stale closure issues
+      const updatedData = await handleApproveAnswer(questionId);
       
-      // After approve, broadcast the updated status to collaborators
-      // NOTE: approvedByName/approvedAt come from the updated answers state after handleApproveAnswer completes
-      // IMPORTANT: Include approvedText so other windows can track when text matches approved state
-      const updatedAnswer = answers[questionId];
+      // Broadcast the updated status to collaborators using returned data (not stale closure)
       sendAnswerStatus(questionId, {
         status: 'APPROVED',
-        updatedByName: updatedAnswer?.updatedByName,
-        updatedAt: updatedAnswer?.updatedAt ?? now,
-        approvedByName: updatedAnswer?.approvedByName,
-        approvedAt: updatedAnswer?.approvedAt ?? now,
-        approvedText: textBeingApproved, // Use captured text (more reliable than post-update read)
+        updatedByName: updatedData?.updatedByName,
+        updatedAt: updatedData?.updatedAt ?? now,
+        approvedByName: updatedData?.approvedByName,
+        approvedAt: updatedData?.approvedAt ?? now,
+        approvedText: textBeingApproved,
       });
     },
     [handleApproveAnswer, answers, sendAnswerStatus],
