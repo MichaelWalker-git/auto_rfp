@@ -19,6 +19,7 @@ import {
 import {
   CheckCircle2,
   ClipboardList,
+  Eye,
   FileSpreadsheet,
   FileText,
   MoreHorizontal,
@@ -30,7 +31,7 @@ import {
 import { cn } from '@/lib/utils';
 
 import { useApi, apiMutate, buildApiUrl } from '@/lib/hooks/api-helpers';
-import { useAuth } from '@/components/AuthProvider';
+import { usePermission } from '@/components/permission-wrapper';
 import { ReviewRequiredBanner } from './ReviewRequiredBanner';
 import { useAttachFormToProposal } from '../hooks/useAttachFormToProposal';
 
@@ -67,14 +68,15 @@ const formatDateTime = (iso: string): string => {
 };
 
 const FormRow = ({
-  form, orgId, projectId, opportunityId, onChanged, isAdmin, confirm,
+  form, orgId, projectId, opportunityId, onChanged, canEdit, canDelete, confirm,
 }: {
   form: RequiredFormItem;
   orgId: string;
   projectId: string;
   opportunityId: string;
   onChanged: () => void;
-  isAdmin: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
   confirm: (opts: { title?: string; description?: string; confirmLabel?: string; cancelLabel?: string; variant?: 'destructive' | 'default' }) => Promise<boolean>;
 }) => {
   const { toast } = useToast();
@@ -204,10 +206,10 @@ const FormRow = ({
             size="sm"
             variant="ghost"
             className="h-8 w-8 p-0"
-            title="Edit form"
+            title={canEdit ? 'Edit form' : 'View form'}
             onClick={() => router.push(detailHref)}
           >
-            <Pencil className="h-4 w-4" />
+            {canEdit ? <Pencil className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -217,9 +219,13 @@ const FormRow = ({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => router.push(detailHref)}>
-                <Pencil className="h-4 w-4 mr-2" /> Edit
+                {canEdit ? (
+                  <><Pencil className="h-4 w-4 mr-2" /> Edit</>
+                ) : (
+                  <><Eye className="h-4 w-4 mr-2" /> View</>
+                )}
               </DropdownMenuItem>
-              {form.status === 'DONE' && (
+              {form.status === 'DONE' && canEdit && (
                 form.attachedToProposal ? (
                   <DropdownMenuItem onClick={handleDetach}>
                     <PaperclipIcon className="h-4 w-4 mr-2" /> Detach from proposal
@@ -230,7 +236,7 @@ const FormRow = ({
                   </DropdownMenuItem>
                 )
               )}
-              {isAdmin && (
+              {canDelete && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -274,8 +280,8 @@ export const RequiredFormsList = ({ orgId, projectId, opportunityId }: RequiredF
     refreshInterval: 10_000,
     dedupingInterval: 5_000,
   });
-  const { role } = useAuth();
-  const isAdmin = role === 'ADMIN';
+  const canEdit = usePermission('form:edit');
+  const canDelete = usePermission('form:delete');
   const { confirm, ConfirmDialog } = useConfirmDialog();
 
   const forms = data?.forms ?? [];
@@ -322,7 +328,8 @@ export const RequiredFormsList = ({ orgId, projectId, opportunityId }: RequiredF
                 orgId={orgId}
                 projectId={projectId}
                 opportunityId={opportunityId}
-                isAdmin={isAdmin}
+                canEdit={canEdit}
+                canDelete={canDelete}
                 onChanged={() => mutate()}
                 confirm={confirm}
               />

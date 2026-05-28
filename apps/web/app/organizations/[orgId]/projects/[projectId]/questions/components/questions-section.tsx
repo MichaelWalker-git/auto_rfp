@@ -65,6 +65,7 @@ function QuestionsSectionInner({
     setIsSourceModalOpen,
     approveAllAnswers,
     approvingAll,
+    approvingQuestions,
     approvableCount,
     handleExportAnswers,
     handleExportDocx,
@@ -211,7 +212,7 @@ function QuestionsSectionInner({
         onExportDocx={() => handleExportDocx(opportunityName)}
         onReload={refreshQuestions}
         approvableCount={approvableCount}
-        isApproving={approvingAll}
+        isApproving={approvingAll || approvingQuestions.size > 0}
         projectId={projectId}
         orgId={orgId}
       />
