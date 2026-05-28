@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Save, Sparkles, Trash2, MessageSquare, ChevronDown, ChevronRight } from 'lucide-react';
+import { Save, Sparkles, MessageSquare, ChevronDown, ChevronRight } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { AnswerSource, ConfidenceBreakdown, ConfidenceBand, type CommentEntityType } from '@auto-rfp/core';
 import { PermissionButton } from '@/components/ui/permission-button';
@@ -13,9 +13,8 @@ import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { ConfidenceScoreDisplay } from '@/components/confidence/confidence-score-display';
 import { SimilarQuestionsPanel } from './similar-questions-panel';
 import { getToolDisplayName } from './source-details-dialog';
-import { EditingIndicator, CollaborationPanel, FloatingPanel } from '@/features/collaboration';
+import { CollaborationPanel, FloatingPanel } from '@/features/collaboration';
 import { useComments } from '@/features/collaboration/hooks/useComments';
-import { QuestionApproveButton } from '@/features/questions';
 
 interface AnswerData {
   text: string;
@@ -71,7 +70,11 @@ interface QuestionEditorProps {
   liveAnswerText?: string;
 }
 
-// Status badge derived from answer.status + presence
+/**
+ * Status badge configuration for answer states.
+ * - APPROVED: Green badge indicating the answer has been reviewed and approved
+ * - DRAFT: Gray badge indicating the answer is still being worked on
+ */
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   APPROVED: { label: 'Approved', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   DRAFT:    { label: 'Draft',    className: 'bg-slate-100 text-slate-600 border-slate-200' },
@@ -136,19 +139,6 @@ export function QuestionEditor({
             <div className="flex-1 min-w-0 pr-2">
               <CardTitle className="text-base">{section.title}</CardTitle>
               <p className="text-sm text-muted-foreground mt-0.5">{question.question}</p>
-              {projectId && collaboration?.orgId && question?.id && question?.opportunityId && question?.questionFileId && (
-                <div className="mt-1.5">
-                  <QuestionApproveButton
-                    orgId={collaboration.orgId}
-                    projectId={projectId}
-                    opportunityId={question.opportunityId}
-                    questionFileId={question.questionFileId}
-                    questionId={question.id}
-                    approvedAt={question.approvedAt ?? null}
-                    approvedByName={question.approvedByName ?? null}
-                  />
-                </div>
-              )}
             </div>
 
             <div className="flex items-center gap-2 shrink-0">

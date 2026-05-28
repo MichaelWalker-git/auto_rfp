@@ -42,13 +42,18 @@ describe('AnswerSourceSchema', () => {
     expect(AnswerSourceSchema.parse(sourceWithString).pageNumber).toBe('5');
   });
 
-  it('should validate relevance range (0-1)', () => {
-    expect(() => AnswerSourceSchema.parse({ id: '1', relevance: 1.5 })).toThrow();
-    expect(() => AnswerSourceSchema.parse({ id: '1', relevance: -0.5 })).toThrow();
+  it('should clamp relevance to 0-1 range (preprocess normalization)', () => {
+    // Out-of-range values are clamped, not rejected (fixes bad data from Pinecone)
+    expect(AnswerSourceSchema.parse({ id: '1', relevance: 1.5 }).relevance).toBe(1);
+    expect(AnswerSourceSchema.parse({ id: '1', relevance: -0.5 }).relevance).toBe(0);
+    expect(AnswerSourceSchema.parse({ id: '1', relevance: 2.0 }).relevance).toBe(1);
+    expect(AnswerSourceSchema.parse({ id: '1', relevance: -1.0 }).relevance).toBe(0);
 
+    // Valid values pass through unchanged
     expect(AnswerSourceSchema.parse({ id: '1', relevance: 0 }).relevance).toBe(0);
     expect(AnswerSourceSchema.parse({ id: '1', relevance: 1 }).relevance).toBe(1);
     expect(AnswerSourceSchema.parse({ id: '1', relevance: 0.5 }).relevance).toBe(0.5);
+    expect(AnswerSourceSchema.parse({ id: '1', relevance: 0.85 }).relevance).toBe(0.85);
   });
 
   it('should accept null relevance', () => {

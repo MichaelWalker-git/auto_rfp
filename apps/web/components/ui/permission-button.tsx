@@ -17,6 +17,8 @@ type ButtonProps = React.ComponentProps<'button'> &
 export interface PermissionButtonProps extends ButtonProps {
   /** The permission required to enable the button */
   requiredPermission: Permission;
+  /** Tooltip message when button is enabled (has permission) */
+  tooltip?: string;
   /** Custom tooltip message when permission is denied. Defaults to standard message. */
   deniedTooltip?: string;
   /** If true, hides the button entirely when permission is denied (legacy behavior) */
@@ -44,6 +46,7 @@ export const PermissionButton = React.forwardRef<HTMLButtonElement, PermissionBu
   (
     {
       requiredPermission,
+      tooltip,
       deniedTooltip,
       hideWhenDenied = false,
       disabled,
@@ -59,13 +62,26 @@ export const PermissionButton = React.forwardRef<HTMLButtonElement, PermissionBu
       return null;
     }
 
-    const isDisabled = disabled || !hasPermission;
-    const tooltipMessage =
+    const deniedMessage =
       deniedTooltip ??
       `You don't have permission to perform this action. Contact your admin for access.`;
 
-    // If user has permission or button is disabled for other reasons, render normal button
+    // If user has permission, render button with optional tooltip
     if (hasPermission) {
+      if (tooltip) {
+        return (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button ref={ref} disabled={disabled} {...props}>
+                {children}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              <p>{tooltip}</p>
+            </TooltipContent>
+          </Tooltip>
+        );
+      }
       return (
         <Button ref={ref} disabled={disabled} {...props}>
           {children}
@@ -95,7 +111,7 @@ export const PermissionButton = React.forwardRef<HTMLButtonElement, PermissionBu
         >
           <div className="flex items-center gap-2">
             <Lock className="h-3 w-3 shrink-0" />
-            <span>{tooltipMessage}</span>
+            <span>{deniedMessage}</span>
             <RoleInfoPopover variant="light" />
           </div>
         </TooltipContent>

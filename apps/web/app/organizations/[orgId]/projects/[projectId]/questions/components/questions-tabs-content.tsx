@@ -83,8 +83,10 @@ export function QuestionsTabsContent({
     handleBatchAnswerApplied,
     handleApproveAnswer,
     approvingQuestions,
+    approvingAll,
     handleUnapproveAnswer,
     unapprovingQuestions,
+    updateAnswerStatus,
   } = useQuestions();
   const { userSub, permissions } = useAuth();
   const [panelCollapsed, setPanelCollapsed] = useState(false);
@@ -183,31 +185,43 @@ export function QuestionsTabsContent({
   }, [liveAnswers]);
 
   // Apply received answer status updates from collaborators to local answers
-  const prevStatusMap = useRef<Map<string, unknown>>(new Map());
+  // Use JSON stringification for comparison since object references may change without content changing
+  const prevStatusJsonMap = useRef<Map<string, string>>(new Map());
   useEffect(() => {
     answerStatusMap.forEach((statusData, questionId) => {
-      const prev = prevStatusMap.current.get(questionId);
-      if (prev !== statusData) {
-        prevStatusMap.current.set(questionId, statusData);
-        // Update the local answer state with the received metadata
-        onAnswerChange(questionId, answers[questionId]?.text ?? '');
+      const currentJson = JSON.stringify(statusData);
+      const prevJson = prevStatusJsonMap.current.get(questionId);
+      if (prevJson !== currentJson) {
+        prevStatusJsonMap.current.set(questionId, currentJson);
+        // Update the local answer state with the received status metadata
+        // This ensures the UI reflects approve/unapprove actions from other users
+        updateAnswerStatus(questionId, statusData as Parameters<typeof updateAnswerStatus>[1]);
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answerStatusMap]);
+  }, [answerStatusMap, updateAnswerStatus]);
 
   // Wrap approve/unapprove/save to also broadcast status via WebSocket
   const handleApproveWithBroadcast = useCallback(
     async (questionId: string) => {
+      // Capture the text being approved BEFORE the async call
+      // (React state updates after await are guaranteed since handleApproveAnswer calls setAnswers synchronously)
+      const textBeingApproved = answers[questionId]?.text;
+      const now = new Date().toISOString();
+      
       await handleApproveAnswer(questionId);
+      
       // After approve, broadcast the updated status to collaborators
-      const a = answers[questionId];
+      // NOTE: approvedByName/approvedAt come from the updated answers state after handleApproveAnswer completes
+      // IMPORTANT: Include approvedText so other windows can track when text matches approved state
+      const updatedAnswer = answers[questionId];
       sendAnswerStatus(questionId, {
         status: 'APPROVED',
-        updatedByName: a?.updatedByName,
-        updatedAt: new Date().toISOString(),
-        approvedByName: a?.approvedByName,
-        approvedAt: a?.approvedAt ?? new Date().toISOString(),
+        updatedByName: updatedAnswer?.updatedByName,
+        updatedAt: updatedAnswer?.updatedAt ?? now,
+        approvedByName: updatedAnswer?.approvedByName,
+        approvedAt: updatedAnswer?.approvedAt ?? now,
+        approvedText: textBeingApproved, // Use captured text (more reliable than post-update read)
       });
     },
     [handleApproveAnswer, answers, sendAnswerStatus],
@@ -349,15 +363,15 @@ export function QuestionsTabsContent({
               section={questionData.section}
               answer={{
                 ...answers[selectedQuestion],
-                // Overlay live updatedByName from WebSocket delta
+                // Overlay live updatedByName from WebSocket delta (for real-time typing indicator)
                 ...(liveAnswerMap.get(selectedQuestion)?.displayName
                   ? {
                       updatedByName: liveAnswerMap.get(selectedQuestion)!.displayName,
                       updatedAt: new Date().toISOString(),
                     }
                   : {}),
-                // Overlay live answer status (approved/draft/edited by) from WebSocket
-                ...(answerStatusMap.get(selectedQuestion) ?? {}),
+                // NOTE: WebSocket status is now synced to answers state via updateAnswerStatus
+                // so we don't overlay answerStatusMap here (it would overwrite local changes)
               }}
               selectedIndexes={selectedIndexes}
               isUnsaved={unsavedQuestions.has(selectedQuestion)}
@@ -368,7 +382,7 @@ export function QuestionsTabsContent({
               }}
               onSave={() => handleSaveWithBroadcast(selectedQuestion)}
               onApprove={() => handleApproveWithBroadcast(selectedQuestion)}
-              isApproving={approvingQuestions.has(selectedQuestion)}
+              isApproving={approvingQuestions.has(selectedQuestion) || approvingAll}
               onUnapprove={() => handleUnapproveWithBroadcast(selectedQuestion)}
               isUnapproving={unapprovingQuestions.has(selectedQuestion)}
               onGenerateAnswer={() => onGenerateAnswer(orgId, selectedQuestion)}

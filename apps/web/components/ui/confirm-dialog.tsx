@@ -72,7 +72,7 @@ export const useConfirmDialog = () => {
     <AlertDialog open={open} onOpenChange={(o) => { if (!o) handleCancel(); }}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{options.title ?? 'Are you sure?'}</AlertDialogTitle>
+          <AlertDialogTitle className="break-all">{options.title ?? 'Are you sure?'}</AlertDialogTitle>
           {options.description && (
             <AlertDialogDescription>{options.description}</AlertDialogDescription>
           )}

@@ -18,6 +18,7 @@ interface AnswerStatusPayload {
   updatedAt?: string;
   approvedByName?: string;
   approvedAt?: string;
+  approvedText?: string; // Text that was approved, for isTextMatchingApproved check
 }
 
 interface EditingLockPayload {
@@ -135,6 +136,7 @@ export function usePresence(projectId: string, orgId: string) {
       updatedAt?: string;
       approvedByName?: string;
       approvedAt?: string;
+      approvedText?: string; // Text that was approved, for isTextMatchingApproved check
     }) => {
       wsSendStatus(questionId, meta);
     },

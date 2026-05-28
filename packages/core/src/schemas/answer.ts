@@ -46,7 +46,11 @@ export const AnswerSourceSchema = z.object({
   documentId: z.string().optional(),
   kbId: z.string().optional(),
   chunkKey: z.string().optional(),
-  relevance: z.number().min(0).max(1).nullable().optional(),
+  // Preprocess to clamp relevance to [0, 1] - fixes existing data with invalid scores from Pinecone
+  relevance: z.preprocess(
+    (val) => (typeof val === 'number' ? Math.max(0, Math.min(1, val)) : val),
+    z.number().nullable().optional(),
+  ),
   textContent: z.string().nullable().optional(),
   toolName: z.string().optional(),
 });

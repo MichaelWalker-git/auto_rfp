@@ -79,6 +79,7 @@ export function useWebSocket({ projectId, orgId, onMessage, enabled = true }: Us
     updatedAt?: string;
     approvedByName?: string;
     approvedAt?: string;
+    approvedText?: string; // Text that was approved, for isTextMatchingApproved check
   }) => {
     clientRef.current?.sendAnswerStatus(questionId, meta);
   }, []);

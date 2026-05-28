@@ -150,6 +150,13 @@ function useBreadcrumbs(
         continue;
       }
 
+      // ── Required forms route handling ──
+      // Path: .../opportunities/{oppId}/forms/{formId}
+      // Skip the "forms" segment — there's no list page, form name appears as next crumb
+      if (segment === 'forms' && prevSegment && UUID_REGEX.test(prevSegment)) {
+        continue;
+      }
+
       // Skip "edit" segment when inside rfp-documents route
       if (segment === 'edit' && segments[i - 2] === 'rfp-documents') {
         continue;
@@ -158,6 +165,12 @@ function useBreadcrumbs(
       // UUID under rfp-documents → show document name as active crumb
       if (UUID_REGEX.test(segment) && prevSegment === 'rfp-documents') {
         bc.push({ label: rfpDocumentName || 'Document', isActive: true });
+        continue;
+      }
+
+      // UUID under forms → show "Form" as active crumb (form name not fetched in header)
+      if (UUID_REGEX.test(segment) && prevSegment === 'forms') {
+        bc.push({ label: 'Form', isActive: true });
         continue;
       }
 
@@ -195,7 +208,7 @@ function useBreadcrumbs(
     }
 
     return bc;
-  }, [pathname, orgName, orgId, projectName, opportunityTitle, kbName, rfpDocumentName]);
+  }, [pathname, orgName, orgId, projectName, opportunityTitle, kbName, userName, rfpDocumentName]);
 }
 
 // ─── Sub-components ───

@@ -5,7 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
-import { Download, RefreshCw, ArrowLeft, Plus, Trash2, Move, AlertTriangle, Loader2, AlertCircle, Sparkles, X } from 'lucide-react';
+import { Download, RefreshCw, ArrowLeft, Plus, Move, AlertTriangle, Loader2, AlertCircle, Sparkles, X, Trash2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { apiMutate, apiFetcher, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { cn } from '@/lib/utils';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -824,20 +826,39 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
           <RefreshCw className={cn('h-3.5 w-3.5', (reprocessing || isProcessing) && 'animate-spin')} />
           Reprocess
         </Button>
-        <Button size="sm" variant={creatingField ? 'default' : 'outline'} onClick={() => setCreatingField(!creatingField)} className="gap-1.5">
+        <Button size="sm" variant={creatingField ? 'default' : 'outline'} onClick={() => setCreatingField(!creatingField)} disabled={isProcessing} className="gap-1.5">
           <Plus className="h-3.5 w-3.5" />{creatingField ? 'Click on PDF...' : 'Add Field'}
         </Button>
-        <Button size="sm" variant="outline" onClick={handleExport} disabled={exporting} className="gap-1.5">
-          {exporting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-          Export PDF
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex">
+                <Button size="sm" variant="outline" onClick={handleExport} disabled={exporting || isProcessing || isDirty} className="gap-1.5">
+                  {exporting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                  Export PDF
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {(isDirty || isProcessing) && (
+              <TooltipContent side="top">
+                <p>{isProcessing ? 'Wait for processing to complete' : 'Save the form before exporting'}</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
         <Button size="sm" variant={isDirty ? 'default' : 'outline'} onClick={handleSaveAll} disabled={isSaving || !isDirty || isProcessing} className="gap-1.5">
           {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : null}
           Save
         </Button>
-        <Button size="sm" variant="ghost" onClick={handleDeleteForm} disabled={isProcessing} className="text-red-500 hover:text-red-700 hover:bg-red-50">
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+        <PermissionDeleteButton
+          requiredPermission="org:delete"
+          onClick={handleDeleteForm}
+          size="sm"
+          variant="ghost"
+          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+          ariaLabel="Delete form"
+          deniedTooltip="Only admins can delete required forms."
+        />
       </div>
 
       {isProcessing && (

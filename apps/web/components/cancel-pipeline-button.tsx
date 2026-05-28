@@ -11,6 +11,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { PermissionDeleteButton } from '@/components/ui/delete-button';
+import { PermissionButton } from '@/components/ui/permission-button';
 
 const CANCELLABLE_STATUSES = ['PROCESSING', 'TEXTRACT_RUNNING', 'TEXT_READY'] as const;
 const CANCELLED_STATUSES = ['CANCELLED'] as const;
@@ -74,27 +75,23 @@ export const CancelPipelineButton = ({
   if (isCancellable) {
     return (
       <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleCancel}
-              disabled={isStopping}
-              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-              aria-label="Cancel pipeline"
-            >
-              {isStopping ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <CircleX className="h-3.5 w-3.5" />
-              )}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="top">
-            <p>Cancel processing</p>
-          </TooltipContent>
-        </Tooltip>
+        <PermissionButton
+          requiredPermission="question:delete"
+          size="sm"
+          variant="ghost"
+          onClick={handleCancel}
+          disabled={isStopping}
+          className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+          aria-label="Cancel pipeline"
+          tooltip="Cancel processing"
+          deniedTooltip="You don't have permission to cancel processing."
+        >
+          {isStopping ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <CircleX className="h-3.5 w-3.5" />
+          )}
+        </PermissionButton>
       </TooltipProvider>
     );
   }

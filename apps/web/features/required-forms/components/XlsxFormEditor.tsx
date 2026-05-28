@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { Download, RefreshCw, ArrowLeft, Trash2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { apiMutate, apiFetcher, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { cn } from '@/lib/utils';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -41,6 +43,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [reprocessing, setReprocessing] = useState(false);
+  const [deletedFieldIds, setDeletedFieldIds] = useState<Set<string>>(new Set());
 
   const backUrl = `/organizations/${orgId}/projects/${doc.projectId}/opportunities/${doc.opportunityId}`;
 
@@ -143,21 +146,24 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
     setIsDirty(true);
   }, []);
 
-  // Save all fields in one request
+  // Save all fields in one request (excluding deleted fields)
   const handleSaveAll = useCallback(async () => {
     setIsSaving(true);
     try {
-      const allFields = fields.map((f) => {
-        const gridCell = grid.flat().find((c) => c.fieldId === f.fieldId);
-        const value = gridCell?.value ?? f.value;
-        // Mirror the cell value into markChar for CHECKBOX/CIRCLE so the
-        // backend XLSX writer (which reads markChar) stays in sync with
-        // what the user toggled in the editor.
-        const markChar = (f.markType === 'CHECKBOX' || f.markType === 'CIRCLE')
-          ? (value && value.length > 0 ? value : null)
-          : f.markChar;
-        return { ...f, value, markChar };
-      });
+      // Filter out deleted fields
+      const allFields = fields
+        .filter((f) => !deletedFieldIds.has(f.fieldId))
+        .map((f) => {
+          const gridCell = grid.flat().find((c) => c.fieldId === f.fieldId);
+          const value = gridCell?.value ?? f.value;
+          // Mirror the cell value into markChar for CHECKBOX/CIRCLE so the
+          // backend XLSX writer (which reads markChar) stays in sync with
+          // what the user toggled in the editor.
+          const markChar = (f.markType === 'CHECKBOX' || f.markType === 'CIRCLE')
+            ? (value && value.length > 0 ? value : null)
+            : f.markChar;
+          return { ...f, value, markChar };
+        });
 
       await apiMutate(buildApiUrl('/required-forms/save-fields', { orgId }), 'PUT', {
         projectId: doc.projectId, opportunityId: doc.opportunityId,
@@ -165,6 +171,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
       });
 
       setIsDirty(false);
+      setDeletedFieldIds(new Set()); // Clear after successful save
       toast({ title: 'Saved' });
       onFieldUpdated?.();
     } catch (err) {
@@ -172,7 +179,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
     } finally {
       setIsSaving(false);
     }
-  }, [fields, grid, doc, orgId, toast, onFieldUpdated]);
+  }, [fields, grid, doc, orgId, toast, onFieldUpdated, deletedFieldIds]);
 
   // Reprocess
   const handleReprocess = useCallback(async () => {
@@ -231,17 +238,36 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
           <RefreshCw className={cn('h-3.5 w-3.5', reprocessing && 'animate-spin')} />
           Reprocess
         </Button>
-        <Button size="sm" variant="outline" onClick={handleExport} disabled={exporting} className="gap-1.5">
-          {exporting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-          Export XLSX
-        </Button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex">
+                <Button size="sm" variant="outline" onClick={handleExport} disabled={exporting || reprocessing || isDirty} className="gap-1.5">
+                  {exporting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                  Export XLSX
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {(isDirty || reprocessing) && (
+              <TooltipContent side="top">
+                <p>{reprocessing ? 'Wait for processing to complete' : 'Save the form before exporting'}</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
         <Button size="sm" variant={isDirty ? 'default' : 'outline'} onClick={handleSaveAll} disabled={isSaving || !isDirty || reprocessing} className="gap-1.5">
           {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : null}
           Save
         </Button>
-        <Button size="sm" variant="ghost" onClick={handleDeleteForm} className="text-red-500 hover:text-red-700 hover:bg-red-50">
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+        <PermissionDeleteButton
+          requiredPermission="org:delete"
+          onClick={handleDeleteForm}
+          size="sm"
+          variant="ghost"
+          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+          ariaLabel="Delete form"
+          deniedTooltip="Only admins can delete required forms."
+        />
       </div>
 
       <div className={cn('flex flex-1 overflow-hidden relative', reprocessing && 'opacity-50 pointer-events-none')}>
@@ -333,17 +359,25 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
             </div>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {fields.length === 0 ? (
+            {fields.filter((f) => !deletedFieldIds.has(f.fieldId)).length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-6">No editable fields detected.</p>
             ) : (
-              fields.map((field) => {
+              fields.filter((f) => !deletedFieldIds.has(f.fieldId)).map((field) => {
                 const isEditingSidebar = editingSidebarField === field.fieldId;
                 const sidebarVal = sidebarValues[field.fieldId] ?? field.value ?? '';
                 return (
                   <div key={field.fieldId} className="px-4 py-2.5 border-b border-gray-100 group">
                     <div className="flex items-center justify-between">
                       <p className="text-[11px] font-medium text-gray-500 truncate">{field.label}</p>
-                      <button className="p-0.5 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100" onClick={() => { /* delete would need save-fields call */ setIsDirty(true); }}>
+                      <button
+                        className="p-0.5 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100"
+                        onClick={() => {
+                          setDeletedFieldIds((prev) => new Set([...prev, field.fieldId]));
+                          setIsDirty(true);
+                          toast({ title: 'Field marked for deletion', description: 'Save the form to apply changes.' });
+                        }}
+                        title="Delete field"
+                      >
                         <Trash2 className="h-3 w-3 text-red-400" />
                       </button>
                     </div>

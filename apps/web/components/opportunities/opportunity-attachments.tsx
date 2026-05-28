@@ -31,7 +31,6 @@ import {
 import { useOpportunityContext } from './opportunity-context';
 import { useApi, buildApiUrl } from '@/lib/hooks/api-helpers';
 import type { RequiredFormsListResponse } from '@auto-rfp/core';
-import Link from 'next/link';
 import { usePermission } from '@/components/permission-wrapper';
 import { formatDateTime, getStatusChip, pickDisplayName, guessDownloadName } from './opportunity-helpers';
 import { formatFileSize } from '@/lib/format-file-size';
@@ -264,7 +263,7 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
     if (isReextractingAll || rows.length === 0) return;
     const ok = await confirm({
       title: 'Re-extract all questions?',
-      description: `This will delete ALL questions, answers, and clusters for this opportunity across all ${rows.length} file(s), then re-process each file from scratch. This action cannot be undone.`,
+      description: `This will delete ALL questions, answers, and clusters for this opportunity across all ${rows.length} file(s), then re-process each file from scratch. Required forms will not be affected. This action cannot be undone.`,
       confirmLabel: 'Re-extract All',
       variant: 'destructive',
     });
@@ -418,26 +417,21 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
                               </Badge>
                             </a>
                           )}
-                          {isExtractedQuestionFile(f.status) && formsBySourceFile.has(f.name) && (
-                            formsBySourceFile.get(f.name)!.map((form) => (
-                              <Link key={form.formId} href={`/organizations/${orgId}/projects/${projectId}/opportunities/${oppId}/forms/${form.formId}`} title={`Required form detected: "${form.name}". Click to open and fill in.`}>
-                                <Badge variant="secondary" className="text-xs gap-1 cursor-pointer bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-200">
-                                  <FileText className="h-3 w-3" />
-                                  Form
-                                </Badge>
-                              </Link>
-                            ))
-                          )}
                         </div>
                         <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
-                          {f.docType && f.docType !== 'OTHER' && (
-                            <span className={cn('font-medium',
-                              f.docType === 'QUESTIONNAIRE' && 'text-teal-600 dark:text-teal-400',
-                              f.docType === 'REQUIRED_FORM' && 'text-orange-600 dark:text-orange-400',
-                            )}>
-                              {f.docType === 'QUESTIONNAIRE' ? 'Questionnaire' : 'Required Form'}
-                            </span>
-                          )}
+                          {f.docType && f.docType !== 'OTHER' && (() => {
+                            const formsCount = f.docType === 'REQUIRED_FORM' ? (formsBySourceFile.get(f.name)?.length ?? 0) : 0;
+                            return (
+                              <span className={cn('font-medium',
+                                f.docType === 'QUESTIONNAIRE' && 'text-teal-600 dark:text-teal-400',
+                                f.docType === 'REQUIRED_FORM' && 'text-orange-600 dark:text-orange-400',
+                              )}>
+                                {f.docType === 'QUESTIONNAIRE' 
+                                  ? 'Questionnaire' 
+                                  : `Required Form${formsCount > 1 ? ` (${formsCount})` : ''}`}
+                              </span>
+                            );
+                          })()}
                           {f.docType && f.docType !== 'OTHER' && <span>·</span>}
                           {formatFileSize(f.fileSize) && (
                             <><span>{formatFileSize(f.fileSize)}</span><span>·</span></>

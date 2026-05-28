@@ -198,7 +198,8 @@ const executeKbSearch = async (
           kbId,
           chunkKey,
           fileName: docName || undefined,
-          relevance: h.score ?? undefined,
+          // Clamp relevance to 0-1 range (Pinecone scores can vary)
+          relevance: h.score != null ? Math.max(0, Math.min(1, h.score)) : undefined,
           textContent: truncatedText,
         });
 
@@ -268,7 +269,8 @@ const executePastPerfSearch = async (
       sources.push({
         id: sk ?? `pp-${i}`,
         fileName: m.title ? `Past Performance: ${m.title}` : undefined,
-        relevance: h.score ?? undefined,
+        // Clamp relevance to 0-1 range (Pinecone scores can vary)
+        relevance: h.score != null ? Math.max(0, Math.min(1, h.score)) : undefined,
         textContent: formattedText,
       });
       const dateStr = (m.createdAt ?? m.updatedAt) as string | undefined;
