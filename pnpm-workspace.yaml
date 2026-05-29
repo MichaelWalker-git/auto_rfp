@@ -1,0 +1,10 @@
+packages:
+  - apps/*
+  - packages/*
+ignoredBuiltDependencies:
+  - '@sentry/cli'
+  - aws-sdk
+  - core-js
+  - esbuild
+  - sharp
+  - unrs-resolver

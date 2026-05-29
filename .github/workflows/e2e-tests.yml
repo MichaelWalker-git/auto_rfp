@@ -4,14 +4,14 @@ on:
   pull_request:
     branches: [main, develop, production]
     paths:
-      - 'web-app/**'
-      - 'shared/**'
+      - 'apps/web/**'
+      - 'packages/core/**'
       - '.github/workflows/e2e-tests.yml'
   push:
     branches: [develop, production]
     paths:
-      - 'web-app/**'
-      - 'shared/**'
+      - 'apps/web/**'
+      - 'packages/core/**'
   workflow_dispatch:
     inputs:
       browser:
@@ -60,20 +60,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Install dependencies (shared)
-        working-directory: shared
+      - name: Install dependencies
         run: pnpm install
 
-      - name: Build shared package
-        working-directory: shared
+      - name: Build core package
+        working-directory: packages/core
         run: pnpm build
 
-      - name: Install dependencies (web-app)
-        working-directory: web-app
-        run: pnpm install
-
-      - name: Build web-app
-        working-directory: web-app
+      - name: Build web app
+        working-directory: apps/web
         run: pnpm build
         env:
           NEXT_PUBLIC_BASE_API_URL: ${{ secrets.NEXT_PUBLIC_BASE_API_URL || 'https://api.example.com' }}
@@ -83,7 +78,7 @@ jobs:
       - name: Create build artifact archive
         run: |
           echo "=== Creating build artifact tar ==="
-          tar -czf build-artifacts.tar.gz web-app/.next shared/dist
+          tar -czf build-artifacts.tar.gz apps/web/.next packages/core/dist
           ls -la build-artifacts.tar.gz
 
       - name: Upload build artifacts
@@ -96,7 +91,7 @@ jobs:
 
       - name: Build Summary
         run: |
-          echo "✅ Shared package built successfully"
+          echo "✅ Core package built successfully"
           echo "✅ Web app built successfully"
           echo "✅ Build artifacts uploaded"
 
@@ -110,10 +105,6 @@ jobs:
       matrix:
         shardIndex: [1, 2, 3]
         shardTotal: [3]
-
-    defaults:
-      run:
-        working-directory: web-app
 
     steps:
       - name: Checkout
@@ -148,25 +139,22 @@ jobs:
           name: build-artifacts
 
       - name: Extract build artifacts
-        working-directory: ${{ github.workspace }}
         run: |
           echo "=== Extracting build artifacts ==="
           tar -xzf build-artifacts.tar.gz
-          ls -la web-app/.next/ | head -20
+          ls -la apps/web/.next/ | head -20
           echo "=== .next file count ==="
-          find web-app/.next -type f | wc -l
+          find apps/web/.next -type f | wc -l
 
-      - name: Install dependencies (shared)
-        working-directory: shared
-        run: pnpm install
-
-      - name: Install dependencies (web-app)
+      - name: Install dependencies
         run: pnpm install
 
       - name: Install Playwright browsers
+        working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Start web server and wait for readiness
+        working-directory: apps/web
         run: |
           echo "Starting Next.js server..."
           pnpm start &
@@ -192,6 +180,7 @@ jobs:
           NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_USER_POOL_CLIENT_ID || 'example-client-id' }}
 
       - name: Run E2E tests (shard ${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
+        working-directory: apps/web
         run: |
           pnpm exec playwright test \
             --project=chromium \
@@ -209,7 +198,7 @@ jobs:
         if: always()
         with:
           name: playwright-report-shard-${{ matrix.shardIndex }}-${{ github.sha }}
-          path: web-app/playwright-report/
+          path: apps/web/playwright-report/
           retention-days: 30
 
       - name: Upload test screenshots on failure
@@ -217,7 +206,7 @@ jobs:
         if: failure()
         with:
           name: test-screenshots-shard-${{ matrix.shardIndex }}-${{ github.sha }}
-          path: web-app/test-results/**/screenshot*.png
+          path: apps/web/test-results/**/screenshot*.png
           retention-days: 7
 
       - name: Upload test videos on failure
@@ -225,7 +214,7 @@ jobs:
         if: failure()
         with:
           name: test-videos-shard-${{ matrix.shardIndex }}-${{ github.sha }}
-          path: web-app/test-results/**/video*.webm
+          path: apps/web/test-results/**/video*.webm
           retention-days: 7
 
       - name: Upload test traces on failure
@@ -233,7 +222,7 @@ jobs:
         if: failure()
         with:
           name: test-traces-shard-${{ matrix.shardIndex }}-${{ github.sha }}
-          path: web-app/test-results/**/trace*.zip
+          path: apps/web/test-results/**/trace*.zip
           retention-days: 7
 
   summary:

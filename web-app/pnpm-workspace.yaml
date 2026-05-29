@@ -1,6 +1,0 @@
-ignoredBuiltDependencies:
-  - '@sentry/cli'
-  - core-js
-  - esbuild
-  - sharp
-  - unrs-resolver

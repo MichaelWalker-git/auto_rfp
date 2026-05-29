@@ -75,26 +75,30 @@ cdk deploy --profile michael-primary --require-approval never
 ## Git Branching Strategy
 
 ```
-develop ─────────────────────────────────────────────────►
-    │                    │
-    │ feature branches   │ PRs merge here
-    │                    ▼
-    │              (tested, stable)
-    │                    │
-production ──────────────┼───────────────────────────────►
-                         ▲
-                    release workflow
+Feature Branches ──► develop ──► Amplify Staging (QA/Testing)
+                          │
+                          └──► production ──► Amplify Production (CUSTOMERS)
+                                    ▲
+                                    │
+                              Release Workflow
+                              (manual trigger)
 ```
 
 **Branches:**
-- **develop** - Active development branch (default). All PRs merge here first.
-- **production** - Stable, production-ready code. Only updated via release workflow.
+- **develop** - Active development branch. PRs merge here first. Deploys to **staging** environment for QA.
+- **production** - Stable, customer-facing code. Only updated via Release workflow. Deploys to **production** environment.
+
+**Environments:**
+- **Staging** (develop branch): `https://develop.d1xxxxxx.amplifyapp.com` - For testing before release
+- **Production** (production branch): `https://production.d1xxxxxx.amplifyapp.com` - Customer-facing
 
 **Workflow:**
 1. Create feature branches from `develop`
 2. Open PRs targeting `develop`
 3. After PR approval and CI passes, merge to `develop`
-4. When ready to release, run the Release workflow to promote `develop` → `production`
+4. **Test on staging environment** - Verify changes work correctly
+5. When ready to release, run the **Release to Production** workflow (Actions → Release to Production → Run workflow)
+6. Verify on production environment
 
 **Branch Protection Rules:**
 - Both `develop` and `production` require:
@@ -300,7 +304,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
 // lib/hooks/use-projects.ts
 export function useProjects(orgId: string) {
   const { data, error, isLoading, mutate } = useSWR(
-    orgId ? `/api/project/get-projects?orgId=${orgId}` : null,
+    orgId ? `/api/projects/l?orgId=${orgId}` : null,
     fetcher
   );
   return { projects: data?.data, error, isLoading, mutate };
@@ -343,7 +347,7 @@ export SAM_GOV_API_KEY="your-sam-gov-api-key"  # Required for deploy
 DB_TABLE_NAME, DOCUMENTS_BUCKET, OPENSEARCH_ENDPOINT, OPENSEARCH_INDEX
 BEDROCK_MODEL_ID, BEDROCK_EMBEDDING_MODEL_ID, BEDROCK_REGION
 COGNITO_USER_POOL_ID, STATE_MACHINE_ARN, EXEC_BRIEF_QUEUE_URL
-SENTRY_DSN, LINEAR_API_KEY_SECRET_ARN, SAM_GOV_API_KEY_SECRET_ID
+SENTRY_DSN, LINEAR_API_KEY_SECRET_ARN
 ```
 
 ## Testing
@@ -581,7 +585,7 @@ cd web-app && pnpm test:a11y
 - **223 `any` type usages** across 97 files
 - High-priority files needing type fixes:
   - `web-app/app/.../proposals/[proposalId]/page.tsx` - 17 implicit any errors
-  - `web-app/app/.../GenerateProposalModal.tsx` - 16 implicit any errors
+  - `web-app/app/.../GenerateRFPDocumentModel.tsx` - 16 implicit any errors
   - `web-app/components/brief/helpers.ts` - 4 implicit any errors
 
 ### Infrastructure tsconfig Relaxations
