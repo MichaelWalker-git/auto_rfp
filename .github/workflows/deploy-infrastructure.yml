@@ -115,6 +115,9 @@ jobs:
           SAM_GOV_API_KEY: ${{ secrets.SAM_GOV_API_KEY }}
           PINECONE_API_KEY: ${{ secrets.PINECONE_API_KEY }}
           PINECONE_INDEX: ${{ secrets.PINECONE_INDEX }}
+          # AWS Partner Revenue Measurement (PRM) tag — applied in bin/auto-rfp-infrastructure.ts when set.
+          # This workflow only runs on the production branch, so the tag lands on prod resources.
+          AWS_MARKETPLACE_PRODUCT_CODE: ${{ secrets.AWS_MARKETPLACE_PRODUCT_CODE }}
 
       - name: Deployment Summary
         run: |
