@@ -102,7 +102,9 @@ export function addCognitoSuppressions(stack: Stack, _isProduction = false): voi
     },
   ];
 
-  NagSuppressions.addStackSuppressions(stack, suppressions);
+  // applyToNestedStacks = true: COG4 findings land on API methods inside nested
+  // route stacks (e.g. DeadlinesRoutesNestedStack), so suppressions must propagate.
+  NagSuppressions.addStackSuppressions(stack, suppressions, true);
 }
 
 /**
