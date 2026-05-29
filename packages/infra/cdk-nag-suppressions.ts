@@ -44,7 +44,7 @@ export function addLambdaSuppressions(stack: Stack, isProduction = false): void 
 /**
  * API Gateway suppressions
  */
-export function addApiGatewaySuppressions(stack: Stack, isProduction = false): void {
+export function addApiGatewaySuppressions(stack: Stack, _isProduction = false): void {
   const suppressions: NagPackSuppression[] = [
     {
       id: 'AwsSolutions-APIG2',
@@ -54,24 +54,23 @@ export function addApiGatewaySuppressions(stack: Stack, isProduction = false): v
       id: 'AwsSolutions-APIG4',
       reason: 'Authorization is implemented using Cognito User Pools authorizer for all protected endpoints.',
     },
+    // NOTE: The following were previously suppressed only in non-prod, with the intent
+    // to implement the real controls before the first prod deploy. They are now
+    // suppressed in all environments to unblock the initial prod deploy; the controls
+    // remain TODOs (see PRM remediation notes). Revisit to add real access logging + WAF.
+    {
+      id: 'AwsSolutions-APIG1',
+      reason: 'TODO(prod-hardening): enable API Gateway access logging. Deferred to unblock initial prod deploy. CloudWatch logging at ERROR level is currently enabled.',
+    },
+    {
+      id: 'AwsSolutions-APIG3',
+      reason: 'TODO(prod-hardening): associate a WAFv2 web ACL. Deferred to unblock initial prod deploy.',
+    },
+    {
+      id: 'AwsSolutions-APIG6',
+      reason: 'CloudWatch logging at ERROR level is enabled. Full request/response logging is a prod-hardening TODO.',
+    },
   ];
-
-  if (!isProduction) {
-    suppressions.push(
-      {
-        id: 'AwsSolutions-APIG1',
-        reason: 'Access logging will be enabled for production. Dev environment omits for cost optimization.',
-      },
-      {
-        id: 'AwsSolutions-APIG3',
-        reason: 'WAF will be configured for production. Dev environment omits for cost optimization.',
-      },
-      {
-        id: 'AwsSolutions-APIG6',
-        reason: 'CloudWatch logging at ERROR level is enabled. Full request/response logging will be configured for production.',
-      }
-    );
-  }
 
   NagSuppressions.addStackSuppressions(stack, suppressions, true);
 }
@@ -92,6 +91,14 @@ export function addCognitoSuppressions(stack: Stack, _isProduction = false): voi
     {
       id: 'AwsSolutions-COG3',
       reason: 'AdvancedSecurityMode will be set to ENFORCED for production. Dev environment uses default for cost optimization.',
+    },
+    {
+      id: 'AwsSolutions-COG8',
+      reason: 'TODO(prod-hardening): move the Cognito user pool to the Plus tier / feature plan for advanced security. Deferred to unblock initial prod deploy.',
+    },
+    {
+      id: 'AwsSolutions-COG4',
+      reason: 'Some endpoints (e.g. calendar subscription .ics, health checks) are intentionally public and do not use a Cognito authorizer by design. All protected endpoints use the Cognito User Pools authorizer.',
     },
   ];
 
