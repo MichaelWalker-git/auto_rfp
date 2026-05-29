@@ -35,8 +35,16 @@ const stage = process.env.STAGE || app.node.tryGetContext('stage') || 'Dev';
 console.log(`=🚀 Deploying with stage: ${stage}`);
 
 const awsMarketplaceProductCode = process.env.AWS_MARKETPLACE_PRODUCT_CODE || '';
+const isProd = stage.toLowerCase() === 'prod';
 if (awsMarketplaceProductCode) {
   cdk.Tags.of(app).add('aws-apn-id', `pc:${awsMarketplaceProductCode}`);
+} else if (isProd) {
+  // Fail loud: a prod deploy without the PRM tag silently breaks AWS AI
+  // Competency revenue attribution. Better to block the deploy than ship untagged.
+  throw new Error(
+    'AWS_MARKETPLACE_PRODUCT_CODE is required for prod deploys (AWS PRM compliance). ' +
+      'Set the GitHub secret / env var before deploying.',
+  );
 }
 
 const network = new NetworkStack(app, `AutoRfp-Network-${stage}`, {
