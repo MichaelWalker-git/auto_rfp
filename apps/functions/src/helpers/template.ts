@@ -1,5 +1,5 @@
 import { PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { docClient, getItem } from './db';
+import { docClient, getItem, queryAllBySkPrefix } from './db';
 import { requireEnv } from './env';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { createTemplateSK, TEMPLATE_PK, type TemplateItem } from '@auto-rfp/core';
@@ -180,14 +180,10 @@ export const clearDefaultForCategory = async (
   category: string,
   exceptTemplateId?: string,
 ): Promise<string[]> => {
-  const { items } = await listTemplatesByOrg(orgId, {
-    category,
-    excludeArchived: false,
-    limit: 50,
-  });
+  const allItems = await queryAllBySkPrefix<TemplateItem>(TEMPLATE_PK, `${orgId}#`);
 
-  const toClear = items.filter(
-    (t) => t.isDefault && t.id !== exceptTemplateId,
+  const toClear = allItems.filter(
+    (t) => t.category === category && t.isDefault && t.id !== exceptTemplateId,
   );
 
   await Promise.all(
