@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSWRConfig } from 'swr';
-import { Loader2, Save, ArrowLeft, FileText, Check, ChevronsUpDown, Plus } from 'lucide-react';
+import { Loader2, Save, ArrowLeft, FileText, Check, ChevronsUpDown, Plus, Star, StarOff } from 'lucide-react';
 import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -16,8 +17,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { RichTextEditor, stripPresignedUrlsFromHtml } from '@/components/rfp-documents/rich-text-editor';
-import { useUpdateTemplate, useTemplate } from '@/lib/hooks/use-templates';
+import { useUpdateTemplate, useTemplate, useSetDefaultTemplate, useUnsetDefaultTemplate } from '@/lib/hooks/use-templates';
 import { useCustomDocumentTypes, useSaveCustomDocumentType } from '@/lib/hooks/use-rfp-documents';
+import { usePermission } from '@/components/permission-wrapper';
 import { usePresignUpload, usePresignDownload, uploadFileToS3 } from '@/lib/hooks/use-presign';
 import type { Editor } from '@tiptap/react';
 import { MacroInsertionBar } from '@/components/templates/MacroInsertionBar';
@@ -62,8 +64,12 @@ export default function EditTemplatePage() {
 
   const { toast } = useToast();
   const { mutate } = useSWRConfig();
-  const { template, isLoading: isLoadingTemplate } = useTemplate(orgId, templateId);
+  const { template, isLoading: isLoadingTemplate, mutate: mutateTemplate } = useTemplate(orgId, templateId);
   const { update, isUpdating } = useUpdateTemplate(orgId, templateId);
+  const { setDefault } = useSetDefaultTemplate(orgId);
+  const { unsetDefault } = useUnsetDefaultTemplate(orgId);
+  const canSetDefault = usePermission('template:set-default');
+  const [isTogglingDefault, setIsTogglingDefault] = useState(false);
   const { trigger: triggerPresignUpload } = usePresignUpload();
   const { trigger: triggerPresignDownload } = usePresignDownload();
   const { customTypes, mutate: mutateCustomTypes } = useCustomDocumentTypes(orgId);
@@ -251,6 +257,33 @@ export default function EditTemplatePage() {
     }
   }, [name, category, content, update, mutate, templateId, toast]);
 
+  // ── Toggle the default marker ──
+  const handleToggleDefault = useCallback(async () => {
+    if (!template || isTogglingDefault) return;
+    setIsTogglingDefault(true);
+    try {
+      if (template.isDefault) {
+        await unsetDefault(template.id);
+        toast({ title: 'Removed default marker' });
+      } else {
+        await setDefault(template.id);
+        toast({ title: 'Set as default template' });
+      }
+      await Promise.all([
+        mutateTemplate(),
+        mutate((key: unknown) => typeof key === 'string' && key.includes('/templates/list')),
+      ]);
+    } catch (err) {
+      toast({
+        title: 'Failed to update default template',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsTogglingDefault(false);
+    }
+  }, [template, isTogglingDefault, unsetDefault, setDefault, toast, mutateTemplate, mutate]);
+
   // ── Ctrl+S / Cmd+S hotkey ──
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -315,6 +348,12 @@ export default function EditTemplatePage() {
                 <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
                   v{template.currentVersion}
                 </span>
+              )}
+              {template.isDefault && (
+                <Badge className="bg-amber-500 hover:bg-amber-500 text-white border-transparent">
+                  <Star className="h-3 w-3 mr-1 fill-current" />
+                  Default
+                </Badge>
               )}
             </div>
             <p className="text-muted-foreground text-sm">
@@ -402,6 +441,29 @@ export default function EditTemplatePage() {
                 </PopoverContent>
               </Popover>
             </div>
+
+            {canSetDefault && (
+              <Button
+                type="button"
+                variant={template.isDefault ? 'secondary' : 'outline'}
+                onClick={handleToggleDefault}
+                disabled={isTogglingDefault || (!template.isDefault && template.status !== 'PUBLISHED')}
+                title={
+                  !template.isDefault && template.status !== 'PUBLISHED'
+                    ? 'Publish this template before setting it as the default'
+                    : undefined
+                }
+              >
+                {isTogglingDefault ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : template.isDefault ? (
+                  <StarOff className="mr-2 h-4 w-4" />
+                ) : (
+                  <Star className="mr-2 h-4 w-4" />
+                )}
+                {template.isDefault ? 'Remove Default' : 'Set as Default'}
+              </Button>
+            )}
 
             <Button
               onClick={saveTemplate}

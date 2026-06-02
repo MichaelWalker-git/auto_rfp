@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { FileText } from 'lucide-react';
+import { FileText, Star } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
@@ -48,6 +48,7 @@ export const TemplateSelector = ({
   const selectValue = value || AUTO_VALUE;
   const published = items.filter((t) => t.status === 'PUBLISHED');
   const drafts = items.filter((t) => t.status === 'DRAFT');
+  const defaultTemplate = published.find((t) => t.isDefault);
 
   const handleChange = (val: string) => {
     onChange(val === AUTO_VALUE ? '' : val);
@@ -63,14 +64,19 @@ export const TemplateSelector = ({
       </SelectTrigger>
       <SelectContent>
         <SelectItem value={AUTO_VALUE} className="text-xs">
-          Auto (most recent published)
+          {defaultTemplate
+            ? `Auto (default: ${defaultTemplate.name})`
+            : 'Auto (most recent published)'}
         </SelectItem>
         {published.length > 0 && (
           <SelectGroup>
             <SelectLabel className="text-[10px] text-muted-foreground">Published</SelectLabel>
             {published.map((t) => (
               <SelectItem key={t.id} value={t.id} className="text-xs">
-                {t.name}
+                <span className="flex items-center gap-1">
+                  {t.isDefault && <Star className="h-3 w-3 shrink-0 fill-amber-500 text-amber-500" />}
+                  {t.name}{t.isDefault ? ' (default)' : ''}
+                </span>
               </SelectItem>
             ))}
           </SelectGroup>

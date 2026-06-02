@@ -16,7 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Copy, Pencil, Send, Trash2, FileText, Clock, ArrowDownToLine, ArchiveRestore } from 'lucide-react';
+import { MoreHorizontal, Copy, Pencil, Send, Trash2, FileText, Clock, ArrowDownToLine, ArchiveRestore, Star, StarOff } from 'lucide-react';
 import type { TemplateItem } from '@/lib/hooks/use-templates';
 import { usePermission } from '@/components/permission-wrapper';
 
@@ -49,6 +49,8 @@ interface TemplateCardProps {
   onDelete: (template: TemplateItem) => void;
   onUnarchive: (template: TemplateItem) => void;
   onPermanentlyDelete: (template: TemplateItem) => void;
+  onSetDefault: (template: TemplateItem) => void;
+  onUnsetDefault: (template: TemplateItem) => void;
   orgId: string;
 }
 
@@ -61,6 +63,8 @@ export function TemplateCard({
   onDelete,
   onUnarchive,
   onPermanentlyDelete,
+  onSetDefault,
+  onUnsetDefault,
 }: TemplateCardProps) {
   const timeAgo = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -72,11 +76,13 @@ export function TemplateCard({
   };
 
   const isArchived = template.isArchived;
+  const isDefault = template.isDefault ?? false;
   const canUpdate = usePermission('template:update');
   const canPublish = usePermission('template:publish');
   const canCreate = usePermission('template:create');
   const canDelete = usePermission('template:delete');
-  const hasAnyAction = canUpdate || canPublish || canCreate || canDelete;
+  const canSetDefault = usePermission('template:set-default');
+  const hasAnyAction = canUpdate || canPublish || canCreate || canDelete || canSetDefault;
 
   return (
     <Card className="group overflow-hidden hover:shadow-md transition-shadow">
@@ -137,6 +143,18 @@ export function TemplateCard({
                         Unpublish
                       </DropdownMenuItem>
                     )}
+                    {canSetDefault && template.status === 'PUBLISHED' && !isDefault && (
+                      <DropdownMenuItem onClick={() => onSetDefault(template)}>
+                        <Star className="h-4 w-4 mr-2" />
+                        Set as Default
+                      </DropdownMenuItem>
+                    )}
+                    {canSetDefault && isDefault && (
+                      <DropdownMenuItem onClick={() => onUnsetDefault(template)}>
+                        <StarOff className="h-4 w-4 mr-2" />
+                        Remove Default
+                      </DropdownMenuItem>
+                    )}
                     {canCreate && (
                       <DropdownMenuItem onClick={() => onClone(template)}>
                         <Copy className="h-4 w-4 mr-2" />
@@ -164,6 +182,12 @@ export function TemplateCard({
       </CardHeader>
       <CardContent className="pt-0">
         <div className="flex flex-wrap gap-1.5 mb-3">
+          {isDefault && (
+            <Badge className="text-xs bg-amber-500 hover:bg-amber-500 text-white border-transparent">
+              <Star className="h-3 w-3 mr-1 fill-current" />
+              Default
+            </Badge>
+          )}
           <Badge variant={statusVariant(template.status)} className="text-xs">
             {template.status}
           </Badge>

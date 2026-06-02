@@ -10,9 +10,13 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { nowIso } from '@/helpers/date';
-import { getTemplate, updateTemplateFields } from '@/helpers/template';
+import {
+  clearDefaultForCategory,
+  getTemplate,
+  setDefaultTemplate,
+} from '@/helpers/template';
 
-const baseHandler = async (
+export const baseHandler = async (
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
@@ -22,46 +26,40 @@ const baseHandler = async (
     const orgId = getOrgId(event) || event.queryStringParameters?.orgId;
     if (!orgId) return apiResponse(400, { error: 'Missing orgId' });
 
-    const userId = (event as any).auth?.userId || 'system';
-    const now = nowIso();
-
     const existing = await getTemplate(orgId, templateId);
     if (!existing) return apiResponse(404, { error: 'Template not found' });
 
-    const action = event.queryStringParameters?.action ?? 'publish';
+    const action = event.queryStringParameters?.action ?? 'set';
 
-    // Unpublish: PUBLISHED → DRAFT
-    if (action === 'unpublish') {
-      if (existing.isArchived) return apiResponse(410, { error: 'Template is archived' });
-      if (existing.status !== 'PUBLISHED') return apiResponse(409, { error: 'Template is not published' });
-
-      await updateTemplateFields(orgId, templateId, {
-        status: 'DRAFT',
-        publishedAt: null,
-        publishedBy: null,
-        // A draft can no longer be the default template
-        isDefault: false,
-        updatedAt: now,
-      });
-
+    // Unset: remove the default marker from this template
+    if (action === 'unset') {
+      await clearDefaultForCategory(orgId, existing.category, undefined);
       setAuditContext(event, { action: 'CONFIG_CHANGED', resource: 'template', resourceId: templateId });
-      return apiResponse(200, { message: 'Template unpublished', templateId, status: 'DRAFT' });
+      return apiResponse(200, {
+        message: 'Default marker removed',
+        templateId,
+        isDefault: false,
+      });
     }
 
-    // Default: Publish
+    // Set: mark this template as the default template for its category
     if (existing.isArchived) return apiResponse(410, { error: 'Template is archived' });
+    if (existing.status !== 'PUBLISHED') {
+      return apiResponse(409, { error: 'Only a published template can be set as the default' });
+    }
 
-    await updateTemplateFields(orgId, templateId, {
-      status: 'PUBLISHED',
-      publishedAt: now,
-      publishedBy: userId,
-      updatedAt: now,
-    });
+    await setDefaultTemplate(orgId, templateId, existing.category);
 
     setAuditContext(event, { action: 'CONFIG_CHANGED', resource: 'template', resourceId: templateId });
-    return apiResponse(200, { message: 'Template published', templateId, status: 'PUBLISHED', publishedAt: now });
+    return apiResponse(200, {
+      message: 'Default template set',
+      templateId,
+      category: existing.category,
+      isDefault: true,
+      updatedAt: nowIso(),
+    });
   } catch (err) {
-    console.error('Error publishing template:', err);
+    console.error('Error setting default template:', err);
     return apiResponse(500, {
       error: 'Internal server error',
       message: err instanceof Error ? err.message : 'Unknown error',
@@ -73,7 +71,7 @@ export const handler = withSentryLambda(
   middy(baseHandler)
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
-    .use(requirePermission('template:publish'))
+    .use(requirePermission('template:set-default'))
     .use(auditMiddleware())
     .use(httpErrorMiddleware()),
 );
