@@ -34,6 +34,8 @@ import { useApi, apiMutate, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { usePermission } from '@/components/permission-wrapper';
 import { ReviewRequiredBanner } from './ReviewRequiredBanner';
 import { useAttachFormToProposal } from '../hooks/useAttachFormToProposal';
+import { ApprovalNeededBadge } from '@/features/opportunity-approval';
+import { useOpportunityApproval } from '@/lib/hooks/use-universal-approval';
 
 import type { RequiredFormItem, RequiredFormsListResponse } from '@auto-rfp/core';
 
@@ -283,6 +285,7 @@ export const RequiredFormsList = ({ orgId, projectId, opportunityId }: RequiredF
   const canEdit = usePermission('form:edit');
   const canDelete = usePermission('form:delete');
   const { confirm, ConfirmDialog } = useConfirmDialog();
+  const { activeApproval: opportunityApproval } = useOpportunityApproval(orgId, projectId, opportunityId);
 
   const forms = data?.forms ?? [];
   const attachedCount = forms.filter((f) => f.attachedToProposal).length;
@@ -292,7 +295,10 @@ export const RequiredFormsList = ({ orgId, projectId, opportunityId }: RequiredF
       <CardHeader className="pb-2">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="min-w-0">
-            <CardTitle className="text-sm font-medium">Required Forms</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              Required Forms
+              {opportunityApproval && <ApprovalNeededBadge />}
+            </CardTitle>
             <CardDescription className="mt-1">
               {isLoading ? (
                 <Skeleton className="h-4 w-64" />

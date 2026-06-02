@@ -1,9 +1,8 @@
 'use client';
 import useSWR from 'swr';
 import { useState } from 'react';
-import { buildApiUrl } from '@/lib/hooks/api-helpers';
-import { apiMutate } from '@/lib/hooks/api-mutate';
-import type { 
+import { buildApiUrl, apiMutate } from '@/lib/hooks/api-helpers';
+import type {
   UniversalApprovalHistoryResponse,
   ApprovableEntityType,
   RequestUniversalApproval,
@@ -38,17 +37,11 @@ export const useRequestUniversalApproval = () => {
     setError(null);
 
     try {
-      const response = await apiMutate('universal-approval/request', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to request approval');
-      }
-
-      return await response.json();
+      return await apiMutate<unknown, RequestUniversalApproval>(
+        buildApiUrl('universal-approval/request'),
+        'POST',
+        data,
+      );
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to request approval';
       setError(errorMessage);
@@ -74,17 +67,11 @@ export const useSubmitUniversalReview = () => {
     setError(null);
 
     try {
-      const response = await apiMutate('universal-approval/submit-review', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to submit review');
-      }
-
-      return await response.json();
+      return await apiMutate<unknown, SubmitUniversalReview>(
+        buildApiUrl('universal-approval/submit-review'),
+        'POST',
+        data,
+      );
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to submit review';
       setError(errorMessage);

@@ -19,6 +19,7 @@ import {
 import { useEmitOpportunityEvent } from '@/lib/hooks/use-emit-opportunity-event';
 import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { PermissionButton } from '@/components/ui/permission-button';
+import { RequestOpportunityApprovalButton } from '@/features/opportunity-approval';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -134,6 +135,13 @@ export const OpportunityHeader = () => {
                 </>
               ) : (
                 <>
+                  <RequestOpportunityApprovalButton
+                    orgId={orgId}
+                    projectId={projectId}
+                    opportunityId={oppId}
+                    opportunityName={opportunity.title}
+                    onSuccess={refetch}
+                  />
                   <Button variant="outline" size="sm" asChild>
                     <Link href={briefUrl}>
                       <Target className="h-4 w-4 sm:mr-1" />
@@ -188,26 +196,6 @@ export const OpportunityHeader = () => {
           </CardContent>
         )}
       </Card>
-
-      {/* Request Review — feature not yet implemented */}
-      {/* <Dialog open={showRequestReview} onOpenChange={setShowRequestReview}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ClipboardCheck className="h-5 w-5 text-muted-foreground" />
-              Request Review
-            </DialogTitle>
-            <DialogDescription>
-              This feature is not implemented yet. Proposal review workflows are coming soon.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRequestReview(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog> */}
 
       {/* Delete confirmation dialog */}
       <OpportunityDeleteDialog
