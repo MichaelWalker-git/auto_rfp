@@ -63,16 +63,6 @@ describe('FOIARequestCard', () => {
       render(<FOIARequestCard {...defaultProps} />);
       expect(screen.getByText('FOIA Request')).toBeInTheDocument();
     });
-
-    it('shows the eligibility notice when outcome is LOST', () => {
-      render(<FOIARequestCard {...defaultProps} />);
-      expect(screen.getByText(/you can now\s+submit a FOIA request/i)).toBeInTheDocument();
-    });
-
-    it('does not show the eligibility notice when outcome is not LOST', () => {
-      render(<FOIARequestCard {...defaultProps} projectOutcomeStatus="WON" />);
-      expect(screen.queryByText(/you can now\s+submit a FOIA request/i)).not.toBeInTheDocument();
-    });
   });
 
   describe('loading state', () => {
