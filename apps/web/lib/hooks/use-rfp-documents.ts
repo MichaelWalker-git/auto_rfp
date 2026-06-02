@@ -414,6 +414,8 @@ const ExportAllRFPDocumentsRequestSchema = z.object({
   formats: z.array(z.enum(['docx', 'pdf', 'pptx', 'html', 'txt', 'md'])).optional(),
   options: z.object({
     pageSize: z.enum(['letter', 'a4']).optional(),
+    includeQuestionnaires: z.boolean().optional(),
+    includeRequiredForms: z.boolean().optional(),
   }).optional(),
 });
 
@@ -443,6 +445,8 @@ const ExportAllRFPDocumentsResponseSchema = z.object({
     exportedDocuments: z.number(),
     skippedDocuments: z.number(),
     formats: z.array(z.string()),
+    questionnaireCount: z.number().optional(),
+    requiredFormsCount: z.number().optional(),
   }),
   documents: z.array(ExportedDocInfoSchema),
 });

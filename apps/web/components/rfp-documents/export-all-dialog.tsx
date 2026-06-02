@@ -45,6 +45,8 @@ import {
   type RFPDocumentItem,
   RFP_DOCUMENT_TYPES,
 } from '@/lib/hooks/use-rfp-documents';
+import { useApi, buildApiUrl } from '@/lib/hooks/api-helpers';
+import type { RequiredFormsListResponse } from '@auto-rfp/core';
 
 type BulkExportFormat = 'docx' | 'pdf' | 'pptx' | 'html' | 'txt' | 'md';
 type ExportMode = 'individual' | 'merged';
@@ -95,10 +97,12 @@ export const ExportAllDialog = ({
   // Individual mode state
   const [selectedFormats, setSelectedFormats] = useState<Set<BulkExportFormat>>(new Set(['docx']));
   const [pageSize, setPageSize] = useState<'letter' | 'a4'>('letter');
+  const [includeQuestionnaires, setIncludeQuestionnaires] = useState(true);
+  const [includeRequiredForms, setIncludeRequiredForms] = useState(true);
 
   // Merged mode state
   const exportableDocs = useMemo(
-    () => documents.filter((d) => d.status !== 'GENERATING' && (d.htmlContentKey || d.content)),
+    () => documents.filter((d) => d.status !== 'GENERATING' && d.status !== 'FAILED' && (d.htmlContentKey || d.content)),
     [documents],
   );
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>(() => exportableDocs.map((d) => d.documentId));
@@ -107,6 +111,19 @@ export const ExportAllDialog = ({
   const [pageBreakBetween, setPageBreakBetween] = useState(true);
   const defaultFileName = opportunityTitle ? `${opportunityTitle} Proposal` : 'Merged Proposal';
   const [mergedFileName, setMergedFileName] = useState(defaultFileName);
+
+  // Count questionnaires and fetch required forms count
+  const questionnaireCount = useMemo(
+    () => documents.filter((d) => d.documentType === 'QUESTIONNAIRE' && d.fileKey && !d.deletedAt).length,
+    [documents],
+  );
+
+  const formsUrl = opportunityId ? buildApiUrl('/required-forms/list', { orgId, projectId, opportunityId }) : null;
+  const { data: formsData } = useApi<RequiredFormsListResponse>(formsUrl, formsUrl);
+  const requiredFormsCount = useMemo(
+    () => formsData?.forms?.filter((f) => f.fields.length > 0 && f.sourceFileKey).length || 0,
+    [formsData],
+  );
 
   // Reset state when dialog opens
   React.useEffect(() => {
@@ -176,14 +193,19 @@ export const ExportAllDialog = ({
         projectId,
         opportunityId: opportunityId || undefined,
         formats: Array.from(selectedFormats),
-        options: { pageSize },
+        options: { pageSize, includeQuestionnaires, includeRequiredForms },
       };
 
       const result = await exportAll(request);
       if (!result?.success || !result?.export?.url) throw new Error('Export failed');
 
       triggerDownload(result.export.url, result.export.fileName);
-      toast({ title: 'Export complete', description: `${result.summary.exportedDocuments} documents exported.` });
+
+      const parts: string[] = [`${result.summary.exportedDocuments} RFP document${result.summary.exportedDocuments !== 1 ? 's' : ''}`];
+      if (result.summary.questionnaireCount) parts.push(`${result.summary.questionnaireCount} questionnaire${result.summary.questionnaireCount !== 1 ? 's' : ''}`);
+      if (result.summary.requiredFormsCount) parts.push(`${result.summary.requiredFormsCount} required form${result.summary.requiredFormsCount !== 1 ? 's' : ''}`);
+
+      toast({ title: 'Export complete', description: parts.join(', ') + ' exported.' });
       onOpenChange(false);
     } catch (err) {
       toast({ title: 'Export failed', description: err instanceof Error ? err.message : 'Failed to export', variant: 'destructive' });
@@ -318,8 +340,36 @@ export const ExportAllDialog = ({
                 </Select>
               </div>
 
-              <div className="rounded-md border p-3 bg-muted/30 text-sm">
-                {exportableDocs.length} documents × {selectedFormats.size} format{selectedFormats.size !== 1 ? 's' : ''} = {exportableDocs.length * selectedFormats.size} files in ZIP
+              <div className="space-y-3">
+                <Label>Additional Items</Label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-3 rounded-lg border p-3 cursor-pointer hover:bg-accent/50 transition-colors">
+                    <Checkbox
+                      checked={includeQuestionnaires}
+                      onCheckedChange={(checked) => setIncludeQuestionnaires(!!checked)}
+                      disabled={isLoading}
+                    />
+                    <span className="text-sm font-medium">Include Questionnaires</span>
+                  </label>
+                  <label className="flex items-center gap-3 rounded-lg border p-3 cursor-pointer hover:bg-accent/50 transition-colors">
+                    <Checkbox
+                      checked={includeRequiredForms}
+                      onCheckedChange={(checked) => setIncludeRequiredForms(!!checked)}
+                      disabled={isLoading}
+                    />
+                    <span className="text-sm font-medium">Include Required Forms</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="rounded-md border p-3 bg-muted/30 text-sm space-y-1">
+                <div>{exportableDocs.length} RFP document{exportableDocs.length !== 1 ? 's' : ''} × {selectedFormats.size} format{selectedFormats.size !== 1 ? 's' : ''} = {exportableDocs.length * selectedFormats.size} file{exportableDocs.length * selectedFormats.size !== 1 ? 's' : ''}</div>
+                {includeQuestionnaires && questionnaireCount > 0 && (
+                  <div className="text-muted-foreground">+ {questionnaireCount} questionnaire{questionnaireCount !== 1 ? 's' : ''}</div>
+                )}
+                {includeRequiredForms && requiredFormsCount > 0 && (
+                  <div className="text-muted-foreground">+ {requiredFormsCount} required form{requiredFormsCount !== 1 ? 's' : ''}</div>
+                )}
               </div>
             </div>
           )}
