@@ -109,7 +109,10 @@ export const ExportAllDialog = ({
   const [docOrder, setDocOrder] = useState<string[]>(() => exportableDocs.map((d) => d.documentId));
   const [mergeFormat, setMergeFormat] = useState<'docx' | 'pdf'>('docx');
   const [pageBreakBetween, setPageBreakBetween] = useState(true);
-  const defaultFileName = opportunityTitle ? `${opportunityTitle} Proposal` : 'Merged Proposal';
+  const defaultFileName = useMemo(
+    () => (opportunityTitle ? `${opportunityTitle} Proposal` : 'Merged Proposal'),
+    [opportunityTitle],
+  );
   const [mergedFileName, setMergedFileName] = useState(defaultFileName);
 
   // Count questionnaires and fetch required forms count
@@ -135,7 +138,8 @@ export const ExportAllDialog = ({
       setSelectedDocIds(ids);
       setDocOrder(ids);
     }
-  }, [open, exportableDocs]);
+    // defaultFileName is stable via useMemo, safe to include in deps
+  }, [open, exportableDocs, defaultFileName]);
 
   const toggleDoc = useCallback((docId: string) => {
     setSelectedDocIds((prev) =>
