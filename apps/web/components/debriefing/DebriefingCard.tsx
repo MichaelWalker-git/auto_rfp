@@ -244,6 +244,15 @@ export const DebriefingCard = ({
             </div>
           ) : (
             <div className="text-center py-4">
+              {isLost && (
+                <div className="mb-3 flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-left text-xs text-emerald-800">
+                  <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>
+                    This project is marked <span className="font-medium">Lost</span> — you can now
+                    request a debriefing to learn why your proposal was not selected.
+                  </span>
+                </div>
+              )}
               <p className="text-sm text-muted-foreground mb-3">
                 No debriefing requested yet
               </p>

@@ -132,16 +132,24 @@ describe('DebriefingCard', () => {
   });
 
   describe('rendering conditions', () => {
-    it('returns null when project outcome is not LOST', () => {
-      const { container } = render(
-        <DebriefingCard {...defaultProps} projectOutcomeStatus="WON" />
-      );
-      expect(container.firstChild).toBeNull();
+    it('renders even when project outcome is not LOST', () => {
+      render(<DebriefingCard {...defaultProps} projectOutcomeStatus="WON" />);
+      expect(screen.getByText('Debriefing')).toBeInTheDocument();
     });
 
     it('renders when project outcome is LOST', () => {
       render(<DebriefingCard {...defaultProps} />);
       expect(screen.getByText('Debriefing')).toBeInTheDocument();
+    });
+
+    it('shows the eligibility notice when outcome is LOST', () => {
+      render(<DebriefingCard {...defaultProps} />);
+      expect(screen.getByText(/you can now\s+request a debriefing/i)).toBeInTheDocument();
+    });
+
+    it('does not show the eligibility notice when outcome is not LOST', () => {
+      render(<DebriefingCard {...defaultProps} projectOutcomeStatus="WON" />);
+      expect(screen.queryByText(/you can now\s+request a debriefing/i)).not.toBeInTheDocument();
     });
   });
 
