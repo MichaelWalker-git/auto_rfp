@@ -4,6 +4,15 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { CreateFOIARequestDialog } from './CreateFOIARequestDialog';
 import { useFOIARequests, useGenerateFOIALetter } from '@/lib/hooks/use-foia-requests';
 import { useToast } from '@/components/ui/use-toast';
@@ -49,10 +58,21 @@ export const FOIARequestCard = ({
 }: FOIARequestCardProps) => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isOutcomeWarningOpen, setIsOutcomeWarningOpen] = useState(false);
   const [isDrafting, setIsDrafting] = useState(false);
   const { foiaRequests, isLoading, refetch } = useFOIARequests(orgId, projectId, opportunityId);
   const { generateFOIALetter } = useGenerateFOIALetter();
   const { toast } = useToast();
+
+  const isLost = projectOutcomeStatus === 'LOST';
+
+  const handleCreateRequest = () => {
+    if (!isLost) {
+      setIsOutcomeWarningOpen(true);
+      return;
+    }
+    setIsCreateDialogOpen(true);
+  };
 
   const handleSuccess = (foiaRequest: FOIARequestItem) => {
     refetch();
@@ -80,11 +100,6 @@ export const FOIARequestCard = ({
       setIsDrafting(false);
     }
   };
-
-  // Only show for LOST projects
-  if (projectOutcomeStatus !== 'LOST') {
-    return null;
-  }
 
   if (isLoading) {
     return (
@@ -270,7 +285,7 @@ export const FOIARequestCard = ({
                 requiredPermission="project:edit"
                 variant="outline"
                 size="sm"
-                onClick={() => setIsCreateDialogOpen(true)}
+                onClick={handleCreateRequest}
               >
                 Create FOIA Request
               </PermissionButton>
@@ -306,6 +321,24 @@ export const FOIARequestCard = ({
           onSuccess={handleSuccess}
         />
       )}
+
+      <AlertDialog open={isOutcomeWarningOpen} onOpenChange={setIsOutcomeWarningOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark the project outcome as Lost first</AlertDialogTitle>
+            <AlertDialogDescription>
+              FOIA requests can only be created for projects with a{' '}
+              <span className="font-medium">Lost</span> outcome. Set the project outcome to Lost in
+              the Post-Award section, then create a FOIA request.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setIsOutcomeWarningOpen(false)}>
+              Got it
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
