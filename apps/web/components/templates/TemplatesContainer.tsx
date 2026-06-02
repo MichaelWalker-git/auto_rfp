@@ -18,6 +18,8 @@ import {
   useCloneTemplate,
   useUnarchiveTemplate,
   usePermanentlyDeleteTemplate,
+  useSetDefaultTemplate,
+  useUnsetDefaultTemplate,
   type TemplateItem,
 } from '@/lib/hooks/use-templates';
 import { useToast } from '@/components/ui/use-toast';
@@ -52,6 +54,8 @@ export function TemplatesContainer({ orgId }: TemplatesContainerProps) {
   const { clone } = useCloneTemplate(orgId);
   const { unarchive } = useUnarchiveTemplate(orgId);
   const { permanentlyDelete } = usePermanentlyDeleteTemplate(orgId);
+  const { setDefault } = useSetDefaultTemplate(orgId);
+  const { unsetDefault } = useUnsetDefaultTemplate(orgId);
 
   /** Invalidate both active and archived template list caches */
   const invalidateAllTemplateLists = useCallback(() => {
@@ -145,6 +149,40 @@ export function TemplatesContainer({ orgId }: TemplatesContainerProps) {
     [unarchive, mutate, toast],
   );
 
+  const handleSetDefault = useCallback(
+    async (template: TemplateItem) => {
+      try {
+        await setDefault(template.id);
+        mutate();
+        toast({ title: 'Set as default template' });
+      } catch (err) {
+        toast({
+          title: 'Failed to set default template',
+          description: err instanceof Error ? err.message : undefined,
+          variant: 'destructive',
+        });
+      }
+    },
+    [setDefault, mutate, toast],
+  );
+
+  const handleUnsetDefault = useCallback(
+    async (template: TemplateItem) => {
+      try {
+        await unsetDefault(template.id);
+        mutate();
+        toast({ title: 'Removed default marker' });
+      } catch (err) {
+        toast({
+          title: 'Failed to remove default marker',
+          description: err instanceof Error ? err.message : undefined,
+          variant: 'destructive',
+        });
+      }
+    },
+    [unsetDefault, mutate, toast],
+  );
+
   const handlePermanentDelete = useCallback(
     async (template: TemplateItem) => {
       try {
@@ -193,6 +231,8 @@ export function TemplatesContainer({ orgId }: TemplatesContainerProps) {
           onDelete={setDeleteTarget}
           onUnarchive={handleUnarchive}
           onPermanentlyDelete={setPermanentDeleteTarget}
+          onSetDefault={handleSetDefault}
+          onUnsetDefault={handleUnsetDefault}
           orgId={orgId}
           emptyMessage={viewMode === 'archived' ? 'No archived templates' : undefined}
         />

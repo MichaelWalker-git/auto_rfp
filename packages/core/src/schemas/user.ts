@@ -101,6 +101,7 @@ export const ALL_PERMISSIONS = [
   'template:delete',
   'template:publish',
   'template:apply',
+  'template:set-default',
   'collaboration:presence',
   'collaboration:comment',
   'collaboration:assign',

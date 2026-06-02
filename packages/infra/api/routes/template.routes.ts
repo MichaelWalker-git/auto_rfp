@@ -20,6 +20,7 @@ export function templateDomain(): DomainRoutes {
       { method: 'GET', path: 'versions/{id}', entry: lambdaEntry('templates/get-template-versions.ts') },
       { method: 'POST', path: 'restore/{id}/{version}', entry: lambdaEntry('templates/restore-template-version.ts') },
       { method: 'POST', path: 'publish/{id}', entry: lambdaEntry('templates/publish-template.ts') },
+      { method: 'POST', path: 'set-default/{id}', entry: lambdaEntry('templates/set-default-template.ts') },
 
       // P2 — Import/Export & Preview
       { method: 'POST', path: 'import', entry: lambdaEntry('templates/import-template.ts') },
