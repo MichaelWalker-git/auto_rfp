@@ -54,8 +54,11 @@ export const RequestOpportunityApprovalButton = ({
   // Filter out the current user — cannot request approval from yourself
   const eligibleReviewers = (usersData?.items ?? []).filter((u) => u.userId !== userSub);
 
-  // One request at a time — disable while a PENDING approval is outstanding
+  // One request at a time — hide the button entirely while a PENDING approval
+  // is outstanding. The assigned reviewer sees the Approve/Reject panel instead.
   const hasPendingApproval = !!activeApproval;
+
+  if (hasPendingApproval) return null;
 
   const handleSubmit = async () => {
     if (!reviewerId) return;
@@ -96,12 +99,12 @@ export const RequestOpportunityApprovalButton = ({
         variant="outline"
         size="sm"
         className="gap-2"
-        disabled={hasPendingApproval || isLoading}
+        disabled={isLoading}
         onClick={() => setShowDialog(true)}
-        title={hasPendingApproval ? 'Approval already requested' : 'Request approval for this opportunity'}
+        title="Request approval for this opportunity"
       >
         <ClipboardCheck className="h-4 w-4" />
-        {hasPendingApproval ? 'Approval Requested' : 'Request Approval'}
+        Request Approval
       </Button>
 
       <Dialog
