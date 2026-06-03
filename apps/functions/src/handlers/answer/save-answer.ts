@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import middy from '@middy/core';
 
 import { apiResponse } from '@/helpers/api';
-import { AnswerItem, ConfidenceBreakdown, ConfidenceBand, SaveAnswerDTOSchema } from '@auto-rfp/core';
+import { AnswerItem, AnswerResolution, ConfidenceBreakdown, ConfidenceBand, SaveAnswerDTOSchema } from '@auto-rfp/core';
 import { ANSWER_PK } from '@/constants/answer';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
@@ -28,6 +28,7 @@ const getTableName = () => requireEnv('DB_TABLE_NAME');
 export const saveAnswer = async (dto: Partial<AnswerItem> & {
   confidenceBreakdown?: ConfidenceBreakdown;
   confidenceBand?: ConfidenceBand;
+  resolution?: AnswerResolution;
   linkedToMasterQuestionId?: string;
   status?: 'DRAFT' | 'APPROVED';
   approvedBy?: string;
@@ -48,6 +49,7 @@ export const saveAnswer = async (dto: Partial<AnswerItem> & {
     confidence,
     confidenceBreakdown,
     confidenceBand,
+    resolution,
     linkedToMasterQuestionId,
     status,
     approvedBy,
@@ -97,6 +99,7 @@ export const saveAnswer = async (dto: Partial<AnswerItem> & {
     if (confidence !== undefined) updates.confidence = confidence;
     if (confidenceBreakdown) updates.confidenceBreakdown = confidenceBreakdown;
     if (confidenceBand) updates.confidenceBand = confidenceBand;
+    if (resolution !== undefined) updates.resolution = resolution;
     if (updatedBy !== undefined) updates.updatedBy = updatedBy;
     if (updatedByName !== undefined) updates.updatedByName = updatedByName;
     if (linkedToMasterQuestionId) updates.linkedToMasterQuestionId = linkedToMasterQuestionId;
@@ -124,6 +127,7 @@ export const saveAnswer = async (dto: Partial<AnswerItem> & {
     confidence,
     confidenceBreakdown,
     confidenceBand,
+    ...(resolution !== undefined && { resolution }),
     sources,
     ...(approvedBy && { approvedBy }),
     ...(approvedByName && { approvedByName }),

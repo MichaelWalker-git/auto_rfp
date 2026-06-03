@@ -2,7 +2,7 @@
 
 import useSWRMutation from 'swr/mutation';
 import { apiMutate, buildApiUrl, ApiError } from './api-helpers';
-import { AnswerItem, AnswerQuestionRequestBody, AnswerSource, ConfidenceBreakdown, SaveAnswerDTO } from '@auto-rfp/core';
+import { AnswerItem, AnswerQuestionRequestBody, type AnswerResolution, AnswerSource, ConfidenceBreakdown, SaveAnswerDTO } from '@auto-rfp/core';
 import { breadcrumbs } from '@/lib/sentry';
 
 type GenerateAnswerResponse = {
@@ -11,6 +11,7 @@ type GenerateAnswerResponse = {
   confidenceBreakdown?: ConfidenceBreakdown;
   confidenceBand?: 'high' | 'medium' | 'low';
   found: boolean;
+  resolution?: AnswerResolution;
   sources?: AnswerSource[];
 };
 

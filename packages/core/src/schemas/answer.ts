@@ -64,6 +64,23 @@ export const AnswerSourcesSchema = z.array(AnswerSourceSchema);
 export const AnswerStatusSchema = z.enum(['DRAFT', 'APPROVED']);
 export type AnswerStatus = z.infer<typeof AnswerStatusSchema>;
 
+// ─── Answer Resolution ───
+//
+// Records WHY an answer is in its current state. Distinguishes a genuinely
+// empty answer (the AI searched and found nothing in the knowledge base) from
+// an answer that simply hasn't been generated yet. Optional so legacy answers
+// without a recorded reason remain valid (treated as unknown / not-generated).
+//
+// - ANSWERED:           generation produced an answer (from KB, tools, or content library)
+// - NO_KB_MATCH:        generation ran but found no supporting content in the knowledge base
+// - GENERATION_FAILED:  generation errored or timed out before producing an answer
+export const AnswerResolutionSchema = z.enum([
+  'ANSWERED',
+  'NO_KB_MATCH',
+  'GENERATION_FAILED',
+]);
+export type AnswerResolution = z.infer<typeof AnswerResolutionSchema>;
+
 // ─── Answer Item ───
 
 export const AnswerItemSchema = z.object({
@@ -78,6 +95,9 @@ export const AnswerItemSchema = z.object({
   confidence: z.number().optional(),
   confidenceBreakdown: ConfidenceBreakdownSchema.optional(),
   confidenceBand: z.enum(['high', 'medium', 'low']).optional(),
+  // Why the answer is in its current state (see AnswerResolutionSchema). Optional
+  // for backwards compatibility with answers created before this field existed.
+  resolution: AnswerResolutionSchema.optional(),
   sources: AnswerSourcesSchema.optional(),
   // Approval fields
   approvedBy: z.string().optional(),       // userId of approver
@@ -104,6 +124,7 @@ export const SaveAnswerDTOSchema = z.object({
   confidence: z.number().optional(),
   confidenceBreakdown: ConfidenceBreakdownSchema.optional(),
   confidenceBand: z.enum(['high', 'medium', 'low']).optional(),
+  resolution: AnswerResolutionSchema.optional(),
   // Approval fields — set by backend when status = APPROVED
   approvedBy: z.string().optional(),
   approvedByName: z.string().optional(),

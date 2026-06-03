@@ -4,6 +4,7 @@ import React, { createContext, ReactNode, useCallback, useContext, useEffect, us
 import { toast } from '@/components/ui/use-toast';
 import {
   AnswerSource,
+  type AnswerResolution,
   ConfidenceBand,
   ConfidenceBreakdown,
   GroupedSection,
@@ -30,6 +31,8 @@ interface AnswerData {
   confidence?: number;
   confidenceBreakdown?: ConfidenceBreakdown;
   confidenceBand?: ConfidenceBand;
+  /** Why the answer is in its current state (e.g. NO_KB_MATCH when the AI found nothing in the KB) */
+  resolution?: AnswerResolution;
   // Status & audit fields
   status?: string;
   updatedBy?: string;
@@ -289,7 +292,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     });
 
     try {
-      const { answer, confidence, confidenceBreakdown, confidenceBand, found, sources } = await generateAnswer({
+      const { answer, confidence, confidenceBreakdown, confidenceBand, found, resolution, sources } = await generateAnswer({
         orgId,
         projectId,
         questionId,
@@ -306,6 +309,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
           confidence,
           confidenceBreakdown,
           confidenceBand,
+          resolution,
         } as AnswerData,
       }));
 

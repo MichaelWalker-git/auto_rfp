@@ -20,6 +20,7 @@ import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import {
   AnswerQuestionRequestBodySchema,
+  AnswerResolution,
   AnswerSource,
   ConfidenceBreakdown,
   ContentLibraryItem,
@@ -55,6 +56,7 @@ export interface GenerateAnswerResult {
   confidenceBreakdown?: ConfidenceBreakdown;
   confidenceBand?: 'high' | 'medium' | 'low';
   found: boolean;
+  resolution: AnswerResolution;
   sources: AnswerSource[];
   fromContentLibrary: boolean;
 }
@@ -422,6 +424,7 @@ export const generateAnswerForQuestion = async (
       confidence: confidence.overall / 100,
       confidenceBreakdown: confidence.breakdown,
       confidenceBand: confidence.band,
+      resolution: 'ANSWERED',
       sources: clSources,
     });
 
@@ -435,6 +438,7 @@ export const generateAnswerForQuestion = async (
       confidenceBreakdown: confidence.breakdown,
       confidenceBand: confidence.band,
       found: true,
+      resolution: 'ANSWERED',
       sources: clSources,
       fromContentLibrary: true,
     };
@@ -484,6 +488,7 @@ export const generateAnswerForQuestion = async (
       confidence: 0,
       confidenceBreakdown: { contextRelevance: 0, sourceRecency: 0, answerCoverage: 0, sourceAuthority: 0, consistency: 0 },
       confidenceBand: 'low',
+      resolution: 'NO_KB_MATCH',
       sources: [],
     });
 
@@ -494,6 +499,7 @@ export const generateAnswerForQuestion = async (
       confidenceBreakdown: { contextRelevance: 0, sourceRecency: 0, answerCoverage: 0, sourceAuthority: 0, consistency: 0 },
       confidenceBand: 'low',
       found: false,
+      resolution: 'NO_KB_MATCH',
       sources: [],
       fromContentLibrary: false,
     };
@@ -519,6 +525,7 @@ export const generateAnswerForQuestion = async (
     confidence: confidence.overall / 100,
     confidenceBreakdown: confidence.breakdown,
     confidenceBand: confidence.band,
+    resolution: 'ANSWERED',
     sources: filteredSources,
   });
 
@@ -529,6 +536,7 @@ export const generateAnswerForQuestion = async (
     confidenceBreakdown: confidence.breakdown,
     confidenceBand: confidence.band,
     found,
+    resolution: 'ANSWERED',
     sources: filteredSources,
     fromContentLibrary: false,
   };
@@ -578,6 +586,7 @@ export const baseHandler = async (
       confidenceBreakdown: result.confidenceBreakdown,
       confidenceBand: result.confidenceBand,
       found: result.found,
+      resolution: result.resolution,
       fromContentLibrary: result.fromContentLibrary,
       topK,
     });

@@ -5,9 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Save, Sparkles, MessageSquare, ChevronDown, ChevronRight } from 'lucide-react';
+import { Save, Sparkles, MessageSquare, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
-import { AnswerSource, ConfidenceBreakdown, ConfidenceBand, type CommentEntityType } from '@auto-rfp/core';
+import { AnswerSource, type AnswerResolution, ConfidenceBreakdown, ConfidenceBand, type CommentEntityType } from '@auto-rfp/core';
 import { PermissionButton } from '@/components/ui/permission-button';
 import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { ConfidenceScoreDisplay } from '@/components/confidence/confidence-score-display';
@@ -24,6 +24,8 @@ interface AnswerData {
   confidence?: number;
   confidenceBreakdown?: ConfidenceBreakdown;
   confidenceBand?: ConfidenceBand;
+  /** Why the answer is in its current state (e.g. NO_KB_MATCH) */
+  resolution?: AnswerResolution;
   // Edit tracking
   updatedBy?: string;
   updatedByName?: string;
@@ -120,6 +122,11 @@ export function QuestionEditor({
   const hasSources = answer?.sources && answer.sources.length > 0;
   const hasConfidence = answer?.confidence !== undefined && answer.confidence !== null;
 
+  // The AI ran but found nothing in the knowledge base. Only surface this while
+  // the answer is still empty — once a human types an answer, the notice is moot.
+  const hasAnswerText = !!answer?.text && answer.text.trim().length > 0;
+  const showNoKbMatchNotice = answer?.resolution === 'NO_KB_MATCH' && !hasAnswerText;
+
   // Status derived from answer — someone else editing = "Editing"
   const isBeingEditedByOther = editors.length > 0;
   const editorNames = editors.map((e) => e.displayName ?? 'Someone');
@@ -185,6 +192,18 @@ export function QuestionEditor({
               <span className="text-amber-800">
                 <strong>{editorNames.join(', ')}</strong> {editors.length === 1 ? 'is' : 'are'} currently editing this answer. The textarea and actions are locked until they finish.
               </span>
+            </div>
+          )}
+
+          {/* No-KB-match notice — the AI searched but found nothing in the knowledge base */}
+          {showNoKbMatchNotice && (
+            <div className="flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+              <div className="text-amber-800">
+                <strong>Couldn&apos;t answer from the knowledge base.</strong> No supporting
+                content was found for this question. Answer it manually below, or add relevant
+                documents to the knowledge base and regenerate.
+              </div>
             </div>
           )}
 

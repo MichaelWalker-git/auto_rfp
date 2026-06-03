@@ -126,6 +126,9 @@ export const baseHandler = async (
               confidence: masterAnswer.confidence,
               confidenceBreakdown: masterAnswer.confidenceBreakdown,
               confidenceBand: masterAnswer.confidenceBand,
+              // Master is guaranteed to have text here (empty masters are skipped above),
+              // so the copied answer is a genuine answer.
+              resolution: 'ANSWERED',
               sources: masterAnswer.sources,
               linkedToMasterQuestionId: masterQuestionId,
             });
