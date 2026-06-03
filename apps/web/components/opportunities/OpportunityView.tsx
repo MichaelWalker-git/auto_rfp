@@ -35,6 +35,7 @@ import {
   ComplianceReport,
 } from '@/features/proposal-submission';
 import { RequiredFormsList } from '@/features/required-forms';
+import { OpportunityApprovalPanel } from '@/features/opportunity-approval';
 import PermissionWrapper from '@/components/permission-wrapper';
 
 interface OpportunityViewProps {
@@ -253,6 +254,9 @@ const OpportunityContent = ({ className }: { className?: string }) => {
 
       {/* Opportunity Header */}
       <OpportunityHeader />
+
+      {/* Reviewer approve/reject panel — only renders for the assigned reviewer */}
+      <OpportunityApprovalPanel orgId={orgId} projectId={projectId} opportunityId={oppId} onResolved={refetch} />
 
       {/* Section Navigation */}
       <SectionNavigation />

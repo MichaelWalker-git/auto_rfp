@@ -103,10 +103,11 @@ export const SubmitUniversalReviewSchema = z.discriminatedUnion('decision', [
     projectId:     z.string().min(1).optional(),
     entityType:    ApprovableEntityTypeSchema,
     entityId:      z.string().min(1),
+    entitySK:      z.string().min(1),   // Full SK of the entity — required to locate the approval record
     approvalId:    z.string().uuid(),
     decision:      z.literal('APPROVED'),
     reviewNote:    z.string().max(2000).optional(),
-    
+
     // Legacy fields for backward compatibility
     opportunityId: z.string().min(1).optional(),
     documentId:    z.string().min(1).optional(),
@@ -116,10 +117,11 @@ export const SubmitUniversalReviewSchema = z.discriminatedUnion('decision', [
     projectId:     z.string().min(1).optional(),
     entityType:    ApprovableEntityTypeSchema,
     entityId:      z.string().min(1),
+    entitySK:      z.string().min(1),   // Full SK of the entity — required to locate the approval record
     approvalId:    z.string().uuid(),
     decision:      z.literal('REJECTED'),
     reviewNote:    z.string().min(1, 'Rejection reason is required').max(2000),
-    
+
     // Legacy fields for backward compatibility
     opportunityId: z.string().min(1).optional(),
     documentId:    z.string().min(1).optional(),

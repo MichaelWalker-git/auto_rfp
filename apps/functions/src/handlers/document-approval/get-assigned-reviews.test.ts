@@ -34,6 +34,7 @@ import * as dbHelpers from '@/helpers/db';
 import * as userHelpers from '@/helpers/user';
 import * as rfpDocumentHelpers from '@/helpers/rfp-document';
 import * as projectHelpers from '@/helpers/project';
+import * as opportunityHelpers from '@/helpers/opportunity';
 import type { AuthedEvent } from '@/middleware/rbac-middleware';
 import type { APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 import type { UniversalApprovalItem, DocumentApprovalItem } from '@auto-rfp/core';
@@ -43,6 +44,7 @@ jest.mock('@/helpers/db');
 jest.mock('@/helpers/user');
 jest.mock('@/helpers/rfp-document');
 jest.mock('@/helpers/project');
+jest.mock('@/helpers/opportunity');
 
 // Mock RBAC middleware
 jest.mock('@/middleware/rbac-middleware', () => ({
@@ -55,6 +57,7 @@ const mockQueryBySkPrefix = dbHelpers.queryBySkPrefix as jest.MockedFunction<typ
 const mockGetUserByOrgAndId = userHelpers.getUserByOrgAndId as jest.MockedFunction<typeof userHelpers.getUserByOrgAndId>;
 const mockGetRFPDocument = rfpDocumentHelpers.getRFPDocument as jest.MockedFunction<typeof rfpDocumentHelpers.getRFPDocument>;
 const mockGetProjectById = projectHelpers.getProjectById as jest.MockedFunction<typeof projectHelpers.getProjectById>;
+const mockGetOpportunity = opportunityHelpers.getOpportunity as jest.MockedFunction<typeof opportunityHelpers.getOpportunity>;
 
 // Helper to invoke the middy-wrapped handler
 const invokeHandler = async (event: AuthedEvent): Promise<APIGatewayProxyStructuredResultV2> =>
@@ -185,6 +188,10 @@ beforeEach(() => {
   mockGetUserByOrgAndId.mockResolvedValue(mockUser as never);
   mockGetProjectById.mockResolvedValue(mockProject as never);
   mockGetRFPDocument.mockResolvedValue(mockDocument as never);
+  mockGetOpportunity.mockResolvedValue({
+    oppId: 'opp-202',
+    item: { title: 'Test Opportunity' },
+  } as never);
 });
 
 describe('get-assigned-reviews handler', () => {
@@ -330,6 +337,66 @@ describe('get-assigned-reviews handler', () => {
     const review = body.reviews[0];
     
     expect(review.requestedByName).toBe('john.doe'); // email prefix
+  });
+
+  it('should enrich opportunity reviews with the opportunity title', async () => {
+    const opportunityApproval: UniversalApprovalItem = {
+      ...mockUniversalApproval,
+      approvalId: 'approval-opp-1',
+      entityType: 'opportunity',
+      entityId: 'opp-202',
+      entitySK: 'org-123#proj-456#opp-202',
+      entityName: undefined,
+      opportunityId: 'opp-202',
+      documentId: undefined,
+    };
+
+    mockQueryBySkPrefix.mockImplementation((pk) => {
+      if (pk.includes('UNIVERSAL_APPROVAL')) {
+        return Promise.resolve([opportunityApproval]);
+      }
+      return Promise.resolve([]);
+    });
+
+    const event = createMockEvent();
+    const response = await invokeHandler(event);
+
+    expect(response.statusCode).toBe(200);
+
+    const body = JSON.parse(response.body as string);
+    const review = body.reviews.find((r: Record<string, unknown>) => r.approvalId === 'approval-opp-1');
+    expect(review).toBeDefined();
+    expect(review.entityType).toBe('opportunity');
+    expect(review.entityName).toBe('Test Opportunity');
+    expect(mockGetOpportunity).toHaveBeenCalledWith({ orgId: 'org-123', projectId: 'proj-456', oppId: 'opp-202' });
+  });
+
+  it('should skip opportunity reviews when the opportunity is missing', async () => {
+    const opportunityApproval: UniversalApprovalItem = {
+      ...mockUniversalApproval,
+      approvalId: 'approval-opp-2',
+      entityType: 'opportunity',
+      entityId: 'opp-gone',
+      entitySK: 'org-123#proj-456#opp-gone',
+      entityName: undefined,
+      opportunityId: 'opp-gone',
+      documentId: undefined,
+    };
+
+    mockQueryBySkPrefix.mockImplementation((pk) => {
+      if (pk.includes('UNIVERSAL_APPROVAL')) {
+        return Promise.resolve([opportunityApproval]);
+      }
+      return Promise.resolve([]);
+    });
+    mockGetOpportunity.mockResolvedValue(undefined as never);
+
+    const event = createMockEvent();
+    const response = await invokeHandler(event);
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body as string);
+    expect(body.reviews).toHaveLength(0);
   });
 
   it('should return 400 when orgId is missing', async () => {

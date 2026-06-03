@@ -16,6 +16,23 @@ interface AssignedReviewsContentProps {
   orgId: string;
 }
 
+type ReviewLinkInput = {
+  entityType?: string;
+  projectId?: string;
+  opportunityId?: string;
+  documentId?: string;
+  entityId?: string;
+};
+
+const buildReviewLink = (orgId: string, review: ReviewLinkInput): string => {
+  const oppId = review.opportunityId ?? review.entityId;
+  if (review.entityType === 'opportunity') {
+    return `/organizations/${orgId}/projects/${review.projectId}/opportunities/${oppId}`;
+  }
+  // Default: RFP document review opens the document editor
+  return `/organizations/${orgId}/projects/${review.projectId}/opportunities/${review.opportunityId}/rfp-documents/${review.documentId}/edit`;
+};
+
 export function AssignedReviewsContent({ orgId }: AssignedReviewsContentProps) {
   const { userSub } = useAuth();
   const { reviews, isLoading, error, refresh } = useAssignedReviews(orgId, userSub);
@@ -153,7 +170,7 @@ export function AssignedReviewsContent({ orgId }: AssignedReviewsContentProps) {
                         </div>
                         
                         <Button size="sm" asChild>
-                          <Link href={`/organizations/${orgId}/projects/${review.projectId}/opportunities/${review.opportunityId}/rfp-documents/${review.documentId}/edit`}>
+                          <Link href={buildReviewLink(orgId, review)}>
                             <ClipboardCheck className="h-4 w-4 mr-2" />
                             Review
                           </Link>
@@ -223,7 +240,7 @@ export function AssignedReviewsContent({ orgId }: AssignedReviewsContentProps) {
                         </div>
                         
                         <Button size="sm" variant="outline" asChild>
-                          <Link href={`/organizations/${orgId}/projects/${review.projectId}/opportunities/${review.opportunityId}/rfp-documents/${review.documentId}/edit`}>
+                          <Link href={buildReviewLink(orgId, review)}>
                             View
                           </Link>
                         </Button>

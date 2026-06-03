@@ -33,7 +33,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
   const reviewerId = getUserId(event) ?? 'system';
 
   // ── Load the approval record ──
-  const approval = await getUniversalApprovalRecord(orgId, data.entityType, data.entityId, data.approvalId);
+  const approval = await getUniversalApprovalRecord(orgId, data.entityType, data.entitySK, data.approvalId);
   if (!approval) return apiResponse(404, { message: 'Approval not found' });
 
   // ── Guard: only the assigned reviewer can submit a review ──

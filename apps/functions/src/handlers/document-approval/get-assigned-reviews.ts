@@ -6,6 +6,7 @@ import { queryBySkPrefix } from '@/helpers/db';
 import { UNIVERSAL_APPROVAL_PK, DOCUMENT_APPROVAL_PK } from '@/constants/universal-approval';
 import { getRFPDocument } from '@/helpers/rfp-document';
 import { getProjectById } from '@/helpers/project';
+import { getOpportunity } from '@/helpers/opportunity';
 import { getUserByOrgAndId } from '@/helpers/user';
 import { getEntityDisplayName, getEntityIcon } from '@auto-rfp/core';
 import type { DocumentApprovalItem, UniversalApprovalItem } from '@auto-rfp/core';
@@ -82,6 +83,14 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
             console.warn(`Failed to get RFP document ${approval.documentId}:`, err);
             continue;
           }
+        }
+
+        // For opportunities, resolve the title from the opportunity record
+        if (approval.entityType === 'opportunity' && approval.projectId) {
+          const oppId = approval.entityId;
+          const opp = await getOpportunity({ orgId, projectId: approval.projectId, oppId }).catch(() => undefined);
+          if (!opp) continue; // Skip deleted/missing opportunities
+          entityName = entityName || opp.item.title;
         }
 
         // Get requester display name if missing

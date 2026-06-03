@@ -156,6 +156,7 @@ describe('SubmitUniversalReviewSchema', () => {
     projectId: 'proj-456',
     entityType: 'rfp-document' as const,
     entityId: 'doc-789',
+    entitySK: 'org-123#proj-456#opp-123#doc-789',
     approvalId: '550e8400-e29b-41d4-a716-446655440000',
   };
 
@@ -204,6 +205,15 @@ describe('SubmitUniversalReviewSchema', () => {
       decision: 'APPROVED' as const,
     };
     const result = SubmitUniversalReviewSchema.safeParse(invalidApprovalId);
+    expect(result.success).toBe(false);
+  });
+
+  it('requires entitySK', () => {
+    const { entitySK, ...withoutEntitySK } = baseReview;
+    const result = SubmitUniversalReviewSchema.safeParse({
+      ...withoutEntitySK,
+      decision: 'APPROVED' as const,
+    });
     expect(result.success).toBe(false);
   });
 });
