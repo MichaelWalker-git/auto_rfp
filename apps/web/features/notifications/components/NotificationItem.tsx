@@ -75,12 +75,17 @@ const buildNotificationLink = (
     case 'DOCUMENT_APPROVAL_REQUESTED':
     case 'DOCUMENT_APPROVED':
     case 'DOCUMENT_REJECTED': {
-      // entityId is encoded as "opportunityId:documentId"
+      // RFP-document approvals encode entityId as "opportunityId:documentId"
+      // and deep-link to the document editor.
       if (entityId?.includes(':')) {
         const [opportunityId, documentId] = entityId.split(':');
         return `${base}/opportunities/${opportunityId}/rfp-documents/${documentId}/edit?opportunityId=${opportunityId}`;
       }
-      return `${base}/documents`;
+      // Opportunity-level approvals pass entityId = opportunityId — open the opportunity.
+      if (entityId) {
+        return `${base}/opportunities/${entityId}`;
+      }
+      return `${base}/opportunities`;
     }
     case 'STALE_CONTENT_WARNING':
     case 'STALE_CONTENT_DETECTED':
