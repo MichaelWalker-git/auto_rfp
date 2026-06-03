@@ -26,6 +26,7 @@ import {
   loadSolicitation,
   resolveTemplateHtml,
   buildMacroValues,
+  validateGeneratedContent,
   type QaPair,
 } from '@/helpers/document-generation';
 import { getTemplate, findBestTemplate, loadTemplateHtml, replaceMacros } from '@/helpers/template';
@@ -135,6 +136,71 @@ export const extractDocumentTitle = (templateHtml: string, documentType: string)
   }
 
   return getDocumentTypeLabel(documentType);
+};
+
+/**
+ * Guarantee the document has a top-level <h1> title that names the document TYPE.
+ *
+ * Some templates only carry an <h2>{{PROJECT_TITLE}}</h2> heading and no <h1>.
+ * That makes the rendered document show the *project* name instead of the
+ * document type (e.g. "Technical Proposal"), and it leaves the title page
+ * without a clear heading. When the assembled content has no <h1>, we prepend
+ * one built from the document-type label, reusing the template's heading style
+ * when available so the injected title matches the template's look.
+ *
+ * No-ops when an <h1> already exists, so well-formed templates are untouched.
+ */
+export const ensureDocumentTitleHeading = (
+  html: string,
+  documentType: string,
+  templateHtml?: string,
+): string => {
+  if (!html?.trim()) return html;
+  if (/<h1[^>]*>/i.test(html)) return html;
+
+  const titleHtml = buildDocumentTitleHtml(getDocumentTypeLabel(documentType), templateHtml);
+  return `${titleHtml}\n${html}`;
+};
+
+/**
+ * Assess whether a template can actually produce a non-empty document, so the
+ * real cause is logged up front instead of surfacing as a cryptic
+ * "content too short" failure after 3 wasted retries.
+ *
+ * A template is generatable if it has EITHER:
+ *   - a {{CONTENT}} / [CONTENT:] placeholder (single-shot fill), OR
+ *   - at least one <h2> section carrying a placeholder (section-by-section).
+ * Templates with only static headings and no placeholder rely entirely on the
+ * KB/tools returning content — which fails when the KB is empty.
+ */
+export const assessTemplateHealth = (templateHtml: string | null): {
+  ok: boolean;
+  warnings: string[];
+} => {
+  const warnings: string[] = [];
+  if (!templateHtml?.trim()) {
+    return { ok: true, warnings }; // No template → default template path handles it.
+  }
+
+  // A {{CONTENT}}/[CONTENT:] placeholder anywhere makes the template fillable
+  // (single-shot or section-by-section). Static <h2> headings alone do NOT —
+  // those sections rely entirely on KB/tool output and yield nothing when the
+  // KB is empty. This is exactly the broken dev "Test Tech Proposal" case.
+  const hasContentPlaceholder = /\{\{CONTENT\}\}|\[CONTENT:|\[placeholder\]|\[Your /i.test(templateHtml);
+  const hasH1 = /<h1[^>]*>/i.test(templateHtml);
+
+  if (!hasContentPlaceholder) {
+    warnings.push(
+      'Template has no {{CONTENT}} placeholder and no fillable sections — generation depends entirely on KB/tool output and will fail when the knowledge base is empty.',
+    );
+  }
+  if (!hasH1) {
+    warnings.push(
+      'Template has no <h1> document-type title — a title heading will be injected from the document type.',
+    );
+  }
+
+  return { ok: warnings.length === 0, warnings };
 };
 
 /**
@@ -341,6 +407,20 @@ export const generateWithTemplateSections = async (args: {
   // 3. Merge sections back into template structure
   const rawStitchedHtml = injectSectionsIntoTemplate(templateHtml, htmlFragments);
   const stitchedHtml = cleanGeneratedHtml(rawStitchedHtml);
+
+  // 3b. Guard: when the KB/tools return nothing AND the template sections carry no
+  // real placeholder content, every section falls back to (empty) template content
+  // and the stitched doc is near-empty. Returning it here would block the single-shot
+  // path and burn all 3 retries on a doc that can never pass validation. Instead,
+  // fall through to single-shot, which can still write from the solicitation + Q&A
+  // even with an empty knowledge base.
+  const stitchedValidation = validateGeneratedContent(stitchedHtml);
+  if (!stitchedValidation.isValid) {
+    console.warn(
+      `[template-gen] Section-by-section output failed validation (${stitchedValidation.reason}) — falling back to single-shot generation`,
+    );
+    return null;
+  }
 
   // 4. Extract title and build final document
   const docTitle = extractDocumentTitle(templateHtml, documentType);
@@ -638,6 +718,12 @@ export const processJobInner = async (job: Job): Promise<void> => {
 
   if (templateHtmlScaffold) {
     console.log(`Using HTML template scaffold for documentId=${documentId} (${templateHtmlScaffold.length} chars)`);
+    const { ok, warnings } = assessTemplateHealth(templateHtmlScaffold);
+    if (!ok) {
+      console.warn(
+        `[worker] Template health check for documentId=${documentId} (type=${documentType}, templateId=${templateId ?? 'auto'}): ${warnings.join(' ')}`,
+      );
+    }
   }
 
   // ─── Step 4b: Load ORIGINAL template HTML (without scaffold preprocessing) ───
@@ -974,6 +1060,22 @@ export const processJobInner = async (job: Job): Promise<void> => {
     if (styledContent !== finalDocument.content) {
       console.log(`[worker] Applied ${styleMap.size} template styles: ${[...styleMap.keys()].join(', ')}`);
       finalDocument = { ...finalDocument, content: styledContent };
+    }
+  }
+
+  // ─── Step 6c: Guarantee a document-type <h1> title ───
+  // Templates that only carry <h2>{{PROJECT_TITLE}}</h2> (and no <h1>) render the
+  // project name as the heading and leave the title page without a clear title.
+  // Inject an <h1> from the document-type label when none is present.
+  if (finalDocument?.content) {
+    const withTitle = ensureDocumentTitleHeading(
+      finalDocument.content,
+      documentType,
+      originalTemplateHtml ?? templateHtmlScaffold ?? undefined,
+    );
+    if (withTitle !== finalDocument.content) {
+      console.log(`[worker] Injected document-type <h1> title for documentId=${documentId} (template lacked <h1>)`);
+      finalDocument = { ...finalDocument, content: withTitle };
     }
   }
 
