@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { JurisdictionSchema, getStateRecordsLaw } from './foia';
 
 /**
  * Loss Reason Categories
@@ -104,6 +105,12 @@ export const ProjectOutcomeSchema = z.object({
   statusDate: z.string().datetime({ offset: true }),
   statusSetBy: z.string().min(1),
   statusSource: StatusSourceSchema,
+  // Jurisdiction of the contract. Optional for backward compatibility with
+  // outcomes recorded before this field existed (undefined = not yet chosen).
+  // The user must explicitly pick FEDERAL or STATE — there is no default.
+  jurisdiction: JurisdictionSchema.optional(),
+  // State name (full, e.g. "California") — required when jurisdiction === 'STATE'.
+  state: z.string().min(1).optional(),
   winData: WinDataSchema.optional(),
   lossData: LossDataSchema.optional(),
   createdAt: z.string().datetime({ offset: true }),
@@ -120,6 +127,8 @@ export const SetProjectOutcomeRequestSchema = z.object({
   orgId: z.string().min(1, 'Organization ID is required'),
   opportunityId: z.string().min(1, 'Opportunity ID is required'),
   status: ProjectOutcomeStatusSchema,
+  jurisdiction: JurisdictionSchema.optional(),
+  state: z.string().min(1).optional(),
   winData: WinDataSchema.optional(),
   lossData: LossDataSchema.optional(),
 }).superRefine((data, ctx) => {
@@ -156,6 +165,32 @@ export const SetProjectOutcomeRequestSchema = z.object({
       code: z.ZodIssueCode.custom,
       message: 'Loss data should only be provided when status is LOST',
       path: ['lossData'],
+    });
+  }
+
+  // State is required when jurisdiction is STATE, and must be a recognized state.
+  if (data.jurisdiction === 'STATE') {
+    if (!data.state) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'State is required when jurisdiction is STATE',
+        path: ['state'],
+      });
+    } else if (!getStateRecordsLaw(data.state)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Unrecognized state',
+        path: ['state'],
+      });
+    }
+  }
+
+  // State must not be provided unless jurisdiction is STATE.
+  if (data.jurisdiction !== 'STATE' && data.state) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'State should only be provided when jurisdiction is STATE',
+      path: ['state'],
     });
   }
 });

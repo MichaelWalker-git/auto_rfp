@@ -3,9 +3,9 @@ import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import middy from '@middy/core';
 import { z } from 'zod';
 
-import { FOIA_DOCUMENT_DESCRIPTIONS, type FOIADocumentType } from '@auto-rfp/core';
+import { FOIA_DOCUMENT_DESCRIPTIONS, getStateRecordsLaw, type FOIADocumentType } from '@auto-rfp/core';
 import { PK_NAME, SK_NAME } from '@/constants/common';
-import { FOIA_REQUEST_PK } from '@/constants/organization';
+import { FOIA_REQUEST_PK, PROJECT_OUTCOME_PK } from '@/constants/organization';
 import { apiResponse } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
@@ -17,7 +17,7 @@ import {
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
 import { getOrgPrimaryContact } from '@/helpers/org-contact';
-import type { DBFOIARequestItem } from '@/types/project-outcome';
+import type { DBFOIARequestItem, DBProjectOutcome } from '@/types/project-outcome';
 import type { OrgPrimaryContactItem } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -89,9 +89,10 @@ export const baseHandler = async (
 
     const { orgId, projectId, opportunityId, foiaRequestId } = data;
 
-    const [foiaRequest, primaryContact] = await Promise.all([
+    const [foiaRequest, primaryContact, outcome] = await Promise.all([
       getFOIARequest(orgId, projectId, opportunityId, foiaRequestId),
       getOrgPrimaryContact(orgId).catch(() => null),
+      getProjectOutcome(orgId, projectId, opportunityId).catch(() => null),
     ]);
 
     if (!foiaRequest) {
@@ -110,7 +111,10 @@ export const baseHandler = async (
       });
     }
 
-    const letter = generateFOIALetter(enrichedRequest);
+    const letter = generateFOIALetter(enrichedRequest, {
+      jurisdiction: outcome?.jurisdiction,
+      state: outcome?.state,
+    });
 
     return apiResponse(200, { letter });
   } catch (err: unknown) {
@@ -162,10 +166,64 @@ async function getFOIARequest(
   return result.Item as DBFOIARequestItem | null;
 }
 
+async function getProjectOutcome(
+  orgId: string,
+  projectId: string,
+  opportunityId: string
+): Promise<DBProjectOutcome | null> {
+  const cmd = new GetCommand({
+    TableName: DB_TABLE_NAME,
+    Key: {
+      [PK_NAME]: PROJECT_OUTCOME_PK,
+      [SK_NAME]: `${orgId}#${projectId}#${opportunityId}`,
+    },
+  });
+
+  const result = await docClient.send(cmd);
+  return result.Item as DBProjectOutcome | null;
+}
+
+/** Context that controls which records law the letter is framed under. */
+export interface LetterJurisdictionContext {
+  jurisdiction?: 'FEDERAL' | 'STATE';
+  state?: string;
+}
+
 /**
- * Generates a simplified, practitioner-oriented FOIA request letter.
+ * Resolves the salutation, statute reference, and request-type wording for a
+ * letter based on the contract's jurisdiction.
+ * - FEDERAL (or unset): federal Freedom of Information Act (5 U.S.C. § 552).
+ * - STATE: the named state public-records law (e.g. "California Public Records Act (CPRA)").
  */
-export const generateFOIALetter = (request: DBFOIARequestItem): string => {
+const resolveLetterFraming = (
+  ctx: LetterJurisdictionContext,
+): { recipientLine: string; salutation: string; requestSentence: string } => {
+  const stateLaw = ctx.jurisdiction === 'STATE' && ctx.state ? getStateRecordsLaw(ctx.state) : undefined;
+
+  if (stateLaw) {
+    return {
+      recipientLine: 'Public Records Officer',
+      salutation: 'Dear Records Custodian,',
+      requestSentence: `This is a request under the ${stateLaw}.`,
+    };
+  }
+
+  return {
+    recipientLine: 'FOIA Requester Service Center',
+    salutation: 'Dear FOIA Officer,',
+    requestSentence: 'This is a request under the Freedom of Information Act (5 U.S.C. Section 552).',
+  };
+};
+
+/**
+ * Generates a simplified, practitioner-oriented public records request letter.
+ * Defaults to federal FOIA framing when no jurisdiction context is provided.
+ */
+export const generateFOIALetter = (
+  request: DBFOIARequestItem,
+  jurisdictionContext: LetterJurisdictionContext = {},
+): string => {
+  const { recipientLine, salutation, requestSentence } = resolveLetterFraming(jurisdictionContext);
   const today = new Date().toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
@@ -200,14 +258,14 @@ export const generateFOIALetter = (request: DBFOIARequestItem): string => {
 
   return `${today}
 
-FOIA Requester Service Center
+${recipientLine}
 ${request.agencyName}
 ${request.agencyFOIAAddress}
 Email: ${request.agencyFOIAEmail}
 
-Dear FOIA Officer,
+${salutation}
 
-This is a request under the Freedom of Information Act (5 U.S.C. Section 552).
+${requestSentence}
 
 ${pertainsLine}
 

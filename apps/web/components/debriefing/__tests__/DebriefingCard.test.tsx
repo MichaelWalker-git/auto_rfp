@@ -45,6 +45,9 @@ jest.mock('@/lib/hooks/use-debriefing', () => ({
   useGenerateDebriefingLetter: () => ({
     generateDebriefingLetter: mockGenerateDebriefingLetter,
   }),
+  useDeleteDebriefing: () => ({
+    deleteDebriefing: jest.fn().mockResolvedValue(undefined),
+  }),
 }));
 
 jest.mock('@/components/ui/use-toast', () => ({

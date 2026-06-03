@@ -7,6 +7,11 @@ import {
   CreateFOIARequestSchema,
   UpdateFOIARequestSchema,
   FOIA_DOCUMENT_DESCRIPTIONS,
+  JurisdictionSchema,
+  StateNameSchema,
+  STATE_NAMES,
+  STATE_RECORDS_LAWS,
+  getStateRecordsLaw,
   type FOIADocumentType,
 } from './foia';
 
@@ -390,5 +395,47 @@ describe('FOIA_DOCUMENT_DESCRIPTIONS', () => {
       expect(typeof FOIA_DOCUMENT_DESCRIPTIONS[type]).toBe('string');
       expect(FOIA_DOCUMENT_DESCRIPTIONS[type].length).toBeGreaterThan(10);
     });
+  });
+});
+
+describe('JurisdictionSchema', () => {
+  it('accepts FEDERAL and STATE', () => {
+    expect(JurisdictionSchema.safeParse('FEDERAL').success).toBe(true);
+    expect(JurisdictionSchema.safeParse('STATE').success).toBe(true);
+  });
+
+  it('rejects unknown jurisdictions', () => {
+    expect(JurisdictionSchema.safeParse('LOCAL').success).toBe(false);
+  });
+});
+
+describe('STATE_RECORDS_LAWS', () => {
+  it('covers all 50 states plus D.C.', () => {
+    expect(STATE_NAMES.length).toBe(51);
+    expect(STATE_NAMES).toContain('California');
+    expect(STATE_NAMES).toContain('Washington, D.C.');
+  });
+
+  it('maps every state name to a non-empty law name', () => {
+    STATE_NAMES.forEach((name) => {
+      expect(typeof STATE_RECORDS_LAWS[name]).toBe('string');
+      expect(STATE_RECORDS_LAWS[name].length).toBeGreaterThan(0);
+    });
+  });
+
+  it('StateNameSchema validates recognized and rejects unrecognized states', () => {
+    expect(StateNameSchema.safeParse('California').success).toBe(true);
+    expect(StateNameSchema.safeParse('Atlantis').success).toBe(false);
+  });
+});
+
+describe('getStateRecordsLaw', () => {
+  it('returns the law name for a recognized state', () => {
+    expect(getStateRecordsLaw('California')).toBe('California Public Records Act (CPRA)');
+    expect(getStateRecordsLaw('New York')).toBe('New York Freedom of Information Law (FOIL)');
+  });
+
+  it('returns undefined for an unrecognized state', () => {
+    expect(getStateRecordsLaw('Atlantis')).toBeUndefined();
   });
 });
