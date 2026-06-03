@@ -234,6 +234,42 @@ describe('generate-foia-letter handler', () => {
 
       expect(letter).toContain('The contract was awarded to WinnerCo LLC.');
     });
+
+    it('defaults to federal FOIA framing when no jurisdiction context is given', () => {
+      const letter = generateFOIALetter(mockRequest);
+
+      expect(letter).toContain('Dear FOIA Officer,');
+      expect(letter).toContain('Freedom of Information Act (5 U.S.C. Section 552)');
+    });
+
+    it('uses federal framing for FEDERAL jurisdiction', () => {
+      const letter = generateFOIALetter(mockRequest, { jurisdiction: 'FEDERAL' });
+
+      expect(letter).toContain('Dear FOIA Officer,');
+      expect(letter).toContain('Freedom of Information Act (5 U.S.C. Section 552)');
+    });
+
+    it('cites the state records law for STATE jurisdiction', () => {
+      const letter = generateFOIALetter(mockRequest, { jurisdiction: 'STATE', state: 'California' });
+
+      expect(letter).toContain('Dear Records Custodian,');
+      expect(letter).toContain('This is a request under the California Public Records Act (CPRA).');
+      expect(letter).not.toContain('5 U.S.C. Section 552');
+    });
+
+    it('addresses the recipient as Public Records Officer (not "FOIA") for STATE jurisdiction', () => {
+      const letter = generateFOIALetter(mockRequest, { jurisdiction: 'STATE', state: 'California' });
+
+      expect(letter).toContain('Public Records Officer');
+      expect(letter).not.toContain('FOIA Requester Service Center');
+    });
+
+    it('falls back to federal framing for STATE jurisdiction without a recognized state', () => {
+      const letter = generateFOIALetter(mockRequest, { jurisdiction: 'STATE', state: 'Atlantis' });
+
+      expect(letter).toContain('Dear FOIA Officer,');
+      expect(letter).toContain('Freedom of Information Act (5 U.S.C. Section 552)');
+    });
   });
 
   describe('validateLetterFields', () => {
@@ -482,6 +518,45 @@ describe('generate-foia-letter handler', () => {
       expect(parsed.message).toContain('missing required fields');
       expect(parsed.missingFields).toContain('requesterTitle');
       expect(parsed.missingFields).toContain('requesterPhone');
+    });
+
+    it('generates a state records request letter when the outcome is STATE jurisdiction', async () => {
+      // First send() → FOIA request; second send() → project outcome.
+      mockSend
+        .mockResolvedValueOnce({ Item: mockRequest })
+        .mockResolvedValueOnce({ Item: { jurisdiction: 'STATE', state: 'California' } });
+      mockGetOrgPrimaryContact.mockResolvedValue(null);
+
+      const result = await baseHandler(makeEvent({
+        orgId: 'org-456',
+        projectId: 'proj-123',
+        opportunityId: 'opp-789',
+        foiaRequestId: 'foia-1',
+      }));
+      const parsed = JSON.parse(result.body as string);
+
+      expect(result.statusCode).toBe(200);
+      expect(parsed.letter).toContain('Dear Records Custodian,');
+      expect(parsed.letter).toContain('California Public Records Act (CPRA)');
+      expect(parsed.letter).not.toContain('5 U.S.C. Section 552');
+    });
+
+    it('falls back to federal framing when the outcome lookup fails', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Item: mockRequest })
+        .mockRejectedValueOnce(new Error('outcome lookup failed'));
+      mockGetOrgPrimaryContact.mockResolvedValue(null);
+
+      const result = await baseHandler(makeEvent({
+        orgId: 'org-456',
+        projectId: 'proj-123',
+        opportunityId: 'opp-789',
+        foiaRequestId: 'foia-1',
+      }));
+      const parsed = JSON.parse(result.body as string);
+
+      expect(result.statusCode).toBe(200);
+      expect(parsed.letter).toContain('Freedom of Information Act');
     });
 
     it('handles primary contact fetch failure gracefully', async () => {

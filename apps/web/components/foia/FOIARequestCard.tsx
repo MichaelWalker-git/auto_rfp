@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -14,11 +15,15 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { CreateFOIARequestDialog } from './CreateFOIARequestDialog';
-import { useFOIARequests, useGenerateFOIALetter } from '@/lib/hooks/use-foia-requests';
+import {
+  useFOIARequests,
+  useGenerateFOIALetter,
+  useDeleteFOIARequest,
+} from '@/lib/hooks/use-foia-requests';
 import { useToast } from '@/components/ui/use-toast';
 import { PermissionButton } from '@/components/ui/permission-button';
-import type { FOIADocumentType, FOIARequestItem } from '@auto-rfp/core';
-import { FOIA_DOCUMENT_DESCRIPTIONS } from '@auto-rfp/core';
+import type { FOIADocumentType, FOIARequestItem, Jurisdiction } from '@auto-rfp/core';
+import { FOIA_DOCUMENT_DESCRIPTIONS, getStateRecordsLaw } from '@auto-rfp/core';
 import {
   Building2,
   Scale,
@@ -32,6 +37,7 @@ import {
   Phone,
   MapPin,
   DollarSign,
+  Trash2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -40,6 +46,8 @@ interface FOIARequestCardProps {
   orgId: string;
   opportunityId: string;
   projectOutcomeStatus?: string;
+  jurisdiction?: Jurisdiction;
+  state?: string;
   agencyName?: string;
   solicitationNumber?: string;
   contractTitle?: string;
@@ -51,6 +59,8 @@ export const FOIARequestCard = ({
   orgId,
   opportunityId,
   projectOutcomeStatus,
+  jurisdiction,
+  state,
   agencyName,
   solicitationNumber,
   contractTitle,
@@ -59,12 +69,32 @@ export const FOIARequestCard = ({
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isOutcomeWarningOpen, setIsOutcomeWarningOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDrafting, setIsDrafting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { foiaRequests, isLoading, refetch } = useFOIARequests(orgId, projectId, opportunityId);
   const { generateFOIALetter } = useGenerateFOIALetter();
+  const { deleteFOIARequest } = useDeleteFOIARequest();
   const { toast } = useToast();
 
   const isLost = projectOutcomeStatus === 'LOST';
+
+  // State contracts use the state's public records law; federal uses FOIA.
+  // A state request is never labelled "FOIA" — each state has its own statute name.
+  const isStateRequest = jurisdiction === 'STATE';
+  const stateLaw = isStateRequest && state ? getStateRecordsLaw(state) : undefined;
+  // Card header: name the specific statute when known, else a generic state label.
+  const cardTitle = isStateRequest
+    ? stateLaw
+      ? `Public Records Request — ${stateLaw}`
+      : 'Public Records Request'
+    : 'FOIA Request';
+  // Short noun for use mid-sentence (buttons, toasts, dialogs).
+  const requestNoun = isStateRequest ? 'records request' : 'FOIA request';
+  const RequestNoun = isStateRequest ? 'Records Request' : 'FOIA Request';
+  const emptyStateDescription = isStateRequest
+    ? `Submit a request under the ${stateLaw ?? 'applicable state public records law'} to obtain evaluation documents.`
+    : 'Submit a Freedom of Information Act request to obtain evaluation documents.';
 
   const handleCreateRequest = () => {
     if (!isLost) {
@@ -85,7 +115,7 @@ export const FOIARequestCard = ({
       const letter = await generateFOIALetter(orgId, projectId, opportunityId, request.id);
 
       const subject = encodeURIComponent(
-        `FOIA Request — Solicitation No. ${request.solicitationNumber ?? ''}, ${request.contractTitle ?? ''}`
+        `${RequestNoun} — Solicitation No. ${request.solicitationNumber ?? ''}, ${request.contractTitle ?? ''}`
       );
       const body = encodeURIComponent(letter);
       const to = request.agencyFOIAEmail ?? '';
@@ -101,13 +131,34 @@ export const FOIARequestCard = ({
     }
   };
 
+  const handleDelete = async (request: FOIARequestItem) => {
+    setIsDeleting(true);
+    try {
+      await deleteFOIARequest(orgId, projectId, opportunityId, request.id);
+      setIsDeleteDialogOpen(false);
+      toast({
+        title: `${RequestNoun} deleted`,
+        description: `The ${requestNoun} has been removed.`,
+      });
+      refetch();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : `Failed to delete ${requestNoun}`,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Scale className="h-4 w-4" />
-            FOIA Request
+            {cardTitle}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -129,7 +180,7 @@ export const FOIARequestCard = ({
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Scale className="h-4 w-4" />
-            FOIA Request
+            {cardTitle}
           </CardTitle>
         </CardHeader>
 
@@ -266,6 +317,16 @@ export const FOIARequestCard = ({
                   )}
                   Draft Letter
                 </Button>
+                <PermissionButton
+                  requiredPermission="project:edit"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                  className="text-xs text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                  Delete
+                </PermissionButton>
               </div>
 
               {/* Created date */}
@@ -276,10 +337,10 @@ export const FOIARequestCard = ({
           ) : (
             <div className="text-center py-4">
               <p className="text-sm text-muted-foreground mb-3">
-                No FOIA request yet
+                No {requestNoun} yet
               </p>
               <p className="text-xs text-muted-foreground mb-3">
-                Submit a Freedom of Information Act request to obtain evaluation documents.
+                {emptyStateDescription}
               </p>
               <PermissionButton
                 requiredPermission="project:edit"
@@ -287,7 +348,7 @@ export const FOIARequestCard = ({
                 size="sm"
                 onClick={handleCreateRequest}
               >
-                Create FOIA Request
+                Create {RequestNoun}
               </PermissionButton>
             </div>
           )}
@@ -322,14 +383,47 @@ export const FOIARequestCard = ({
         />
       )}
 
+      {existingRequest && (
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete {requestNoun}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This permanently removes the {requestNoun} for{' '}
+                <span className="font-medium">{existingRequest.agencyName}</span>. This action cannot
+                be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleDelete(existingRequest);
+                }}
+                disabled={isDeleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeleting ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                )}
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
       <AlertDialog open={isOutcomeWarningOpen} onOpenChange={setIsOutcomeWarningOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Mark the project outcome as Lost first</AlertDialogTitle>
             <AlertDialogDescription>
-              FOIA requests can only be created for projects with a{' '}
+              A {requestNoun} can only be created for projects with a{' '}
               <span className="font-medium">Lost</span> outcome. Set the project outcome to Lost in
-              the Post-Award section, then create a FOIA request.
+              the Post-Award section, then create a {requestNoun}.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

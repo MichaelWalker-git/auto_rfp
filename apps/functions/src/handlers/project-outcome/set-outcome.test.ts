@@ -131,6 +131,49 @@ describe('set-outcome handler', () => {
       expect(result.status).toBe('NO_BID');
     });
 
+    it('persists FEDERAL jurisdiction', async () => {
+      mockSend.mockResolvedValue({});
+
+      const dto: SetProjectOutcomeRequest = {
+        projectId: 'proj-123',
+        orgId: 'org-456',
+        opportunityId: 'opp-789',
+        status: 'LOST',
+        jurisdiction: 'FEDERAL',
+        lossData: {
+          lossDate: '2025-01-20T00:00:00Z',
+          lossReason: 'TECHNICAL_SCORE',
+        },
+      };
+
+      const result = await setProjectOutcome(dto, 'user-789');
+
+      expect(result.jurisdiction).toBe('FEDERAL');
+      expect(result.state).toBeUndefined();
+    });
+
+    it('persists STATE jurisdiction with the chosen state', async () => {
+      mockSend.mockResolvedValue({});
+
+      const dto: SetProjectOutcomeRequest = {
+        projectId: 'proj-123',
+        orgId: 'org-456',
+        opportunityId: 'opp-789',
+        status: 'LOST',
+        jurisdiction: 'STATE',
+        state: 'California',
+        lossData: {
+          lossDate: '2025-01-20T00:00:00Z',
+          lossReason: 'TECHNICAL_SCORE',
+        },
+      };
+
+      const result = await setProjectOutcome(dto, 'user-789');
+
+      expect(result.jurisdiction).toBe('STATE');
+      expect(result.state).toBe('California');
+    });
+
     it('creates WITHDRAWN outcome', async () => {
       mockSend.mockResolvedValue({});
 
