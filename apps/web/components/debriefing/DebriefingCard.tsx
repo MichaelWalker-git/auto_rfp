@@ -4,6 +4,15 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { RequestDebriefingDialog } from './RequestDebriefingDialog';
 import { useDebriefings, useGenerateDebriefingLetter } from '@/lib/hooks/use-debriefing';
 import { useToast } from '@/components/ui/use-toast';
@@ -46,10 +55,21 @@ export const DebriefingCard = ({
 }: DebriefingCardProps) => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isOutcomeWarningOpen, setIsOutcomeWarningOpen] = useState(false);
   const [isDrafting, setIsDrafting] = useState(false);
   const { debriefings, isLoading, refetch } = useDebriefings(orgId, projectId, opportunityId);
   const { generateDebriefingLetter } = useGenerateDebriefingLetter();
   const { toast } = useToast();
+
+  const isLost = projectOutcomeStatus === 'LOST';
+
+  const handleRequestDebriefing = () => {
+    if (!isLost) {
+      setIsOutcomeWarningOpen(true);
+      return;
+    }
+    setIsCreateDialogOpen(true);
+  };
 
   const handleSuccess = (debriefing: DebriefingItem) => {
     refetch();
@@ -77,11 +97,6 @@ export const DebriefingCard = ({
       setIsDrafting(false);
     }
   };
-
-  // Only show for LOST projects
-  if (projectOutcomeStatus !== 'LOST') {
-    return null;
-  }
 
   if (isLoading) {
     return (
@@ -239,7 +254,7 @@ export const DebriefingCard = ({
                 requiredPermission="project:edit"
                 variant="outline"
                 size="sm"
-                onClick={() => setIsCreateDialogOpen(true)}
+                onClick={handleRequestDebriefing}
               >
                 Request Debriefing
               </PermissionButton>
@@ -273,6 +288,24 @@ export const DebriefingCard = ({
           onSuccess={handleSuccess}
         />
       )}
+
+      <AlertDialog open={isOutcomeWarningOpen} onOpenChange={setIsOutcomeWarningOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark the project outcome as Lost first</AlertDialogTitle>
+            <AlertDialogDescription>
+              Debriefings can only be requested for projects with a{' '}
+              <span className="font-medium">Lost</span> outcome. Set the project outcome to Lost in
+              the Post-Award section, then request a debriefing.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setIsOutcomeWarningOpen(false)}>
+              Got it
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
