@@ -19,6 +19,7 @@ import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware'
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
 import {
+  AnswerItem,
   AnswerQuestionRequestBodySchema,
   AnswerResolution,
   AnswerSource,
@@ -151,6 +152,47 @@ When in doubt, return {"match": false, "index": -1}. It is better to generate a 
 
   return null;
 };
+
+// ─── Empty-answer resolution recording ─────────────────────────────────────────
+
+// Zeroed confidence breakdown for answers that carry no usable evidence
+// (NO_KB_MATCH / GENERATION_FAILED). Shared so every empty-answer path writes
+// an identical, schema-valid breakdown.
+const EMPTY_CONFIDENCE_BREAKDOWN: ConfidenceBreakdown = {
+  contextRelevance: 0,
+  sourceRecency: 0,
+  answerCoverage: 0,
+  sourceAuthority: 0,
+  consistency: 0,
+};
+
+/**
+ * Persist an empty answer that records WHY generation produced no text
+ * (NO_KB_MATCH when the search came back empty, GENERATION_FAILED when it
+ * threw). This is what turns a silent blank into a question the UI can explain
+ * ("answer manually" / "generation failed — retry").
+ *
+ * `skipIfAnswered` guarantees this never clobbers an answer that already has
+ * real text — a prior successful run or a manual edit always wins over a later
+ * empty result (e.g. a transient KB outage on regenerate).
+ */
+const recordEmptyResolution = async (
+  params: Pick<GenerateAnswerParams, 'questionId' | 'projectId' | 'opportunityId' | 'questionFileId'>,
+  resolution: AnswerResolution,
+): Promise<AnswerItem> =>
+  saveAnswer({
+    questionId: params.questionId,
+    projectId: params.projectId,
+    opportunityId: params.opportunityId,
+    questionFileId: params.questionFileId,
+    text: '',
+    confidence: 0,
+    confidenceBreakdown: EMPTY_CONFIDENCE_BREAKDOWN,
+    confidenceBand: 'low',
+    resolution,
+    sources: [],
+    skipIfAnswered: true,
+  });
 
 // ─── Tool-based Answer Generation ────────────────────────────────────────────
 
@@ -364,8 +406,11 @@ const generateAnswerWithTools = async (
  * Flow:
  * 1. Check content library for a direct match → return immediately if found
  * 2. Use AI with tools to generate answer from KB, past performance, org context
+ *
+ * NOTE: callers should use the exported `generateAnswerForQuestion` wrapper,
+ * which records a GENERATION_FAILED resolution when this throws.
  */
-export const generateAnswerForQuestion = async (
+const generateAnswerForQuestionInner = async (
   params: GenerateAnswerParams,
 ): Promise<GenerateAnswerResult> => {
   const { questionId, projectId, orgId, opportunityId, questionText, questionFileId } = params;
@@ -482,26 +527,19 @@ export const generateAnswerForQuestion = async (
     console.log(`[answer] Filtered out ${sources.length - filteredSources.length} org context source(s) — answer does not cite [ORG]`);
   }
 
-  // When found=false and answer is empty, skip the scorer and save with 0 confidence
-  if (!found && !answer.trim()) {
-    await saveAnswer({
-      questionId,
-      projectId,
-      opportunityId,
-      questionFileId,
-      text: '',
-      confidence: 0,
-      confidenceBreakdown: { contextRelevance: 0, sourceRecency: 0, answerCoverage: 0, sourceAuthority: 0, consistency: 0 },
-      confidenceBand: 'low',
-      resolution: 'NO_KB_MATCH',
-      sources: [],
-    });
+  // Whenever the model produced no usable text, record NO_KB_MATCH so the UI
+  // shows the "answer manually" notice instead of a silent blank. This keys off
+  // empty TEXT, not the model's self-reported `found` flag — the model
+  // sometimes returns found=true with an empty/whitespace answer, which would
+  // otherwise be saved as a blank "ANSWERED" answer with no explanation.
+  if (!answer.trim()) {
+    await recordEmptyResolution({ questionId, projectId, opportunityId, questionFileId }, 'NO_KB_MATCH');
 
     return {
       questionId,
       answer: '',
       confidence: 0,
-      confidenceBreakdown: { contextRelevance: 0, sourceRecency: 0, answerCoverage: 0, sourceAuthority: 0, consistency: 0 },
+      confidenceBreakdown: { ...EMPTY_CONFIDENCE_BREAKDOWN },
       confidenceBand: 'low',
       found: false,
       resolution: 'NO_KB_MATCH',
@@ -545,6 +583,45 @@ export const generateAnswerForQuestion = async (
     sources: filteredSources,
     fromContentLibrary: false,
   };
+};
+
+/**
+ * Public entrypoint for answer generation.
+ *
+ * Wraps the core logic so that ANY thrown error (transient Bedrock/Pinecone
+ * failure, timeout, missing question text, etc.) is recorded as a
+ * GENERATION_FAILED resolution before the error propagates. Without this, a
+ * failed generation left no answer record at all — the question stayed a silent
+ * blank with no reason, indistinguishable from one that was never generated.
+ *
+ * The error is still re-thrown so existing callers keep their current behavior
+ * (HTTP handler → 500, Step Functions → success:false + retry/catch). Recording
+ * the resolution is best-effort: if writing it also fails (e.g. the table is
+ * unreachable), we log and re-throw the ORIGINAL error so the root cause isn't
+ * masked.
+ */
+export const generateAnswerForQuestion = async (
+  params: GenerateAnswerParams,
+): Promise<GenerateAnswerResult> => {
+  try {
+    return await generateAnswerForQuestionInner(params);
+  } catch (err) {
+    console.error(`[answer] Generation failed for question ${params.questionId}, recording GENERATION_FAILED:`, (err as Error)?.message);
+    try {
+      await recordEmptyResolution(
+        {
+          questionId: params.questionId,
+          projectId: params.projectId,
+          opportunityId: params.opportunityId,
+          questionFileId: params.questionFileId,
+        },
+        'GENERATION_FAILED',
+      );
+    } catch (recordErr) {
+      console.error(`[answer] Failed to record GENERATION_FAILED for question ${params.questionId}:`, (recordErr as Error)?.message);
+    }
+    throw err;
+  }
 };
 
 // ─── HTTP Handler ─────────────────────────────────────────────────────────────

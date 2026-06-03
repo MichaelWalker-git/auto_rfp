@@ -122,10 +122,14 @@ export function QuestionEditor({
   const hasSources = answer?.sources && answer.sources.length > 0;
   const hasConfidence = answer?.confidence !== undefined && answer.confidence !== null;
 
-  // The AI ran but found nothing in the knowledge base. Only surface this while
+  // The AI ran but found nothing in the knowledge base. Only surface these while
   // the answer is still empty — once a human types an answer, the notice is moot.
   const hasAnswerText = !!answer?.text && answer.text.trim().length > 0;
   const showNoKbMatchNotice = answer?.resolution === 'NO_KB_MATCH' && !hasAnswerText;
+  // Generation errored/timed out before producing text — distinct from "searched
+  // and found nothing": this one is retryable, so prompt a retry rather than
+  // implying the knowledge base lacks the content.
+  const showGenerationFailedNotice = answer?.resolution === 'GENERATION_FAILED' && !hasAnswerText;
 
   // Status derived from answer — someone else editing = "Editing"
   const isBeingEditedByOther = editors.length > 0;
@@ -203,6 +207,17 @@ export function QuestionEditor({
                 <strong>Couldn&apos;t answer from the knowledge base.</strong> No supporting
                 content was found for this question. Answer it manually below, or add relevant
                 documents to the knowledge base and regenerate.
+              </div>
+            </div>
+          )}
+
+          {/* Generation-failed notice — generation errored or timed out before producing an answer */}
+          {showGenerationFailedNotice && (
+            <div className="flex items-start gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm">
+              <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+              <div className="text-red-800">
+                <strong>Answer generation failed.</strong> Something went wrong while generating
+                this answer. Click <strong>Generate</strong> to try again, or answer it manually below.
               </div>
             </div>
           )}
