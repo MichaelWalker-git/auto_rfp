@@ -63,17 +63,22 @@ export interface GenerateAnswerResult {
 
 // ─── Content Library Check ────────────────────────────────────────────────────
 
-// Minimum cosine similarity score to even consider a content library match.
-// Below this threshold, the question is too different to be a direct match.
-const CL_MIN_SIMILARITY_THRESHOLD = 0.50;
+// Minimum cosine similarity to even CONSIDER a content-library direct match.
+// Calibrated for Titan Embeddings V2, whose question→answer cosine scores are
+// compressed (genuine matches observed at ~0.20–0.37 on production dev data, not
+// the 0.5+ this was previously set to — at 0.50 the fast path almost never fired).
+// This is only stage 1: the stage-2 LLM evaluation below is the real gate that
+// confirms a candidate is a genuine, complete direct answer before it is reused
+// verbatim, so a lower floor here just widens the candidate pool, not precision.
+const CL_MIN_SIMILARITY_THRESHOLD = 0.35;
 
 /**
  * Check if the content library has a direct answer for the question.
  * Returns the matched item and its score, or null if no match.
  *
  * Uses a two-stage filter:
- * 1. Semantic similarity threshold (>= 0.82) to eliminate weak matches
- * 2. LLM evaluation to confirm the match is a genuine direct answer
+ * 1. Semantic similarity threshold (CL_MIN_SIMILARITY_THRESHOLD) to drop weak matches
+ * 2. LLM evaluation to confirm the match is a genuine, complete direct answer
  */
 const checkContentLibrary = async (
   orgId: string,
