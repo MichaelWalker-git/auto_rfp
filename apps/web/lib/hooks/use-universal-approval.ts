@@ -1,7 +1,7 @@
 'use client';
 import useSWR from 'swr';
 import { useState } from 'react';
-import { buildApiUrl, apiMutate } from '@/lib/hooks/api-helpers';
+import { buildApiUrl, apiMutate, apiFetcher } from '@/lib/hooks/api-helpers';
 import type {
   UniversalApprovalHistoryResponse,
   ApprovableEntityType,
@@ -14,8 +14,12 @@ export const useUniversalApprovalHistory = (
   entityType: ApprovableEntityType,
   entitySK: string,
 ) => {
+  const url = buildApiUrl(
+    `universal-approval/history?orgId=${orgId}&entityType=${entityType}&entitySK=${encodeURIComponent(entitySK)}`,
+  );
   const { data, error, mutate } = useSWR<UniversalApprovalHistoryResponse>(
-    buildApiUrl(`universal-approval/history?orgId=${orgId}&entityType=${entityType}&entitySK=${encodeURIComponent(entitySK)}`),
+    orgId && entitySK ? url : null,
+    () => apiFetcher<UniversalApprovalHistoryResponse>(url),
   );
 
   return {
