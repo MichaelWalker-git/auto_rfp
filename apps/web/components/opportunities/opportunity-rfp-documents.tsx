@@ -60,8 +60,6 @@ const getDocIcon = (doc: RFPDocumentItem) => {
 };
 import { useApprovalHistory } from '@/features/document-approval';
 import { ApprovalStatusBadge } from '@/features/document-approval';
-import { ApprovalNeededBadge } from '@/features/opportunity-approval';
-import { useOpportunityApproval } from '@/lib/hooks/use-universal-approval';
 
 
 function formatFileSize(bytes: number): string {
@@ -156,7 +154,6 @@ export function OpportunityRFPDocuments() {
   const { trigger: getPreviewUrl } = useDocumentPreviewUrl(orgId);
   const { trigger: getDownloadUrl } = useDocumentDownloadUrl(orgId);
   const { trigger: convertToContent } = useConvertToContent(orgId);
-  const { activeApproval: opportunityApproval } = useOpportunityApproval(orgId, projectId, oppId);
   const { toast } = useToast();
 
   const [selectedType, setSelectedType] = useState<string>('ALL');
@@ -335,7 +332,6 @@ export function OpportunityRFPDocuments() {
             <div className="min-w-0">
               <CardTitle className="flex items-center gap-2 text-sm font-medium">
                 RFP Documents
-                {opportunityApproval && <ApprovalNeededBadge />}
               </CardTitle>
               <CardDescription className="mt-1">
                 {documents.length} {documents.length === 1 ? 'document' : 'documents'} for this opportunity

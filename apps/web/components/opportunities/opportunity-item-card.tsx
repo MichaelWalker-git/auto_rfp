@@ -34,6 +34,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { EditOpportunityDialog } from './edit-opportunity-dialog';
 import { OpportunityStageBadge } from './opportunity-stage-badge';
+import { ApprovalNeededBadge } from '@/features/opportunity-approval';
 
 import type { OpportunityStage } from '@auto-rfp/core';
 
@@ -151,6 +152,8 @@ export interface OpportunityItemCardProps {
   onToggleFavorite?: (oppId: string) => void;
   /** Grid columns (for compact layout in 4-column view) */
   gridColumns?: 1 | 2 | 4;
+  /** Whether the current user has a pending approval request for this opportunity */
+  needsApproval?: boolean;
 }
 
 function MetaRow({
@@ -305,6 +308,7 @@ export const OpportunityItemCard = ({
   isFavorite = false,
   onToggleFavorite,
   gridColumns = 4,
+  needsApproval = false,
 }: OpportunityItemCardProps) => {
   const { currentOrganization } = useCurrentOrganization();
   const params = useParams();
@@ -368,6 +372,13 @@ export const OpportunityItemCard = ({
             className="shrink-0 mt-0.5"
           />
         </div>
+
+        {/* Approval needed — shown when the current user is the assigned reviewer */}
+        {needsApproval && (
+          <div onClick={e => e.stopPropagation()}>
+            <ApprovalNeededBadge />
+          </div>
+        )}
 
         {/* Meta */}
         <div className="flex flex-col gap-0.5 text-xs text-muted-foreground flex-1">
