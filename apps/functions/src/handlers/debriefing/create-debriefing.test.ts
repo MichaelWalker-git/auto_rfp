@@ -178,7 +178,7 @@ describe('create-debriefing handler', () => {
     });
 
     it('allows creation (201) when outcome has status LOST', async () => {
-      // First call: GetCommand for checkLostOutcome
+      // First call: GetCommand for the outcome
       mockSend.mockResolvedValueOnce({
         Item: { status: 'LOST' },
       });
@@ -188,6 +188,31 @@ describe('create-debriefing handler', () => {
       const result = await baseHandler(makeEvent(validDto));
 
       expect(result.statusCode).toBe(201);
+    });
+
+    it('allows creation (201) for an explicitly FEDERAL outcome', async () => {
+      mockSend.mockResolvedValueOnce({
+        Item: { status: 'LOST', jurisdiction: 'FEDERAL' },
+      });
+      mockSend.mockResolvedValueOnce({});
+
+      const result = await baseHandler(makeEvent(validDto));
+
+      expect(result.statusCode).toBe(201);
+    });
+
+    it('returns 400 when the outcome is a STATE contract', async () => {
+      mockSend.mockResolvedValueOnce({
+        Item: { status: 'LOST', jurisdiction: 'STATE', state: 'California' },
+      });
+
+      const result = await baseHandler(makeEvent(validDto));
+      const parsed = JSON.parse(result.body as string);
+
+      expect(result.statusCode).toBe(400);
+      expect(parsed.message).toContain('federal contracts');
+      // Must not attempt to write the debriefing.
+      expect(mockSend).toHaveBeenCalledTimes(1);
     });
 
     it('returns 400 for validation errors (missing required fields)', async () => {

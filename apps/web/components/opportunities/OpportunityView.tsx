@@ -320,19 +320,24 @@ const OpportunityContent = ({ className }: { className?: string }) => {
           muted
         />
         <ProjectOutcomeCard projectId={projectId} orgId={orgId} opportunityId={oppId} />
-        <DebriefingCard
-          projectId={projectId}
-          orgId={orgId}
-          opportunityId={oppId}
-          projectOutcomeStatus={outcome?.status}
-          solicitationNumber={opportunity?.solicitationNumber ?? undefined}
-          contractTitle={opportunity?.title ?? undefined}
-        />
+        {/* Debriefs apply to federal awards only. */}
+        {outcome?.jurisdiction === 'FEDERAL' && (
+          <DebriefingCard
+            projectId={projectId}
+            orgId={orgId}
+            opportunityId={oppId}
+            projectOutcomeStatus={outcome?.status}
+            solicitationNumber={opportunity?.solicitationNumber ?? undefined}
+            contractTitle={opportunity?.title ?? undefined}
+          />
+        )}
         <FOIARequestCard
           projectId={projectId}
           orgId={orgId}
           opportunityId={oppId}
           projectOutcomeStatus={outcome?.status}
+          jurisdiction={outcome?.jurisdiction}
+          state={outcome?.state}
           agencyName={opportunity?.organizationName ?? undefined}
           solicitationNumber={opportunity?.solicitationNumber ?? undefined}
           contractTitle={opportunity?.title ?? undefined}

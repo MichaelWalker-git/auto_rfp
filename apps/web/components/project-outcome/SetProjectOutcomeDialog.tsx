@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { useSetProjectOutcome } from '@/lib/hooks/use-set-project-outcome';
+import { STATE_NAMES, getStateRecordsLaw } from '@auto-rfp/core';
 import type {
   ProjectOutcomeStatus,
   SetProjectOutcomeRequest,
@@ -29,6 +30,7 @@ import type {
   LossData,
   LossReasonCategory,
   ProjectOutcome,
+  Jurisdiction,
 } from '@auto-rfp/core';
 
 interface SetProjectOutcomeDialogProps {
@@ -70,6 +72,11 @@ export function SetProjectOutcomeDialog({
   const { toast } = useToast();
   const { setOutcome } = useSetProjectOutcome();
 
+  // Jurisdiction — the user must explicitly choose Federal or State.
+  // Empty string means "not yet chosen".
+  const [jurisdiction, setJurisdiction] = useState<Jurisdiction | ''>('');
+  const [state, setState] = useState('');
+
   // Win data fields
   const [contractValue, setContractValue] = useState('');
   const [contractNumber, setContractNumber] = useState('');
@@ -87,6 +94,10 @@ export function SetProjectOutcomeDialog({
     if (isOpen) {
       setStatus(currentOutcome?.status ?? 'PENDING');
 
+      // Reset jurisdiction
+      setJurisdiction(currentOutcome?.jurisdiction ?? '');
+      setState(currentOutcome?.state ?? '');
+
       // Reset win data
       setContractValue(currentOutcome?.winData?.contractValue?.toString() ?? '');
       setContractNumber(currentOutcome?.winData?.contractNumber ?? '');
@@ -103,6 +114,16 @@ export function SetProjectOutcomeDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (jurisdiction === 'STATE' && !state) {
+      toast({
+        title: 'Select a state',
+        description: 'Choose the state whose public records law applies.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -111,6 +132,8 @@ export function SetProjectOutcomeDialog({
         orgId,
         opportunityId,
         status,
+        ...(jurisdiction ? { jurisdiction } : {}),
+        ...(jurisdiction === 'STATE' && state ? { state } : {}),
       } as SetProjectOutcomeRequest;
 
       // Add win data if WON
@@ -182,6 +205,54 @@ export function SetProjectOutcomeDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Jurisdiction Selection */}
+            <div className="grid gap-2">
+              <Label htmlFor="jurisdiction">Contract Jurisdiction</Label>
+              <Select
+                value={jurisdiction}
+                onValueChange={(value: Jurisdiction) => {
+                  setJurisdiction(value);
+                  if (value !== 'STATE') setState('');
+                }}
+              >
+                <SelectTrigger id="jurisdiction">
+                  <SelectValue placeholder="Select federal or state" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FEDERAL">Federal</SelectItem>
+                  <SelectItem value="STATE">State</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Federal contracts support a debrief and a federal FOIA request. State contracts use
+                the state&apos;s public records law instead.
+              </p>
+            </div>
+
+            {/* State Selection (only for STATE jurisdiction) */}
+            {jurisdiction === 'STATE' && (
+              <div className="grid gap-2">
+                <Label htmlFor="state">State</Label>
+                <Select value={state} onValueChange={setState}>
+                  <SelectTrigger id="state">
+                    <SelectValue placeholder="Select a state" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATE_NAMES.map((stateName) => (
+                      <SelectItem key={stateName} value={stateName}>
+                        {stateName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {state && (
+                  <p className="text-xs text-muted-foreground">
+                    Records request will cite the {getStateRecordsLaw(state)}.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Win Data Fields */}
             {status === 'WON' && (

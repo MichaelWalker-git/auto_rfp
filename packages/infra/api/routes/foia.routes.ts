@@ -26,6 +26,11 @@ export function foiaDomain(): DomainRoutes {
         path: 'update-foia-request',
         entry: lambdaEntry('foia/update-foia-request.ts'),
       },
+      {
+        method: 'DELETE',
+        path: 'delete-foia-request',
+        entry: lambdaEntry('foia/delete-foia-request.ts'),
+      },
     ],
   };
 }

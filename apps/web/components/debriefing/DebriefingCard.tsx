@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -14,7 +15,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { RequestDebriefingDialog } from './RequestDebriefingDialog';
-import { useDebriefings, useGenerateDebriefingLetter } from '@/lib/hooks/use-debriefing';
+import {
+  useDebriefings,
+  useGenerateDebriefingLetter,
+  useDeleteDebriefing,
+} from '@/lib/hooks/use-debriefing';
 import { useToast } from '@/components/ui/use-toast';
 import { PermissionButton } from '@/components/ui/permission-button';
 import {
@@ -29,6 +34,7 @@ import {
   Briefcase,
   MapPin,
   Phone,
+  Trash2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { DebriefingItem } from '@auto-rfp/core';
@@ -56,9 +62,12 @@ export const DebriefingCard = ({
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isOutcomeWarningOpen, setIsOutcomeWarningOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDrafting, setIsDrafting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { debriefings, isLoading, refetch } = useDebriefings(orgId, projectId, opportunityId);
   const { generateDebriefingLetter } = useGenerateDebriefingLetter();
+  const { deleteDebriefing } = useDeleteDebriefing();
   const { toast } = useToast();
 
   const isLost = projectOutcomeStatus === 'LOST';
@@ -95,6 +104,27 @@ export const DebriefingCard = ({
       });
     } finally {
       setIsDrafting(false);
+    }
+  };
+
+  const handleDelete = async (debriefing: DebriefingItem) => {
+    setIsDeleting(true);
+    try {
+      await deleteDebriefing(orgId, projectId, opportunityId, debriefing.debriefId);
+      setIsDeleteDialogOpen(false);
+      toast({
+        title: 'Debriefing deleted',
+        description: 'The debriefing request has been removed.',
+      });
+      refetch();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to delete debriefing',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -235,6 +265,16 @@ export const DebriefingCard = ({
                   )}
                   Draft Letter
                 </Button>
+                <PermissionButton
+                  requiredPermission="project:edit"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                  className="text-xs text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                  Delete
+                </PermissionButton>
               </div>
 
               {/* Request creation date */}
@@ -287,6 +327,37 @@ export const DebriefingCard = ({
           existingDebriefing={latestDebriefing}
           onSuccess={handleSuccess}
         />
+      )}
+
+      {latestDebriefing && (
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete debriefing request?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This permanently removes the debriefing request. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleDelete(latestDebriefing);
+                }}
+                disabled={isDeleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeleting ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                )}
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
 
       <AlertDialog open={isOutcomeWarningOpen} onOpenChange={setIsOutcomeWarningOpen}>
