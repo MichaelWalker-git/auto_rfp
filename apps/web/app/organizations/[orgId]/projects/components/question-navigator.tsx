@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { AlertTriangle, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { AnswerSource, ConfidenceBreakdown, ConfidenceBand, GroupedSection, GroupedQuestion } from '@auto-rfp/core';
+import { AnswerResolution, AnswerSource, ConfidenceBreakdown, ConfidenceBand, GroupedSection, GroupedQuestion } from '@auto-rfp/core';
 import { ConfidenceBadge } from '@/components/confidence/confidence-score-display';
 
 type AnswerData = {
@@ -13,9 +13,10 @@ type AnswerData = {
   confidence?: number;
   confidenceBreakdown?: ConfidenceBreakdown;
   confidenceBand?: ConfidenceBand;
+  resolution?: AnswerResolution;
 }
 
-type QuestionStatus = 'unanswered' | 'complete';
+type QuestionStatus = 'unanswered' | 'needs-manual' | 'complete';
 
 type Props = {
   onSelectQuestion: (id: string) => void;
@@ -95,6 +96,10 @@ export function QuestionNavigator({
     const text = answer?.text;
 
     if (!answer || typeof text !== 'string' || text.trim() === '') {
+      // The AI tried but couldn't produce an answer — flag for manual entry.
+      if (answer?.resolution === 'NO_KB_MATCH' || answer?.resolution === 'GENERATION_FAILED') {
+        return 'needs-manual';
+      }
       return 'unanswered';
     }
 
@@ -180,6 +185,16 @@ export function QuestionNavigator({
                               </TooltipContent>
                             </Tooltip>
                           )}
+                          {status === 'needs-manual' && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <AlertTriangle className="h-4 w-4 text-amber-600"/>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>AI couldn&apos;t answer — manual entry needed</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                           {status === 'unanswered' && (
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -194,6 +209,7 @@ export function QuestionNavigator({
                         <div className={cn(
                           'flex-1 mr-2',
                           status === 'complete' && 'text-muted-foreground',
+                          status === 'needs-manual' && 'text-amber-700',
                           isUnsaved && 'font-medium text-amber-700'
                         )}>
                           <div className="flex items-center gap-1.5">
