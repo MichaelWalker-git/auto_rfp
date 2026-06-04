@@ -9,7 +9,7 @@ import {
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { withSentryLambda } from '@/sentry-lambda';
 import { listRFPDocumentsByProject } from '@/helpers/rfp-document';
@@ -27,6 +27,7 @@ import { htmlToPdfBuffer } from '@/helpers/export-pdf';
 import { htmlToDocxBuffer } from '@/helpers/export-docx';
 import { htmlToPptxBuffer } from '@/helpers/export-pptx';
 import { buildExportHtml } from '@/helpers/export-html-builder';
+import { parsePageRange } from '@auto-rfp/core';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const REGION = requireEnv('REGION', 'us-east-1');
@@ -42,6 +43,8 @@ interface ExportAllRequest {
   formats?: ExportFormat[];
   options?: {
     pageSize?: 'letter' | 'a4';
+    includeQuestionnaires?: boolean;
+    includeRequiredForms?: boolean;
   };
 }
 
@@ -177,6 +180,12 @@ export const baseHandler = async (
 
     // Delegate to merged export handler if mode is 'merged'
     if (body.mode === 'merged') {
+      // Validate required fields before delegation
+      if (!body.documentIds?.length || !body.format) {
+        return apiResponse(400, {
+          message: 'Merged export requires documentIds and format fields',
+        });
+      }
       const { exportMergedDocuments } = await import('./export-merged-rfp-documents');
       return exportMergedDocuments(event, body as unknown as Record<string, unknown>);
     }
@@ -189,6 +198,8 @@ export const baseHandler = async (
 
     const orgId = getOrgId(event) || 'DEFAULT';
     const pageSize = exportOptions?.pageSize ?? 'letter';
+    const includeQuestionnaires = exportOptions?.includeQuestionnaires ?? true;
+    const includeRequiredForms = exportOptions?.includeRequiredForms ?? true;
 
     // Validate and resolve formats — default to docx + pdf
     const selectedFormats: ExportFormat[] = requestedFormats?.length
@@ -208,12 +219,13 @@ export const baseHandler = async (
       limit: 100, // reasonable upper bound
     });
 
-    // Filter by orgId for security and exclude deleted/generating docs
+    // Filter by orgId for security and exclude deleted/generating/failed docs
     const documents = result.items.filter(
       (item) =>
         item.orgId === orgId &&
         !item.deletedAt &&
-        item.status !== 'GENERATING',
+        item.status !== 'GENERATING' &&
+        item.status !== 'FAILED',
     );
 
     if (documents.length === 0) {
@@ -297,58 +309,122 @@ export const baseHandler = async (
     }
 
     // ── Export Questionnaire Documents (filled XLSX files) ──
-    try {
-      const questionnaireDocs = documents.filter(
-        (doc) => doc.documentType === 'QUESTIONNAIRE' && doc.fileKey && !doc.deletedAt,
-      );
+    let questionnaireCount = 0;
+    if (includeQuestionnaires) {
+      try {
+        const questionnaireDocs = documents.filter(
+          (doc) => doc.documentType === 'QUESTIONNAIRE' && doc.fileKey && !doc.deletedAt,
+        );
 
-      for (const doc of questionnaireDocs) {
-        try {
-          const body = await getFileFromS3(DOCUMENTS_BUCKET, doc.fileKey);
-          const bytes = await body.transformToByteArray();
+        for (const doc of questionnaireDocs) {
+          try {
+            const body = await getFileFromS3(DOCUMENTS_BUCKET, doc.fileKey);
+            const bytes = await body.transformToByteArray();
 
-          const fileName = doc.originalFileName || doc.name || 'questionnaire.xlsx';
-          const sanitizedName = sanitizeFileName(fileName.replace(/\.xlsx$/i, '')).slice(0, 80);
-          zip.file(`Questionnaires/${sanitizedName}.xlsx`, bytes);
-          exportedDocs.push({ documentId: doc.documentId, title: doc.name, formats: ['xlsx'], skipped: false });
-        } catch (qErr) {
-          console.warn(`Failed to export questionnaire "${doc.name}":`, (qErr as Error)?.message);
-          exportedDocs.push({ documentId: doc.documentId, title: doc.name, formats: [], skipped: true, skipReason: 'Questionnaire export failed' });
+            const fileName = doc.originalFileName || doc.name || 'questionnaire.xlsx';
+            const sanitizedName = sanitizeFileName(fileName.replace(/\.xlsx$/i, '')).slice(0, 80);
+            const uniqueId = doc.documentId.slice(0, 8);
+            zip.file(`Questionnaires/${sanitizedName}-${uniqueId}.xlsx`, bytes);
+            exportedDocs.push({ documentId: doc.documentId, title: doc.name, formats: ['xlsx'], skipped: false });
+            questionnaireCount++;
+          } catch (qErr) {
+            console.warn(`Failed to export questionnaire "${doc.name}":`, (qErr as Error)?.message);
+            exportedDocs.push({ documentId: doc.documentId, title: doc.name, formats: [], skipped: true, skipReason: 'Questionnaire export failed' });
+          }
         }
+      } catch (err) {
+        console.warn('Questionnaire export failed (non-fatal):', (err as Error)?.message);
       }
-    } catch (err) {
-      console.warn('Questionnaire export failed (non-fatal):', (err as Error)?.message);
     }
 
     // ── Export Required Forms (filled PDFs) ──
-    try {
-      const { listRequiredFormsByOpportunity } = await import('@/helpers/required-form');
-      const { fillPdfForm } = await import('@/helpers/pdf-form-filler');
+    let requiredFormsCount = 0;
+    if (includeRequiredForms) {
+      if (!opportunityId) {
+        console.warn('Required forms export requested but opportunityId is missing — skipping forms export');
+      } else {
+      try {
+        const { listRequiredFormsByOpportunity } = await import('@/helpers/required-form');
+        const { fillPdfForm } = await import('@/helpers/pdf-form-filler');
 
-      if (!opportunityId) throw new Error('opportunityId required for forms export');
-      const forms = await listRequiredFormsByOpportunity({ orgId, projectId, opportunityId });
-      const formsWithFields = forms.filter((f) => f.fields.length > 0 && f.sourceFileKey);
+        const forms = await listRequiredFormsByOpportunity({ orgId, projectId, opportunityId });
+        const formsWithFields = forms.filter((f) => f.fields.length > 0 && f.sourceFileKey);
 
-      for (const form of formsWithFields) {
-        try {
+        for (const form of formsWithFields) {
           const outputKey = `${orgId}/${projectId}/${opportunityId}/required-forms/${form.formId}/export-temp.pdf`;
-          await fillPdfForm({ sourceFileKey: form.sourceFileKey, fields: form.fields, outputKey });
+          try {
+            await fillPdfForm({ sourceFileKey: form.sourceFileKey, fields: form.fields, outputKey });
 
-          const filledObj = await s3Client.send(new GetObjectCommand({ Bucket: DOCUMENTS_BUCKET, Key: outputKey }));
-          const filledBytes = await filledObj.Body?.transformToByteArray();
+            const filledObj = await s3Client.send(new GetObjectCommand({ Bucket: DOCUMENTS_BUCKET, Key: outputKey }));
+            let filledBytes = await filledObj.Body?.transformToByteArray();
 
-          if (filledBytes) {
-            const sanitizedFormName = form.name.replace(/[^a-zA-Z0-9\s\-_()]/g, '').trim().slice(0, 80) || 'Form';
-            zip.file(`Required Forms/${sanitizedFormName}.pdf`, filledBytes);
-            exportedDocs.push({ documentId: form.formId, title: form.name, formats: ['pdf'], skipped: false });
+            // If sourcePageRange is specified, extract only those pages
+            if (filledBytes && form.sourcePageRange) {
+              try {
+                const { PDFDocument } = await import('pdf-lib');
+                const filledPdf = await PDFDocument.load(filledBytes);
+
+                const pageSet = parsePageRange(form.sourcePageRange);
+                if (!pageSet || pageSet.size === 0) {
+                  console.warn(`Empty or invalid page range "${form.sourcePageRange}" for form "${form.name}"`);
+                } else {
+                  // Convert 1-indexed Set to 0-indexed array for pdf-lib
+                  const pageIndices = Array.from(pageSet).map(p => p - 1);
+
+                  // Validate indices against actual PDF page count
+                  const pageCount = filledPdf.getPageCount();
+                  const validIndices = pageIndices.filter(i => i >= 0 && i < pageCount);
+
+                  if (validIndices.length === 0) {
+                    console.warn(
+                      `No valid pages in range "${form.sourcePageRange}" for form "${form.name}" (PDF has ${pageCount} pages) - using full PDF`,
+                    );
+                  } else if (validIndices.length < pageIndices.length) {
+                    const invalidCount = pageIndices.length - validIndices.length;
+                    console.warn(
+                      `Page range "${form.sourcePageRange}" for form "${form.name}" contains ${invalidCount} out-of-bounds pages (PDF has ${pageCount} pages) - extracting ${validIndices.length} valid pages`,
+                    );
+                    const extractedPdf = await PDFDocument.create();
+                    const copiedPages = await extractedPdf.copyPages(filledPdf, validIndices);
+                    copiedPages.forEach(page => extractedPdf.addPage(page));
+                    filledBytes = await extractedPdf.save();
+                  } else {
+                    // All indices valid
+                    const extractedPdf = await PDFDocument.create();
+                    const copiedPages = await extractedPdf.copyPages(filledPdf, validIndices);
+                    copiedPages.forEach(page => extractedPdf.addPage(page));
+                    filledBytes = await extractedPdf.save();
+                  }
+                }
+              } catch (extractErr) {
+                console.warn(`Failed to extract pages for form "${form.name}":`, (extractErr as Error)?.message);
+              }
+            }
+
+            if (filledBytes) {
+              const sanitizedFormName = form.name.replace(/[^a-zA-Z0-9\s\-_()]/g, '').trim().slice(0, 80) || 'Form';
+              const uniqueId = form.formId.slice(0, 8);
+              zip.file(`Required Forms/${sanitizedFormName}-${uniqueId}.pdf`, filledBytes);
+              exportedDocs.push({ documentId: form.formId, title: form.name, formats: ['pdf'], skipped: false });
+              requiredFormsCount++;
+            }
+          } catch (formErr) {
+            console.warn(`Failed to export form "${form.name}":`, (formErr as Error)?.message);
+            exportedDocs.push({ documentId: form.formId, title: form.name, formats: [], skipped: true, skipReason: 'Form export failed' });
+          } finally {
+            // Clean up temporary file to prevent S3 storage leak
+            try {
+              await s3Client.send(new DeleteObjectCommand({ Bucket: DOCUMENTS_BUCKET, Key: outputKey }));
+            } catch (cleanupErr) {
+              console.warn(`Failed to delete temp file ${outputKey}:`, cleanupErr);
+              // Don't fail the export if cleanup fails
+            }
           }
-        } catch (formErr) {
-          console.warn(`Failed to export form "${form.name}":`, (formErr as Error)?.message);
-          exportedDocs.push({ documentId: form.formId, title: form.name, formats: [], skipped: true, skipReason: 'Form export failed' });
         }
+      } catch (err) {
+        console.warn('Required forms export failed (non-fatal):', (err as Error)?.message);
       }
-    } catch (err) {
-      console.warn('Required forms export failed (non-fatal):', (err as Error)?.message);
+      }
     }
 
     // Check if any documents were actually exported
@@ -414,6 +490,8 @@ export const baseHandler = async (
         exportedDocuments: successfulExports.length,
         skippedDocuments: exportedDocs.filter((d) => d.skipped).length,
         formats: selectedFormats,
+        questionnaireCount,
+        requiredFormsCount,
       },
       documents: exportedDocs,
     });

@@ -19,6 +19,7 @@ import {
 import {
   CheckCircle2,
   ClipboardList,
+  Download,
   Eye,
   FileSpreadsheet,
   FileText,
@@ -29,11 +30,13 @@ import {
   Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
 import { useApi, apiMutate, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { usePermission } from '@/components/permission-wrapper';
 import { ReviewRequiredBanner } from './ReviewRequiredBanner';
 import { useAttachFormToProposal } from '../hooks/useAttachFormToProposal';
+import { ExportAllRequiredFormsDialog } from './ExportAllRequiredFormsDialog';
 
 import type { RequiredFormItem, RequiredFormsListResponse } from '@auto-rfp/core';
 
@@ -283,9 +286,11 @@ export const RequiredFormsList = ({ orgId, projectId, opportunityId }: RequiredF
   const canEdit = usePermission('form:edit');
   const canDelete = usePermission('form:delete');
   const { confirm, ConfirmDialog } = useConfirmDialog();
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
   const forms = data?.forms ?? [];
   const attachedCount = forms.filter((f) => f.attachedToProposal).length;
+  const exportableForms = forms.filter((f) => f.fields.length > 0 && f.sourceFileKey);
 
   return (
     <Card>
@@ -305,6 +310,17 @@ export const RequiredFormsList = ({ orgId, projectId, opportunityId }: RequiredF
               )}
             </CardDescription>
           </div>
+          {!isLoading && exportableForms.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 shrink-0"
+              onClick={() => setExportDialogOpen(true)}
+            >
+              <Download className="h-4 w-4" />
+              Export All
+            </Button>
+          )}
         </div>
       </CardHeader>
 
@@ -340,6 +356,14 @@ export const RequiredFormsList = ({ orgId, projectId, opportunityId }: RequiredF
         )}
       </CardContent>
       <ConfirmDialog />
+      <ExportAllRequiredFormsDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        projectId={projectId}
+        orgId={orgId}
+        opportunityId={opportunityId}
+        forms={forms}
+      />
     </Card>
   );
 };
