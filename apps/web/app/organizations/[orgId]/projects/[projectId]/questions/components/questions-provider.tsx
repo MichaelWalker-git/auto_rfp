@@ -4,6 +4,7 @@ import React, { createContext, ReactNode, useCallback, useContext, useEffect, us
 import { toast } from '@/components/ui/use-toast';
 import {
   AnswerSource,
+  type AnswerResolution,
   ConfidenceBand,
   ConfidenceBreakdown,
   GroupedSection,
@@ -12,7 +13,7 @@ import {
 } from '@auto-rfp/core';
 import { useQuestions as useLoadQuestions } from '@/lib/hooks/use-api';
 import { useProject } from '@/lib/hooks/use-project';
-import { useApproveAnswer, useGenerateAnswer, useSaveAnswer } from '@/lib/hooks/use-answer';
+import { useAnswerGenerationStatus, useApproveAnswer, useGenerateAnswer, useSaveAnswer } from '@/lib/hooks/use-answer';
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { useKnowledgeBases } from '@/lib/hooks/use-knowledgebase';
 
@@ -30,6 +31,8 @@ interface AnswerData {
   confidence?: number;
   confidenceBreakdown?: ConfidenceBreakdown;
   confidenceBand?: ConfidenceBand;
+  /** Why the answer is in its current state (e.g. NO_KB_MATCH when the AI found nothing in the KB) */
+  resolution?: AnswerResolution;
   // Status & audit fields
   status?: string;
   updatedBy?: string;
@@ -170,7 +173,9 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   // Process state
   const [savingQuestions, setSavingQuestions] = useState<Set<string>>(new Set());
   const [lastSaved, setLastSaved] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState<Record<string, boolean>>({});
+  // Questions the user explicitly clicked "Generate" on. Merged with pipeline
+  // generation below into the `isGenerating` map the UI consumes.
+  const [interactiveGenerating, setInteractiveGenerating] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSource, setSelectedSource] = useState<AnswerSource | null>(null);
   const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
@@ -185,8 +190,19 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   const [approvingAll, setApprovingAll] = useState(false);
 
   const { data: project, isLoading: isProjectLoading } = useProject(projectId);
-  const { data: questionsData, isLoading: isQuestionsLoading, mutate: mutateQuestions } = useLoadQuestions(projectId, opportunityId);
+  const orgId = project?.orgId ?? null;
   const { items: questionFiles, isLoading: isQuestionFilesLoading } = useQuestionFiles(projectId);
+
+  // Authoritative "is generation in flight" signal: a RUNNING answer-generation
+  // Step Function execution for this opportunity. Unlike per-file status, this
+  // also covers cluster-copied questions that have no QUESTION_FILE record.
+  // The hook self-polls every 4s while a run is active and stops when it ends.
+  const { isGenerating: isPipelineGenerating } = useAnswerGenerationStatus(projectId, opportunityId ?? null, orgId);
+
+  // While the pipeline is generating, poll the questions+answers feed so answers
+  // appear (and their spinners clear) live as each one lands.
+  const { data: questionsData, isLoading: isQuestionsLoading, mutate: mutateQuestions } =
+    useLoadQuestions(projectId, opportunityId, false, isPipelineGenerating ? { refreshInterval: 4_000 } : undefined);
   const { trigger: saveAnswer } = useSaveAnswer(projectId);
   const { trigger: approveAnswer } = useApproveAnswer(projectId);
   const { trigger: generateAnswer } = useGenerateAnswer();
@@ -195,13 +211,32 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   const questions = questionsData ? { sections: questionsData.sections } : undefined;
   const serverAnswers = questionsData?.answers;
 
+  // Effective per-question "generating" map exposed to the UI. A question shows a
+  // spinner when either (a) the user clicked Generate for it (interactiveGenerating),
+  // or (b) the answer pipeline is running for this opportunity and the question is
+  // still blank. We clear the spinner per-question off the answer text (not the
+  // pipeline signal), so each spinner stops as its own answer lands while the run
+  // continues for its siblings. Keying off the execution — not questionFileId —
+  // means cluster-copied questions (no QUESTION_FILE record) are covered too.
+  const isGenerating = useMemo(() => {
+    if (!isPipelineGenerating) return interactiveGenerating;
+    const merged: Record<string, boolean> = { ...interactiveGenerating };
+    for (const section of questions?.sections ?? []) {
+      for (const q of section.questions) {
+        if (merged[q.id]) continue;
+        const hasAnswer = (answers[q.id]?.text ?? '').trim().length > 0;
+        if (!hasAnswer) merged[q.id] = true;
+      }
+    }
+    return merged;
+  }, [interactiveGenerating, isPipelineGenerating, questions, answers]);
+
   // Ref to track unsaved questions for autosave (avoids stale closure)
   const unsavedQuestionsRef = useRef<Set<string>>(new Set());
   const answersRef = useRef<Record<string, AnswerData>>({});
   const questionsRef = useRef<{ sections: GroupedSection[] } | undefined>({ sections: [] });
 
-  // Get orgId from project to load knowledge bases
-  const orgId = project?.orgId ?? null;
+  // orgId (derived above from project) is also used to load knowledge bases
   const { data: knowledgeBases, isLoading: isKnowledgeBasesLoading } = useKnowledgeBases(orgId);
 
   // Questions and answers come from the same API call, so they share the same loading state
@@ -277,7 +312,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       return;
     }
 
-    setIsGenerating((prev) => ({ ...prev, [questionId]: true }));
+    setInteractiveGenerating((prev) => ({ ...prev, [questionId]: true }));
 
     const questionLabel = question.questionNumber
       ? `Question ${question.questionNumber}`
@@ -289,7 +324,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     });
 
     try {
-      const { answer, confidence, confidenceBreakdown, confidenceBand, found, sources } = await generateAnswer({
+      const { answer, confidence, confidenceBreakdown, confidenceBand, found, resolution, sources } = await generateAnswer({
         orgId,
         projectId,
         questionId,
@@ -306,6 +341,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
           confidence,
           confidenceBreakdown,
           confidenceBand,
+          resolution,
         } as AnswerData,
       }));
 
@@ -335,7 +371,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
         variant: 'destructive',
       });
     } finally {
-      setIsGenerating((prev) => ({ ...prev, [questionId]: false }));
+      setInteractiveGenerating((prev) => ({ ...prev, [questionId]: false }));
     }
   };
 

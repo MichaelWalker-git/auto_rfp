@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   AnswerSourceSchema,
   AnswerItemSchema,
+  AnswerResolutionSchema,
   SaveAnswerDTOSchema,
   AnswerQuestionRequestBodySchema,
   BedrockAnswerResultSchema,
@@ -122,6 +123,33 @@ describe('AnswerItemSchema', () => {
     const result = AnswerItemSchema.parse(answerWithMultipleSources);
     expect(result.sources).toHaveLength(3);
   });
+
+  it('should accept a valid resolution value', () => {
+    const result = AnswerItemSchema.parse({ ...validAnswer, resolution: 'NO_KB_MATCH' });
+    expect(result.resolution).toBe('NO_KB_MATCH');
+  });
+
+  it('should treat resolution as optional (legacy answers)', () => {
+    const result = AnswerItemSchema.parse(validAnswer);
+    expect(result.resolution).toBeUndefined();
+  });
+
+  it('should reject an unknown resolution value', () => {
+    expect(() => AnswerItemSchema.parse({ ...validAnswer, resolution: 'MAYBE' })).toThrow();
+  });
+});
+
+describe('AnswerResolutionSchema', () => {
+  it('should accept all known resolution values', () => {
+    expect(AnswerResolutionSchema.parse('ANSWERED')).toBe('ANSWERED');
+    expect(AnswerResolutionSchema.parse('NO_KB_MATCH')).toBe('NO_KB_MATCH');
+    expect(AnswerResolutionSchema.parse('GENERATION_FAILED')).toBe('GENERATION_FAILED');
+  });
+
+  it('should reject unknown values', () => {
+    expect(() => AnswerResolutionSchema.parse('UNKNOWN')).toThrow();
+    expect(() => AnswerResolutionSchema.parse('')).toThrow();
+  });
 });
 
 describe('SaveAnswerDTOSchema', () => {
@@ -159,6 +187,16 @@ describe('SaveAnswerDTOSchema', () => {
     expect(result.projectId).toBeUndefined();
     expect(result.organizationId).toBeUndefined();
     expect(result.sources).toBeUndefined();
+    expect(result.resolution).toBeUndefined();
+  });
+
+  it('should accept a resolution value', () => {
+    const result = SaveAnswerDTOSchema.parse({
+      questionId: 'question-123',
+      text: 'Answer text',
+      resolution: 'ANSWERED',
+    });
+    expect(result.resolution).toBe('ANSWERED');
   });
 });
 

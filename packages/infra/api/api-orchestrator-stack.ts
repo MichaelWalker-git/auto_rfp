@@ -77,6 +77,7 @@ export interface ApiOrchestratorStackProps extends cdk.StackProps {
   auditLogQueueName?: string;
   documentPipelineStateMachineArn: string;
   questionPipelineStateMachineArn: string;
+  answerGenerationStateMachineArn: string;
   textractFormsTopicArn: string;
   textractFormsRoleArn: string;
   sentryDNS: string;
@@ -118,6 +119,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       auditLogQueueName,
       documentPipelineStateMachineArn,
       questionPipelineStateMachineArn,
+      answerGenerationStateMachineArn,
       textractFormsTopicArn,
       textractFormsRoleArn,
       sentryDNS,
@@ -189,6 +191,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
       STATE_MACHINE_ARN: documentPipelineStateMachineArn,
       QUESTION_PIPELINE_STATE_MACHINE_ARN: questionPipelineStateMachineArn,
+      ANSWER_GENERATION_STATE_MACHINE_ARN: answerGenerationStateMachineArn,
       TEXTRACT_FORMS_SNS_TOPIC_ARN: textractFormsTopicArn,
       TEXTRACT_FORMS_ROLE_ARN: textractFormsRoleArn,
       SENTRY_DSN: sentryDNS,
@@ -284,19 +287,32 @@ export class ApiOrchestratorStack extends cdk.Stack {
       arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
     }, this);
 
+    // Answer-generation state machine is named `AutoRfp-${stage}-AnswerGen-Pipeline`
+    // (see packages/infra/answer-generation-step-function.ts). The status endpoint
+    // calls ListExecutions on it.
+    const answerGenExecutionArn = cdk.Arn.format({
+      service: 'states',
+      resource: 'execution',
+      resourceName: `AutoRfp-${stage}-AnswerGen-Pipeline:*`,
+      arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
+    }, this);
+
     sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
-        sid: 'StepFunctionsExecutionControl2', 
+        sid: 'StepFunctionsExecutionControl2',
         actions: [
           'states:StartExecution',
           'states:StopExecution',
           'states:DescribeExecution',
+          'states:ListExecutions',
         ],
         resources: [
           documentPipelineStateMachineArn,
           questionPipelineStateMachineArn,
+          answerGenerationStateMachineArn,
           docPipelineExecutionArn,
           questionPipelineExecutionArn,
+          answerGenExecutionArn,
         ],
       }),
     );

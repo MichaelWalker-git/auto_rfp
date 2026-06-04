@@ -294,6 +294,7 @@ export function QuestionsTabsContent({
                   <QuestionNavigator
                     sections={rfpDocument.sections}
                     answers={answers}
+                    isGenerating={isGenerating}
                     unsavedQuestions={unsavedQuestions}
                     onSelectQuestion={onSelectQuestion}
                     searchQuery={searchQuery}
@@ -312,6 +313,7 @@ export function QuestionsTabsContent({
                 filterType={filterType}
                 title={getFilterTitle()}
                 emptyMessage={getEmptyMessage()}
+                isGenerating={isGenerating}
               />
             )}
           </div>
