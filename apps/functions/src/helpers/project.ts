@@ -28,7 +28,35 @@ export async function createProject(dto: CreateProjectDTO, createdBy?: string): 
   );
 }
 
-export async function getProjectById(projectId: string): Promise<DBProjectItem| null> {
+export async function getProjectById(projectId: string, orgId?: string): Promise<DBProjectItem | null> {
+  // Fast path: when the caller knows the orgId we can build the exact SK
+  // (`${orgId}#${projectId}`, matching createProject) and fetch the project with a
+  // single GetItem instead of paginating a full-table Scan (see Sentry AUTO-RFP-E8).
+  if (orgId) {
+    const projectRes = await docClient.send(
+      new GetCommand({
+        TableName: DB_TABLE_NAME,
+        Key: { [PK_NAME]: PROJECT_PK, [SK_NAME]: `${orgId}#${projectId}` },
+      }),
+    );
+
+    const project = projectRes.Item as DBProjectItem | undefined;
+    if (!project) {
+      return null;
+    }
+
+    const orgRes = await docClient.send(
+      new GetCommand({
+        TableName: DB_TABLE_NAME,
+        Key: { [PK_NAME]: ORG_PK, [SK_NAME]: orgId },
+      }),
+    );
+
+    return { ...project, organization: orgRes.Item } as DBProjectItem;
+  }
+
+  // Fallback: orgId unknown (e.g. resolving a project from a brief/approval), so scan
+  // for the SK ending in `#${projectId}`.
   const items: any[] = [];
   let ExclusiveStartKey: Record<string, any> | undefined = undefined;
 
@@ -72,12 +100,12 @@ export async function getProjectById(projectId: string): Promise<DBProjectItem| 
     return null;
   }
 
-  const orgId: string = safeSplitAt(exact[SK_NAME], '#', 0);
+  const resolvedOrgId: string = safeSplitAt(exact[SK_NAME], '#', 0);
   const orgRes = await docClient.send(new GetCommand({
     TableName: DB_TABLE_NAME,
     Key: {
       [PK_NAME]: ORG_PK,
-      [SK_NAME]: orgId,
+      [SK_NAME]: resolvedOrgId,
     },
   }));
 
