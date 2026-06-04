@@ -172,3 +172,17 @@ export const AnswerQuestionResponseSchema = z.object({
 });
 
 export type AnswerQuestionResponse = z.infer<typeof AnswerQuestionResponseSchema>;
+
+// ─── Answer Generation Status ───
+//
+// Reports whether the answer-generation Step Function is currently running for
+// an opportunity. This is the authoritative "is generation in flight" signal —
+// it covers cluster-copied questions that have no QUESTION_FILE record, which a
+// per-file status flag cannot. `executionArn` is the running execution when one
+// is found.
+export const AnswerGenerationStatusResponseSchema = z.object({
+  isGenerating: z.boolean(),
+  executionArn: z.string().optional(),
+});
+
+export type AnswerGenerationStatusResponse = z.infer<typeof AnswerGenerationStatusResponseSchema>;

@@ -13,10 +13,9 @@ import {
 } from '@auto-rfp/core';
 import { useQuestions as useLoadQuestions } from '@/lib/hooks/use-api';
 import { useProject } from '@/lib/hooks/use-project';
-import { useApproveAnswer, useGenerateAnswer, useSaveAnswer } from '@/lib/hooks/use-answer';
+import { useAnswerGenerationStatus, useApproveAnswer, useGenerateAnswer, useSaveAnswer } from '@/lib/hooks/use-answer';
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { useKnowledgeBases } from '@/lib/hooks/use-knowledgebase';
-import { QUESTION_FILE_GENERATING_STATUS } from '@/lib/utils/question-file-status';
 
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
@@ -191,16 +190,14 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   const [approvingAll, setApprovingAll] = useState(false);
 
   const { data: project, isLoading: isProjectLoading } = useProject(projectId);
-  // Poll question files frequently so a pipeline run flipping a file into/out of
-  // GENERATING_ANSWERS is reflected without a manual refresh.
-  const { items: questionFiles, isLoading: isQuestionFilesLoading } = useQuestionFiles(projectId, { refreshInterval: 4_000 });
+  const orgId = project?.orgId ?? null;
+  const { items: questionFiles, isLoading: isQuestionFilesLoading } = useQuestionFiles(projectId);
 
-  // Files the pipeline is currently generating answers for.
-  const generatingFileIds = useMemo(
-    () => new Set((questionFiles ?? []).filter((f) => f.status === QUESTION_FILE_GENERATING_STATUS).map((f) => f.questionFileId)),
-    [questionFiles],
-  );
-  const isPipelineGenerating = generatingFileIds.size > 0;
+  // Authoritative "is generation in flight" signal: a RUNNING answer-generation
+  // Step Function execution for this opportunity. Unlike per-file status, this
+  // also covers cluster-copied questions that have no QUESTION_FILE record.
+  // The hook self-polls every 4s while a run is active and stops when it ends.
+  const { isGenerating: isPipelineGenerating } = useAnswerGenerationStatus(projectId, opportunityId ?? null, orgId);
 
   // While the pipeline is generating, poll the questions+answers feed so answers
   // appear (and their spinners clear) live as each one lands.
@@ -216,31 +213,30 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
 
   // Effective per-question "generating" map exposed to the UI. A question shows a
   // spinner when either (a) the user clicked Generate for it (interactiveGenerating),
-  // or (b) the pipeline is generating answers for its file and the question is still
-  // blank — once an answer lands, the file may still be GENERATING_ANSWERS for its
-  // siblings, so we clear the spinner per-question off the answer text, not the file.
+  // or (b) the answer pipeline is running for this opportunity and the question is
+  // still blank. We clear the spinner per-question off the answer text (not the
+  // pipeline signal), so each spinner stops as its own answer lands while the run
+  // continues for its siblings. Keying off the execution — not questionFileId —
+  // means cluster-copied questions (no QUESTION_FILE record) are covered too.
   const isGenerating = useMemo(() => {
-    if (generatingFileIds.size === 0) return interactiveGenerating;
+    if (!isPipelineGenerating) return interactiveGenerating;
     const merged: Record<string, boolean> = { ...interactiveGenerating };
     for (const section of questions?.sections ?? []) {
       for (const q of section.questions) {
         if (merged[q.id]) continue;
-        const fileId = q.questionFileId;
-        if (!fileId || !generatingFileIds.has(fileId)) continue;
         const hasAnswer = (answers[q.id]?.text ?? '').trim().length > 0;
         if (!hasAnswer) merged[q.id] = true;
       }
     }
     return merged;
-  }, [interactiveGenerating, generatingFileIds, questions, answers]);
+  }, [interactiveGenerating, isPipelineGenerating, questions, answers]);
 
   // Ref to track unsaved questions for autosave (avoids stale closure)
   const unsavedQuestionsRef = useRef<Set<string>>(new Set());
   const answersRef = useRef<Record<string, AnswerData>>({});
   const questionsRef = useRef<{ sections: GroupedSection[] } | undefined>({ sections: [] });
 
-  // Get orgId from project to load knowledge bases
-  const orgId = project?.orgId ?? null;
+  // orgId (derived above from project) is also used to load knowledge bases
   const { data: knowledgeBases, isLoading: isKnowledgeBasesLoading } = useKnowledgeBases(orgId);
 
   // Questions and answers come from the same API call, so they share the same loading state
