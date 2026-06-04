@@ -83,6 +83,37 @@ describe('get-answer-generation-status', () => {
     expect(parseBody(response)).toEqual({ isGenerating: false });
   });
 
+  it('does not match a different opportunity whose id shares this one as a prefix', async () => {
+    // opportunityId 'abc' must NOT match a run for 'abc-def'. A naive
+    // .includes/.startsWith would false-positive here; we strip the
+    // `-<timestamp>` suffix and compare the remainder exactly.
+    const baseHandler = loadHandler(STATE_MACHINE_ARN);
+    mockSfnSend.mockResolvedValueOnce({
+      executions: [{ name: 'abc-def-1700000000000', executionArn: 'arn:abc-def' }],
+    });
+
+    const response = await baseHandler(makeEvent({ projectId: 'proj-1', opportunityId: 'abc' }));
+
+    expect(response).toMatchObject({ statusCode: 200 });
+    expect(parseBody(response)).toEqual({ isGenerating: false });
+  });
+
+  it('matches the exact opportunity even when a prefix-sharing run is also present', async () => {
+    const baseHandler = loadHandler(STATE_MACHINE_ARN);
+    const executionArn = `${STATE_MACHINE_ARN.replace('stateMachine', 'execution')}:abc-1700000000000`;
+    mockSfnSend.mockResolvedValueOnce({
+      executions: [
+        { name: 'abc-def-1700000000000', executionArn: 'arn:abc-def' },
+        { name: 'abc-1700000000000', executionArn },
+      ],
+    });
+
+    const response = await baseHandler(makeEvent({ projectId: 'proj-1', opportunityId: 'abc' }));
+
+    expect(response).toMatchObject({ statusCode: 200 });
+    expect(parseBody(response)).toEqual({ isGenerating: true, executionArn });
+  });
+
   it('returns isGenerating=false when there are no running executions', async () => {
     const baseHandler = loadHandler(STATE_MACHINE_ARN);
     mockSfnSend.mockResolvedValueOnce({ executions: [] });

@@ -56,9 +56,13 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
     );
 
     // Execution names are `${opportunityId}-${Date.now()}` (see
-    // check-and-trigger-answers.ts), so a substring match on opportunityId
-    // identifies the run for this opportunity.
-    const runningForOpportunity = executions.executions?.find((e) => e.name?.includes(opportunityId));
+    // check-and-trigger-answers.ts). Strip the trailing `-<digits>` timestamp and
+    // compare the remainder exactly, so an opportunity whose id is a prefix of (or
+    // a substring of) another never matches. opportunityIds are UUIDs that contain
+    // hyphens, so a prefix/startsWith match would not be safe here.
+    const runningForOpportunity = executions.executions?.find(
+      (e) => e.name?.replace(/-\d+$/, '') === opportunityId,
+    );
 
     return apiResponse(200, {
       isGenerating: !!runningForOpportunity,
