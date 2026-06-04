@@ -16,6 +16,7 @@ import { useProject } from '@/lib/hooks/use-project';
 import { useApproveAnswer, useGenerateAnswer, useSaveAnswer } from '@/lib/hooks/use-answer';
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { useKnowledgeBases } from '@/lib/hooks/use-knowledgebase';
+import { QUESTION_FILE_GENERATING_STATUS } from '@/lib/utils/question-file-status';
 
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
@@ -173,7 +174,9 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   // Process state
   const [savingQuestions, setSavingQuestions] = useState<Set<string>>(new Set());
   const [lastSaved, setLastSaved] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState<Record<string, boolean>>({});
+  // Questions the user explicitly clicked "Generate" on. Merged with pipeline
+  // generation below into the `isGenerating` map the UI consumes.
+  const [interactiveGenerating, setInteractiveGenerating] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSource, setSelectedSource] = useState<AnswerSource | null>(null);
   const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
@@ -188,8 +191,21 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   const [approvingAll, setApprovingAll] = useState(false);
 
   const { data: project, isLoading: isProjectLoading } = useProject(projectId);
-  const { data: questionsData, isLoading: isQuestionsLoading, mutate: mutateQuestions } = useLoadQuestions(projectId, opportunityId);
-  const { items: questionFiles, isLoading: isQuestionFilesLoading } = useQuestionFiles(projectId);
+  // Poll question files frequently so a pipeline run flipping a file into/out of
+  // GENERATING_ANSWERS is reflected without a manual refresh.
+  const { items: questionFiles, isLoading: isQuestionFilesLoading } = useQuestionFiles(projectId, { refreshInterval: 4_000 });
+
+  // Files the pipeline is currently generating answers for.
+  const generatingFileIds = useMemo(
+    () => new Set((questionFiles ?? []).filter((f) => f.status === QUESTION_FILE_GENERATING_STATUS).map((f) => f.questionFileId)),
+    [questionFiles],
+  );
+  const isPipelineGenerating = generatingFileIds.size > 0;
+
+  // While the pipeline is generating, poll the questions+answers feed so answers
+  // appear (and their spinners clear) live as each one lands.
+  const { data: questionsData, isLoading: isQuestionsLoading, mutate: mutateQuestions } =
+    useLoadQuestions(projectId, opportunityId, false, isPipelineGenerating ? { refreshInterval: 4_000 } : undefined);
   const { trigger: saveAnswer } = useSaveAnswer(projectId);
   const { trigger: approveAnswer } = useApproveAnswer(projectId);
   const { trigger: generateAnswer } = useGenerateAnswer();
@@ -197,6 +213,26 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   // Extract questions (sections) and server answers from the combined response
   const questions = questionsData ? { sections: questionsData.sections } : undefined;
   const serverAnswers = questionsData?.answers;
+
+  // Effective per-question "generating" map exposed to the UI. A question shows a
+  // spinner when either (a) the user clicked Generate for it (interactiveGenerating),
+  // or (b) the pipeline is generating answers for its file and the question is still
+  // blank — once an answer lands, the file may still be GENERATING_ANSWERS for its
+  // siblings, so we clear the spinner per-question off the answer text, not the file.
+  const isGenerating = useMemo(() => {
+    if (generatingFileIds.size === 0) return interactiveGenerating;
+    const merged: Record<string, boolean> = { ...interactiveGenerating };
+    for (const section of questions?.sections ?? []) {
+      for (const q of section.questions) {
+        if (merged[q.id]) continue;
+        const fileId = q.questionFileId;
+        if (!fileId || !generatingFileIds.has(fileId)) continue;
+        const hasAnswer = (answers[q.id]?.text ?? '').trim().length > 0;
+        if (!hasAnswer) merged[q.id] = true;
+      }
+    }
+    return merged;
+  }, [interactiveGenerating, generatingFileIds, questions, answers]);
 
   // Ref to track unsaved questions for autosave (avoids stale closure)
   const unsavedQuestionsRef = useRef<Set<string>>(new Set());
@@ -280,7 +316,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       return;
     }
 
-    setIsGenerating((prev) => ({ ...prev, [questionId]: true }));
+    setInteractiveGenerating((prev) => ({ ...prev, [questionId]: true }));
 
     const questionLabel = question.questionNumber
       ? `Question ${question.questionNumber}`
@@ -339,7 +375,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
         variant: 'destructive',
       });
     } finally {
-      setIsGenerating((prev) => ({ ...prev, [questionId]: false }));
+      setInteractiveGenerating((prev) => ({ ...prev, [questionId]: false }));
     }
   };
 
