@@ -22,7 +22,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
 
   try {
     // Verify project exists and belongs to the requesting org
-    const project = await getProjectById(projectId);
+    const project = await getProjectById(projectId, orgId);
     if (!project) {
       return apiResponse(404, { message: 'Project not found' });
     }

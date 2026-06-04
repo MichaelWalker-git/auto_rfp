@@ -31,7 +31,7 @@ export const baseHandler = async (event: AuthedEvent) => {
     const { userId, projectId } = data;
 
     // Check project exists and belongs to org
-    const project = await getProjectById(projectId);
+    const project = await getProjectById(projectId, orgId);
     if (!project || project.orgId !== orgId) {
       return apiResponse(404, { message: 'Project not found' });
     }

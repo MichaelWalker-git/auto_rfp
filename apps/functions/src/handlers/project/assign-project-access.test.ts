@@ -80,17 +80,15 @@ describe('assign-project-access', () => {
   });
 
   it('org admin can assign access without having explicit project access', async () => {
-    // getProjectById returns a project (via ScanCommand)
+    // getProjectById fast path: direct GetItem on the project (orgId is known)
     mockSend.mockResolvedValueOnce({
-      Items: [
-        {
-          partition_key: 'PROJECT',
-          sort_key: 'org-1#proj-1',
-          id: 'proj-1',
-          orgId: 'org-1',
-          createdBy: 'other-user',
-        },
-      ],
+      Item: {
+        partition_key: 'PROJECT',
+        sort_key: 'org-1#proj-1',
+        id: 'proj-1',
+        orgId: 'org-1',
+        createdBy: 'other-user',
+      },
     });
     // getProjectById also fetches org
     mockSend.mockResolvedValueOnce({ Item: { id: 'org-1', name: 'Test Org' } });
@@ -108,17 +106,15 @@ describe('assign-project-access', () => {
   });
 
   it('project creator can assign access even if not org admin', async () => {
-    // getProjectById
+    // getProjectById fast path: direct GetItem on the project
     mockSend.mockResolvedValueOnce({
-      Items: [
-        {
-          partition_key: 'PROJECT',
-          sort_key: 'org-1#proj-1',
-          id: 'proj-1',
-          orgId: 'org-1',
-          createdBy: 'creator-user',
-        },
-      ],
+      Item: {
+        partition_key: 'PROJECT',
+        sort_key: 'org-1#proj-1',
+        id: 'proj-1',
+        orgId: 'org-1',
+        createdBy: 'creator-user',
+      },
     });
     mockSend.mockResolvedValueOnce({ Item: { id: 'org-1' } });
 
@@ -135,17 +131,15 @@ describe('assign-project-access', () => {
   });
 
   it('non-admin non-creator gets 403', async () => {
-    // getProjectById
+    // getProjectById fast path: direct GetItem on the project
     mockSend.mockResolvedValueOnce({
-      Items: [
-        {
-          partition_key: 'PROJECT',
-          sort_key: 'org-1#proj-1',
-          id: 'proj-1',
-          orgId: 'org-1',
-          createdBy: 'someone-else',
-        },
-      ],
+      Item: {
+        partition_key: 'PROJECT',
+        sort_key: 'org-1#proj-1',
+        id: 'proj-1',
+        orgId: 'org-1',
+        createdBy: 'someone-else',
+      },
     });
     mockSend.mockResolvedValueOnce({ Item: { id: 'org-1' } });
 
