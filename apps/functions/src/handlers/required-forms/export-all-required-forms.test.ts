@@ -17,6 +17,7 @@ jest.mock('@aws-sdk/client-s3', () => ({
   })),
   GetObjectCommand: jest.fn((params) => ({ type: 'GetObjectCommand', params })),
   PutObjectCommand: jest.fn((params) => ({ type: 'PutObjectCommand', params })),
+  DeleteObjectCommand: jest.fn((params) => ({ type: 'DeleteObjectCommand', params })),
 }));
 
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
@@ -59,6 +60,7 @@ jest.mock('pdf-lib', () => ({
     })),
     load: jest.fn(() => Promise.resolve({
       getPageIndices: jest.fn(() => [0]),
+      getPageCount: jest.fn(() => 5), // Mock: PDF has 5 pages
     })),
   },
 }));

@@ -9,7 +9,7 @@ import {
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { withSentryLambda } from '@/sentry-lambda';
 import { listRequiredFormsByOpportunity, type RequiredFormDBItem } from '@/helpers/required-form';
@@ -78,9 +78,10 @@ const exportFilledForm = async (
   opportunityId: string,
   form: RequiredFormDBItem,
 ): Promise<{ buffer: Buffer | null; error?: string }> => {
+  const outputKey = `${orgId}/${projectId}/${opportunityId}/required-forms/${form.formId}/export-temp.pdf`;
+
   try {
     // Fill the PDF form
-    const outputKey = `${orgId}/${projectId}/${opportunityId}/required-forms/${form.formId}/export-temp.pdf`;
     await fillPdfForm({
       sourceFileKey: form.sourceFileKey,
       fields: form.fields,
@@ -115,9 +116,27 @@ const exportFilledForm = async (
         // Convert 1-indexed Set to 0-indexed array for pdf-lib
         const pageIndices = Array.from(pageSet).map(p => p - 1);
 
-        // Create new PDF with only specified pages
+        // Validate indices against actual PDF page count
+        const pageCount = filledPdf.getPageCount();
+        const validIndices = pageIndices.filter(i => i >= 0 && i < pageCount);
+
+        if (validIndices.length === 0) {
+          console.warn(
+            `No valid pages in range "${form.sourcePageRange}" for form "${form.name}" (PDF has ${pageCount} pages) - using full PDF`,
+          );
+          return { buffer: Buffer.from(filledBytes) };
+        }
+
+        if (validIndices.length < pageIndices.length) {
+          const invalidCount = pageIndices.length - validIndices.length;
+          console.warn(
+            `Page range "${form.sourcePageRange}" for form "${form.name}" contains ${invalidCount} out-of-bounds pages (PDF has ${pageCount} pages) - extracting ${validIndices.length} valid pages`,
+          );
+        }
+
+        // Create new PDF with only valid pages
         const extractedPdf = await PDFDocument.create();
-        const copiedPages = await extractedPdf.copyPages(filledPdf, pageIndices);
+        const copiedPages = await extractedPdf.copyPages(filledPdf, validIndices);
         copiedPages.forEach(page => extractedPdf.addPage(page));
 
         const extractedBytes = await extractedPdf.save();
@@ -132,6 +151,19 @@ const exportFilledForm = async (
   } catch (err) {
     console.error(`Failed to export form "${form.name}" (${form.formId}):`, err);
     return { buffer: null, error: err instanceof Error ? err.message : 'Export failed' };
+  } finally {
+    // Clean up temporary file to prevent S3 storage leak
+    try {
+      await s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: DOCUMENTS_BUCKET,
+          Key: outputKey,
+        }),
+      );
+    } catch (cleanupErr) {
+      console.warn(`Failed to delete temp file ${outputKey}:`, cleanupErr);
+      // Don't fail the export if cleanup fails
+    }
   }
 };
 
@@ -316,7 +348,8 @@ export const baseHandler = async (
 
       if (buffer) {
         const sanitizedName = sanitizeFileName(form.name).slice(0, 80);
-        zip.file(`${sanitizedName}.pdf`, buffer);
+        const uniqueId = form.formId.slice(0, 8);
+        zip.file(`${sanitizedName}-${uniqueId}.pdf`, buffer);
         exportedForms.push({
           formId: form.formId,
           name: form.name,

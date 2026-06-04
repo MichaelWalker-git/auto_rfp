@@ -9,7 +9,7 @@ import {
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { withSentryLambda } from '@/sentry-lambda';
 import { listRFPDocumentsByProject } from '@/helpers/rfp-document';
@@ -323,7 +323,8 @@ export const baseHandler = async (
 
             const fileName = doc.originalFileName || doc.name || 'questionnaire.xlsx';
             const sanitizedName = sanitizeFileName(fileName.replace(/\.xlsx$/i, '')).slice(0, 80);
-            zip.file(`Questionnaires/${sanitizedName}.xlsx`, bytes);
+            const uniqueId = doc.documentId.slice(0, 8);
+            zip.file(`Questionnaires/${sanitizedName}-${uniqueId}.xlsx`, bytes);
             exportedDocs.push({ documentId: doc.documentId, title: doc.name, formats: ['xlsx'], skipped: false });
             questionnaireCount++;
           } catch (qErr) {
@@ -350,8 +351,8 @@ export const baseHandler = async (
         const formsWithFields = forms.filter((f) => f.fields.length > 0 && f.sourceFileKey);
 
         for (const form of formsWithFields) {
+          const outputKey = `${orgId}/${projectId}/${opportunityId}/required-forms/${form.formId}/export-temp.pdf`;
           try {
-            const outputKey = `${orgId}/${projectId}/${opportunityId}/required-forms/${form.formId}/export-temp.pdf`;
             await fillPdfForm({ sourceFileKey: form.sourceFileKey, fields: form.fields, outputKey });
 
             const filledObj = await s3Client.send(new GetObjectCommand({ Bucket: DOCUMENTS_BUCKET, Key: outputKey }));
@@ -369,10 +370,31 @@ export const baseHandler = async (
                 } else {
                   // Convert 1-indexed Set to 0-indexed array for pdf-lib
                   const pageIndices = Array.from(pageSet).map(p => p - 1);
-                  const extractedPdf = await PDFDocument.create();
-                  const copiedPages = await extractedPdf.copyPages(filledPdf, pageIndices);
-                  copiedPages.forEach(page => extractedPdf.addPage(page));
-                  filledBytes = await extractedPdf.save();
+
+                  // Validate indices against actual PDF page count
+                  const pageCount = filledPdf.getPageCount();
+                  const validIndices = pageIndices.filter(i => i >= 0 && i < pageCount);
+
+                  if (validIndices.length === 0) {
+                    console.warn(
+                      `No valid pages in range "${form.sourcePageRange}" for form "${form.name}" (PDF has ${pageCount} pages) - using full PDF`,
+                    );
+                  } else if (validIndices.length < pageIndices.length) {
+                    const invalidCount = pageIndices.length - validIndices.length;
+                    console.warn(
+                      `Page range "${form.sourcePageRange}" for form "${form.name}" contains ${invalidCount} out-of-bounds pages (PDF has ${pageCount} pages) - extracting ${validIndices.length} valid pages`,
+                    );
+                    const extractedPdf = await PDFDocument.create();
+                    const copiedPages = await extractedPdf.copyPages(filledPdf, validIndices);
+                    copiedPages.forEach(page => extractedPdf.addPage(page));
+                    filledBytes = await extractedPdf.save();
+                  } else {
+                    // All indices valid
+                    const extractedPdf = await PDFDocument.create();
+                    const copiedPages = await extractedPdf.copyPages(filledPdf, validIndices);
+                    copiedPages.forEach(page => extractedPdf.addPage(page));
+                    filledBytes = await extractedPdf.save();
+                  }
                 }
               } catch (extractErr) {
                 console.warn(`Failed to extract pages for form "${form.name}":`, (extractErr as Error)?.message);
@@ -381,13 +403,22 @@ export const baseHandler = async (
 
             if (filledBytes) {
               const sanitizedFormName = form.name.replace(/[^a-zA-Z0-9\s\-_()]/g, '').trim().slice(0, 80) || 'Form';
-              zip.file(`Required Forms/${sanitizedFormName}.pdf`, filledBytes);
+              const uniqueId = form.formId.slice(0, 8);
+              zip.file(`Required Forms/${sanitizedFormName}-${uniqueId}.pdf`, filledBytes);
               exportedDocs.push({ documentId: form.formId, title: form.name, formats: ['pdf'], skipped: false });
               requiredFormsCount++;
             }
           } catch (formErr) {
             console.warn(`Failed to export form "${form.name}":`, (formErr as Error)?.message);
             exportedDocs.push({ documentId: form.formId, title: form.name, formats: [], skipped: true, skipReason: 'Form export failed' });
+          } finally {
+            // Clean up temporary file to prevent S3 storage leak
+            try {
+              await s3Client.send(new DeleteObjectCommand({ Bucket: DOCUMENTS_BUCKET, Key: outputKey }));
+            } catch (cleanupErr) {
+              console.warn(`Failed to delete temp file ${outputKey}:`, cleanupErr);
+              // Don't fail the export if cleanup fails
+            }
           }
         }
       } catch (err) {
