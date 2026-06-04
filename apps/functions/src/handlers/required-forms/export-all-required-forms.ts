@@ -290,6 +290,12 @@ const handleMergedExport = async (
     { expiresIn: PRESIGN_EXPIRES_IN },
   );
 
+  setAuditContext(event, {
+    action: 'DOCUMENTS_BULK_EXPORTED',
+    resource: 'document',
+    resourceId: opportunityId,
+  });
+
   return apiResponse(200, {
     success: true,
     fileName: finalFileName,
