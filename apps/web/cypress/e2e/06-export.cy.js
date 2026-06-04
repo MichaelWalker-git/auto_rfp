@@ -63,13 +63,14 @@ describe('Export', () => {
     })
 
     it('DOCX export does not show 403 or permissions error (HOR-1929)', () => {
+      cy.intercept('POST', '**/rfp-document/export-all*').as('exportAll')
       openExportModal()
       cy.contains('Individual Files (ZIP)').click()
       cy.contains('Export Formats', { timeout: 10000 }).should('be.visible')
       cy.contains('Export ZIP').should('be.visible').click()
-      cy.get('body').should('not.contain.text', '403')
-      cy.get('body').should('not.contain.text', 'Forbidden')
-      cy.get('body').should('not.contain.text', 'permission denied')
+      cy.wait('@exportAll', { timeout: 60000 })
+        .its('response.statusCode')
+        .should('not.eq', 403)
     })
   })
 

@@ -45,6 +45,9 @@ jest.mock('@/lib/hooks/use-debriefing', () => ({
   useGenerateDebriefingLetter: () => ({
     generateDebriefingLetter: mockGenerateDebriefingLetter,
   }),
+  useDeleteDebriefing: () => ({
+    deleteDebriefing: jest.fn().mockResolvedValue(undefined),
+  }),
 }));
 
 jest.mock('@/components/ui/use-toast', () => ({
@@ -132,11 +135,9 @@ describe('DebriefingCard', () => {
   });
 
   describe('rendering conditions', () => {
-    it('returns null when project outcome is not LOST', () => {
-      const { container } = render(
-        <DebriefingCard {...defaultProps} projectOutcomeStatus="WON" />
-      );
-      expect(container.firstChild).toBeNull();
+    it('renders even when project outcome is not LOST', () => {
+      render(<DebriefingCard {...defaultProps} projectOutcomeStatus="WON" />);
+      expect(screen.getByText('Debriefing')).toBeInTheDocument();
     });
 
     it('renders when project outcome is LOST', () => {

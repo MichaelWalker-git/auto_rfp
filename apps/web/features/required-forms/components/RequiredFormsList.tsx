@@ -297,7 +297,9 @@ export const RequiredFormsList = ({ orgId, projectId, opportunityId }: RequiredF
       <CardHeader className="pb-2">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="min-w-0">
-            <CardTitle className="text-sm font-medium">Required Forms</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              Required Forms
+            </CardTitle>
             <CardDescription className="mt-1">
               {isLoading ? (
                 <Skeleton className="h-4 w-64" />

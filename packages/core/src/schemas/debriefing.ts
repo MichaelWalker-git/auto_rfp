@@ -142,3 +142,15 @@ export const UpdateDebriefingRequestSchema = z.object({
 });
 
 export type UpdateDebriefingRequest = z.infer<typeof UpdateDebriefingRequestSchema>;
+
+/**
+ * Delete Debriefing DTO
+ */
+export const DeleteDebriefingRequestSchema = z.object({
+  orgId: z.string().min(1, 'Organization ID is required'),
+  projectId: z.string().min(1, 'Project ID is required'),
+  opportunityId: z.string().min(1, 'Opportunity ID is required'),
+  debriefingId: z.string().min(1, 'Debriefing ID is required'),
+});
+
+export type DeleteDebriefingRequest = z.infer<typeof DeleteDebriefingRequestSchema>;

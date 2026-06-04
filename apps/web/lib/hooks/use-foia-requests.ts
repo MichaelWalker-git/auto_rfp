@@ -100,6 +100,28 @@ export function useUpdateFOIARequest() {
   return { updateFOIARequest };
 }
 
+export function useDeleteFOIARequest() {
+  const deleteFOIARequest = async (
+    orgId: string,
+    projectId: string,
+    opportunityId: string,
+    foiaRequestId: string
+  ): Promise<void> => {
+    const baseUrl = env.BASE_API_URL.replace(/\/$/, '');
+    const params = new URLSearchParams({ orgId, projectId, opportunityId, foiaRequestId });
+    const url = `${baseUrl}/foia/delete-foia-request?${params.toString()}`;
+
+    const res = await authFetcher(url, { method: 'DELETE' });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`Failed to delete FOIA request: ${res.status}. ${body}`);
+    }
+  };
+
+  return { deleteFOIARequest };
+}
+
 export function useGenerateFOIALetter() {
   const generateFOIALetter = async (
     orgId: string,

@@ -55,6 +55,7 @@ import { engagementLogDomain } from './routes/engagement-log.routes';
 import { apnDomain } from './routes/apn.routes';
 import { proposalSubmissionDomain } from './routes/proposal-submission.routes';
 import { documentApprovalDomain } from './routes/document-approval.routes';
+import { universalApprovalDomain } from './routes/universal-approval.routes';
 import { pricingDomain } from './routes/pricing.routes';
 import { extractionDomain } from './routes/extraction.routes';
 import { opportunityAssistantDomain } from './routes/opportunity-assistant.routes';
@@ -623,6 +624,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       apnDomain(),
       proposalSubmissionDomain(),
       documentApprovalDomain(),
+      universalApprovalDomain(),
       pricingDomain(),
       extractionDomain({ extractionQueueUrl }),
       opportunityAssistantDomain(),
@@ -696,7 +698,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'ClusteringRoutes', 'CollaborationRoutes', 'OpportunityContextRoutes',
       'NotificationRoutes', 'AuditRoutes', 'AnalyticsRoutes', 'ClarifyingQuestionRoutes',
       'EngagementLogRoutes', 'ApnRoutes', 'ProposalSubmissionRoutes',
-      'DocumentApprovalRoutes', 'PricingRoutes', 'ExtractionRoutes',
+      'DocumentApprovalRoutes', 'UniversalApprovalRoutes', 'PricingRoutes', 'ExtractionRoutes',
       'OpportunityAssistantRoutes',
       'CompanyProfileRoutes',
       'RequiredFormsRoutes',
