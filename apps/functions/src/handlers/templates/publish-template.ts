@@ -39,6 +39,8 @@ const baseHandler = async (
         status: 'DRAFT',
         publishedAt: null,
         publishedBy: null,
+        // A draft can no longer be the default template
+        isDefault: false,
         updatedAt: now,
       });
 

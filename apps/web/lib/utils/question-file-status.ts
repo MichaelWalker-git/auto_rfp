@@ -21,3 +21,13 @@ const EXTRACTED_SET = new Set<string>(QUESTION_FILE_EXTRACTED_STATUSES);
 
 export const isExtractedQuestionFile = (status: string | undefined | null): boolean =>
   !!status && EXTRACTED_SET.has(status);
+
+/**
+ * Status a question-file carries while the pipeline is generating answers for
+ * its questions. The frontend keys "answers are being generated for this file"
+ * off this so it can show a spinner per still-blank question.
+ */
+export const QUESTION_FILE_GENERATING_STATUS = 'GENERATING_ANSWERS';
+
+export const isGeneratingAnswersQuestionFile = (status: string | undefined | null): boolean =>
+  status === QUESTION_FILE_GENERATING_STATUS;

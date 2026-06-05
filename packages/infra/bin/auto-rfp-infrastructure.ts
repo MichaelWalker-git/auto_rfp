@@ -158,6 +158,7 @@ const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {
   auditLogQueueName: `auto-rfp-audit-log-${stage.toLowerCase()}`,
   documentPipelineStateMachineArn: pipelineStack.stateMachine.stateMachineArn,
   questionPipelineStateMachineArn: questionsPipelineStack.stateMachine.stateMachineArn,
+  answerGenerationStateMachineArn: answerGenerationStack.stateMachine.stateMachineArn,
   textractFormsTopicArn: questionsPipelineStack.textractFormsTopicArn,
   textractFormsRoleArn: questionsPipelineStack.textractFormsRoleArn,
   sentryDNS,
@@ -170,6 +171,7 @@ api.addDependency(db);
 api.addDependency(storage);
 api.addDependency(pipelineStack);
 api.addDependency(questionsPipelineStack);
+api.addDependency(answerGenerationStack);
 api.addDependency(opportunityEvents);
 
 const notificationQueueName = `auto-rfp-notifications-${stage.toLowerCase()}`;

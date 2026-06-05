@@ -1,6 +1,7 @@
 import { Context } from 'aws-lambda';
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
+import { AnswerResolution } from '@auto-rfp/core';
 import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
@@ -25,9 +26,24 @@ export interface CopyClusterAnswersResult {
   projectId: string;
   totalClusters: number;
   copiedAnswers: number;
+  /**
+   * Members that received the master's no-answer REASON (NO_KB_MATCH /
+   * GENERATION_FAILED) instead of answer text, because the master itself had no
+   * usable answer. Previously these members were left as silent blanks.
+   */
+  propagatedResolutions: number;
   skippedNoMasterAnswer: number;
   errors: number;
 }
+
+// Zeroed confidence breakdown for members that inherit a no-answer resolution.
+const EMPTY_CONFIDENCE_BREAKDOWN = {
+  contextRelevance: 0,
+  sourceRecency: 0,
+  answerCoverage: 0,
+  sourceAuthority: 0,
+  consistency: 0,
+} as const;
 
 /**
  * Copy answers from master questions to all cluster members
@@ -46,6 +62,7 @@ export const baseHandler = async (
 
   let totalClusters = 0;
   let copiedAnswers = 0;
+  let propagatedResolutions = 0;
   let skippedNoMasterAnswer = 0;
   let errors = 0;
 
@@ -92,44 +109,83 @@ export const baseHandler = async (
         }
         
         const masterAnswer = await getAnswerForQuestion(projectId, clusterOpportunityId, clusterFileId, masterQuestionId);
-        
-        if (!masterAnswer || !masterAnswer.text) {
-          console.log(`Master ${masterQuestionId} has no answer (opp=${clusterOpportunityId}, file=${clusterFileId}), skipping cluster ${cluster.clusterId}`);
+
+        // When the master has no usable text, propagate the REASON to members
+        // instead of leaving them as silent blanks. The master normally carries
+        // a resolution (NO_KB_MATCH / GENERATION_FAILED) from answer generation;
+        // fall back to NO_KB_MATCH when it's a legacy answer with no recorded
+        // resolution. Either way every member ends up with an explanation in the
+        // UI rather than an unexplained empty answer.
+        const masterHasText = !!(masterAnswer && masterAnswer.text && masterAnswer.text.trim().length > 0);
+
+        if (!masterHasText) {
+          const reason: AnswerResolution = masterAnswer?.resolution ?? 'NO_KB_MATCH';
+          console.log(`Master ${masterQuestionId} has no answer (opp=${clusterOpportunityId}, file=${clusterFileId}), propagating resolution=${reason} to ${members.length - 1} members in cluster ${cluster.clusterId}`);
           skippedNoMasterAnswer++;
+
+          for (const member of members) {
+            if (member.questionId === masterQuestionId) continue; // Skip the master itself
+
+            try {
+              const savedAnswer = await saveAnswer({
+                questionId: member.questionId,
+                projectId,
+                opportunityId: clusterOpportunityId,
+                questionFileId: clusterFileId,
+                text: '',
+                confidence: 0,
+                confidenceBreakdown: { ...EMPTY_CONFIDENCE_BREAKDOWN },
+                confidenceBand: 'low',
+                resolution: reason,
+                sources: [],
+                linkedToMasterQuestionId: masterQuestionId,
+                // Never blank out a member that already has a real answer.
+                skipIfAnswered: true,
+              });
+              propagatedResolutions++;
+              console.log(`Propagated resolution=${reason} to ${member.questionId}, savedAnswer id=${savedAnswer?.id}`);
+            } catch (err) {
+              console.error(`Failed to propagate resolution to ${member.questionId}:`, err);
+              errors++;
+            }
+          }
           continue;
         }
-        
+
         console.log(`Copying master ${masterQuestionId} answer to ${members.length - 1} members in cluster ${cluster.clusterId}`);
-        
+
         // Copy to all non-master members
         for (const member of members) {
           if (member.questionId === masterQuestionId) {
             continue; // Skip the master itself
           }
-          
+
           try {
             // Check if member already has an answer
             const existingAnswer = await getAnswerForQuestion(projectId, clusterOpportunityId, clusterFileId, member.questionId);
-            
+
             if (existingAnswer && existingAnswer.text) {
               console.log(`Member ${member.questionId} already has answer, skipping`);
               continue;
             }
-            
+
             // Copy master's answer
             const savedAnswer = await saveAnswer({
               questionId: member.questionId,
               projectId,
               opportunityId: clusterOpportunityId,
               questionFileId: clusterFileId,
-              text: masterAnswer.text,
-              confidence: masterAnswer.confidence,
-              confidenceBreakdown: masterAnswer.confidenceBreakdown,
-              confidenceBand: masterAnswer.confidenceBand,
-              sources: masterAnswer.sources,
+              text: masterAnswer!.text,
+              confidence: masterAnswer!.confidence,
+              confidenceBreakdown: masterAnswer!.confidenceBreakdown,
+              confidenceBand: masterAnswer!.confidenceBand,
+              // Master is guaranteed to have text here (empty masters are handled above),
+              // so the copied answer is a genuine answer.
+              resolution: 'ANSWERED',
+              sources: masterAnswer!.sources,
               linkedToMasterQuestionId: masterQuestionId,
             });
-            
+
             copiedAnswers++;
             console.log(`Copied answer to ${member.questionId}, savedAnswer id=${savedAnswer?.id}`);
           } catch (err) {
@@ -143,7 +199,7 @@ export const baseHandler = async (
     lastKey = result.LastEvaluatedKey;
   } while (lastKey);
 
-  console.log(`Copy complete: ${totalClusters} clusters, ${copiedAnswers} answers copied, ${skippedNoMasterAnswer} skipped (no master answer), ${errors} errors`);
+  console.log(`Copy complete: ${totalClusters} clusters, ${copiedAnswers} answers copied, ${propagatedResolutions} resolutions propagated, ${skippedNoMasterAnswer} masters without answers, ${errors} errors`);
 
   // Notify org members that answer generation is complete and write audit log
   getProjectById(projectId)
@@ -167,6 +223,7 @@ export const baseHandler = async (
               projectId,
               totalClusters,
               copiedAnswers,
+              propagatedResolutions,
               skippedNoMasterAnswer,
               errors,
               result: errors > 0 ? 'partial' : 'success',
@@ -202,6 +259,7 @@ export const baseHandler = async (
     projectId,
     totalClusters,
     copiedAnswers,
+    propagatedResolutions,
     skippedNoMasterAnswer,
     errors,
   };

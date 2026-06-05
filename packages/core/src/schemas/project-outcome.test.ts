@@ -360,6 +360,83 @@ describe('SetProjectOutcomeRequestSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('validates FEDERAL jurisdiction without a state', () => {
+    const request = {
+      projectId: 'proj-123',
+      orgId: 'org-456',
+      opportunityId: 'opp-789',
+      status: 'NO_BID',
+      jurisdiction: 'FEDERAL',
+    };
+
+    const result = SetProjectOutcomeRequestSchema.safeParse(request);
+    expect(result.success).toBe(true);
+  });
+
+  it('validates STATE jurisdiction with a recognized state', () => {
+    const request = {
+      projectId: 'proj-123',
+      orgId: 'org-456',
+      opportunityId: 'opp-789',
+      status: 'NO_BID',
+      jurisdiction: 'STATE',
+      state: 'California',
+    };
+
+    const result = SetProjectOutcomeRequestSchema.safeParse(request);
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects STATE jurisdiction without a state', () => {
+    const request = {
+      projectId: 'proj-123',
+      orgId: 'org-456',
+      opportunityId: 'opp-789',
+      status: 'NO_BID',
+      jurisdiction: 'STATE',
+    };
+
+    const result = SetProjectOutcomeRequestSchema.safeParse(request);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toContain('State is required');
+    }
+  });
+
+  it('rejects STATE jurisdiction with an unrecognized state', () => {
+    const request = {
+      projectId: 'proj-123',
+      orgId: 'org-456',
+      opportunityId: 'opp-789',
+      status: 'NO_BID',
+      jurisdiction: 'STATE',
+      state: 'Atlantis',
+    };
+
+    const result = SetProjectOutcomeRequestSchema.safeParse(request);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toContain('Unrecognized state');
+    }
+  });
+
+  it('rejects a state when jurisdiction is not STATE', () => {
+    const request = {
+      projectId: 'proj-123',
+      orgId: 'org-456',
+      opportunityId: 'opp-789',
+      status: 'NO_BID',
+      jurisdiction: 'FEDERAL',
+      state: 'California',
+    };
+
+    const result = SetProjectOutcomeRequestSchema.safeParse(request);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toContain('State should only be provided');
+    }
+  });
+
   it('rejects winData for non-WON status', () => {
     const request = {
       projectId: 'proj-123',

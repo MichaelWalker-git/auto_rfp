@@ -4,6 +4,7 @@ import React, { createContext, ReactNode, useCallback, useContext, useEffect, us
 import { toast } from '@/components/ui/use-toast';
 import {
   AnswerSource,
+  type AnswerResolution,
   ConfidenceBand,
   ConfidenceBreakdown,
   GroupedSection,
@@ -12,7 +13,7 @@ import {
 } from '@auto-rfp/core';
 import { useQuestions as useLoadQuestions } from '@/lib/hooks/use-api';
 import { useProject } from '@/lib/hooks/use-project';
-import { useApproveAnswer, useGenerateAnswer, useSaveAnswer } from '@/lib/hooks/use-answer';
+import { useAnswerGenerationStatus, useApproveAnswer, useGenerateAnswer, useSaveAnswer } from '@/lib/hooks/use-answer';
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { useKnowledgeBases } from '@/lib/hooks/use-knowledgebase';
 
@@ -30,6 +31,8 @@ interface AnswerData {
   confidence?: number;
   confidenceBreakdown?: ConfidenceBreakdown;
   confidenceBand?: ConfidenceBand;
+  /** Why the answer is in its current state (e.g. NO_KB_MATCH when the AI found nothing in the KB) */
+  resolution?: AnswerResolution;
   // Status & audit fields
   status?: string;
   updatedBy?: string;
@@ -102,7 +105,7 @@ interface QuestionsContextType {
   handleIndexToggle: (indexId: string) => void;
   handleSelectAllIndexes: () => void;
 
-  handleApproveAnswer: (questionId: string) => Promise<void>;
+  handleApproveAnswer: (questionId: string) => Promise<{ approvedByName?: string; approvedAt?: string; updatedByName?: string; updatedAt?: string } | void>;
   approvingQuestions: Set<string>;
   handleUnapproveAnswer: (questionId: string) => Promise<void>;
   unapprovingQuestions: Set<string>;
@@ -111,6 +114,15 @@ interface QuestionsContextType {
 
   // Clustering - update answers locally when applied to similar questions
   handleBatchAnswerApplied: (targetQuestionIds: string[], answerText: string) => void;
+
+  // WebSocket - update answer status from collaborators (approve/unapprove sync)
+  updateAnswerStatus: (questionId: string, statusData: {
+    status?: string;
+    updatedByName?: string;
+    updatedAt?: string;
+    approvedByName?: string;
+    approvedAt?: string;
+  }) => void;
 
   // Utility functions
   getFilteredQuestions: (filterType?: string) => any[];
@@ -132,6 +144,9 @@ export function useQuestions() {
 
 // Constant for "Other / Legacy Questions" option (questions without opportunityId)
 const OTHER_LEGACY_OPPORTUNITY_ID = '__other__';
+
+/** Maximum characters to show in the breadcrumb question suffix before truncating */
+const BREADCRUMB_MAX_LENGTH = 50;
 
 interface QuestionsProviderProps {
   children: ReactNode;
@@ -158,7 +173,9 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   // Process state
   const [savingQuestions, setSavingQuestions] = useState<Set<string>>(new Set());
   const [lastSaved, setLastSaved] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState<Record<string, boolean>>({});
+  // Questions the user explicitly clicked "Generate" on. Merged with pipeline
+  // generation below into the `isGenerating` map the UI consumes.
+  const [interactiveGenerating, setInteractiveGenerating] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSource, setSelectedSource] = useState<AnswerSource | null>(null);
   const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
@@ -173,8 +190,19 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   const [approvingAll, setApprovingAll] = useState(false);
 
   const { data: project, isLoading: isProjectLoading } = useProject(projectId);
-  const { data: questionsData, isLoading: isQuestionsLoading, mutate: mutateQuestions } = useLoadQuestions(projectId, opportunityId);
+  const orgId = project?.orgId ?? null;
   const { items: questionFiles, isLoading: isQuestionFilesLoading } = useQuestionFiles(projectId);
+
+  // Authoritative "is generation in flight" signal: a RUNNING answer-generation
+  // Step Function execution for this opportunity. Unlike per-file status, this
+  // also covers cluster-copied questions that have no QUESTION_FILE record.
+  // The hook self-polls every 4s while a run is active and stops when it ends.
+  const { isGenerating: isPipelineGenerating } = useAnswerGenerationStatus(projectId, opportunityId ?? null, orgId);
+
+  // While the pipeline is generating, poll the questions+answers feed so answers
+  // appear (and their spinners clear) live as each one lands.
+  const { data: questionsData, isLoading: isQuestionsLoading, mutate: mutateQuestions } =
+    useLoadQuestions(projectId, opportunityId, false, isPipelineGenerating ? { refreshInterval: 4_000 } : undefined);
   const { trigger: saveAnswer } = useSaveAnswer(projectId);
   const { trigger: approveAnswer } = useApproveAnswer(projectId);
   const { trigger: generateAnswer } = useGenerateAnswer();
@@ -183,13 +211,32 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
   const questions = questionsData ? { sections: questionsData.sections } : undefined;
   const serverAnswers = questionsData?.answers;
 
+  // Effective per-question "generating" map exposed to the UI. A question shows a
+  // spinner when either (a) the user clicked Generate for it (interactiveGenerating),
+  // or (b) the answer pipeline is running for this opportunity and the question is
+  // still blank. We clear the spinner per-question off the answer text (not the
+  // pipeline signal), so each spinner stops as its own answer lands while the run
+  // continues for its siblings. Keying off the execution — not questionFileId —
+  // means cluster-copied questions (no QUESTION_FILE record) are covered too.
+  const isGenerating = useMemo(() => {
+    if (!isPipelineGenerating) return interactiveGenerating;
+    const merged: Record<string, boolean> = { ...interactiveGenerating };
+    for (const section of questions?.sections ?? []) {
+      for (const q of section.questions) {
+        if (merged[q.id]) continue;
+        const hasAnswer = (answers[q.id]?.text ?? '').trim().length > 0;
+        if (!hasAnswer) merged[q.id] = true;
+      }
+    }
+    return merged;
+  }, [interactiveGenerating, isPipelineGenerating, questions, answers]);
+
   // Ref to track unsaved questions for autosave (avoids stale closure)
   const unsavedQuestionsRef = useRef<Set<string>>(new Set());
   const answersRef = useRef<Record<string, AnswerData>>({});
   const questionsRef = useRef<{ sections: GroupedSection[] } | undefined>({ sections: [] });
 
-  // Get orgId from project to load knowledge bases
-  const orgId = project?.orgId ?? null;
+  // orgId (derived above from project) is also used to load knowledge bases
   const { data: knowledgeBases, isLoading: isKnowledgeBasesLoading } = useKnowledgeBases(orgId);
 
   // Questions and answers come from the same API call, so they share the same loading state
@@ -265,7 +312,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       return;
     }
 
-    setIsGenerating((prev) => ({ ...prev, [questionId]: true }));
+    setInteractiveGenerating((prev) => ({ ...prev, [questionId]: true }));
 
     const questionLabel = question.questionNumber
       ? `Question ${question.questionNumber}`
@@ -277,7 +324,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     });
 
     try {
-      const { answer, confidence, confidenceBreakdown, confidenceBand, found, sources } = await generateAnswer({
+      const { answer, confidence, confidenceBreakdown, confidenceBand, found, resolution, sources } = await generateAnswer({
         orgId,
         projectId,
         questionId,
@@ -294,6 +341,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
           confidence,
           confidenceBreakdown,
           confidenceBand,
+          resolution,
         } as AnswerData,
       }));
 
@@ -323,7 +371,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
         variant: 'destructive',
       });
     } finally {
-      setIsGenerating((prev) => ({ ...prev, [questionId]: false }));
+      setInteractiveGenerating((prev) => ({ ...prev, [questionId]: false }));
     }
   };
 
@@ -731,6 +779,36 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     }
   };
 
+  // Update answer status from WebSocket collaborators (approve/unapprove sync)
+  const updateAnswerStatus = useCallback((questionId: string, statusData: {
+    status?: string;
+    updatedByName?: string;
+    updatedAt?: string;
+    approvedByName?: string;
+    approvedAt?: string;
+    approvedText?: string;
+  }) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: {
+        ...prev[questionId],
+        ...statusData,
+        // If approved, set approvedText from the broadcast (for isTextMatchingApproved check)
+        ...(statusData.status === 'APPROVED' && statusData.approvedText ? {
+          approvedText: statusData.approvedText,
+        } : {}),
+        // If unapproved, clear approval metadata INCLUDING approvedText
+        // (approvedText determines button visibility in QuestionEditor)
+        ...(statusData.status === 'DRAFT' ? {
+          approvedBy: undefined,
+          approvedByName: undefined,
+          approvedAt: undefined,
+          approvedText: undefined,
+        } : {}),
+      },
+    }));
+  }, []);
+
   // Handle batch answer applied from clustering
   const handleBatchAnswerApplied = (targetQuestionIds: string[], answerText: string) => {
     setAnswers((prev) => {
@@ -859,7 +937,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     if (selectedQuestion && questions) {
       const qData = getSelectedQuestionData();
       const text = qData?.question?.question as string | undefined;
-      setBreadcrumbSuffix(text ? (text.length > 50 ? `${text.slice(0, 50)}…` : text) : null);
+      setBreadcrumbSuffix(text ? (text.length > BREADCRUMB_MAX_LENGTH ? `${text.slice(0, BREADCRUMB_MAX_LENGTH)}…` : text) : null);
     } else {
       setBreadcrumbSuffix(null);
     }
@@ -882,8 +960,10 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
         const serverText = (serverAnswer as AnswerData).text ?? '';
         next[qId] = {
           ...serverAnswer,
-          // Track the approved text for comparison when editing
-          approvedText: serverStatus === 'APPROVED' ? serverText : (local?.approvedText ?? undefined),
+          // Track the approved text for comparison when editing:
+          // - APPROVED: set approvedText to the server text
+          // - DRAFT: clear approvedText (so button shows "Approve" not "Unapprove")
+          approvedText: serverStatus === 'APPROVED' ? serverText : undefined,
           // Preserve local text if user has unsaved edits
           ...(hasLocalEdit && local ? { text: local.text } : {}),
         };
@@ -895,6 +975,25 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       return next;
     });
   }, [serverAnswers]);
+
+  // Auto-turn off "Pending Only" filter when there are no pending questions left
+  // This handles multi-window scenarios where another user approves all answers
+  useEffect(() => {
+    if (!showPendingOnly || !questions) return;
+
+    // Check if there are any pending questions (have text but not approved)
+    const allQuestions = questions.sections.flatMap((s) => s.questions);
+    const hasPending = allQuestions.some((q) => {
+      const answerData = answers[q.id];
+      const hasText = answerData?.text && answerData.text.trim().length > 0;
+      const isApproved = answerData?.status === 'APPROVED';
+      return hasText && !isApproved;
+    });
+
+    if (!hasPending) {
+      setShowPendingOnly(false);
+    }
+  }, [showPendingOnly, questions, answers]);
 
   // Keep refs in sync so autosave interval can read latest values without stale closure
   useEffect(() => {
@@ -909,15 +1008,25 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     questionsRef.current = questions;
   }, [questions]);
 
+  // Ref for approvingQuestions - updated synchronously to avoid race conditions in autosave
+  // NOTE: We update ref synchronously in setApprovingQuestions calls, not via useEffect
+  const approvingQuestionsRef = useRef<Set<string>>(new Set());
+
   // Autosave every 5 seconds for any unsaved questions
   // If text matches approvedText, save with APPROVED status to restore the approved state
   // Otherwise save as DRAFT
+  // IMPORTANT: Skip questions that are currently being approved/unapproved to avoid race conditions
   useEffect(() => {
     const interval = setInterval(async () => {
       const toSave = Array.from(unsavedQuestionsRef.current);
       if (toSave.length === 0) return;
 
       for (const questionId of toSave) {
+        // Skip if approval/unapproval is in progress for this question to prevent race condition
+        if (approvingQuestionsRef.current?.has(questionId)) {
+          continue;
+        }
+
         const answerData = answersRef.current[questionId];
         if (!answerData?.text?.trim()) continue;
 
@@ -985,6 +1094,8 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       return;
     }
 
+    // Update ref synchronously to prevent race condition with autosave
+    approvingQuestionsRef.current.add(questionId);
     setApprovingQuestions((prev) => {
       const next = new Set(prev);
       next.add(questionId);
@@ -1031,6 +1142,14 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
         });
         setLastSaved(response.updatedAt);
         toast({ title: 'Answer Approved', description: 'Answer has been approved successfully.' });
+        
+        // Return the updated answer data to avoid stale closure issues in callers
+        return {
+          approvedByName: response.approvedByName,
+          approvedAt: response.approvedAt,
+          updatedByName: response.updatedByName,
+          updatedAt: response.updatedAt,
+        };
       } else {
         throw new Error('Failed to approve answer');
       }
@@ -1042,6 +1161,8 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
         variant: 'destructive',
       });
     } finally {
+      // Update ref synchronously to prevent race condition with autosave
+      approvingQuestionsRef.current.delete(questionId);
       setApprovingQuestions((prev) => {
         const next = new Set(prev);
         next.delete(questionId);
@@ -1084,6 +1205,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
 
       if (response?.id) {
         // Update local answers state immediately so the UI reflects the reverted status
+        // IMPORTANT: Clear approvedText so button changes from Unapprove to Approve
         setAnswers((prev) => ({
           ...prev,
           [questionId]: {
@@ -1093,6 +1215,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
             approvedBy: undefined,
             approvedByName: undefined,
             approvedAt: undefined,
+            approvedText: undefined, // Clear so isTextMatchingApproved becomes false
             updatedBy: response.updatedBy,
             updatedByName: response.updatedByName,
             updatedAt: response.updatedAt,
@@ -1150,8 +1273,6 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     const toApproveIds = [...approvableQuestionIds];
     setApprovingQuestions(new Set(toApproveIds));
 
-    console.log(`[approveAll] Starting batch approval for ${toApproveIds.length} questions`);
-
     let successCount = 0;
     let failCount = 0;
     const failedQuestionIds: string[] = [];
@@ -1161,7 +1282,6 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
         toApproveIds.map(async (questionId) => {
           const answerData = answers[questionId];
           if (!answerData?.text?.trim()) {
-            console.log(`[approveAll] Skipping questionId=${questionId} - no answer text`);
             return;
           }
 
@@ -1169,12 +1289,10 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
             ?.flatMap((s) => s.questions)
             ?.find((q) => q.id === questionId);
           if (!question) {
-            console.log(`[approveAll] Skipping questionId=${questionId} - question not found in sections`);
             return;
           }
 
           try {
-            console.log(`[approveAll] Approving questionId=${questionId} opportunityId=${question.opportunityId} fileId=${question.questionFileId}`);
             const response = await approveAnswer({
               questionId,
               projectId,
@@ -1232,6 +1350,9 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
       }
 
       if (failCount === 0) {
+        // Turn off "Pending Only" filter since there are no more pending questions
+        // This prevents the user from being stuck with an empty list
+        setShowPendingOnly(false);
         toast({
           title: 'All Answers Approved',
           description: `Successfully approved ${successCount} answer${successCount > 1 ? 's' : ''}.`,
@@ -1318,6 +1439,7 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
     unapprovingQuestions,
     removeQuestion,
     handleBatchAnswerApplied,
+    updateAnswerStatus,
     getFilteredQuestions,
     getCounts,
     getConfidenceCounts,

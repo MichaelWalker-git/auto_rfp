@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   AnswerSourceSchema,
   AnswerItemSchema,
+  AnswerResolutionSchema,
   SaveAnswerDTOSchema,
   AnswerQuestionRequestBodySchema,
   BedrockAnswerResultSchema,
@@ -42,13 +43,18 @@ describe('AnswerSourceSchema', () => {
     expect(AnswerSourceSchema.parse(sourceWithString).pageNumber).toBe('5');
   });
 
-  it('should validate relevance range (0-1)', () => {
-    expect(() => AnswerSourceSchema.parse({ id: '1', relevance: 1.5 })).toThrow();
-    expect(() => AnswerSourceSchema.parse({ id: '1', relevance: -0.5 })).toThrow();
+  it('should clamp relevance to 0-1 range (preprocess normalization)', () => {
+    // Out-of-range values are clamped, not rejected (fixes bad data from Pinecone)
+    expect(AnswerSourceSchema.parse({ id: '1', relevance: 1.5 }).relevance).toBe(1);
+    expect(AnswerSourceSchema.parse({ id: '1', relevance: -0.5 }).relevance).toBe(0);
+    expect(AnswerSourceSchema.parse({ id: '1', relevance: 2.0 }).relevance).toBe(1);
+    expect(AnswerSourceSchema.parse({ id: '1', relevance: -1.0 }).relevance).toBe(0);
 
+    // Valid values pass through unchanged
     expect(AnswerSourceSchema.parse({ id: '1', relevance: 0 }).relevance).toBe(0);
     expect(AnswerSourceSchema.parse({ id: '1', relevance: 1 }).relevance).toBe(1);
     expect(AnswerSourceSchema.parse({ id: '1', relevance: 0.5 }).relevance).toBe(0.5);
+    expect(AnswerSourceSchema.parse({ id: '1', relevance: 0.85 }).relevance).toBe(0.85);
   });
 
   it('should accept null relevance', () => {
@@ -117,6 +123,33 @@ describe('AnswerItemSchema', () => {
     const result = AnswerItemSchema.parse(answerWithMultipleSources);
     expect(result.sources).toHaveLength(3);
   });
+
+  it('should accept a valid resolution value', () => {
+    const result = AnswerItemSchema.parse({ ...validAnswer, resolution: 'NO_KB_MATCH' });
+    expect(result.resolution).toBe('NO_KB_MATCH');
+  });
+
+  it('should treat resolution as optional (legacy answers)', () => {
+    const result = AnswerItemSchema.parse(validAnswer);
+    expect(result.resolution).toBeUndefined();
+  });
+
+  it('should reject an unknown resolution value', () => {
+    expect(() => AnswerItemSchema.parse({ ...validAnswer, resolution: 'MAYBE' })).toThrow();
+  });
+});
+
+describe('AnswerResolutionSchema', () => {
+  it('should accept all known resolution values', () => {
+    expect(AnswerResolutionSchema.parse('ANSWERED')).toBe('ANSWERED');
+    expect(AnswerResolutionSchema.parse('NO_KB_MATCH')).toBe('NO_KB_MATCH');
+    expect(AnswerResolutionSchema.parse('GENERATION_FAILED')).toBe('GENERATION_FAILED');
+  });
+
+  it('should reject unknown values', () => {
+    expect(() => AnswerResolutionSchema.parse('UNKNOWN')).toThrow();
+    expect(() => AnswerResolutionSchema.parse('')).toThrow();
+  });
 });
 
 describe('SaveAnswerDTOSchema', () => {
@@ -154,6 +187,16 @@ describe('SaveAnswerDTOSchema', () => {
     expect(result.projectId).toBeUndefined();
     expect(result.organizationId).toBeUndefined();
     expect(result.sources).toBeUndefined();
+    expect(result.resolution).toBeUndefined();
+  });
+
+  it('should accept a resolution value', () => {
+    const result = SaveAnswerDTOSchema.parse({
+      questionId: 'question-123',
+      text: 'Answer text',
+      resolution: 'ANSWERED',
+    });
+    expect(result.resolution).toBe('ANSWERED');
   });
 });
 

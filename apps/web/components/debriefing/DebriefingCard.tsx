@@ -4,8 +4,22 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { RequestDebriefingDialog } from './RequestDebriefingDialog';
-import { useDebriefings, useGenerateDebriefingLetter } from '@/lib/hooks/use-debriefing';
+import {
+  useDebriefings,
+  useGenerateDebriefingLetter,
+  useDeleteDebriefing,
+} from '@/lib/hooks/use-debriefing';
 import { useToast } from '@/components/ui/use-toast';
 import { PermissionButton } from '@/components/ui/permission-button';
 import {
@@ -20,6 +34,7 @@ import {
   Briefcase,
   MapPin,
   Phone,
+  Trash2,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { DebriefingItem } from '@auto-rfp/core';
@@ -46,10 +61,24 @@ export const DebriefingCard = ({
 }: DebriefingCardProps) => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isOutcomeWarningOpen, setIsOutcomeWarningOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDrafting, setIsDrafting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { debriefings, isLoading, refetch } = useDebriefings(orgId, projectId, opportunityId);
   const { generateDebriefingLetter } = useGenerateDebriefingLetter();
+  const { deleteDebriefing } = useDeleteDebriefing();
   const { toast } = useToast();
+
+  const isLost = projectOutcomeStatus === 'LOST';
+
+  const handleRequestDebriefing = () => {
+    if (!isLost) {
+      setIsOutcomeWarningOpen(true);
+      return;
+    }
+    setIsCreateDialogOpen(true);
+  };
 
   const handleSuccess = (debriefing: DebriefingItem) => {
     refetch();
@@ -78,10 +107,26 @@ export const DebriefingCard = ({
     }
   };
 
-  // Only show for LOST projects
-  if (projectOutcomeStatus !== 'LOST') {
-    return null;
-  }
+  const handleDelete = async (debriefing: DebriefingItem) => {
+    setIsDeleting(true);
+    try {
+      await deleteDebriefing(orgId, projectId, opportunityId, debriefing.debriefId);
+      setIsDeleteDialogOpen(false);
+      toast({
+        title: 'Debriefing deleted',
+        description: 'The debriefing request has been removed.',
+      });
+      refetch();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to delete debriefing',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -220,6 +265,16 @@ export const DebriefingCard = ({
                   )}
                   Draft Letter
                 </Button>
+                <PermissionButton
+                  requiredPermission="project:edit"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                  className="text-xs text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                  Delete
+                </PermissionButton>
               </div>
 
               {/* Request creation date */}
@@ -239,7 +294,7 @@ export const DebriefingCard = ({
                 requiredPermission="project:edit"
                 variant="outline"
                 size="sm"
-                onClick={() => setIsCreateDialogOpen(true)}
+                onClick={handleRequestDebriefing}
               >
                 Request Debriefing
               </PermissionButton>
@@ -273,6 +328,55 @@ export const DebriefingCard = ({
           onSuccess={handleSuccess}
         />
       )}
+
+      {latestDebriefing && (
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete debriefing request?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This permanently removes the debriefing request. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleDelete(latestDebriefing);
+                }}
+                disabled={isDeleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeleting ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5 mr-1" />
+                )}
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      <AlertDialog open={isOutcomeWarningOpen} onOpenChange={setIsOutcomeWarningOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark the project outcome as Lost first</AlertDialogTitle>
+            <AlertDialogDescription>
+              Debriefings can only be requested for projects with a{' '}
+              <span className="font-medium">Lost</span> outcome. Set the project outcome to Lost in
+              the Post-Award section, then request a debriefing.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setIsOutcomeWarningOpen(false)}>
+              Got it
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

@@ -61,7 +61,7 @@ const baseHandler = async (
 
     // Default: Archive
     if (existing.isArchived) return apiResponse(200, { message: 'Template already archived' });
-    await updateTemplateFields(orgId, templateId, { isArchived: true, archivedAt: now, status: 'ARCHIVED', updatedAt: now });
+    await updateTemplateFields(orgId, templateId, { isArchived: true, archivedAt: now, status: 'ARCHIVED', isDefault: false, updatedAt: now });
     setAuditContext(event, { action: 'CONFIG_CHANGED', resource: 'template', resourceId: templateId });
     return apiResponse(200, { message: 'Template archived' });
   } catch (err) {

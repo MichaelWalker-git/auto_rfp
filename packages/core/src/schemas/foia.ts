@@ -1,6 +1,96 @@
 import { z } from 'zod';
 
 /**
+ * Jurisdiction of the contract / records request.
+ * - FEDERAL: federal contract — eligible for a debrief and a federal FOIA request (5 U.S.C. § 552).
+ * - STATE: state/local contract — no debrief; records are obtained under the state's public records law.
+ */
+export const JurisdictionSchema = z.enum(['FEDERAL', 'STATE']);
+
+export type Jurisdiction = z.infer<typeof JurisdictionSchema>;
+
+/**
+ * US states (plus D.C.) and the name of the public-records law that is the
+ * state-level equivalent of the federal Freedom of Information Act.
+ *
+ * Used to label state records requests and to cite the applicable law in the
+ * generated request letter. Keyed by full state name.
+ */
+export const STATE_RECORDS_LAWS = {
+  Alabama: 'Alabama Public Records Law',
+  Alaska: 'Alaska Public Records Act',
+  Arizona: 'Arizona Public Records Law',
+  Arkansas: 'Arkansas Freedom of Information Act',
+  California: 'California Public Records Act (CPRA)',
+  Colorado: 'Colorado Open Records Act',
+  Connecticut: 'Connecticut Freedom of Information Act',
+  Delaware: 'Delaware Freedom of Information Act',
+  Florida: 'Florida Sunshine Law',
+  Georgia: 'Georgia Open Records Act',
+  Hawaii: 'Hawaii Uniform Information Practices Act',
+  Idaho: 'Idaho Public Records Act',
+  Illinois: 'Illinois Freedom of Information Act',
+  Indiana: 'Indiana Access to Public Records Act',
+  Iowa: 'Iowa Open Records Law',
+  Kansas: 'Kansas Open Records Act',
+  Kentucky: 'Kentucky Open Records Act',
+  Louisiana: 'Louisiana Public Records Act',
+  Maine: 'Maine Freedom of Access Act',
+  Maryland: 'Maryland Public Information Act',
+  Massachusetts: 'Massachusetts Public Records Law',
+  Michigan: 'Michigan Freedom of Information Act',
+  Minnesota: 'Minnesota Government Data Practices Act',
+  Mississippi: 'Mississippi Public Records Act',
+  Missouri: 'Missouri Sunshine Law',
+  Montana: 'Montana Public Records Act',
+  Nebraska: 'Nebraska Public Records Law',
+  Nevada: 'Nevada Public Records Act',
+  'New Hampshire': 'New Hampshire Right to Know Law',
+  'New Jersey': 'New Jersey Open Public Records Act (OPRA)',
+  'New Mexico': 'New Mexico Inspection of Public Records Act (IPRA)',
+  'New York': 'New York Freedom of Information Law (FOIL)',
+  'North Carolina': 'North Carolina Public Records Law',
+  'North Dakota': 'North Dakota Open Records Statute',
+  Ohio: 'Ohio Public Records and Open Meetings Law ("Sunshine Law")',
+  Oklahoma: 'Oklahoma Open Records Act',
+  Oregon: 'Oregon Public Records Law',
+  Pennsylvania: 'Pennsylvania Right to Know Law',
+  'Rhode Island': 'Rhode Island Access to Public Records Act (APRA)',
+  'South Carolina': 'South Carolina Freedom of Information Act',
+  'South Dakota': 'South Dakota Open Records Law',
+  Tennessee: 'Tennessee Public Records Act',
+  Texas: 'Texas Public Information Act (PIA)',
+  Utah: 'Utah Government Records Access and Management Act (GRAMA)',
+  Vermont: 'Vermont Public Records Law',
+  Virginia: 'Virginia Freedom of Information Act',
+  Washington: 'Washington Public Records Act',
+  'West Virginia': 'West Virginia Freedom of Information Act',
+  Wisconsin: 'Wisconsin Open Records Law',
+  Wyoming: 'Wyoming Public Records Act',
+  'Washington, D.C.': 'District of Columbia Freedom of Information Act',
+} as const satisfies Record<string, string>;
+
+/**
+ * State name as used by {@link STATE_RECORDS_LAWS}.
+ */
+export const StateNameSchema = z.enum(
+  Object.keys(STATE_RECORDS_LAWS) as [keyof typeof STATE_RECORDS_LAWS, ...Array<keyof typeof STATE_RECORDS_LAWS>],
+);
+
+export type StateName = z.infer<typeof StateNameSchema>;
+
+/**
+ * Ordered list of state names for use in select inputs.
+ */
+export const STATE_NAMES = StateNameSchema.options;
+
+/**
+ * Resolve the public-records law name for a given state.
+ */
+export const getStateRecordsLaw = (state: string): string | undefined =>
+  (STATE_RECORDS_LAWS as Record<string, string>)[state];
+
+/**
  * FOIA Document Types that can be requested
  */
 export const FOIADocumentTypeSchema = z.enum([
@@ -203,3 +293,15 @@ export const UpdateFOIARequestSchema = z.object({
 });
 
 export type UpdateFOIARequest = z.infer<typeof UpdateFOIARequestSchema>;
+
+/**
+ * Delete FOIA Request DTO
+ */
+export const DeleteFOIARequestSchema = z.object({
+  orgId: z.string().min(1, 'Organization ID is required'),
+  projectId: z.string().min(1, 'Project ID is required'),
+  opportunityId: z.string().min(1, 'Opportunity ID is required'),
+  foiaRequestId: z.string().min(1, 'FOIA Request ID is required'),
+});
+
+export type DeleteFOIARequest = z.infer<typeof DeleteFOIARequestSchema>;

@@ -2,9 +2,15 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { AlertCircle, Check, ExternalLink, Loader2, Pencil, Send, Target, X } from 'lucide-react';
+import { AlertCircle, Check, ChevronDown, ExternalLink, LayoutDashboard, Loader2, Pencil, Send, Target, X } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useOpportunityContext } from './opportunity-context';
@@ -19,6 +25,7 @@ import {
 import { useEmitOpportunityEvent } from '@/lib/hooks/use-emit-opportunity-event';
 import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { PermissionButton } from '@/components/ui/permission-button';
+import { RequestOpportunityApprovalButton } from '@/features/opportunity-approval';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -55,6 +62,10 @@ export const OpportunityHeader = () => {
   const { emitEvent, isEmitting } = useEmitOpportunityEvent();
   const isAlreadyEmitted = !!opportunity?.eventBridgeEmittedAt;
   const pocUrl = opportunity?.pocUrl;
+  const isGenerating = isEmitting || (isAlreadyEmitted && !pocUrl);
+
+  const dashboardBase = process.env.NEXT_PUBLIC_POC_DASHBOARD_URL ?? 'https://poc.horustech.dev/dashboard';
+  const pocDashboardUrl = `${dashboardBase.replace(/\/$/, '')}/${oppId}`;
 
   const handleEmitEvent = async () => {
     if (!orgId || !projectId || !oppId) return;
@@ -134,6 +145,13 @@ export const OpportunityHeader = () => {
                 </>
               ) : (
                 <>
+                  <RequestOpportunityApprovalButton
+                    orgId={orgId}
+                    projectId={projectId}
+                    opportunityId={oppId}
+                    opportunityName={opportunity.title}
+                    onSuccess={refetch}
+                  />
                   <Button variant="outline" size="sm" asChild>
                     <Link href={briefUrl}>
                       <Target className="h-4 w-4 sm:mr-1" />
@@ -142,16 +160,38 @@ export const OpportunityHeader = () => {
                   </Button>
                   {currentOrganization?.enablePOCGeneration && (
                     pocUrl ? (
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={pocUrl} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-4 w-4 sm:mr-1" />
-                          <span className="hidden sm:inline">POC</span>
-                        </a>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <ExternalLink className="h-4 w-4 sm:mr-1" />
+                            <span className="hidden sm:inline">POC</span>
+                            <ChevronDown className="h-4 w-4 ml-1" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                            <a href={pocUrl} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              Open POC
+                            </a>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <a href={pocDashboardUrl} target="_blank" rel="noopener noreferrer">
+                              <LayoutDashboard className="h-4 w-4 mr-2" />
+                              Open Dashboard
+                            </a>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : isGenerating ? (
+                      <Button variant="outline" size="sm" disabled>
+                        <Loader2 className="h-4 w-4 sm:mr-1 animate-spin" />
+                        <span className="hidden sm:inline">Generating…</span>
                       </Button>
                     ) : (
-                      <Button variant="outline" size="sm" onClick={handleEmitEvent} disabled={isEmitting || isAlreadyEmitted}>
-                        {(isEmitting || isAlreadyEmitted) ? <Loader2 className="h-4 w-4 sm:mr-1 animate-spin" /> : <Send className="h-4 w-4 sm:mr-1" />}
-                        <span className="hidden sm:inline">POC</span>
+                      <Button variant="outline" size="sm" onClick={handleEmitEvent}>
+                        <Send className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline">Generate POC</span>
                       </Button>
                     )
                   )}
@@ -188,26 +228,6 @@ export const OpportunityHeader = () => {
           </CardContent>
         )}
       </Card>
-
-      {/* Request Review — feature not yet implemented */}
-      {/* <Dialog open={showRequestReview} onOpenChange={setShowRequestReview}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ClipboardCheck className="h-5 w-5 text-muted-foreground" />
-              Request Review
-            </DialogTitle>
-            <DialogDescription>
-              This feature is not implemented yet. Proposal review workflows are coming soon.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRequestReview(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog> */}
 
       {/* Delete confirmation dialog */}
       <OpportunityDeleteDialog

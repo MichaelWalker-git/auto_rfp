@@ -147,7 +147,7 @@ export async function setProjectOutcome(
   dto: SetProjectOutcomeRequest,
   userId: string
 ): Promise<DBProjectOutcome> {
-  const { projectId, orgId, status, winData, lossData } = dto;
+  const { projectId, orgId, status, jurisdiction, state, winData, lossData } = dto;
   // opportunityId is now required in the request schema
   const opportunityId = (dto as any).opportunityId as string;
   const now = new Date().toISOString();
@@ -169,6 +169,8 @@ export async function setProjectOutcome(
     statusDate: now,
     statusSetBy: userId,
     statusSource: 'MANUAL' as const,
+    jurisdiction,
+    state,
     winData,
     lossData,
     createdAt: now,

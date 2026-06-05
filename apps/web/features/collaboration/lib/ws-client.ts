@@ -82,6 +82,7 @@ export class WsClient {
     updatedAt?: string;
     approvedByName?: string;
     approvedAt?: string;
+    approvedText?: string; // Text that was approved, for isTextMatchingApproved check
   }): void {
     this.send('ANSWER_STATUS', { projectId: this.opts.projectId, questionId, ...meta });
   }

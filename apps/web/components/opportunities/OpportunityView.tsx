@@ -35,6 +35,7 @@ import {
   ComplianceReport,
 } from '@/features/proposal-submission';
 import { RequiredFormsList } from '@/features/required-forms';
+import { OpportunityApprovalPanel } from '@/features/opportunity-approval';
 import PermissionWrapper from '@/components/permission-wrapper';
 
 interface OpportunityViewProps {
@@ -254,6 +255,9 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       {/* Opportunity Header */}
       <OpportunityHeader />
 
+      {/* Reviewer approve/reject panel — only renders for the assigned reviewer */}
+      <OpportunityApprovalPanel orgId={orgId} projectId={projectId} opportunityId={oppId} onResolved={refetch} />
+
       {/* Section Navigation */}
       <SectionNavigation />
 
@@ -316,19 +320,24 @@ const OpportunityContent = ({ className }: { className?: string }) => {
           muted
         />
         <ProjectOutcomeCard projectId={projectId} orgId={orgId} opportunityId={oppId} />
-        <DebriefingCard
-          projectId={projectId}
-          orgId={orgId}
-          opportunityId={oppId}
-          projectOutcomeStatus={outcome?.status}
-          solicitationNumber={opportunity?.solicitationNumber ?? undefined}
-          contractTitle={opportunity?.title ?? undefined}
-        />
+        {/* Debriefs apply to federal awards only. */}
+        {outcome?.jurisdiction === 'FEDERAL' && (
+          <DebriefingCard
+            projectId={projectId}
+            orgId={orgId}
+            opportunityId={oppId}
+            projectOutcomeStatus={outcome?.status}
+            solicitationNumber={opportunity?.solicitationNumber ?? undefined}
+            contractTitle={opportunity?.title ?? undefined}
+          />
+        )}
         <FOIARequestCard
           projectId={projectId}
           orgId={orgId}
           opportunityId={oppId}
           projectOutcomeStatus={outcome?.status}
+          jurisdiction={outcome?.jurisdiction}
+          state={outcome?.state}
           agencyName={opportunity?.organizationName ?? undefined}
           solicitationNumber={opportunity?.solicitationNumber ?? undefined}
           contractTitle={opportunity?.title ?? undefined}

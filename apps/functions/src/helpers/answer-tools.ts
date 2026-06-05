@@ -29,6 +29,39 @@ import { getItem } from '@/helpers/db';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
+// ─── Retrieval thresholds (calibrated for Titan Text Embeddings V2) ─────────────
+//
+// Titan V2 is a SYMMETRIC embedding model — it has no separate query/passage
+// modes. A short interrogative RFP question ("Describe your transition
+// services…") and a declarative KB passage embed quite differently, so
+// genuinely-relevant question→chunk cosine scores land in roughly the 0.20–0.45
+// band, NOT the 0.6–0.8 range typical of asymmetric query/passage models.
+//
+// Measured on production dev data (org namespace, June 2026): the most relevant
+// KB chunks for real questions topped out at ~0.32, and even near-verbatim
+// same-document solicitation matches peaked at ~0.46. The previous 0.50 floor
+// therefore discarded ~99.5% of KB results (611 of 614 searches returned the
+// empty-result string), leaving most questions with no company-specific
+// evidence and an empty answer. For comparison, the content-library tool floor
+// is 0.15 (see db-tool-helpers.ts) — which is why content-library matches
+// surface while KB matches did not, for the very same questions.
+//
+// RETRIEVAL_MIN_SCORE sits above the noise band (~0.12) but below where this
+// corpus's relevant matches cluster (0.20–0.31), to recover real matches while
+// filtering clearly-unrelated chunks. Verified on this project's questions:
+// 0.50→0% recovered, 0.30→25%, 0.25→~50%, 0.20→85%. Set to 0.25 as the
+// recall/precision balance — weak matches still surface but are flagged
+// low-confidence (see RETRIEVAL_WEAK_SCORE), and questions with no usable
+// evidence fall through to the "answer manually" KB notice in the UI. Tune
+// here if recall (too many blanks) or precision (tangential noise) needs work.
+const RETRIEVAL_MIN_SCORE = 0.25;
+
+// Matches above the floor but below this value are weak/tangential. We KEEP them
+// (partial, cited evidence beats a blank answer — see the ANSWER system prompt's
+// "PARTIAL IS BETTER THAN BLANK" rule) but flag them so the model lowers its
+// confidence rather than discarding them.
+const RETRIEVAL_WEAK_SCORE = 0.45;
+
 // ─── Tool schemas ─────────────────────────────────────────────────────────────
 
 export const ANSWER_TOOLS = [
@@ -157,8 +190,13 @@ const executeKbSearch = async (
     const hits = await semanticSearchChunks(orgId, embedding, topK * 2);
     if (!hits.length) return emptySearchResult('No knowledge base content found for that query.');
 
-    const relevant = hits.filter(h => (h.score ?? 0) >= 0.50).slice(0, topK);
-    if (!relevant.length) return emptySearchResult('No sufficiently relevant knowledge base content found (all scores below 0.50).');
+    // Log the actual score distribution so retrieval recall is diagnosable from
+    // CloudWatch alone (no Pinecone replay needed) when answers come back empty.
+    const topScores = hits.slice(0, 5).map(h => (h.score ?? 0).toFixed(3)).join(', ');
+    console.log(`[answer-tools] KB search "${query.slice(0, 60)}" — ${hits.length} hits, top scores: [${topScores}], floor=${RETRIEVAL_MIN_SCORE}`);
+
+    const relevant = hits.filter(h => (h.score ?? 0) >= RETRIEVAL_MIN_SCORE).slice(0, topK);
+    if (!relevant.length) return emptySearchResult(`No sufficiently relevant knowledge base content found (all scores below ${RETRIEVAL_MIN_SCORE}).`);
 
     const similarityScores = relevant.map(h => h.score ?? 0);
     const sources: ToolResultSource[] = [];
@@ -198,7 +236,8 @@ const executeKbSearch = async (
           kbId,
           chunkKey,
           fileName: docName || undefined,
-          relevance: h.score ?? undefined,
+          // Clamp relevance to 0-1 range (Pinecone scores can vary)
+          relevance: h.score != null ? Math.max(0, Math.min(1, h.score)) : undefined,
           textContent: truncatedText,
         });
 
@@ -209,11 +248,15 @@ const executeKbSearch = async (
     const valid = chunks.filter((c): c is string => c !== null);
     if (!valid.length) return emptySearchResult('Could not load knowledge base content.');
 
-    // Add warning when all scores are below 0.65 — signals weak/tangential matches
+    // Flag weak/tangential matches so the model LOWERS its confidence — but does
+    // NOT discard them. Telling the model to "return the empty answer JSON" here
+    // (the previous behavior) contradicted the system prompt's PARTIAL-IS-BETTER
+    // rule and blanked out every match in the legitimate 0.30–0.45 band, which is
+    // exactly where Titan V2 question→chunk matches land for this corpus.
     const maxKbScore = Math.max(...similarityScores);
     const avgKbScore = similarityScores.reduce((a, b) => a + b, 0) / similarityScores.length;
-    const lowScoreWarning = maxKbScore < 0.65
-      ? `⚠️ LOW RELEVANCE WARNING: All similarity scores are below 0.65 (avg: ${avgKbScore.toFixed(2)}, max: ${maxKbScore.toFixed(2)}). These excerpts may be about a DIFFERENT topic than the question. If so, treat this as NO relevant information and return the empty answer JSON.\n\n`
+    const lowScoreWarning = maxKbScore < RETRIEVAL_WEAK_SCORE
+      ? `⚠️ LOW RELEVANCE: similarity scores are modest (avg: ${avgKbScore.toFixed(2)}, max: ${maxKbScore.toFixed(2)}). These excerpts may only partially relate to the question. Use whatever is genuinely relevant, cite it, and set a LOW confidence (0.10–0.29). Do NOT fabricate beyond these excerpts, but do NOT return an empty answer if any excerpt is usable.\n\n`
       : '';
 
     return {
@@ -239,8 +282,11 @@ const executePastPerfSearch = async (
     const hits = await semanticSearchPastPerformance(orgId, embedding, topK * 2);
     if (!hits.length) return emptySearchResult('No past performance projects found matching those keywords.');
 
-    const relevant = hits.filter(h => (h.score ?? 0) >= 0.50).slice(0, topK);
-    if (!relevant.length) return emptySearchResult('No sufficiently relevant past performance found (all scores below 0.50).');
+    const topScores = hits.slice(0, 5).map(h => (h.score ?? 0).toFixed(3)).join(', ');
+    console.log(`[answer-tools] PP search "${keywords.slice(0, 60)}" — ${hits.length} hits, top scores: [${topScores}], floor=${RETRIEVAL_MIN_SCORE}`);
+
+    const relevant = hits.filter(h => (h.score ?? 0) >= RETRIEVAL_MIN_SCORE).slice(0, topK);
+    if (!relevant.length) return emptySearchResult(`No sufficiently relevant past performance found (all scores below ${RETRIEVAL_MIN_SCORE}).`);
 
     const similarityScores = relevant.map(h => h.score ?? 0);
     const sources: ToolResultSource[] = [];
@@ -268,7 +314,8 @@ const executePastPerfSearch = async (
       sources.push({
         id: sk ?? `pp-${i}`,
         fileName: m.title ? `Past Performance: ${m.title}` : undefined,
-        relevance: h.score ?? undefined,
+        // Clamp relevance to 0-1 range (Pinecone scores can vary)
+        relevance: h.score != null ? Math.max(0, Math.min(1, h.score)) : undefined,
         textContent: formattedText,
       });
       const dateStr = (m.createdAt ?? m.updatedAt) as string | undefined;
@@ -277,11 +324,12 @@ const executePastPerfSearch = async (
       return formattedText;
     });
 
-    // Add warning when all scores are below 0.65
+    // Flag weak matches to lower confidence — but keep them. (See the KB-search
+    // rationale above: discarding the 0.30–0.45 band is what blanked answers.)
     const maxPpScore = Math.max(...similarityScores);
     const avgPpScore = similarityScores.reduce((a, b) => a + b, 0) / similarityScores.length;
-    const lowPpWarning = maxPpScore < 0.65
-      ? `⚠️ LOW RELEVANCE WARNING: All similarity scores are below 0.65 (avg: ${avgPpScore.toFixed(2)}, max: ${maxPpScore.toFixed(2)}). These projects may be in a DIFFERENT domain than the question asks about. Experience in domain X does NOT prove capability in domain Y. If the projects are not directly relevant, treat this as NO relevant information and return the empty answer JSON.\n\n`
+    const lowPpWarning = maxPpScore < RETRIEVAL_WEAK_SCORE
+      ? `⚠️ LOW RELEVANCE: similarity scores are modest (avg: ${avgPpScore.toFixed(2)}, max: ${maxPpScore.toFixed(2)}). These projects may be in a different domain than the question — experience in domain X does NOT prove capability in domain Y. Cite only genuinely relevant projects, acknowledge gaps, and set a LOW confidence (0.10–0.29). Do NOT return an empty answer if any project is usable.\n\n`
       : '';
 
     return {

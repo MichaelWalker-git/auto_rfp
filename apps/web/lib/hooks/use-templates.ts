@@ -200,6 +200,36 @@ export function useUnpublishTemplate(orgId: string) {
   return { unpublish };
 }
 
+export function useSetDefaultTemplate(orgId: string) {
+  const setDefault = async (templateId: string) => {
+    const res = await authFetcher(
+      `${API_BASE}/set-default/${templateId}?orgId=${orgId}`,
+      { method: 'POST' },
+    );
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to set default template');
+    }
+    return res.json();
+  };
+  return { setDefault };
+}
+
+export function useUnsetDefaultTemplate(orgId: string) {
+  const unsetDefault = async (templateId: string) => {
+    const res = await authFetcher(
+      `${API_BASE}/set-default/${templateId}?orgId=${orgId}&action=unset`,
+      { method: 'POST' },
+    );
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to remove default template');
+    }
+    return res.json();
+  };
+  return { unsetDefault };
+}
+
 export function useUnarchiveTemplate(orgId: string) {
   const unarchive = async (templateId: string) => {
     const res = await authFetcher(

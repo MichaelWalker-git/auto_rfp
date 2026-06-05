@@ -22,6 +22,7 @@ import { useFavoriteOpportunities } from '@/lib/hooks/use-favorite-opportunities
 import { useGridView, getGridClasses } from '@/lib/hooks/use-grid-view';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { useAuth } from '@/components/AuthProvider';
+import { useAssignedReviews } from '@/lib/hooks/use-assigned-reviews';
 import { OpportunityItemCard } from '@/components/opportunities/opportunity-item-card';
 import { cn } from '@/lib/utils';
 
@@ -61,6 +62,19 @@ export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
     projectId,
     limit,
   });
+
+  // Opportunities awaiting the current user's review (one bulk call, not per-card)
+  const { reviews } = useAssignedReviews(currentOrganization?.id || null, userSub ?? null);
+  const pendingApprovalOppIds = useMemo(
+    () =>
+      new Set(
+        reviews
+          .filter((r) => r.entityType === 'opportunity' && r.status === 'PENDING')
+          .map((r) => r.opportunityId ?? r.entityId)
+          .filter((id): id is string => !!id),
+      ),
+    [reviews],
+  );
 
   const showLoadingSkeleton = isLoading && items.length === 0;
 
@@ -273,6 +287,7 @@ export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
                 isFavorite={isFavorite(oppId)}
                 onToggleFavorite={toggleFavorite}
                 gridColumns={columns}
+                needsApproval={pendingApprovalOppIds.has(oppId)}
               />
             );
           })}

@@ -59,6 +59,10 @@ export const PROMPT_PERMISSIONS = [
   'prompt:create', 'prompt:edit', 'prompt:delete', 'prompt:read',
 ] as const;
 
+export const FORM_PERMISSIONS = [
+  'form:read', 'form:edit', 'form:delete',
+] as const;
+
 export const CONTENT_LIBRARY_PERMISSIONS = [
   'content_library:approve-content'
 ] as const;
@@ -78,6 +82,7 @@ export const ALL_PERMISSIONS = [
   ...PROPOSAL_PERMISSIONS,
   ...OPPORTUNITY_PERMISSIONS,
   ...PROMPT_PERMISSIONS,
+  ...FORM_PERMISSIONS,
   ...CONTENT_LIBRARY_PERMISSIONS,
   ...APN_PERMISSIONS,
   ...PRICING_PERMISSIONS,
@@ -96,6 +101,7 @@ export const ALL_PERMISSIONS = [
   'template:delete',
   'template:publish',
   'template:apply',
+  'template:set-default',
   'collaboration:presence',
   'collaboration:comment',
   'collaboration:assign',
@@ -112,6 +118,7 @@ export const VIEWER_PERMISSIONS = [
   'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read', 'document:read', 'user:read', 'answer:read', 'opportunity:read',
   'template:read',
   'pricing:read',
+  'form:read',
 ] as const;
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
@@ -127,6 +134,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     ...VIEWER_PERMISSIONS,
     'question:create', 'kb:create', 'proposal:create', 'project:create', 'document:create', 'user:create', 'answer:create', 'opportunity:create',
     'question:edit', 'org:edit', 'kb:edit', 'proposal:edit', 'project:edit', 'document:edit', 'user:edit', 'answer:edit', 'opportunity:edit',
+    'form:edit',
     'brief:create', 'brief:edit', 
     'rfp_document:delete', 
     'template:create', 'template:update', 'template:publish', 'template:apply',

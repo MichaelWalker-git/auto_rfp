@@ -55,6 +55,7 @@ import { engagementLogDomain } from './routes/engagement-log.routes';
 import { apnDomain } from './routes/apn.routes';
 import { proposalSubmissionDomain } from './routes/proposal-submission.routes';
 import { documentApprovalDomain } from './routes/document-approval.routes';
+import { universalApprovalDomain } from './routes/universal-approval.routes';
 import { pricingDomain } from './routes/pricing.routes';
 import { extractionDomain } from './routes/extraction.routes';
 import { opportunityAssistantDomain } from './routes/opportunity-assistant.routes';
@@ -76,6 +77,7 @@ export interface ApiOrchestratorStackProps extends cdk.StackProps {
   auditLogQueueName?: string;
   documentPipelineStateMachineArn: string;
   questionPipelineStateMachineArn: string;
+  answerGenerationStateMachineArn: string;
   textractFormsTopicArn: string;
   textractFormsRoleArn: string;
   sentryDNS: string;
@@ -117,6 +119,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       auditLogQueueName,
       documentPipelineStateMachineArn,
       questionPipelineStateMachineArn,
+      answerGenerationStateMachineArn,
       textractFormsTopicArn,
       textractFormsRoleArn,
       sentryDNS,
@@ -188,6 +191,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
       STATE_MACHINE_ARN: documentPipelineStateMachineArn,
       QUESTION_PIPELINE_STATE_MACHINE_ARN: questionPipelineStateMachineArn,
+      ANSWER_GENERATION_STATE_MACHINE_ARN: answerGenerationStateMachineArn,
       TEXTRACT_FORMS_SNS_TOPIC_ARN: textractFormsTopicArn,
       TEXTRACT_FORMS_ROLE_ARN: textractFormsRoleArn,
       SENTRY_DSN: sentryDNS,
@@ -283,19 +287,32 @@ export class ApiOrchestratorStack extends cdk.Stack {
       arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
     }, this);
 
+    // Answer-generation state machine is named `AutoRfp-${stage}-AnswerGen-Pipeline`
+    // (see packages/infra/answer-generation-step-function.ts). The status endpoint
+    // calls ListExecutions on it.
+    const answerGenExecutionArn = cdk.Arn.format({
+      service: 'states',
+      resource: 'execution',
+      resourceName: `AutoRfp-${stage}-AnswerGen-Pipeline:*`,
+      arnFormat: cdk.ArnFormat.COLON_RESOURCE_NAME,
+    }, this);
+
     sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
-        sid: 'StepFunctionsExecutionControl2', 
+        sid: 'StepFunctionsExecutionControl2',
         actions: [
           'states:StartExecution',
           'states:StopExecution',
           'states:DescribeExecution',
+          'states:ListExecutions',
         ],
         resources: [
           documentPipelineStateMachineArn,
           questionPipelineStateMachineArn,
+          answerGenerationStateMachineArn,
           docPipelineExecutionArn,
           questionPipelineExecutionArn,
+          answerGenExecutionArn,
         ],
       }),
     );
@@ -623,6 +640,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       apnDomain(),
       proposalSubmissionDomain(),
       documentApprovalDomain(),
+      universalApprovalDomain(),
       pricingDomain(),
       extractionDomain({ extractionQueueUrl }),
       opportunityAssistantDomain(),
@@ -696,7 +714,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'ClusteringRoutes', 'CollaborationRoutes', 'OpportunityContextRoutes',
       'NotificationRoutes', 'AuditRoutes', 'AnalyticsRoutes', 'ClarifyingQuestionRoutes',
       'EngagementLogRoutes', 'ApnRoutes', 'ProposalSubmissionRoutes',
-      'DocumentApprovalRoutes', 'PricingRoutes', 'ExtractionRoutes',
+      'DocumentApprovalRoutes', 'UniversalApprovalRoutes', 'PricingRoutes', 'ExtractionRoutes',
       'OpportunityAssistantRoutes',
       'CompanyProfileRoutes',
       'RequiredFormsRoutes',

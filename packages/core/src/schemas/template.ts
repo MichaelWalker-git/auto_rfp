@@ -85,6 +85,7 @@ export const TemplateItemSchema = z.object({
 
   // Metadata
   tags: z.array(z.string().max(50)).max(20).default([]),
+  /** Marks this template as the default template for its category. At most one per category per org; only a PUBLISHED template may be marked. */
   isDefault: z.boolean().default(false),
   status: TemplateStatusSchema.default('DRAFT'),
 

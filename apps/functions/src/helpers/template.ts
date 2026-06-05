@@ -1,9 +1,10 @@
 import { PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { docClient, getItem } from './db';
+import { docClient, getItem, queryAllBySkPrefix } from './db';
 import { requireEnv } from './env';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { createTemplateSK, TEMPLATE_PK, type TemplateItem } from '@auto-rfp/core';
 import { loadTextFromS3, uploadToS3 } from './s3';
+import { nowIso } from './date';
 
 const TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -140,7 +141,7 @@ export const loadTemplateHtml = async (htmlContentKey: string): Promise<string> 
 
 /**
  * Find the best template for a given org and document category.
- * Prefers PUBLISHED over DRAFT, then most recently updated.
+ * Prefers the default template, then PUBLISHED over DRAFT, then most recently updated.
  * Returns null if no matching template is found.
  */
 export const findBestTemplate = async (
@@ -155,16 +156,60 @@ export const findBestTemplate = async (
 
   if (allItems.length === 0) return null;
 
-  // Sort: PUBLISHED first, then by updatedAt descending (most recent first)
+  // Sort: default first, then PUBLISHED, then by updatedAt descending (most recent first)
   const sorted = [...allItems].sort((a, b) => {
+    if (a.isDefault && !b.isDefault) return -1;
+    if (b.isDefault && !a.isDefault) return 1;
     if (a.status === 'PUBLISHED' && b.status !== 'PUBLISHED') return -1;
     if (b.status === 'PUBLISHED' && a.status !== 'PUBLISHED') return 1;
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
 
   const best = sorted[0]!;
-  console.log(`Auto-selected template for ${category}: "${best.name}" (${best.status}, updated: ${best.updatedAt})`);
+  console.log(`Selected template for ${category}: "${best.name}" (${best.status}, isDefault: ${best.isDefault ?? false}, updated: ${best.updatedAt})`);
   return best;
+};
+
+/**
+ * Clear the default marker from every template in a category for an org,
+ * optionally skipping one template id (the one being newly marked).
+ * Returns the ids that were cleared.
+ */
+export const clearDefaultForCategory = async (
+  orgId: string,
+  category: string,
+  exceptTemplateId?: string,
+): Promise<string[]> => {
+  const allItems = await queryAllBySkPrefix<TemplateItem>(TEMPLATE_PK, `${orgId}#`);
+
+  const toClear = allItems.filter(
+    (t) => t.category === category && t.isDefault && t.id !== exceptTemplateId,
+  );
+
+  await Promise.all(
+    toClear.map((t) =>
+      updateTemplateFields(orgId, t.id, { isDefault: false, updatedAt: nowIso() }),
+    ),
+  );
+
+  return toClear.map((t) => t.id);
+};
+
+/**
+ * Mark a template as the default template for its category.
+ * Enforces one default template per category per org by clearing any
+ * previously marked template in the same category first.
+ */
+export const setDefaultTemplate = async (
+  orgId: string,
+  templateId: string,
+  category: string,
+): Promise<void> => {
+  await clearDefaultForCategory(orgId, category, templateId);
+  await updateTemplateFields(orgId, templateId, {
+    isDefault: true,
+    updatedAt: nowIso(),
+  });
 };
 
 // ================================

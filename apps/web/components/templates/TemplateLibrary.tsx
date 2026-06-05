@@ -14,6 +14,8 @@ interface TemplateLibraryProps {
   onDelete: (template: TemplateItem) => void;
   onUnarchive: (template: TemplateItem) => void;
   onPermanentlyDelete: (template: TemplateItem) => void;
+  onSetDefault: (template: TemplateItem) => void;
+  onUnsetDefault: (template: TemplateItem) => void;
   orgId: string;
   emptyMessage?: string;
 }
@@ -28,6 +30,8 @@ export function TemplateLibrary({
   onDelete,
   onUnarchive,
   onPermanentlyDelete,
+  onSetDefault,
+  onUnsetDefault,
   orgId,
   emptyMessage,
 }: TemplateLibraryProps) {
@@ -67,6 +71,8 @@ export function TemplateLibrary({
           onDelete={onDelete}
           onUnarchive={onUnarchive}
           onPermanentlyDelete={onPermanentlyDelete}
+          onSetDefault={onSetDefault}
+          onUnsetDefault={onUnsetDefault}
           orgId={orgId}
         />
       ))}

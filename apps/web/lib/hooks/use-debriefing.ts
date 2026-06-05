@@ -100,6 +100,28 @@ export const useUpdateDebriefing = () => {
   return { updateDebriefing };
 };
 
+export const useDeleteDebriefing = () => {
+  const deleteDebriefing = useCallback(async (
+    orgId: string,
+    projectId: string,
+    opportunityId: string,
+    debriefingId: string
+  ): Promise<void> => {
+    const baseUrl = env.BASE_API_URL.replace(/\/$/, '');
+    const params = new URLSearchParams({ orgId, projectId, opportunityId, debriefingId });
+    const url = `${baseUrl}/debriefing/delete-debriefing?${params.toString()}`;
+
+    const res = await authFetcher(url, { method: 'DELETE' });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`Failed to delete debriefing: ${res.status}. ${body}`);
+    }
+  }, []);
+
+  return { deleteDebriefing };
+};
+
 export const useGenerateDebriefingLetter = () => {
   const generateDebriefingLetter = useCallback(async (
     orgId: string,

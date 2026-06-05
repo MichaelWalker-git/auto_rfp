@@ -5,17 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Save, Sparkles, Trash2, MessageSquare, ChevronDown, ChevronRight } from 'lucide-react';
+import { Save, Sparkles, MessageSquare, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
-import { AnswerSource, ConfidenceBreakdown, ConfidenceBand, type CommentEntityType } from '@auto-rfp/core';
+import { AnswerSource, type AnswerResolution, ConfidenceBreakdown, ConfidenceBand, type CommentEntityType } from '@auto-rfp/core';
 import { PermissionButton } from '@/components/ui/permission-button';
 import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { ConfidenceScoreDisplay } from '@/components/confidence/confidence-score-display';
 import { SimilarQuestionsPanel } from './similar-questions-panel';
 import { getToolDisplayName } from './source-details-dialog';
-import { EditingIndicator, CollaborationPanel, FloatingPanel } from '@/features/collaboration';
+import { CollaborationPanel, FloatingPanel } from '@/features/collaboration';
 import { useComments } from '@/features/collaboration/hooks/useComments';
-import { QuestionApproveButton } from '@/features/questions';
 
 interface AnswerData {
   text: string;
@@ -25,6 +24,8 @@ interface AnswerData {
   confidence?: number;
   confidenceBreakdown?: ConfidenceBreakdown;
   confidenceBand?: ConfidenceBand;
+  /** Why the answer is in its current state (e.g. NO_KB_MATCH) */
+  resolution?: AnswerResolution;
   // Edit tracking
   updatedBy?: string;
   updatedByName?: string;
@@ -71,7 +72,11 @@ interface QuestionEditorProps {
   liveAnswerText?: string;
 }
 
-// Status badge derived from answer.status + presence
+/**
+ * Status badge configuration for answer states.
+ * - APPROVED: Green badge indicating the answer has been reviewed and approved
+ * - DRAFT: Gray badge indicating the answer is still being worked on
+ */
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   APPROVED: { label: 'Approved', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   DRAFT:    { label: 'Draft',    className: 'bg-slate-100 text-slate-600 border-slate-200' },
@@ -117,6 +122,15 @@ export function QuestionEditor({
   const hasSources = answer?.sources && answer.sources.length > 0;
   const hasConfidence = answer?.confidence !== undefined && answer.confidence !== null;
 
+  // The AI ran but found nothing in the knowledge base. Only surface these while
+  // the answer is still empty — once a human types an answer, the notice is moot.
+  const hasAnswerText = !!answer?.text && answer.text.trim().length > 0;
+  const showNoKbMatchNotice = answer?.resolution === 'NO_KB_MATCH' && !hasAnswerText;
+  // Generation errored/timed out before producing text — distinct from "searched
+  // and found nothing": this one is retryable, so prompt a retry rather than
+  // implying the knowledge base lacks the content.
+  const showGenerationFailedNotice = answer?.resolution === 'GENERATION_FAILED' && !hasAnswerText;
+
   // Status derived from answer — someone else editing = "Editing"
   const isBeingEditedByOther = editors.length > 0;
   const editorNames = editors.map((e) => e.displayName ?? 'Someone');
@@ -136,19 +150,6 @@ export function QuestionEditor({
             <div className="flex-1 min-w-0 pr-2">
               <CardTitle className="text-base">{section.title}</CardTitle>
               <p className="text-sm text-muted-foreground mt-0.5">{question.question}</p>
-              {projectId && collaboration?.orgId && question?.id && question?.opportunityId && question?.questionFileId && (
-                <div className="mt-1.5">
-                  <QuestionApproveButton
-                    orgId={collaboration.orgId}
-                    projectId={projectId}
-                    opportunityId={question.opportunityId}
-                    questionFileId={question.questionFileId}
-                    questionId={question.id}
-                    approvedAt={question.approvedAt ?? null}
-                    approvedByName={question.approvedByName ?? null}
-                  />
-                </div>
-              )}
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
@@ -195,6 +196,29 @@ export function QuestionEditor({
               <span className="text-amber-800">
                 <strong>{editorNames.join(', ')}</strong> {editors.length === 1 ? 'is' : 'are'} currently editing this answer. The textarea and actions are locked until they finish.
               </span>
+            </div>
+          )}
+
+          {/* No-KB-match notice — the AI searched but found nothing in the knowledge base */}
+          {showNoKbMatchNotice && (
+            <div className="flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-sm">
+              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+              <div className="text-amber-800">
+                <strong>Couldn&apos;t answer from the knowledge base.</strong> No supporting
+                content was found for this question. Answer it manually below, or add relevant
+                documents to the knowledge base and regenerate.
+              </div>
+            </div>
+          )}
+
+          {/* Generation-failed notice — generation errored or timed out before producing an answer */}
+          {showGenerationFailedNotice && (
+            <div className="flex items-start gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm">
+              <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+              <div className="text-red-800">
+                <strong>Answer generation failed.</strong> Something went wrong while generating
+                this answer. Click <strong>Generate</strong> to try again, or answer it manually below.
+              </div>
             </div>
           )}
 

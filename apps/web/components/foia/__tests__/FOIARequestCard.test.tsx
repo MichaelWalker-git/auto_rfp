@@ -12,6 +12,9 @@ jest.mock('@/lib/hooks/use-foia-requests', () => ({
   useGenerateFOIALetter: () => ({
     generateFOIALetter: mockGenerateFOIALetter,
   }),
+  useDeleteFOIARequest: () => ({
+    deleteFOIARequest: jest.fn().mockResolvedValue(undefined),
+  }),
 }));
 jest.mock('@/components/ui/use-toast', () => ({
   useToast: () => ({
@@ -54,11 +57,9 @@ describe('FOIARequestCard', () => {
   });
 
   describe('visibility', () => {
-    it('returns null when project outcome is not LOST', () => {
-      const { container } = render(
-        <FOIARequestCard {...defaultProps} projectOutcomeStatus="WON" />
-      );
-      expect(container.firstChild).toBeNull();
+    it('renders even when project outcome is not LOST', () => {
+      render(<FOIARequestCard {...defaultProps} projectOutcomeStatus="WON" />);
+      expect(screen.getByText('FOIA Request')).toBeInTheDocument();
     });
 
     it('renders when project outcome is LOST', () => {
@@ -147,6 +148,32 @@ describe('FOIARequestCard', () => {
       expect(screen.getByText(/Created.*ago/)).toBeInTheDocument();
     });
 
+  });
+
+  describe('state jurisdiction labeling', () => {
+    it('uses the state public records law in the title and empty state', () => {
+      render(
+        <FOIARequestCard {...defaultProps} jurisdiction="STATE" state="California" />,
+      );
+
+      expect(
+        screen.getByText('Public Records Request — California Public Records Act (CPRA)'),
+      ).toBeInTheDocument();
+      expect(screen.getByText('No records request yet')).toBeInTheDocument();
+      expect(
+        screen.getByText(/Submit a request under the California Public Records Act \(CPRA\)/),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Create Records Request' }),
+      ).toBeInTheDocument();
+    });
+
+    it('uses FOIA labeling for federal jurisdiction', () => {
+      render(<FOIARequestCard {...defaultProps} jurisdiction="FEDERAL" />);
+
+      expect(screen.getByText('FOIA Request')).toBeInTheDocument();
+      expect(screen.getByText('No FOIA request yet')).toBeInTheDocument();
+    });
   });
 
   describe('interactions', () => {

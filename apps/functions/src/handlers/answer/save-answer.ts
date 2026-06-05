@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import middy from '@middy/core';
 
 import { apiResponse } from '@/helpers/api';
-import { AnswerItem, ConfidenceBreakdown, ConfidenceBand, SaveAnswerDTOSchema } from '@auto-rfp/core';
+import { AnswerItem, AnswerResolution, ConfidenceBreakdown, ConfidenceBand, SaveAnswerDTOSchema } from '@auto-rfp/core';
 import { ANSWER_PK } from '@/constants/answer';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
@@ -28,6 +28,7 @@ const getTableName = () => requireEnv('DB_TABLE_NAME');
 export const saveAnswer = async (dto: Partial<AnswerItem> & {
   confidenceBreakdown?: ConfidenceBreakdown;
   confidenceBand?: ConfidenceBand;
+  resolution?: AnswerResolution;
   linkedToMasterQuestionId?: string;
   status?: 'DRAFT' | 'APPROVED';
   approvedBy?: string;
@@ -37,6 +38,13 @@ export const saveAnswer = async (dto: Partial<AnswerItem> & {
   updatedByName?: string;
   opportunityId?: string;
   questionFileId?: string;
+  /**
+   * When true, do NOT overwrite an existing answer that already has non-empty
+   * text. Used by the empty-resolution paths (NO_KB_MATCH / GENERATION_FAILED)
+   * so a transient failure on regenerate can never blank out a previously
+   * generated or manually-written answer — the real answer always wins.
+   */
+  skipIfAnswered?: boolean;
 }): Promise<AnswerItem> => {
   const now = nowIso();
   const {
@@ -48,6 +56,7 @@ export const saveAnswer = async (dto: Partial<AnswerItem> & {
     confidence,
     confidenceBreakdown,
     confidenceBand,
+    resolution,
     linkedToMasterQuestionId,
     status,
     approvedBy,
@@ -57,6 +66,7 @@ export const saveAnswer = async (dto: Partial<AnswerItem> & {
     updatedByName,
     opportunityId,
     questionFileId,
+    skipIfAnswered,
   } = dto;
 
   // Build exact SK when opportunityId + fileId are known
@@ -83,6 +93,13 @@ export const saveAnswer = async (dto: Partial<AnswerItem> & {
 
   const existing = (queryRes.Items?.[0] as (AnswerItem & DBItem) | undefined) ?? undefined;
 
+  // Never let an empty-resolution write (NO_KB_MATCH / GENERATION_FAILED) clobber
+  // an answer that already has real text. Return the existing answer untouched.
+  if (skipIfAnswered && existing && existing.text && existing.text.trim().length > 0) {
+    console.log(`[save-answer] skipIfAnswered: keeping existing non-empty answer for question ${questionId} (resolution=${resolution ?? 'n/a'} not applied)`);
+    return existing;
+  }
+
   if (existing) {
     const updates: Record<string, unknown> = {
       text,
@@ -97,6 +114,7 @@ export const saveAnswer = async (dto: Partial<AnswerItem> & {
     if (confidence !== undefined) updates.confidence = confidence;
     if (confidenceBreakdown) updates.confidenceBreakdown = confidenceBreakdown;
     if (confidenceBand) updates.confidenceBand = confidenceBand;
+    if (resolution !== undefined) updates.resolution = resolution;
     if (updatedBy !== undefined) updates.updatedBy = updatedBy;
     if (updatedByName !== undefined) updates.updatedByName = updatedByName;
     if (linkedToMasterQuestionId) updates.linkedToMasterQuestionId = linkedToMasterQuestionId;
@@ -124,6 +142,7 @@ export const saveAnswer = async (dto: Partial<AnswerItem> & {
     confidence,
     confidenceBreakdown,
     confidenceBand,
+    ...(resolution !== undefined && { resolution }),
     sources,
     ...(approvedBy && { approvedBy }),
     ...(approvedByName && { approvedByName }),

@@ -26,6 +26,11 @@ export function debriefingDomain(): DomainRoutes {
         path: 'update-debriefing',
         entry: lambdaEntry('debriefing/update-debriefing.ts'),
       },
+      {
+        method: 'DELETE',
+        path: 'delete-debriefing',
+        entry: lambdaEntry('debriefing/delete-debriefing.ts'),
+      },
     ],
   };
 }

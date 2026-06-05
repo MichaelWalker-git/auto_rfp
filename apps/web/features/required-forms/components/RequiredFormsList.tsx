@@ -19,6 +19,8 @@ import {
 import {
   CheckCircle2,
   ClipboardList,
+  Download,
+  Eye,
   FileSpreadsheet,
   FileText,
   MoreHorizontal,
@@ -28,11 +30,13 @@ import {
   Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
 import { useApi, apiMutate, buildApiUrl } from '@/lib/hooks/api-helpers';
-import { useAuth } from '@/components/AuthProvider';
+import { usePermission } from '@/components/permission-wrapper';
 import { ReviewRequiredBanner } from './ReviewRequiredBanner';
 import { useAttachFormToProposal } from '../hooks/useAttachFormToProposal';
+import { ExportAllRequiredFormsDialog } from './ExportAllRequiredFormsDialog';
 
 import type { RequiredFormItem, RequiredFormsListResponse } from '@auto-rfp/core';
 
@@ -67,14 +71,15 @@ const formatDateTime = (iso: string): string => {
 };
 
 const FormRow = ({
-  form, orgId, projectId, opportunityId, onChanged, isAdmin, confirm,
+  form, orgId, projectId, opportunityId, onChanged, canEdit, canDelete, confirm,
 }: {
   form: RequiredFormItem;
   orgId: string;
   projectId: string;
   opportunityId: string;
   onChanged: () => void;
-  isAdmin: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
   confirm: (opts: { title?: string; description?: string; confirmLabel?: string; cancelLabel?: string; variant?: 'destructive' | 'default' }) => Promise<boolean>;
 }) => {
   const { toast } = useToast();
@@ -204,10 +209,10 @@ const FormRow = ({
             size="sm"
             variant="ghost"
             className="h-8 w-8 p-0"
-            title="Edit form"
+            title={canEdit ? 'Edit form' : 'View form'}
             onClick={() => router.push(detailHref)}
           >
-            <Pencil className="h-4 w-4" />
+            {canEdit ? <Pencil className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -217,9 +222,13 @@ const FormRow = ({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => router.push(detailHref)}>
-                <Pencil className="h-4 w-4 mr-2" /> Edit
+                {canEdit ? (
+                  <><Pencil className="h-4 w-4 mr-2" /> Edit</>
+                ) : (
+                  <><Eye className="h-4 w-4 mr-2" /> View</>
+                )}
               </DropdownMenuItem>
-              {form.status === 'DONE' && (
+              {form.status === 'DONE' && canEdit && (
                 form.attachedToProposal ? (
                   <DropdownMenuItem onClick={handleDetach}>
                     <PaperclipIcon className="h-4 w-4 mr-2" /> Detach from proposal
@@ -230,7 +239,7 @@ const FormRow = ({
                   </DropdownMenuItem>
                 )
               )}
-              {isAdmin && (
+              {canDelete && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -274,19 +283,23 @@ export const RequiredFormsList = ({ orgId, projectId, opportunityId }: RequiredF
     refreshInterval: 10_000,
     dedupingInterval: 5_000,
   });
-  const { role } = useAuth();
-  const isAdmin = role === 'ADMIN';
+  const canEdit = usePermission('form:edit');
+  const canDelete = usePermission('form:delete');
   const { confirm, ConfirmDialog } = useConfirmDialog();
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
   const forms = data?.forms ?? [];
   const attachedCount = forms.filter((f) => f.attachedToProposal).length;
+  const exportableForms = forms.filter((f) => f.fields.length > 0 && f.sourceFileKey);
 
   return (
     <Card>
       <CardHeader className="pb-2">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="min-w-0">
-            <CardTitle className="text-sm font-medium">Required Forms</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              Required Forms
+            </CardTitle>
             <CardDescription className="mt-1">
               {isLoading ? (
                 <Skeleton className="h-4 w-64" />
@@ -297,6 +310,17 @@ export const RequiredFormsList = ({ orgId, projectId, opportunityId }: RequiredF
               )}
             </CardDescription>
           </div>
+          {!isLoading && exportableForms.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 shrink-0"
+              onClick={() => setExportDialogOpen(true)}
+            >
+              <Download className="h-4 w-4" />
+              Export All
+            </Button>
+          )}
         </div>
       </CardHeader>
 
@@ -322,7 +346,8 @@ export const RequiredFormsList = ({ orgId, projectId, opportunityId }: RequiredF
                 orgId={orgId}
                 projectId={projectId}
                 opportunityId={opportunityId}
-                isAdmin={isAdmin}
+                canEdit={canEdit}
+                canDelete={canDelete}
                 onChanged={() => mutate()}
                 confirm={confirm}
               />
@@ -331,6 +356,14 @@ export const RequiredFormsList = ({ orgId, projectId, opportunityId }: RequiredF
         )}
       </CardContent>
       <ConfirmDialog />
+      <ExportAllRequiredFormsDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        projectId={projectId}
+        orgId={orgId}
+        opportunityId={opportunityId}
+        forms={forms}
+      />
     </Card>
   );
 };
