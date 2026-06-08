@@ -309,6 +309,49 @@ export const queryAllBySkPrefix = async <T>(
 };
 
 /**
+ * Query a GSI by its partition key (and optional sort key), with pagination.
+ * Generic so any feature can query an index without a raw QueryCommand.
+ */
+export const queryByIndex = async <T>(
+  indexName: string,
+  partitionKeyName: string,
+  partitionKeyValue: string,
+  sortKey?: { name: string; value: string },
+  projectionExpression?: string,
+): Promise<T[]> => {
+  const items: T[] = [];
+  let ExclusiveStartKey: Record<string, any> | undefined;
+
+  const names: Record<string, string> = { '#pk': partitionKeyName };
+  const values: Record<string, any> = { ':pk': partitionKeyValue };
+  let keyCondition = '#pk = :pk';
+  if (sortKey) {
+    names['#sk'] = sortKey.name;
+    values[':sk'] = sortKey.value;
+    keyCondition += ' AND #sk = :sk';
+  }
+
+  do {
+    const res = await docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        IndexName: indexName,
+        KeyConditionExpression: keyCondition,
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
+        ProjectionExpression: projectionExpression,
+        ExclusiveStartKey,
+      }),
+    );
+
+    items.push(...((res.Items as T[]) ?? []));
+    ExclusiveStartKey = res.LastEvaluatedKey as any;
+  } while (ExclusiveStartKey);
+
+  return items;
+};
+
+/**
  * Scan items by PK with a filter expression (for cases where Query is not possible)
  */
 export const scanByPkWithFilter = async <T>(
