@@ -141,10 +141,13 @@ export class AuditStack extends cdk.Stack {
       }),
     );
 
-    // ── Lambda: audit-archiver (DynamoDB Streams consumer) ────────────────────
-    const auditArchiver = new lambdaNodejs.NodejsFunction(this, 'AuditArchiver', {
-      functionName: `auto-rfp-audit-archiver-${stage}`,
-      entry: path.join(__dirname, '../../apps/functions/src/handlers/audit/audit-archiver.ts'),
+    // ── Lambda: table-stream-handler (DynamoDB Streams consumer) ──────────────
+    // Single consumer of the main table stream. Dispatches:
+    //   REMOVE → audit-log archival to Glacier
+    //   INSERT → new-org-member detection alert (Sentry → Slack)
+    const tableStreamHandler = new lambdaNodejs.NodejsFunction(this, 'TableStreamHandler', {
+      functionName: `auto-rfp-table-stream-${stage}`,
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/stream/table-stream-handler.ts'),
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_20_X,
       timeout: cdk.Duration.minutes(5),
@@ -157,22 +160,28 @@ export class AuditStack extends cdk.Stack {
       bundling,
     });
 
-    new logs.LogGroup(this, 'AuditArchiverLogs', {
-      logGroupName: `/aws/lambda/${auditArchiver.functionName}`,
+    new logs.LogGroup(this, 'TableStreamHandlerLogs', {
+      logGroupName: `/aws/lambda/${tableStreamHandler.functionName}`,
       retention: isProd ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    // Attach DynamoDB Streams as event source — filters to REMOVE events only
-    auditArchiver.addEventSource(
+    // Attach DynamoDB Streams as event source — REMOVE (archival) + INSERT (member detection).
+    // reportBatchItemFailures pairs with the handler's partial-batch response so a single
+    // failing record is retried in isolation (prevents duplicate detection alerts).
+    tableStreamHandler.addEventSource(
       new lambdaEventSources.DynamoEventSource(mainTable as dynamodb.Table, {
         startingPosition: lambda.StartingPosition.TRIM_HORIZON,
         batchSize: 100,
         bisectBatchOnError: true,
         retryAttempts: 3,
+        reportBatchItemFailures: true,
         filters: [
           lambda.FilterCriteria.filter({
             eventName: lambda.FilterRule.isEqual('REMOVE'),
+          }),
+          lambda.FilterCriteria.filter({
+            eventName: lambda.FilterRule.isEqual('INSERT'),
           }),
         ],
       }),

@@ -81,6 +81,8 @@ export const OrganizationItemSchema = CreateOrganizationSchema.extend({
   slug: z.string().optional(),
   /** Whether POC generation via EventBridge is enabled for this org */
   enablePOCGeneration: z.boolean().optional(),
+  /** Whether new-member detection alerts are enabled for this org (set manually in DynamoDB; no UI) */
+  enableMemberDetection: z.boolean().optional().default(false),
 });
 
 /**
