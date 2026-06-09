@@ -138,8 +138,14 @@ export const buildSectionsHtml = (sections: GroupedSection[]): string => {
 
       // Answer (or unanswered message)
       if (q.answer) {
+        // Detect if answer contains HTML tags - if so, preserve it; otherwise escape
+        const isHtml = /<[a-z][\s\S]*>/i.test(q.answer);
         parts.push(`<div style="color:#1f2937; line-height:1.6; padding-left:16px; border-left:3px solid #e5e7eb;">`);
-        parts.push(escapeHtml(q.answer));
+        if (isHtml) {
+          parts.push(q.answer); // Preserve HTML formatting
+        } else {
+          parts.push(escapeHtml(q.answer)); // Escape plain text
+        }
         parts.push(`</div>`);
       } else {
         parts.push(`<p style="color:#9ca3af; font-style:italic;">Not yet answered</p>`);

@@ -34,7 +34,7 @@ import { AIChatPanel } from './ai-chat';
 import { TemplateSelector } from './template-selector';
 import type { RFPDocumentVersion } from '@auto-rfp/core';
 import { XlsxQuestionnaireEditorPage } from './xlsx-questionnaire-editor-page';
-import { isHtmlQuestionnaire } from '@/lib/utils/document-format';
+import { isHtmlQuestionnaire, isXlsxQuestionnaire } from '@/lib/utils/document-format';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -118,10 +118,8 @@ export const OpportunityDocumentEditorPage = ({
   // Content will be fetched once generation completes (status transitions away from GENERATING).
   // XLSX QUESTIONNAIRE docs are file-based (no HTML content) — skip fetching.
   // HTML questionnaires (from DOCX/PDF) DO need HTML content.
-  const isXlsxQuestionnaire = doc?.documentType === 'QUESTIONNAIRE' &&
-    ((doc?.originalFileName?.toLowerCase() || doc?.fileKey?.toLowerCase() || '').endsWith('.xlsx') ||
-     (doc?.originalFileName?.toLowerCase() || doc?.fileKey?.toLowerCase() || '').endsWith('.xls'));
-  const htmlFetchEnabled = !!doc && !isDocumentGenerating(doc?.status) && !isRegenerateStarting && !isXlsxQuestionnaire;
+  const htmlFetchEnabled = !!doc && !isDocumentGenerating(doc?.status) && !isRegenerateStarting &&
+    !(doc && isXlsxQuestionnaire(doc));
   const {
     html: serverHtml,
     isLoading: isHtmlLoading,
@@ -193,7 +191,7 @@ export const OpportunityDocumentEditorPage = ({
 
   useEffect(() => {
     if (!doc) return;
-    if (isXlsxQuestionnaire) return; // XLSX questionnaires use spreadsheet editor, not HTML editor
+    if (isXlsxQuestionnaire(doc)) return; // XLSX questionnaires use spreadsheet editor, not HTML editor
     // Don't initialize during generation — the "Generating…" overlay handles this state.
     // Content will be initialized after generation completes and HTML is fetched.
     if (isDocumentGenerating(doc.status) || isRegenerateStarting) return;
@@ -219,7 +217,7 @@ export const OpportunityDocumentEditorPage = ({
         variant: 'default',
       });
     }
-  }, [doc, isHtmlLoading, isHtmlError, serverHtml, toast, isRegenerateStarting, isXlsxQuestionnaire]);
+  }, [doc, isHtmlLoading, isHtmlError, serverHtml, toast, isRegenerateStarting]);
 
   // Manual polling while waiting for regeneration to start
   useEffect(() => {
@@ -572,10 +570,7 @@ export const OpportunityDocumentEditorPage = ({
 
   // Route questionnaires based on format: XLSX → spreadsheet editor, HTML → standard editor
   if (doc.documentType === 'QUESTIONNAIRE') {
-    const fileName = doc.originalFileName?.toLowerCase() || doc.fileKey?.toLowerCase() || '';
-    const isXlsx = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
-
-    if (isXlsx && doc.fileKey) {
+    if (isXlsxQuestionnaire(doc) && doc.fileKey) {
       // XLSX questionnaire - use spreadsheet editor
       return (
         <XlsxQuestionnaireEditorPage
