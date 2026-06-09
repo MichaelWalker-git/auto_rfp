@@ -64,7 +64,8 @@ export function rfpDocumentDomain(args?: {
       { method: 'POST', path: 'revert', entry: lambdaEntry('rfp-document/revert-version.ts') },
       { method: 'POST', path: 'cherry-pick', entry: lambdaEntry('rfp-document/cherry-pick-version.ts') },
       // AI-powered section editing (chat interface)
-      { method: 'POST', path: 'edit-section', entry: lambdaEntry('rfp-document/edit-section.ts'), timeoutSeconds: 90, memorySize: 256 },
+      // Increased timeout for large documents (questionnaires can be 60k+ chars)
+      { method: 'POST', path: 'edit-section', entry: lambdaEntry('rfp-document/edit-section.ts'), timeoutSeconds: 180, memorySize: 512 },
       { method: 'GET', path: 'chat-messages', entry: lambdaEntry('rfp-document/get-chat-messages.ts') },
     ],
   };

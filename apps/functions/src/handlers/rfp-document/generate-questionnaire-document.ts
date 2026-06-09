@@ -25,6 +25,7 @@ import { getQuestionFileItem } from '@/helpers/questionFile';
 import { uploadToS3 } from '@/helpers/s3';
 import { buildRFPDocumentSK, buildRFPDocumentS3Key, putRFPDocument } from '@/helpers/rfp-document';
 import { nowIso } from '@/helpers/date';
+import { columnLetterToIndex } from '@/helpers/excel';
 
 const getTableName = () => requireEnv('DB_TABLE_NAME');
 const getDocumentsBucket = () => requireEnv('DOCUMENTS_BUCKET');
@@ -38,13 +39,6 @@ const GenerateQuestionnaireDTOSchema = z.object({
   questionFileId: z.string().min(1),
 });
 
-const columnLetterToIndex = (col: string): number => {
-  let index = 0;
-  for (let i = 0; i < col.length; i++) {
-    index = index * 26 + (col.toUpperCase().charCodeAt(i) - 64);
-  }
-  return index;
-};
 
 export const generateQuestionnaireDocument = async (
   event: AuthedEvent,

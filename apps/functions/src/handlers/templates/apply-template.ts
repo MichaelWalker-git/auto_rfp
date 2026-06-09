@@ -10,8 +10,7 @@ import {
   requirePermission,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
-import { getTemplate, loadTemplateHtml, replaceMacros } from '@/helpers/template';
-import { buildMacroValues } from '@/helpers/document-generation';
+import { getTemplate, loadTemplateHtml, replaceMacros, buildMacroValues } from '@/helpers/template';
 
 const baseHandler = async (
   event: APIGatewayProxyEventV2,

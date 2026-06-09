@@ -30,6 +30,17 @@ jest.mock('@/helpers/date', () => ({
   nowIso: jest.fn(() => '2026-05-19T12:00:00.000Z'),
 }));
 
+const mockGenerateHtmlQuestionnaireDocument = jest.fn().mockResolvedValue(undefined);
+jest.mock('@/helpers/html-questionnaire-document', () => ({
+  generateHtmlQuestionnaireDocument: mockGenerateHtmlQuestionnaireDocument,
+}));
+
+jest.mock('@/helpers/questionFile', () => ({
+  updateQuestionFile: jest.fn().mockResolvedValue(undefined),
+  isExtractedQuestionFile: jest.fn(() => true),
+  listQuestionFilesByOpportunity: jest.fn().mockResolvedValue({ items: [] }),
+}));
+
 jest.mock('exceljs', () => {
   const mockWorksheet = {
     eachRow: jest.fn((cb: (row: any, num: number) => void) => {
@@ -194,6 +205,121 @@ describe('generate-questionnaire-exports', () => {
 
     expect(result.skipped).toBe(1);
     expect(result.generated).toBe(0);
+  });
+
+  it('should skip file with no worksheet (corrupted XLSX)', async () => {
+    const ExcelJS = require('exceljs');
+    const originalWorkbook = ExcelJS.default.Workbook;
+
+    // Mock a workbook with no worksheets
+    ExcelJS.default.Workbook = jest.fn(() => ({
+      xlsx: {
+        load: jest.fn().mockResolvedValue(undefined),
+        writeBuffer: jest.fn().mockResolvedValue(Buffer.from('xlsx-data')),
+      },
+      getWorksheet: jest.fn(() => undefined),
+      worksheets: [], // Empty worksheets array
+    }));
+
+    (queryAllBySkPrefix as jest.Mock).mockImplementation((pk: string) => {
+      if (pk === 'QUESTION_FILE') {
+        return Promise.resolve([{
+          partition_key: 'QUESTION_FILE',
+          sort_key: 'proj#opp#qf-bad',
+          questionFileId: 'qf-bad',
+          docType: 'QUESTIONNAIRE',
+          questionColumn: 'B',
+          answerColumn: 'C',
+          firstDataRow: 10,
+          fileKey: 'uploads/corrupted.xlsx',
+          originalFileName: 'corrupted.xlsx',
+          orgId: 'org-1',
+        }]);
+      }
+      if (pk === 'ANSWER') {
+        return Promise.resolve([
+          { partition_key: 'ANSWER', sort_key: 'sk1', questionId: 'q1', text: 'Answer 1' },
+        ]);
+      }
+      if (pk === 'QUESTION') {
+        return Promise.resolve([
+          { partition_key: 'QUESTION', sort_key: 'sk1', questionId: 'q1', sourceRow: 10 },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
+    const result = await baseHandler(
+      { projectId: 'proj', orgId: 'org-1', opportunityId: 'opp' },
+      mockContext,
+    );
+
+    expect(result.generated).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(uploadToS3).not.toHaveBeenCalled();
+
+    // Restore original mock
+    ExcelJS.default.Workbook = originalWorkbook;
+  });
+
+  it('should generate HTML documents for non-XLSX questionnaire files (DOCX/PDF)', async () => {
+    (queryAllBySkPrefix as jest.Mock).mockImplementation((pk: string) => {
+      if (pk === 'QUESTION_FILE') {
+        return Promise.resolve([
+          {
+            partition_key: 'QUESTION_FILE',
+            sort_key: 'proj#opp#qf-docx',
+            questionFileId: 'qf-docx',
+            docType: 'QUESTIONNAIRE',
+            questionColumn: 'B',
+            answerColumn: 'C',
+            firstDataRow: 10,
+            fileKey: 'uploads/questionnaire.docx',
+            originalFileName: 'Vendor_Questionnaire.docx',
+            orgId: 'org-1',
+          },
+        ]);
+      }
+      if (pk === 'QUESTION') {
+        return Promise.resolve([
+          {
+            partition_key: 'QUESTION',
+            sort_key: 'proj#opp#qf-docx#q1',
+            questionId: 'q1',
+            questionFileId: 'qf-docx',
+            question: 'Test question',
+          },
+        ]);
+      }
+      if (pk === 'ANSWER') {
+        return Promise.resolve([
+          {
+            partition_key: 'ANSWER',
+            sort_key: 'proj#q1',
+            questionId: 'q1',
+            text: 'Test answer',
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
+    const result = await baseHandler(
+      { projectId: 'proj', orgId: 'org-1', opportunityId: 'opp' },
+      mockContext,
+    );
+
+    // Should generate 1 HTML document for the DOCX file
+    expect(result.generated).toBe(1);
+    expect(result.skipped).toBe(0);
+    expect(mockGenerateHtmlQuestionnaireDocument).toHaveBeenCalledTimes(1);
+    expect(mockGenerateHtmlQuestionnaireDocument).toHaveBeenCalledWith({
+      orgId: 'org-1',
+      projectId: 'proj',
+      opportunityId: 'opp',
+      questionFileId: 'qf-docx',
+      originalFileName: 'Vendor_Questionnaire.docx',
+    });
   });
 
   it('should return early when projectId or opportunityId missing', async () => {

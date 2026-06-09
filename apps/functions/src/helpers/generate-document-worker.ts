@@ -25,11 +25,10 @@ import {
   loadQaPairs,
   loadSolicitation,
   resolveTemplateHtml,
-  buildMacroValues,
   validateGeneratedContent,
   type QaPair,
 } from '@/helpers/document-generation';
-import { getTemplate, findBestTemplate, loadTemplateHtml, replaceMacros } from '@/helpers/template';
+import { getTemplate, findBestTemplate, loadTemplateHtml, replaceMacros, buildMacroValues } from '@/helpers/template';
 import { uploadRFPDocumentHtml, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
 import {
   createVersion,
@@ -693,10 +692,42 @@ export const processJobInner = async (job: Job): Promise<void> => {
     return;
   }
 
-  // ─── QUESTIONNAIRE: No AI — fill answers into original XLSX ───
+  // ─── QUESTIONNAIRE: Fill XLSX or generate formatted Q&A document ───
   if (documentType === 'QUESTIONNAIRE') {
-    const { generateQuestionnaireDocument } = await import('@/helpers/questionnaire-document');
-    await generateQuestionnaireDocument({ orgId, projectId, opportunityId, documentId });
+    // Try to find the source questionnaire file to determine format
+    const { queryAllBySkPrefix } = await import('@/helpers/db');
+    const { QUESTION_FILE_PK } = await import('@/constants/question-file');
+
+    const skPrefix = `${projectId}#${opportunityId}#`;
+    const questionFiles = await queryAllBySkPrefix<{
+      questionFileId: string;
+      docType?: string;
+      originalFileName?: string;
+      fileKey?: string;
+      answerColumn?: string;
+      firstDataRow?: number;
+    }>(QUESTION_FILE_PK, skPrefix);
+
+    const questionnaireFiles = questionFiles.filter(f => f.docType === 'QUESTIONNAIRE');
+
+    // Check if we have an XLSX questionnaire file that can be auto-filled
+    const xlsxFile = questionnaireFiles.find(f => {
+      const fileName = (f.originalFileName ?? f.fileKey ?? '').toLowerCase();
+      const isXlsx = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+      return isXlsx && f.answerColumn && f.firstDataRow && f.fileKey;
+    });
+
+    if (xlsxFile) {
+      // XLSX questionnaire — fill the original spreadsheet with answers
+      console.log(`XLSX questionnaire detected (${xlsxFile.originalFileName}), using fill-in-place logic`);
+      const { generateQuestionnaireDocument } = await import('@/helpers/questionnaire-document');
+      await generateQuestionnaireDocument({ orgId, projectId, opportunityId, documentId });
+    } else {
+      // DOCX questionnaire or no source file — generate formatted Q&A document
+      console.log(`Non-XLSX questionnaire detected, generating formatted Q&A document with template support`);
+      const { generateQaDocument } = await import('@/helpers/qa-questions-document');
+      await generateQaDocument({ orgId, projectId, opportunityId, documentId, templateId });
+    }
     return;
   }
 

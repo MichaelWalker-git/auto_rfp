@@ -12,7 +12,7 @@ import { useDocumentDownloadUrl } from '@/lib/hooks/use-rfp-documents';
 import { usePresignUpload } from '@/lib/hooks/use-presign';
 import type { RFPDocumentItem } from '@auto-rfp/core';
 
-interface QuestionnaireEditorPageProps {
+interface XlsxQuestionnaireEditorPageProps {
   doc: RFPDocumentItem;
   orgId: string;
   projectId: string;
@@ -20,13 +20,13 @@ interface QuestionnaireEditorPageProps {
   backUrl: string;
 }
 
-export const QuestionnaireEditorPage = ({
+export const XlsxQuestionnaireEditorPage = ({
   doc,
   orgId,
   projectId,
   opportunityId,
   backUrl,
-}: QuestionnaireEditorPageProps) => {
+}: XlsxQuestionnaireEditorPageProps) => {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
