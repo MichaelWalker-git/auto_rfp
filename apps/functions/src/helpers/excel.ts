@@ -11,7 +11,7 @@
 export const columnLetterToIndex = (col: string): number => {
   let index = 0;
   for (let i = 0; i < col.length; i++) {
-    index = index * 26 + col.charCodeAt(i) - 64;
+    index = index * 26 + col.toUpperCase().charCodeAt(i) - 64;
   }
   return index - 1;
 };
