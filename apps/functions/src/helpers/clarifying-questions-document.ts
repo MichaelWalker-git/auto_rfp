@@ -12,11 +12,8 @@ import type {
   ClarifyingQuestionsExportOptions,
 } from '@auto-rfp/core';
 import { listClarifyingQuestionsByOpportunity } from '@/helpers/clarifying-question';
-import {
-  updateDocumentStatus,
-  buildMacroValues,
-} from '@/helpers/document-generation';
-import { getTemplate, findBestTemplate, loadTemplateHtml, replaceMacros } from '@/helpers/template';
+import { updateDocumentStatus } from '@/helpers/document-generation';
+import { getTemplate, findBestTemplate, loadTemplateHtml, replaceMacros, buildMacroValues } from '@/helpers/template';
 import { enqueueClarifyingQuestionGeneration } from '@/helpers/clarifying-question-queue';
 
 // ─── Constants ───

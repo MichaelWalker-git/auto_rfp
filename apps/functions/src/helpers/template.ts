@@ -5,6 +5,10 @@ import { PK_NAME, SK_NAME } from '@/constants/common';
 import { createTemplateSK, TEMPLATE_PK, type TemplateItem } from '@auto-rfp/core';
 import { loadTextFromS3, uploadToS3 } from './s3';
 import { nowIso } from './date';
+import { getProjectById } from './project';
+import { getOrganizationById } from './org';
+import { getOpportunity } from './opportunity';
+import { getExecutiveBriefByProjectId } from './executive-opportunity-brief';
 
 const TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -215,6 +219,170 @@ export const setDefaultTemplate = async (
 // ================================
 // Macro Engine
 // ================================
+
+/**
+ * Format an ISO date string for display.
+ */
+const formatDateSafe = (isoDate: string): string => {
+  try {
+    return new Date(isoDate).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  } catch {
+    return isoDate;
+  }
+};
+
+/**
+ * Format a number as US currency (no decimals).
+ */
+const formatCurrency = (value: number): string =>
+  new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+
+/**
+ * Format a contact object as "Name (email)" string.
+ */
+const formatContact = (contact?: { name?: string | null; email?: string | null }): string => {
+  if (!contact) return '';
+  const parts: string[] = [];
+  if (contact.name) parts.push(contact.name);
+  if (contact.email) parts.push(`(${contact.email})`);
+  return parts.join(' ');
+};
+
+/**
+ * Build macro values from real project, organization, and opportunity data.
+ * Returns a Record<string, string> that can be passed to replaceMacros().
+ */
+export const buildMacroValues = async (params: {
+  orgId: string;
+  projectId: string;
+  opportunityId?: string;
+}): Promise<Record<string, string>> => {
+  const { orgId, projectId, opportunityId } = params;
+
+  // Load data in parallel
+  const [project, org, opportunity] = await Promise.all([
+    getProjectById(projectId),
+    getOrganizationById(orgId),
+    opportunityId ? getOpportunity({ orgId, projectId, oppId: opportunityId }).then(result => result?.item) : Promise.resolve(undefined),
+  ]);
+
+  const today = new Date();
+  const macroValues: Record<string, string> = {
+    // Date macros
+    TODAY: today.toISOString().split('T')[0],
+    CURRENT_YEAR: String(today.getFullYear()),
+    CURRENT_MONTH: today.toLocaleDateString('en-US', { month: 'long' }),
+    CURRENT_DAY: String(today.getDate()),
+    // CONTENT macro: visible placeholder so the AI knows where to insert generated content.
+    CONTENT: '[CONTENT: Write the complete document content here based on the solicitation requirements and provided context. Preserve all surrounding template elements (images, dates, company name, etc.) exactly as they appear.]',
+  };
+
+  // Organization macros
+  if (org) {
+    macroValues.COMPANY_NAME = org.name || '';
+    macroValues.ORGANIZATION_DESCRIPTION = org.description || '';
+  }
+
+  // Project macros
+  if (project) {
+    macroValues.PROJECT_TITLE = project.name || '';
+    macroValues.PROPOSAL_TITLE = project.name || '';
+    macroValues.PROJECT_DESCRIPTION = project.description || '';
+
+    // Project contact info macros
+    macroValues.PROJECT_POC_NAME = project.contactInfo?.primaryPocName || '';
+    macroValues.PROJECT_POC_EMAIL = project.contactInfo?.primaryPocEmail || '';
+    macroValues.PROJECT_POC_PHONE = project.contactInfo?.primaryPocPhone || '';
+    macroValues.PROJECT_POC_TITLE = project.contactInfo?.primaryPocTitle || '';
+  }
+
+  // Opportunity macros
+  if (opportunity) {
+    macroValues.OPPORTUNITY_ID = opportunity.id || '';
+    macroValues.NOTICE_ID = opportunity.noticeId || '';
+    macroValues.SOLICITATION_NUMBER = opportunity.solicitationNumber || '';
+    macroValues.OPPORTUNITY_TITLE = opportunity.title || '';
+
+    // Agency information
+    macroValues.AGENCY_NAME = opportunity.organizationName || '';
+    macroValues.ISSUING_OFFICE = opportunity.organizationName || '';
+
+    // Dates
+    if (opportunity.postedDateIso) {
+      macroValues.POSTED_DATE = formatDateSafe(opportunity.postedDateIso);
+    }
+    if (opportunity.responseDeadlineIso) {
+      macroValues.RESPONSE_DEADLINE = formatDateSafe(opportunity.responseDeadlineIso);
+      macroValues.SUBMISSION_DATE = macroValues.RESPONSE_DEADLINE;
+    }
+
+    // Classification codes
+    macroValues.NAICS_CODE = opportunity.naicsCode || '';
+    macroValues.PSC_CODE = opportunity.pscCode || '';
+
+    // Compliance information
+    macroValues.SET_ASIDE = opportunity.setAside || '';
+    macroValues.OPPORTUNITY_TYPE = opportunity.type || '';
+
+    // Financial information
+    if (opportunity.baseAndAllOptionsValue) {
+      const value = opportunity.baseAndAllOptionsValue;
+      const formatted = typeof value === 'number' && value > 0
+        ? formatCurrency(value)
+        : String(value);
+      macroValues.ESTIMATED_VALUE = formatted;
+      macroValues.BASE_AND_OPTIONS_VALUE = formatted;
+    }
+
+    // Solicitation organization macros
+    macroValues.SOLICITATION_ORG_NAME = opportunity.organizationName || '';
+    macroValues.SOLICITATION_ORG_OFFICE = opportunity.organizationName || '';
+  }
+
+  // Brief contacts macros — load executive brief if opportunity is provided
+  if (opportunityId) {
+    try {
+      const brief = await getExecutiveBriefByProjectId(projectId, opportunityId);
+
+      // Extract solicitation org details from brief summary
+      const summaryData = brief?.sections?.summary?.data;
+      if (summaryData) {
+        if (summaryData.office) {
+          macroValues.SOLICITATION_ORG_OFFICE = summaryData.office;
+        }
+        if (summaryData.placeOfPerformance) {
+          macroValues.SOLICITATION_ORG_LOCATION = summaryData.placeOfPerformance;
+        }
+        if (summaryData.agency && !macroValues.SOLICITATION_ORG_NAME) {
+          macroValues.SOLICITATION_ORG_NAME = summaryData.agency;
+        }
+      }
+
+      // Extract contacts from brief
+      const contacts = brief?.sections?.contacts?.data?.contacts;
+      if (contacts?.length) {
+        const contractingOfficer = contacts.find((c) => c.role === 'CONTRACTING_OFFICER');
+        const technicalPoc = contacts.find((c) => c.role === 'TECHNICAL_POC');
+
+        macroValues.CONTRACTING_OFFICER = formatContact(contractingOfficer);
+        macroValues.TECHNICAL_POC = formatContact(technicalPoc);
+      }
+    } catch (err) {
+      console.warn('No executive brief found for opportunity:', opportunityId, (err as Error)?.message);
+    }
+  }
+
+  return macroValues;
+};
 
 export const replaceMacros = (
   text: string,
