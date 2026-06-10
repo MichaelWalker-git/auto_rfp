@@ -129,7 +129,7 @@ export function CreateOpportunityDialog({ projectId: propProjectId, onCreated, t
         contactEmail: values.contactEmail?.trim() || null,
         decisionDateIso: values.decisionDateIso?.trim() || null,
         contractStartDateIso: values.contractStartDateIso?.trim() || null,
-        stage: 'IDENTIFIED',
+        status: 'IDENTIFIED',
         baseAndAllOptionsValue: null,
       };
 

@@ -264,7 +264,7 @@ describe('checkSubmissionReadiness', () => {
     orgId: 'org-1',
     projectId: 'proj-1',
     oppId: 'opp-1',
-    currentStage: 'PURSUING',
+    currentStatus: 'PURSUING',
     deadlineIso: null,
     ...overrides,
   });
@@ -293,7 +293,7 @@ describe('checkSubmissionReadiness', () => {
   it('returns ready=false when stage is not PURSUING', async () => {
     mockQuestionsAndAnswers([], [], [], []);
 
-    const result = await checkSubmissionReadiness(makeReadinessArgs({ currentStage: 'IDENTIFIED' }));
+    const result = await checkSubmissionReadiness(makeReadinessArgs({ currentStatus: 'IDENTIFIED' }));
 
     expect(result.ready).toBe(false);
     const stageCheck = result.checks.find((c) => c.id === 'opportunity_stage');
@@ -456,7 +456,7 @@ describe('checkSubmissionReadiness', () => {
 
     const pastDeadline = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const result = await checkSubmissionReadiness(
-      makeReadinessArgs({ currentStage: 'IDENTIFIED', deadlineIso: pastDeadline }),
+      makeReadinessArgs({ currentStatus: 'IDENTIFIED', deadlineIso: pastDeadline }),
     );
 
     expect(result.blockingFails).toBeGreaterThanOrEqual(1);

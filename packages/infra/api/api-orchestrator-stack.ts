@@ -34,7 +34,6 @@ import { semanticDomain } from './routes/semantic.routes';
 import { deadlinesDomain } from './routes/deadlines.routes';
 import { opportunityDomain } from './routes/opportunity.routes';
 import { contentlibraryDomain } from './routes/content-library.routes';
-import { projectoutcomeDomain } from './routes/project-outcome.routes';
 import { projectsDomain } from './routes/projects.routes';
 import { promptDomain } from './routes/prompt.routes';
 import { searchOpportunityDomain } from './routes/search-opportunity.routes';
@@ -618,7 +617,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       deadlinesDomain(),
       opportunityDomain(),
       contentlibraryDomain(),
-      projectoutcomeDomain(),
       foiaDomain(),
       debriefingDomain(),
       pastperfDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '' }),

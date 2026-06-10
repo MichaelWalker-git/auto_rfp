@@ -122,10 +122,6 @@ export const OpportunityHeader = () => {
               ) : (
                 <OpportunityHeaderView
                   opportunity={opportunity}
-                  orgId={orgId}
-                  projectId={projectId}
-                  oppId={oppId}
-                  onStageChanged={refetch}
                 />
               )}
             </div>

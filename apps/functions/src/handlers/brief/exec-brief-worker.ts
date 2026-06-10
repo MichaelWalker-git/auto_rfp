@@ -51,7 +51,7 @@ import { storeDeadlinesSeparately } from '@/helpers/deadlines';
 import { invokeClaudeWithTools } from '@/helpers/bedrock-tool-loop';
 import { BRIEF_TOOLS, executeBriefTool } from '@/helpers/brief-tools';
 import { usePricingSystemPrompt, usePricingUserPrompt } from '@/constants/pricing-prompts';
-import { onBriefScoringComplete } from '@/helpers/opportunity-stage';
+import { onBriefScoringComplete } from '@/helpers/opportunity-status';
 
 const JobSchema = z.object({
   orgId: z.string().min(1),

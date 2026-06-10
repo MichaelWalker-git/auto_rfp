@@ -47,7 +47,6 @@ import { PricingCard } from './components/PricingCard';
 import { OpportunitySelector } from './components/OpportunitySelector';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { PermissionButton } from '@/components/ui/permission-button';
-import { useProjectOutcome } from '@/lib/hooks/use-project-outcome';
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { isExtractedQuestionFile } from '@/lib/utils/question-file-status';
 import type { OpportunityItem } from '@auto-rfp/core';
@@ -226,7 +225,6 @@ export function ExecutiveBriefView({
   const router = useRouter();
   const { data: project, isLoading, isError, mutate: refetchProject } = useProject(projectId);
   const { currentOrganization } = useCurrentOrganization();
-  const { outcome: projectOutcome } = useProjectOutcome(project?.orgId ?? null, projectId);
   const init = useInitExecutiveBrief(currentOrganization?.id);
   const genSummary = useGenerateExecutiveBriefSummary(currentOrganization?.id);
   const genDeadlines = useGenerateExecutiveBriefDeadlines(currentOrganization?.id);

@@ -22,12 +22,11 @@ import { OpportunityRFPDocuments } from './opportunity-rfp-documents';
 import { OpportunityChatDialog } from './OpportunityChatDialog';
 import { ExecutiveBriefView } from '@/components/brief/ExecutiveBriefView';
 import { QuestionsProvider } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components';
-import { ProjectOutcomeCard } from '@/components/project-outcome/ProjectOutcomeCard';
+import { OpportunityOutcomeSummary } from './opportunity-outcome-summary';
 import { DebriefingCard } from '@/components/debriefing';
 import { FOIARequestCard } from '@/components/foia/FOIARequestCard';
 import { OpportunityContextPanel } from './opportunity-context-panel';
 import { useCurrentOrganization } from '@/context/organization-context';
-import { useProjectOutcome } from '@/lib/hooks/use-project-outcome';
 import { saveSelectedOpportunity } from '@/lib/utils/opportunity-selection';
 import {
   SubmitProposalButton,
@@ -213,7 +212,8 @@ const OpportunityContent = ({ className }: { className?: string }) => {
 
   // Smart auto-reload: 5s if pending items, 30s if stable, stops after 3 unchanged
   useSmartPolling(orgId, projectId, oppId);
-  const { outcome } = useProjectOutcome(orgId, projectId, oppId);
+  // Outcome now lives on the opportunity itself (status + jurisdiction/state).
+  const outcome = opportunity;
 
   // Save oppId to session storage so other pages (Questions, Brief, etc.)
   // use this opportunity by default when navigating from this page
@@ -319,7 +319,15 @@ const OpportunityContent = ({ className }: { className?: string }) => {
           title="Post-Award"
           muted
         />
-        <ProjectOutcomeCard projectId={projectId} orgId={orgId} opportunityId={oppId} />
+        {opportunity && (
+          <OpportunityOutcomeSummary
+            opportunity={opportunity}
+            orgId={orgId}
+            projectId={projectId}
+            oppId={oppId}
+            onOutcomeChange={refetch}
+          />
+        )}
         {/* Debriefs apply to federal awards only. */}
         {outcome?.jurisdiction === 'FEDERAL' && (
           <DebriefingCard
@@ -337,7 +345,7 @@ const OpportunityContent = ({ className }: { className?: string }) => {
           opportunityId={oppId}
           projectOutcomeStatus={outcome?.status}
           jurisdiction={outcome?.jurisdiction}
-          state={outcome?.state}
+          state={outcome?.state ?? undefined}
           agencyName={opportunity?.organizationName ?? undefined}
           solicitationNumber={opportunity?.solicitationNumber ?? undefined}
           contractTitle={opportunity?.title ?? undefined}

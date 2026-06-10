@@ -32,11 +32,10 @@ import { useProjectAccessUsers } from '@/lib/hooks/use-project-access';
 import { useUsersList } from '@/lib/hooks/use-user';
 import { useAuth } from '@/components/AuthProvider';
 import { useCurrentOrganization } from '@/context/organization-context';
-import { EditOpportunityDialog } from './edit-opportunity-dialog';
-import { OpportunityStageBadge } from './opportunity-stage-badge';
+import { OpportunityStatusBadge } from './opportunity-status-badge';
 import { ApprovalNeededBadge } from '@/features/opportunity-approval';
 
-import type { OpportunityStage } from '@auto-rfp/core';
+import type { OpportunityStatus } from '@auto-rfp/core';
 
 // ─── Description section — auto-fetches if description is a URL ──────────────
 
@@ -362,13 +361,8 @@ export const OpportunityItemCard = ({
           >
             {item.title}
           </h3>
-          <OpportunityStageBadge
-            stage={(item.stage as OpportunityStage | undefined) ?? (item.active ? 'PURSUING' : 'IDENTIFIED')}
-            orgId={currentOrganization?.id}
-            projectId={projectId ?? undefined}
-            oppId={oppId ?? undefined}
-            editable={!!(currentOrganization?.id && projectId && oppId)}
-            onStageChanged={(newStage) => onUpdated?.({ ...item, stage: newStage })}
+          <OpportunityStatusBadge
+            status={(item.status as OpportunityStatus | undefined) ?? (item.active ? 'PURSUING' : 'IDENTIFIED')}
             className="shrink-0 mt-0.5"
           />
         </div>

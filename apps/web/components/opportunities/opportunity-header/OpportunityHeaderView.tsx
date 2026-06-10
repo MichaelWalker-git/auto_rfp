@@ -6,25 +6,17 @@ import DOMPurify from 'dompurify';
 import { cn } from '@/lib/utils';
 import { CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { OpportunityStageBadge } from '../opportunity-stage-badge';
+import { OpportunityStatusBadge } from '../opportunity-status-badge';
 
 import { formatDateTime } from '../opportunity-helpers';
-import type { OpportunityItem, OpportunityStage } from '@auto-rfp/core';
+import type { OpportunityItem, OpportunityStatus } from '@auto-rfp/core';
 
 interface OpportunityHeaderViewProps {
   opportunity: OpportunityItem;
-  orgId: string | undefined;
-  projectId: string | null;
-  oppId: string | null;
-  onStageChanged: () => void;
 }
 
 export const OpportunityHeaderView = ({
   opportunity,
-  orgId,
-  projectId,
-  oppId,
-  onStageChanged,
 }: OpportunityHeaderViewProps) => {
   return (
     <>
@@ -38,13 +30,8 @@ export const OpportunityHeaderView = ({
 
       {/* Badges */}
       <div className="mt-3 flex flex-wrap gap-1.5 items-center overflow-hidden">
-        <OpportunityStageBadge
-          stage={(opportunity.stage as OpportunityStage | undefined) ?? 'IDENTIFIED'}
-          orgId={orgId}
-          projectId={projectId ?? undefined}
-          oppId={oppId ?? undefined}
-          editable={!!(orgId && projectId && oppId)}
-          onStageChanged={onStageChanged}
+        <OpportunityStatusBadge
+          status={(opportunity.status as OpportunityStatus | undefined) ?? 'IDENTIFIED'}
         />
         <Badge variant="secondary">{opportunity.source}</Badge>
         {opportunity.type && <Badge variant="outline">{opportunity.type}</Badge>}

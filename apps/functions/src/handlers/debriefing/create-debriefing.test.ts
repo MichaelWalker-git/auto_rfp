@@ -227,7 +227,7 @@ describe('create-debriefing handler', () => {
       expect(parsed.errors.length).toBeGreaterThan(0);
     });
 
-    it('uses GetCommand with correct PK and full 3-part SK', async () => {
+    it('looks up the opportunity with the full 3-part SK', async () => {
       mockSend.mockResolvedValueOnce({ Item: { status: 'LOST' } });
       mockSend.mockResolvedValueOnce({});
 
@@ -235,7 +235,7 @@ describe('create-debriefing handler', () => {
 
       const getCall = mockSend.mock.calls[0][0];
       expect(getCall.type).toBe('Get');
-      expect(getCall.params.Key.partition_key).toBe('PROJECT_OUTCOME');
+      expect(getCall.params.Key.partition_key).toBe('OPPORTUNITY');
       expect(getCall.params.Key.sort_key).toBe('org-456#proj-123#opp-789');
     });
 
