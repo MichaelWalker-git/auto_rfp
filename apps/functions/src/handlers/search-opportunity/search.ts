@@ -4,7 +4,7 @@
  *
  * Body: { source?: 'SAM_GOV' | 'DIBBS' | 'ALL', orgId, keywords, postedFrom, postedTo, ... }
  * Searches the specified source (or all sources if source = 'ALL' / omitted).
- * Returns SearchOpportunitySlim[] with a source badge on each result.
+ * Returns SearchOpportunity[] with a source badge on each result.
  */
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
@@ -29,7 +29,7 @@ import {
   samSlimToSearchOpportunity,
   dibbsSlimToSearchOpportunity,
   higherGovToSearchOpportunity,
-  type SearchOpportunitySlim,
+  type SearchOpportunity,
 } from '@auto-rfp/core';
 
 const SAM_BASE_URL  = requireEnv('SAM_OPPS_BASE_URL', 'https://api.sam.gov');
@@ -79,7 +79,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
   const includeDibbs = data.source === 'ALL' || data.source === 'DIBBS';
   const includeHigherGov = data.source === 'ALL' || data.source === 'HIGHER_GOV';
 
-  const results: SearchOpportunitySlim[] = [];
+  const results: SearchOpportunity[] = [];
   const errors: Record<string, string> = {};
   let totalSamGov = 0;
   let totalDibbs  = 0;
@@ -193,10 +193,10 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
   }
 
   // Round-robin interleave across all sources for balanced display
-  const bySource: Record<string, SearchOpportunitySlim[]> = {};
+  const bySource: Record<string, SearchOpportunity[]> = {};
   for (const r of results) (bySource[r.source] ??= []).push(r);
   const sourceArrays = Object.values(bySource);
-  const merged: SearchOpportunitySlim[] = [];
+  const merged: SearchOpportunity[] = [];
   const maxLen = Math.max(...sourceArrays.map((a) => a.length), 0);
   for (let i = 0; i < maxLen; i++) {
     for (const arr of sourceArrays) {

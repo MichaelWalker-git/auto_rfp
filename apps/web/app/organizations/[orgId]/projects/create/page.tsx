@@ -4,7 +4,7 @@ import React, { use } from 'react';
 import { useRouter } from 'next/navigation';
 import { FolderPlus, Rocket } from 'lucide-react';
 import type { z } from 'zod';
-import type { CreateProjectSchema } from '@auto-rfp/core';
+import type { ProjectCreateRequestSchema } from '@auto-rfp/core';
 
 import { useToast } from '@/components/ui/use-toast';
 import { useCreateProject } from '@/lib/hooks/use-create-project';
@@ -13,7 +13,7 @@ import { ProjectForm, ProjectFormSkeleton } from '@/components/projects/ProjectF
 
 // ─── Types ───
 
-type CreateProjectFormValues = z.input<typeof CreateProjectSchema>;
+type CreateProjectFormValues = z.input<typeof ProjectCreateRequestSchema>;
 
 interface CreateProjectPageProps {
   params: Promise<{ orgId: string }>;

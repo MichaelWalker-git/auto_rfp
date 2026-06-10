@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import type { OpportunityItem as OpportunityItemType } from '@auto-rfp/core';
+import type { OpportunityListItem as OpportunityItemType } from '@auto-rfp/core';
 import { Loader2, Search, ArrowUpDown, LayoutGrid, Columns2, Square, User } from 'lucide-react';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';

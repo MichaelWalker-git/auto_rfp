@@ -1,5 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
-import { CreateProjectSchema } from '@auto-rfp/core';
+import { ProjectCreateRequestSchema } from '@auto-rfp/core';
 import middy from '@middy/core';
 
 import { apiResponse } from '@/helpers/api';
@@ -25,7 +25,7 @@ export const baseHandler = async (
   try {
     const rawBody = JSON.parse(event.body);
 
-    const { success, data, error: errors } = CreateProjectSchema.safeParse(rawBody);
+    const { success, data, error: errors } = ProjectCreateRequestSchema.safeParse(rawBody);
 
     if (!success) {
       const errorDetails = errors.issues.map((issue: { path: (string | number)[]; message: string }) => ({

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { SearchOpportunitySlim } from '@auto-rfp/core';
+import type { SearchOpportunity } from '@auto-rfp/core';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -72,7 +72,7 @@ const formatDate = (s: string | null): string => {
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface SearchOpportunityResultsTableProps {
-  opportunities: SearchOpportunitySlim[];
+  opportunities: SearchOpportunity[];
   isLoading: boolean;
   onImport: (id: string) => void;
   importingId: string | null;
@@ -199,7 +199,7 @@ const OpportunityCard = ({
   importingId,
   orgId,
 }: {
-  opp: SearchOpportunitySlim;
+  opp: SearchOpportunity;
   onImport: (id: string) => void;
   importingId: string | null;
   orgId?: string;

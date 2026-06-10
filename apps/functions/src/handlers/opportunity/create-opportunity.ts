@@ -1,6 +1,6 @@
 import type { APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
-import { OpportunityItemSchema } from '@auto-rfp/core';
+import { OpportunityCreateRequestSchema } from '@auto-rfp/core';
 
 import { apiResponse, getUserId } from '@/helpers/api';
 import { createOpportunity } from '@/helpers/opportunity';
@@ -20,7 +20,7 @@ import { resolveUserNames } from '@/helpers/resolve-users';
 export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   try {
     const bodyRaw = JSON.parse(event.body || '{}');
-    const { success, data, error: errors } = OpportunityItemSchema.safeParse(bodyRaw);
+    const { success, data, error: errors } = OpportunityCreateRequestSchema.safeParse(bodyRaw);
 
     if (!success) {
       return apiResponse(400, {

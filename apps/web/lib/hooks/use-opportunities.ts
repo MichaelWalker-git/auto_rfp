@@ -11,7 +11,7 @@ import type {
   OpportunityItem,
   OpportunityQuery,
 } from '@auto-rfp/core';
-import { OpportunityItemSchema } from '@auto-rfp/core';
+import { OpportunityItemSchema, OpportunityCreateRequestSchema } from '@auto-rfp/core';
 
 const BASE_URL = `${env.BASE_API_URL}/opportunity` as const;
 
@@ -215,7 +215,7 @@ export function useCreateOpportunity() {
   return useSWRMutation<CreateOpportunityResponse, ErrorShape, string, OpportunityItem>(
     `${BASE_URL}/create-opportunity`,
     async (url: string, { arg }: { arg: OpportunityItem }) => {
-      const parsed = OpportunityItemSchema.safeParse(arg);
+      const parsed = OpportunityCreateRequestSchema.safeParse(arg);
       if (!parsed.success) {
         const err = new Error('Invalid opportunity payload') as ErrorShape;
         err.status = 400;

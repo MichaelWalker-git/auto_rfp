@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { useUpdateProject } from '@/lib/hooks/use-update-project';
-import type { Project } from '@/types/project';
+import type { ProjectItem as Project } from '@auto-rfp/core';
 
 interface EditProjectDialogProps {
   isOpen: boolean;

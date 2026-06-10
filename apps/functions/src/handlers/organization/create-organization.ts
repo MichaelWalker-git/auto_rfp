@@ -1,7 +1,7 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
 import { PutCommand, } from '@aws-sdk/lib-dynamodb';
 import middy from '@middy/core';
-import { CreateOrganizationSchema } from '@auto-rfp/core';
+import { OrganizationCreateRequestSchema } from '@auto-rfp/core';
 
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { USER_PK } from '@/constants/user';
@@ -30,7 +30,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
   try {
     const rawBody = JSON.parse(event.body);
 
-    const { success, data, error: errors } = CreateOrganizationSchema.safeParse(rawBody);
+    const { success, data, error: errors } = OrganizationCreateRequestSchema.safeParse(rawBody);
 
     if (!success) {
       const errorDetails = errors.issues.map((issue: any) => ({

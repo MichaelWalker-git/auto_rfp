@@ -15,7 +15,7 @@ import {
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 import { updateOpportunity, getOpportunity } from '@/helpers/opportunity';
-import { OpportunityItemSchema } from '@auto-rfp/core';
+import { OpportunityUpdateRequestSchema } from '@auto-rfp/core';
 import { resolveUserNames } from '@/helpers/resolve-users';
 import { STAGE_TO_APN_STATUS_MAP } from '@/constants/apn';
 
@@ -23,11 +23,7 @@ import { STAGE_TO_APN_STATUS_MAP } from '@/constants/apn';
 const UpdateOpportunityRequestSchema = z.object({
   projectId: z.string().min(1),
   oppId: z.string().min(1),
-  patch: OpportunityItemSchema.partial().omit({
-    orgId: true,
-    projectId: true,
-    oppId: true,
-  }),
+  patch: OpportunityUpdateRequestSchema,
 });
 
 /**
@@ -46,7 +42,15 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     }
 
     const body = JSON.parse(event.body || '{}');
-    const { projectId, oppId, patch } = UpdateOpportunityRequestSchema.parse(body);
+    const { success, data, error } = UpdateOpportunityRequestSchema.safeParse(body);
+    if (!success) {
+      return apiResponse(400, {
+        ok: false,
+        error: 'Validation error',
+        details: error.errors,
+      });
+    }
+    const { projectId, oppId, patch } = data;
 
     // Verify opportunity exists
     const existing = await getOpportunity({ orgId, projectId, oppId });

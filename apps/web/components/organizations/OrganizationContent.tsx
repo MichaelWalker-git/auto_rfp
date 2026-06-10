@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from "react";
-import { Organization } from "@/types/organization";
-import { Project } from "@/types/project";
+import type { OrganizationItem } from "@auto-rfp/core";
+import type { ProjectItem as Project } from "@auto-rfp/core";
 import { useOrganization, useProjects } from '@/lib/hooks/use-api';
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
@@ -14,7 +14,7 @@ interface OrganizationContentProps {
 }
 
 export function OrganizationContent({ orgId }: OrganizationContentProps) {
-  const [organization, setOrganization] = useState<Organization | null>(null);
+  const [organization, setOrganization] = useState<OrganizationItem | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -26,7 +26,7 @@ export function OrganizationContent({ orgId }: OrganizationContentProps) {
   
   useEffect(() => {
     if (orgData) {
-      setOrganization(orgData as Organization);
+      setOrganization(orgData as OrganizationItem);
     }
     
     if (projectsData && Array.isArray(projectsData)) {

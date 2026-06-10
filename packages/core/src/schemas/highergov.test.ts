@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  HigherGovOpportunitySlimSchema,
+  HigherGovOpportunitySearchResultSchema,
   higherGovToSearchOpportunity,
   ImportHigherGovRequestSchema,
   OpportunitySourceSchema,
@@ -19,9 +19,9 @@ describe('SavedSearchSourceSchema', () => {
   });
 });
 
-describe('HigherGovOpportunitySlimSchema', () => {
+describe('HigherGovOpportunitySearchResultSchema', () => {
   it('parses a valid opportunity', () => {
-    const { success, data } = HigherGovOpportunitySlimSchema.safeParse({
+    const { success, data } = HigherGovOpportunitySearchResultSchema.safeParse({
       opp_key: 'OPP-123',
       title: 'Test Opportunity',
       ai_summary: 'AI summary text',
@@ -42,12 +42,12 @@ describe('HigherGovOpportunitySlimSchema', () => {
   });
 
   it('accepts minimal data (only opp_key required)', () => {
-    const { success } = HigherGovOpportunitySlimSchema.safeParse({ opp_key: 'MIN-1' });
+    const { success } = HigherGovOpportunitySearchResultSchema.safeParse({ opp_key: 'MIN-1' });
     expect(success).toBe(true);
   });
 
   it('passes through unknown fields', () => {
-    const { success, data } = HigherGovOpportunitySlimSchema.safeParse({
+    const { success, data } = HigherGovOpportunitySearchResultSchema.safeParse({
       opp_key: 'PT-1',
       unknown_field: 'should be preserved',
     });
@@ -56,7 +56,7 @@ describe('HigherGovOpportunitySlimSchema', () => {
   });
 
   it('rejects missing opp_key', () => {
-    const { success } = HigherGovOpportunitySlimSchema.safeParse({ title: 'No key' });
+    const { success } = HigherGovOpportunitySearchResultSchema.safeParse({ title: 'No key' });
     expect(success).toBe(false);
   });
 });

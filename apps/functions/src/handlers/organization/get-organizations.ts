@@ -13,6 +13,7 @@ import {
   requirePermission
 } from '@/middleware/rbac-middleware';
 import { requireEnv } from '@/helpers/env';
+import type { OrganizationDBItem } from '@auto-rfp/core';
 import middy from '@middy/core';
 import { docClient } from '@/helpers/db';
 import { safeSplitAt } from '@/helpers/safe-string';
@@ -60,8 +61,8 @@ export const baseHandler = async (
   }
 };
 
-export async function listOrganizations() {
-  const items: any[] = [];
+export async function listOrganizations(): Promise<OrganizationDBItem[]> {
+  const items: OrganizationDBItem[] = [];
   let ExclusiveStartKey: Record<string, any> | undefined = undefined;
 
   do {
@@ -80,7 +81,7 @@ export async function listOrganizations() {
     );
 
     if (res.Items && res.Items.length > 0) {
-      items.push(...res.Items);
+      items.push(...(res.Items as OrganizationDBItem[]));
     }
 
     ExclusiveStartKey = res.LastEvaluatedKey as Record<string, any> | undefined;
@@ -89,12 +90,7 @@ export async function listOrganizations() {
   return items;
 }
 
-type OrgItem = {
-  sort_key: string;
-  [key: string]: any;
-};
-
-const enrichOrganizationWithCounts = async (org: OrgItem) => {
+const enrichOrganizationWithCounts = async (org: OrganizationDBItem) => {
   const orgId = orgSortKeyToId(org.sort_key);
 
   const [projectsCount, usersCount] = await Promise.all([

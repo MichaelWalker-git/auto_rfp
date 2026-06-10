@@ -5,7 +5,7 @@ import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { requireEnv } from './env';
 import { safeSplitAt, safeTrim } from './safe-string';
 import { v4 as uuidv4 } from 'uuid';
-import { CreateOrganizationDTO, OrganizationItem } from '@auto-rfp/core';
+import { OrganizationCreateRequest, OrganizationItem } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -16,7 +16,7 @@ const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 export const getOrganizationById = async (orgId: string): Promise<OrganizationItem | null> =>
   getItem<OrganizationItem>(ORG_PK, `ORG#${orgId}`);
 
-export async function createOrganization(orgData: CreateOrganizationDTO): Promise<OrganizationItem> {
+export async function createOrganization(orgData: OrganizationCreateRequest): Promise<OrganizationItem> {
   const orgId = uuidv4();
 
   return await createItem<OrganizationItem>(
