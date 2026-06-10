@@ -1,7 +1,7 @@
 'use client';
 
 import { useApi, apiMutate, buildApiUrl, apiFetcher } from './api-helpers';
-import useSWR from 'swr';
+import useSWR, { mutate as globalMutate } from 'swr';
 import type {
   UserRole,
   UserListItem,
@@ -80,29 +80,56 @@ export function useUsersList(orgId: string, params: ListUsersParams) {
   return useApi<ListUsersResponse>(
     orgId ? ['users', orgId, params.search, params.role, params.status, params.limit, params.nextToken] : null,
     orgId ? url : null,
-    { keepPreviousData: true },
+    {
+      keepPreviousData: true,
+      revalidateOnFocus: true,  // Enable focus revalidation for user lists to catch cross-tab mutations
+    },
   );
 }
 
 // ─── API Functions (non-hook, for imperative calls) ───
 
+/**
+ * Invalidates user list caches for a specific organization.
+ * Use this after creating/updating/deleting users to ensure all components see fresh data.
+ */
+export async function invalidateUserCaches(orgId: string): Promise<void> {
+  await globalMutate(
+    (key) => Array.isArray(key) && key[0] === 'users' && key[1] === orgId,
+    undefined,
+    { revalidate: true }
+  );
+}
+
 export async function createUserApi(input: CreateUserDTO): Promise<CreateUserResponse> {
-  return apiMutate<CreateUserResponse>(buildApiUrl('user/create-user'), 'POST', input);
+  const result = await apiMutate<CreateUserResponse>(buildApiUrl('user/create-user'), 'POST', input);
+  // Auto-invalidate user caches after successful creation
+  invalidateUserCaches(input.orgId).catch(console.error);
+  return result;
 }
 
 export async function editUserRolesApi(input: EditUserRoleRequest): Promise<EditUserRolesResponse> {
-  return apiMutate<EditUserRolesResponse>(buildApiUrl('user/edit-user'), 'PATCH', input);
+  const result = await apiMutate<EditUserRolesResponse>(buildApiUrl('user/edit-user'), 'PATCH', input);
+  // Auto-invalidate user caches after successful edit
+  invalidateUserCaches(input.orgId).catch(console.error);
+  return result;
 }
 
 export async function editUserApi(input: EditUserRequest): Promise<EditUserResponse> {
-  return apiMutate<EditUserResponse>(buildApiUrl('user/edit-user'), 'PATCH', input);
+  const result = await apiMutate<EditUserResponse>(buildApiUrl('user/edit-user'), 'PATCH', input);
+  // Auto-invalidate user caches after successful edit
+  invalidateUserCaches(input.orgId).catch(console.error);
+  return result;
 }
 
 export async function deleteUserApi(input: DeleteUserInput): Promise<DeleteUserResponse> {
-  return apiMutate<DeleteUserResponse>(
+  const result = await apiMutate<DeleteUserResponse>(
     buildApiUrl('user/delete-user', { orgId: input.orgId, userId: input.userId }),
     'DELETE',
   );
+  // Auto-invalidate user caches after successful deletion
+  invalidateUserCaches(input.orgId).catch(console.error);
+  return result;
 }
 
 export async function resendTempPasswordApi(input: ResendTempPasswordRequest): Promise<ResendTempPasswordResponse> {

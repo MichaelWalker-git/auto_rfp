@@ -3,7 +3,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { mutate as globalMutate } from 'swr';
 import {
   AlertCircle,
   ArrowLeft,
@@ -135,10 +134,8 @@ export function UserViewContent({ orgId, userId }: UserViewContentProps) {
       if (role !== user?.role) payload.role = role;
 
       await editUserApi(payload as Parameters<typeof editUserApi>[0]);
-      // Refresh the single user cache
+      // Refresh the single user cache (list cache invalidation happens automatically in editUserApi)
       await refreshUser();
-      // Also invalidate the users list cache so the list stays in sync
-      await globalMutate((key: unknown) => Array.isArray(key) && key[0] === 'users' && key[1] === orgId);
       toast({ title: 'User updated', description: 'User details saved successfully.' });
       setIsEditing(false);
     } catch (err: unknown) {
@@ -695,8 +692,7 @@ function DangerZoneSection({
   const handleDelete = useCallback(async () => {
     try {
       await deleteUserApi({ orgId, userId });
-      // Invalidate the users list cache so the team page reflects the deletion
-      await globalMutate((key: unknown) => Array.isArray(key) && key[0] === 'users' && key[1] === orgId);
+      // Cache invalidation happens automatically in deleteUserApi
       toast({
         title: 'User removed',
         description: `${email} has been removed from the organization.`,

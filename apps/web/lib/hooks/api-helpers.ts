@@ -84,10 +84,9 @@ export interface UseApiResult<T> {
 }
 
 const DEFAULT_SWR_CONFIG: SWRConfiguration = {
-  revalidateOnFocus: false,
-  revalidateIfStale: false,
-  dedupingInterval: 60_000,
-  focusThrottleInterval: 60_000,
+  revalidateOnFocus: false,  
+  dedupingInterval: 2_000,        // Short interval for responsive UI after mutations (affects GET request caching only, not mutations)
+  focusThrottleInterval: 30_000,
   errorRetryCount: 3,
   loadingTimeout: 10_000,
 };
