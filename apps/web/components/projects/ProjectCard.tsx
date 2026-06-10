@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { BaseCard } from '@/components/ui/base-card';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { useProjectContext } from '@/context/project-context';
-import type { Project } from '@/types/project';
+import type { ProjectListItem as Project } from '@auto-rfp/core';
 import { PermissionButton } from '@/components/ui/permission-button';
 import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { useFavoriteProjects } from '@/lib/hooks/use-favorite-projects';

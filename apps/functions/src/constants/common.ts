@@ -1,2 +1,1 @@
-export const PK_NAME = 'partition_key';
-export const SK_NAME = 'sort_key';
+export { PK_NAME, SK_NAME } from '@auto-rfp/core';

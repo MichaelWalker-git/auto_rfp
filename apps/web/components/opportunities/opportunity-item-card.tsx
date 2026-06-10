@@ -2,7 +2,7 @@
 
 import React, { useCallback, useState } from 'react';
 import { useParams } from 'next/navigation';
-import type { OpportunityItem } from '@auto-rfp/core';
+import type { OpportunityListItem } from '@auto-rfp/core';
 import { Building2, FileText, Hash, Loader2, Pencil, Star, Tag, Trash2, User, UserPlus } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
@@ -99,7 +99,7 @@ const DESCRIPTION_PROSE = cn(
   '[&_span]:leading-relaxed',
 );
 
-const DescriptionSection = ({ item, orgId }: { item: OpportunityItem; orgId?: string }) => {
+const DescriptionSection = ({ item, orgId }: { item: OpportunityListItem; orgId?: string }) => {
   const { description, isLoading } = useAutoDescription(orgId, item.description);
 
   if (!item.description) return null;
@@ -136,10 +136,10 @@ const DescriptionSection = ({ item, orgId }: { item: OpportunityItem; orgId?: st
 export type OpportunityItemCardVariant = 'full' | 'compact';
 
 export interface OpportunityItemCardProps {
-  item: OpportunityItem;
-  onOpen?: (item: OpportunityItem) => void;
+  item: OpportunityListItem;
+  onOpen?: (item: OpportunityListItem) => void;
   onDeleted?: () => void;
-  onUpdated?: (item: OpportunityItem) => void;
+  onUpdated?: (item: OpportunityListItem) => void;
   variant?: OpportunityItemCardVariant;
   className?: string;
   showDescription?: boolean;

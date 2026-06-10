@@ -2,12 +2,12 @@
 
 /**
  * SamGovOpportunityList — now uses the common SearchOpportunityResultsTable.
- * Maps SamOpportunitySlim → SearchOpportunitySlim via samSlimToSearchOpportunity.
+ * Maps SamOpportunitySearchResult → SearchOpportunityResult via samSlimToSearchOpportunity.
  */
 import * as React from 'react';
 import { useState } from 'react';
 
-import type { SamOpportunitySlim } from '@auto-rfp/core';
+import type { SamOpportunitySearchResult } from '@auto-rfp/core';
 import { samSlimToSearchOpportunity } from '@auto-rfp/core';
 import { PaginationControls } from './pagination-controls';
 import { EmptyState } from './empty-state';
@@ -17,14 +17,14 @@ import { useCurrentOrganization } from '@/context/organization-context';
 
 type Props = {
   data?: {
-    opportunities: SamOpportunitySlim[];
+    opportunities: SamOpportunitySearchResult[];
     totalRecords: number;
     limit: number;
     offset: number;
   } | null;
   isLoading: boolean;
   onPage: (offset: number) => Promise<void>;
-  onImportSolicitation: (data: SamOpportunitySlim) => void;
+  onImportSolicitation: (data: SamOpportunitySearchResult) => void;
 };
 
 export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicitation }: Props) {
@@ -35,11 +35,11 @@ export function SamGovOpportunityList({ data, isLoading, onPage, onImportSolicit
   const [importingId, setImportingId] = useState<string | null>(null);
   const { currentOrganization } = useCurrentOrganization();
 
-  // Map raw SAM.gov slim records to the unified SearchOpportunitySlim shape
+  // Map raw SAM.gov slim records to the unified SearchOpportunityResult shape
   const unified = results.map(samSlimToSearchOpportunity);
 
   const handleImport = async (id: string) => {
-    // Find the original SamOpportunitySlim by noticeId or solicitationNumber
+    // Find the original SamOpportunitySearchResult by noticeId or solicitationNumber
     const original = results.find(
       (o) => (o.noticeId ?? o.solicitationNumber) === id,
     );

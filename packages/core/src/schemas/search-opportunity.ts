@@ -31,7 +31,7 @@ export const DollarRangeSchema = z
 
 // ─── SAM.gov slim result ──────────────────────────────────────────────────────
 
-export const SamOpportunitySlimSchema = z.object({
+export const SamOpportunitySearchResultSchema = z.object({
   noticeId:           z.string().optional(),
   solicitationNumber: z.string().optional(),
   title:              z.string().optional(),
@@ -51,7 +51,7 @@ export const SamOpportunitySlimSchema = z.object({
   attachmentsCount:   z.number().int().nonnegative().optional(),
 });
 
-export type SamOpportunitySlim = z.infer<typeof SamOpportunitySlimSchema>;
+export type SamOpportunitySearchResult = z.infer<typeof SamOpportunitySearchResultSchema>;
 
 // ─── Unified search request (usable for SAM.gov, DIBBS, and future sources) ──
 
@@ -127,7 +127,7 @@ export const LoadSamOpportunitiesResponseSchema = z.object({
   totalRecords:  z.number().int().nonnegative(),
   limit:         z.number().int().nonnegative(),
   offset:        z.number().int().nonnegative(),
-  opportunities: z.array(SamOpportunitySlimSchema),
+  opportunities: z.array(SamOpportunitySearchResultSchema),
 });
 
 export type LoadSamOpportunitiesResponse = z.infer<typeof LoadSamOpportunitiesResponseSchema>;
@@ -217,7 +217,7 @@ export const DibbsDollarRangeSchema = z
   })
   .optional();
 
-export const DibbsOpportunitySlimSchema = z.object({
+export const DibbsOpportunitySearchResultSchema = z.object({
   solicitationNumber:     z.string().optional(),
   title:                  z.string().optional(),
   type:                   z.string().optional(),
@@ -237,7 +237,7 @@ export const DibbsOpportunitySlimSchema = z.object({
   url:                    z.string().url().optional(),
 });
 
-export type DibbsOpportunitySlim = z.infer<typeof DibbsOpportunitySlimSchema>;
+export type DibbsOpportunitySearchResult = z.infer<typeof DibbsOpportunitySearchResultSchema>;
 
 // ─── DIBBS search request / response ─────────────────────────────────────────
 
@@ -266,7 +266,7 @@ export const SearchDibbsOpportunitiesResponseSchema = z.object({
   totalRecords:  z.number().int().nonnegative(),
   limit:         z.number().int().nonnegative(),
   offset:        z.number().int().nonnegative(),
-  opportunities: z.array(DibbsOpportunitySlimSchema),
+  opportunities: z.array(DibbsOpportunitySearchResultSchema),
 });
 
 export type SearchDibbsOpportunitiesResponse = z.infer<typeof SearchDibbsOpportunitiesResponseSchema>;
@@ -332,7 +332,7 @@ export type ImportDibbsSolicitationRequest = z.infer<typeof ImportDibbsSolicitat
 // UNIFIED (cross-source)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export const SearchOpportunitySlimSchema = z.object({
+export const SearchOpportunitySchema = z.object({
   /** Unique identifier — noticeId for SAM.gov, solicitationNumber for DIBBS */
   id:                     z.string(),
   source:                 OpportunitySourceSchema,
@@ -362,14 +362,14 @@ export const SearchOpportunitySlimSchema = z.object({
   descriptionUrl:         z.string().nullable(),
 });
 
-export type SearchOpportunitySlim = z.infer<typeof SearchOpportunitySlimSchema>;
+export type SearchOpportunity = z.infer<typeof SearchOpportunitySchema>;
 
 export const SearchOpportunityResponseSchema = z.object({
   source:        OpportunitySourceSchema,
   totalRecords:  z.number().int().nonnegative(),
   limit:         z.number().int().nonnegative(),
   offset:        z.number().int().nonnegative(),
-  opportunities: z.array(SearchOpportunitySlimSchema),
+  opportunities: z.array(SearchOpportunitySchema),
 });
 
 export type SearchOpportunityResponse = z.infer<typeof SearchOpportunityResponseSchema>;
@@ -390,7 +390,7 @@ const isSamGovUrl = (s?: string): boolean => {
   try { return new URL(s).hostname.endsWith('sam.gov'); } catch { return false; }
 };
 
-export const samSlimToSearchOpportunity = (o: SamOpportunitySlim): SearchOpportunitySlim => ({
+export const samSlimToSearchOpportunity = (o: SamOpportunitySearchResult): SearchOpportunity => ({
   id:                     o.noticeId ?? o.solicitationNumber ?? '',
   source:                 'SAM_GOV',
   solicitationNumber:     o.solicitationNumber ?? null,
@@ -413,7 +413,7 @@ export const samSlimToSearchOpportunity = (o: SamOpportunitySlim): SearchOpportu
   url:                    null,
 });
 
-export const dibbsSlimToSearchOpportunity = (o: DibbsOpportunitySlim): SearchOpportunitySlim => ({
+export const dibbsSlimToSearchOpportunity = (o: DibbsOpportunitySearchResult): SearchOpportunity => ({
   id:                     o.solicitationNumber ?? '',
   source:                 'DIBBS',
   solicitationNumber:     o.solicitationNumber ?? null,
@@ -441,7 +441,7 @@ export const dibbsSlimToSearchOpportunity = (o: DibbsOpportunitySlim): SearchOpp
 
 // NOTE: .passthrough() used until schemas are validated against real HigherGov API responses.
 
-export const HigherGovOpportunitySlimSchema = z.object({
+export const HigherGovOpportunitySearchResultSchema = z.object({
   opp_key:          z.string(),
   title:            z.string().optional(),
   description_text: z.string().optional(),
@@ -495,7 +495,7 @@ export const HigherGovOpportunitySlimSchema = z.object({
   version_key:        z.string().optional(),
 }).passthrough();
 
-export type HigherGovOpportunitySlim = z.infer<typeof HigherGovOpportunitySlimSchema>;
+export type HigherGovOpportunitySearchResult = z.infer<typeof HigherGovOpportunitySearchResultSchema>;
 
 // ─── HigherGov mapper ────────────────────────────────────────────────────────
 
@@ -512,20 +512,20 @@ const buildHigherGovUrl = (path?: string): string | null => {
 };
 
 /** Build a rich agency label: "USAF (Department of the Air Force)" */
-const buildAgencyLabel = (a?: HigherGovOpportunitySlim['agency']): string | null => {
+const buildAgencyLabel = (a?: HigherGovOpportunitySearchResult['agency']): string | null => {
   if (!a) return null;
   if (a.abbreviation && a.name && a.abbreviation !== a.name) return `${a.name} (${a.abbreviation})`;
   return a.name ?? a.abbreviation ?? null;
 };
 
 /** Build place-of-performance string: "Washington, DC 20001, US" */
-const buildPoP = (o: HigherGovOpportunitySlim): string | null => {
+const buildPoP = (o: HigherGovOpportunitySearchResult): string | null => {
   const parts = [o.pop_city, o.pop_state, o.pop_zip, o.pop_country].filter(Boolean);
   return parts.length ? parts.join(', ') : null;
 };
 
 /** Build enriched description from all available text fields */
-const buildDescription = (o: HigherGovOpportunitySlim): string | null => {
+const buildDescription = (o: HigherGovOpportunitySearchResult): string | null => {
   const sections: string[] = [];
   if (o.ai_summary)       sections.push(o.ai_summary);
   if (o.description_text && o.description_text !== o.ai_summary) sections.push(o.description_text);
@@ -533,7 +533,7 @@ const buildDescription = (o: HigherGovOpportunitySlim): string | null => {
   return sections.length ? sections.join('\n\n') : null;
 };
 
-export const higherGovToSearchOpportunity = (o: HigherGovOpportunitySlim): SearchOpportunitySlim => ({
+export const higherGovToSearchOpportunity = (o: HigherGovOpportunitySearchResult): SearchOpportunity => ({
   id:                     o.opp_key,
   source:                 'HIGHER_GOV',
   solicitationNumber:     null,

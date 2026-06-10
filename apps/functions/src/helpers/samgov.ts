@@ -1,7 +1,7 @@
 import https from 'https';
 import crypto from 'crypto';
 import path from 'path';
-import type { LoadSearchOpportunitiesRequest, LoadSamOpportunitiesResponse, SamOpportunitySlim, } from '@auto-rfp/core';
+import type { LoadSearchOpportunitiesRequest, LoadSamOpportunitiesResponse, SamOpportunitySearchResult, } from '@auto-rfp/core';
 
 const DEFAULT_LIMIT = 25;
 const DEFAULT_OFFSET = 0;
@@ -91,7 +91,7 @@ const getAttachmentsCount = (x: any): number => {
   return 0;
 };
 
-function toSlim(o: any): SamOpportunitySlim {
+function toSlim(o: any): SamOpportunitySearchResult {
   const baseAndAllOptionsValue =
     toNumber(o?.baseAndAllOptionsValue) ??
     toNumber(o?.baseAndAllOptions?.value) ??
@@ -120,7 +120,7 @@ function toSlim(o: any): SamOpportunitySlim {
   };
 }
 
-function filterByDollarRange(items: SamOpportunitySlim[], range?: { min?: number; max?: number }) {
+function filterByDollarRange(items: SamOpportunitySearchResult[], range?: { min?: number; max?: number }) {
   if (!range) return items;
   const min = range.min;
   const max = range.max;

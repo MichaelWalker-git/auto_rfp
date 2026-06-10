@@ -1,13 +1,13 @@
 import { GetCommand, QueryCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 
-import { createItem, DBItem, docClient, UserContext } from './db';
+import { createItem, docClient, UserContext } from './db';
 import { requireEnv } from './env';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { OPPORTUNITY_PK } from '../constants/opportunity';
 import { safeSplit } from './safe-string';
 
-import type { OpportunityItem } from '@auto-rfp/core';
+import type { OpportunityItem, OpportunityDBItem } from '@auto-rfp/core';
 import { nowIso, toIsoDatetime } from './date';
 import { enrichWithUserNames } from './resolve-users';
 
@@ -23,8 +23,6 @@ export const parseOpportunitySk = (sk: string) => {
     oppId: parts[2] ?? '',
   };
 };
-
-export type OpportunityDBItem = OpportunityItem & DBItem;
 
 /**
  * CREATE

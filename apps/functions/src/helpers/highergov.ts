@@ -6,7 +6,7 @@
  * Rate limit: 10 req/s, 100K req/day, 10K records/month
  */
 import https from 'https';
-import type { HigherGovOpportunitySlim } from '@auto-rfp/core';
+import type { HigherGovOpportunitySearchResult } from '@auto-rfp/core';
 
 export type HigherGovConfig = {
   baseUrl: string;
@@ -76,7 +76,7 @@ export const searchHigherGovOpportunities = async (
     pageNumber?: number;
     pageSize?: number;
   },
-): Promise<{ results: HigherGovOpportunitySlim[]; totalCount: number; pages: number }> => {
+): Promise<{ results: HigherGovOpportunitySearchResult[]; totalCount: number; pages: number }> => {
   const url = new URL('/api-external/opportunity/', cfg.baseUrl);
   url.searchParams.set('api_key', cfg.apiKey);
 
@@ -93,7 +93,7 @@ export const searchHigherGovOpportunities = async (
   url.searchParams.set('page_size', String(fetchSize));
 
   const json = (await httpsGetJson(url, cfg.httpsAgent)) as Record<string, unknown>;
-  let results = (Array.isArray(json.results) ? json.results : []) as HigherGovOpportunitySlim[];
+  let results = (Array.isArray(json.results) ? json.results : []) as HigherGovOpportunitySearchResult[];
   const meta = json.meta as Record<string, unknown> | undefined;
   const pagination = meta?.pagination as Record<string, number> | undefined;
 
@@ -141,7 +141,7 @@ export const searchHigherGovOpportunities = async (
 export const fetchHigherGovOpportunity = async (
   cfg: HigherGovConfig,
   oppKey: string,
-): Promise<HigherGovOpportunitySlim> => {
+): Promise<HigherGovOpportunitySearchResult> => {
   const url = new URL('/api-external/opportunity/', cfg.baseUrl);
   url.searchParams.set('api_key', cfg.apiKey);
   url.searchParams.set('opp_key', oppKey);
@@ -150,7 +150,7 @@ export const fetchHigherGovOpportunity = async (
   const json = (await httpsGetJson(url, cfg.httpsAgent)) as Record<string, unknown>;
   const results = Array.isArray(json.results) ? json.results : [];
   if (results.length === 0) throw new Error(`HigherGov opportunity not found: ${oppKey}`);
-  return results[0] as HigherGovOpportunitySlim;
+  return results[0] as HigherGovOpportunitySearchResult;
 };
 
 // ─── Fetch documents ─────────────────────────────────────────────────────────

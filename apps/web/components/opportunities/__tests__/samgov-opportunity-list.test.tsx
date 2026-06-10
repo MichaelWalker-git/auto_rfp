@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { SamGovOpportunityList } from '../samgov-opportunity-list';
-import type { SamOpportunitySlim } from '@auto-rfp/core';
+import type { SamOpportunitySearchResult } from '@auto-rfp/core';
 
 // Mock the organization context
 jest.mock('@/context/organization-context', () => ({
@@ -18,7 +18,7 @@ describe('SamGovOpportunityList', () => {
   const mockOnPage = jest.fn();
   const mockOnImport = jest.fn();
 
-  const baseOpportunity: SamOpportunitySlim = {
+  const baseOpportunity: SamOpportunitySearchResult = {
     noticeId: 'notice-123',
     title: 'Test Opportunity',
     solicitationNumber: 'SOL-123',

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useSWRConfig } from 'swr';
 import { FolderOpen, Save } from 'lucide-react';
 import type { z } from 'zod';
-import type { CreateProjectSchema } from '@auto-rfp/core';
+import type { ProjectCreateRequestSchema } from '@auto-rfp/core';
 
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -16,7 +16,7 @@ import { ProjectForm, ProjectFormSkeleton } from '@/components/projects/ProjectF
 
 // ─── Types ───
 
-type ProjectFormValues = z.input<typeof CreateProjectSchema>;
+type ProjectFormValues = z.input<typeof ProjectCreateRequestSchema>;
 
 interface EditProjectPageProps {
   params: Promise<{ orgId: string; projectId: string }>;

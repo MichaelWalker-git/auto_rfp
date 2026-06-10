@@ -3,7 +3,7 @@
 import { useCallback } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { useDeleteProject } from '@/lib/hooks/use-project';
-import type { Project } from '@/types/project';
+import type { ProjectItem as Project } from '@auto-rfp/core';
 import { ConfirmDeleteDialog } from '@/components/ui/confirm-delete-dialog';
 
 interface DeleteProjectDialogProps {

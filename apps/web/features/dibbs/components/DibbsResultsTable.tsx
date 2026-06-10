@@ -1,15 +1,15 @@
 'use client';
 
 /**
- * DibbsResultsTable — thin wrapper that maps DibbsOpportunitySlim → SearchOpportunitySlim
+ * DibbsResultsTable — thin wrapper that maps DibbsOpportunitySearchResult → SearchOpportunityResult
  * and delegates rendering to the shared SearchOpportunityResultsTable.
  */
-import type { DibbsOpportunitySlim } from '@auto-rfp/core';
+import type { DibbsOpportunitySearchResult } from '@auto-rfp/core';
 import { dibbsSlimToSearchOpportunity } from '@auto-rfp/core';
 import { SearchOpportunityResultsTable } from '@/components/opportunities/SearchOpportunityResultsTable';
 
 interface DibbsResultsTableProps {
-  opportunities: DibbsOpportunitySlim[];
+  opportunities: DibbsOpportunitySearchResult[];
   isLoading: boolean;
   onImport: (solicitationNumber: string) => void;
   importingId: string | null;

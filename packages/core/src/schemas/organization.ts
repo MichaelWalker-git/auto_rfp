@@ -1,15 +1,10 @@
 import { z } from 'zod';
-import { CLUSTERING_THRESHOLDS } from './clustering';
-
-// Re-export default threshold values from the single source of truth
-export const DEFAULT_CLUSTER_THRESHOLD = CLUSTERING_THRESHOLDS.CLUSTER_THRESHOLD;
-export const DEFAULT_SIMILAR_THRESHOLD = CLUSTERING_THRESHOLDS.SIMILAR_THRESHOLD;
+import { PK_NAME, SK_NAME } from '../constants';
 
 /**
- * Zod Schema for the incoming request body (Data Transfer Object)
- * It defines the shape and validation rules for the organization data.
+ * Incoming request body for creating an organization.
  */
-export const CreateOrganizationSchema = z.object({
+export const OrganizationCreateRequestSchema = z.object({
   name: z.string()
     .trim()
     .min(3, 'Name must be at least 3 characters long'),
@@ -17,7 +12,7 @@ export const CreateOrganizationSchema = z.object({
   description: z.string()
     .trim()
     .max(500, 'Description cannot exceed 500 characters')
-    .optional(), // Make description optional
+    .optional(),
 
   bucketName: z.string()
     .optional(),
@@ -37,20 +32,23 @@ export const CreateOrganizationSchema = z.object({
     .optional(),
 });
 
-/**
- * Infer the TypeScript type from the schema for compile-time safety.
- * This is the exact shape of the validated request body.
- */
-export type CreateOrganizationDTO = z.infer<typeof CreateOrganizationSchema>;
+export type OrganizationCreateRequest = z.infer<typeof OrganizationCreateRequestSchema>;
 
-// --- DynamoDB Item Schema ---
-// This represents the final item structure stored in DynamoDB, including keys and timestamps.
-export const OrganizationItemSchema = CreateOrganizationSchema.extend({
-  partition_key: z.string().optional(), // Partition Key (ORG_PK)
-  sort_key: z.string().optional(),      // Sort Key (e.g., ORG#<UUID>)
+/**
+ * Incoming request body for updating an organization (all fields optional).
+ */
+export const OrganizationUpdateRequestSchema = OrganizationCreateRequestSchema.partial();
+
+export type OrganizationUpdateRequest = z.infer<typeof OrganizationUpdateRequestSchema>;
+
+/**
+ * Organization domain entity returned by the API.
+ * Pure domain shape — does NOT include DynamoDB keys.
+ */
+export const OrganizationItemSchema = OrganizationCreateRequestSchema.extend({
+  id: z.string(),
   createdAt: z.string().datetime().optional(),
   updatedAt: z.string().datetime().optional(),
-  id: z.string(),
   /** Optional aggregated counts returned by the API */
   _count: z.object({
     projects:          z.number().int().nonnegative(),
@@ -85,11 +83,28 @@ export const OrganizationItemSchema = CreateOrganizationSchema.extend({
   enableMemberDetection: z.boolean().optional().default(false),
 });
 
-/**
- * Infer the full TypeScript type for the DynamoDB record.
- */
 export type OrganizationItem = z.infer<typeof OrganizationItemSchema>;
 
-export const UpdateOrganizationSchema = CreateOrganizationSchema.partial();
+/**
+ * Organization record as stored in DynamoDB — domain entity plus single-table keys.
+ */
+export const OrganizationDBItemSchema = OrganizationItemSchema.extend({
+  [PK_NAME]: z.string(), // Partition Key (ORG_PK)
+  [SK_NAME]: z.string(), // Sort Key (e.g., ORG#<UUID>)
+});
 
-export type UpdateOrganizationDTO = z.infer<typeof UpdateOrganizationSchema>;
+export type OrganizationDBItem = z.infer<typeof OrganizationDBItemSchema>;
+
+/**
+ * Lightweight organization shape for list views, switchers and selectors.
+ */
+export const OrganizationListItemSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string().optional(),
+  description: z.string().optional(),
+  iconKey: z.string().optional(),
+  enablePOCGeneration: z.boolean().optional(),
+});
+
+export type OrganizationListItem = z.infer<typeof OrganizationListItemSchema>;

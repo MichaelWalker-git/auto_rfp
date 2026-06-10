@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Project } from '@/types/project';
+import type { ProjectListItem as Project } from '@auto-rfp/core';
 
 interface ProjectCardProps {
   project: Project;

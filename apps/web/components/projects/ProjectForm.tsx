@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ArrowLeft, User, Mail, Phone, Briefcase, Users, Info, X } from 'lucide-react';
-import { CreateProjectSchema } from '@auto-rfp/core';
+import { ProjectCreateRequestSchema } from '@auto-rfp/core';
 import type { z } from 'zod';
 import type { UserListItem, ProjectItem } from '@auto-rfp/core';
 
@@ -34,7 +34,7 @@ import { ProjectAccessManager } from './ProjectAccessManager';
 
 // ─── Types ───
 
-type ProjectFormValues = z.input<typeof CreateProjectSchema>;
+type ProjectFormValues = z.input<typeof ProjectCreateRequestSchema>;
 
 interface ProjectFormProps {
   orgId: string;
@@ -146,7 +146,7 @@ export const ProjectForm = ({
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
   const form = useForm<ProjectFormValues>({
-    resolver: zodResolver(CreateProjectSchema),
+    resolver: zodResolver(ProjectCreateRequestSchema),
     defaultValues: {
       orgId,
       name: '',

@@ -9,8 +9,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import type { OrganizationItem, ContentLibraryItem } from '@auto-rfp/core';
-import type { DBProjectItem } from '@/types/project';
+import type { OrganizationItem, ContentLibraryItem, ProjectDBItem } from '@auto-rfp/core';
 import type { BriefSectionName } from '@/helpers/executive-opportunity-brief';
 import { getItem, queryBySkPrefix } from '@/helpers/db';
 import { getOrgPrimaryContact } from '@/helpers/org-contact';
@@ -88,7 +87,7 @@ export const fetchOrgPrimaryContact = async (orgId: string): Promise<string> => 
  */
 export const fetchProjectDetails = async (projectId: string): Promise<string> => {
   try {
-    const project = await getProjectById(projectId) as DBProjectItem | null;
+    const project = await getProjectById(projectId) as ProjectDBItem | null;
     if (!project) return '';
 
     const lines: string[] = ['=== PROJECT ==='];

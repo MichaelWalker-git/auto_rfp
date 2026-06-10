@@ -4,18 +4,17 @@ import { PK_NAME, SK_NAME } from '@/constants/common';
 import { ORG_PK, PROJECT_PK } from '@/constants/organization';
 import { createItem, DBItem, docClient } from './db';
 import { requireEnv } from './env';
-import { DBProjectItem } from '@/types/project';
 import { safeSplitAt } from './safe-string';
-import { CreateProjectDTO, ProjectItem } from '@auto-rfp/core';
+import { ProjectCreateRequest, ProjectDBItem, ProjectItem } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-export async function createProject(dto: CreateProjectDTO, createdBy?: string): Promise<ProjectItem> {
+export async function createProject(dto: ProjectCreateRequest, createdBy?: string): Promise<ProjectItem> {
   const { orgId, name, description } = dto;
   const projectId = uuidv4();
   const sortKey = `${orgId}#${projectId}`;
 
-  return await createItem<DBProjectItem>(
+  return await createItem<ProjectDBItem>(
     PROJECT_PK,
     sortKey,
     {
@@ -28,7 +27,7 @@ export async function createProject(dto: CreateProjectDTO, createdBy?: string): 
   );
 }
 
-export async function getProjectById(projectId: string, orgId?: string): Promise<DBProjectItem | null> {
+export async function getProjectById(projectId: string, orgId?: string): Promise<ProjectDBItem | null> {
   // Fast path: when the caller knows the orgId we can build the exact SK
   // (`${orgId}#${projectId}`, matching createProject) and fetch the project with a
   // single GetItem instead of paginating a full-table Scan (see Sentry AUTO-RFP-E8).
@@ -40,7 +39,7 @@ export async function getProjectById(projectId: string, orgId?: string): Promise
       }),
     );
 
-    const project = projectRes.Item as DBProjectItem | undefined;
+    const project = projectRes.Item as ProjectDBItem | undefined;
     if (!project) {
       return null;
     }
@@ -52,7 +51,7 @@ export async function getProjectById(projectId: string, orgId?: string): Promise
       }),
     );
 
-    return { ...project, organization: orgRes.Item } as DBProjectItem;
+    return { ...project, organization: orgRes.Item } as ProjectDBItem;
   }
 
   // Fallback: orgId unknown (e.g. resolving a project from a brief/approval), so scan
