@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { LossReasonCategorySchema } from './project-outcome';
+import { LossReasonCategorySchema } from './outcome-detail';
 
 /**
  * Monthly Analytics Item - aggregated analytics for an org by month

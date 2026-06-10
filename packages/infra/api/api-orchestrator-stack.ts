@@ -34,7 +34,6 @@ import { semanticDomain } from './routes/semantic.routes';
 import { deadlinesDomain } from './routes/deadlines.routes';
 import { opportunityDomain } from './routes/opportunity.routes';
 import { contentlibraryDomain } from './routes/content-library.routes';
-import { projectoutcomeDomain } from './routes/project-outcome.routes';
 import { projectsDomain } from './routes/projects.routes';
 import { promptDomain } from './routes/prompt.routes';
 import { searchOpportunityDomain } from './routes/search-opportunity.routes';
@@ -618,7 +617,6 @@ export class ApiOrchestratorStack extends cdk.Stack {
       deadlinesDomain(),
       opportunityDomain(),
       contentlibraryDomain(),
-      projectoutcomeDomain(),
       foiaDomain(),
       debriefingDomain(),
       pastperfDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '' }),
@@ -708,7 +706,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'OrganizationRoutes', 'AnswerRoutes', 'BriefRoutes', 'PresignedRoutes',
       'KnowledgebaseRoutes', 'DocumentRoutes', 'QuestionfileRoutes', 'UserRoutes',
       'QuestionRoutes', 'SemanticRoutes', 'DeadlinesRoutes', 'OpportunityRoutes',
-      'ContentLibraryRoutes', 'ProjectOutcomeRoutes', 'FoiaRoutes', 'DebriefingRoutes',
+      'ContentLibraryRoutes', 'FoiaRoutes', 'DebriefingRoutes',
       'PastPerfRoutes', 'ProjectsRoutes', 'PromptRoutes', 'SearchOpportunityRoutes',
       'RfpDocumentRoutes', 'TemplateRoutes', 'LinearRoutes', 'GoogleRoutes',
       'ClusteringRoutes', 'CollaborationRoutes', 'OpportunityContextRoutes',
@@ -719,6 +717,15 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'CompanyProfileRoutes',
       'RequiredFormsRoutes',
     ];
+
+    // allDomains and domainStackNames are mapped 1:1 by index. A mismatch silently
+    // reshuffles which nested stack owns which routes, causing ApiGatewayV2 409
+    // "Route already exists" conflicts at deploy time. Fail fast at synth instead.
+    if (allDomains.length !== domainStackNames.length) {
+      throw new Error(
+        `allDomains (${allDomains.length}) and domainStackNames (${domainStackNames.length}) must have the same length and stay index-aligned.`,
+      );
+    }
 
     for (let i = 0; i < allDomains.length; i++) {
       new ApiDomainLambdaStack(this, domainStackNames[i]!, {

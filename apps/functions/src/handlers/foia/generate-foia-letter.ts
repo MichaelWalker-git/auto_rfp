@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 import { FOIA_DOCUMENT_DESCRIPTIONS, getStateRecordsLaw, type FOIADocumentType } from '@auto-rfp/core';
 import { PK_NAME, SK_NAME } from '@/constants/common';
-import { FOIA_REQUEST_PK, PROJECT_OUTCOME_PK } from '@/constants/organization';
+import { FOIA_REQUEST_PK } from '@/constants/organization';
 import { apiResponse } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
@@ -16,8 +16,9 @@ import {
 } from '@/middleware/rbac-middleware';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
+import { getOpportunity } from '@/helpers/opportunity';
 import { getOrgPrimaryContact } from '@/helpers/org-contact';
-import type { DBFOIARequestItem, DBProjectOutcome } from '@/types/project-outcome';
+import type { DBFOIARequestItem } from '@/types/project-outcome';
 import type { OrgPrimaryContactItem } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -170,17 +171,13 @@ async function getProjectOutcome(
   orgId: string,
   projectId: string,
   opportunityId: string
-): Promise<DBProjectOutcome | null> {
-  const cmd = new GetCommand({
-    TableName: DB_TABLE_NAME,
-    Key: {
-      [PK_NAME]: PROJECT_OUTCOME_PK,
-      [SK_NAME]: `${orgId}#${projectId}#${opportunityId}`,
-    },
-  });
-
-  const result = await docClient.send(cmd);
-  return result.Item as DBProjectOutcome | null;
+): Promise<{ jurisdiction?: 'FEDERAL' | 'STATE'; state?: string } | null> {
+  const result = await getOpportunity({ orgId, projectId, oppId: opportunityId });
+  if (!result?.item) return null;
+  return {
+    jurisdiction: result.item.jurisdiction,
+    state: result.item.state ?? undefined,
+  };
 }
 
 /** Context that controls which records law the letter is framed under. */

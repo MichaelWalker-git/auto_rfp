@@ -1,5 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { GetCommand, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand } from '@aws-sdk/lib-dynamodb';
 import middy from '@middy/core';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -8,7 +8,7 @@ import {
   type CreateFOIARequest,
 } from '@auto-rfp/core';
 import { PK_NAME, SK_NAME } from '@/constants/common';
-import { FOIA_REQUEST_PK, PROJECT_OUTCOME_PK } from '@/constants/organization';
+import { FOIA_REQUEST_PK } from '@/constants/organization';
 import { apiResponse } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
@@ -20,6 +20,7 @@ import {
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
+import { getOpportunity } from '@/helpers/opportunity';
 import type { DBFOIARequestItem } from '@/types/project-outcome';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -85,16 +86,8 @@ export const baseHandler = async (
 };
 
 async function checkLostOutcome(orgId: string, projectId: string, opportunityId: string): Promise<boolean> {
-  const cmd = new GetCommand({
-    TableName: DB_TABLE_NAME,
-    Key: {
-      [PK_NAME]: PROJECT_OUTCOME_PK,
-      [SK_NAME]: `${orgId}#${projectId}#${opportunityId}`,
-    },
-  });
-
-  const result = await docClient.send(cmd);
-  return result.Item?.status === 'LOST';
+  const result = await getOpportunity({ orgId, projectId, oppId: opportunityId });
+  return result?.item?.status === 'LOST';
 }
 
 export async function createFOIARequest(

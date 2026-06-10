@@ -12,6 +12,7 @@ export * from './user-project';
 export * from './opportunity'
 export * from './search-opportunity';
 export * from './prompt'
+export * from './outcome-detail'
 export * from './project-outcome'
 export * from './debriefing'
 export * from './foia'

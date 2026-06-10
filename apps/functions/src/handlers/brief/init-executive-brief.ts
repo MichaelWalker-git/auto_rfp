@@ -4,7 +4,7 @@ import { apiResponse, getOrgId } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import { nowIso } from '@/helpers/date';
 import { requireEnv } from '@/helpers/env';
-import { onBriefGenerationStarted } from '@/helpers/opportunity-stage';
+import { onBriefGenerationStarted } from '@/helpers/opportunity-status';
 import {
   executiveBriefSKByOpportunity,
   getExecutiveBriefByProjectId,

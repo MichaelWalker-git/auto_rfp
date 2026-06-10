@@ -52,9 +52,9 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
       userContext: { userId, userName },
     });
 
-    // Map opportunity stage to APN proposal status
-    const opportunityStage = item.stage ?? 'IDENTIFIED';
-    const proposalStatus = STAGE_TO_APN_STATUS_MAP[opportunityStage] ?? 'PROSPECT';
+    // Map opportunity status to APN proposal status
+    const opportunityStatus = item.status ?? 'IDENTIFIED';
+    const proposalStatus = STAGE_TO_APN_STATUS_MAP[opportunityStatus] ?? 'PROSPECT';
 
     // Sync to AWS Partner Central (awaited to prevent Lambda termination before completion)
     await syncOpportunityToApn({

@@ -7,7 +7,7 @@ import {
   CreateDebriefingRequestSchema,
 } from '@auto-rfp/core';
 import { PK_NAME, SK_NAME } from '@/constants/common';
-import { DEBRIEFING_PK, PROJECT_OUTCOME_PK } from '@/constants/organization';
+import { DEBRIEFING_PK } from '@/constants/organization';
 import { apiResponse } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
@@ -19,7 +19,8 @@ import {
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
-import type { DBDebriefingItem, DBProjectOutcome } from '@/types/project-outcome';
+import { getOpportunity } from '@/helpers/opportunity';
+import type { DBDebriefingItem } from '@/types/project-outcome';
 import type { CreateDebriefingRequest } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -54,7 +55,8 @@ export const baseHandler = async (
     const userId = event.authContext?.userId || 'unknown';
 
     // Verify the specific opportunity has a LOST outcome and is a federal contract.
-    const outcome = await getOutcome(dto.orgId, dto.projectId, dto.opportunityId);
+    const oppResult = await getOpportunity({ orgId: dto.orgId, projectId: dto.projectId, oppId: dto.opportunityId });
+    const outcome = oppResult?.item;
     if (outcome?.status !== 'LOST') {
       return apiResponse(400, {
         message: 'Debriefing can only be requested for projects with LOST outcome',
@@ -90,23 +92,6 @@ export const baseHandler = async (
       error: err instanceof Error ? err.message : 'Unknown error',
     });
   }
-};
-
-const getOutcome = async (
-  orgId: string,
-  projectId: string,
-  opportunityId: string,
-): Promise<DBProjectOutcome | null> => {
-  const cmd = new GetCommand({
-    TableName: DB_TABLE_NAME,
-    Key: {
-      [PK_NAME]: PROJECT_OUTCOME_PK,
-      [SK_NAME]: `${orgId}#${projectId}#${opportunityId}`,
-    },
-  });
-
-  const result = await docClient.send(cmd);
-  return (result.Item as DBProjectOutcome | undefined) ?? null;
 };
 
 export const createDebriefing = async (

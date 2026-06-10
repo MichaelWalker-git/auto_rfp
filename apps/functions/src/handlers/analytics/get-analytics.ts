@@ -3,7 +3,8 @@ import { QueryCommand } from '@aws-sdk/lib-dynamodb';
 import middy from '@middy/core';
 
 import { PK_NAME, SK_NAME } from '@/constants/common';
-import { FOIA_REQUEST_PK, PROJECT_OUTCOME_PK, PROJECT_PK } from '@/constants/organization';
+import { FOIA_REQUEST_PK, PROJECT_PK } from '@/constants/organization';
+import { OPPORTUNITY_PK } from '@/constants/opportunity';
 import { apiResponse } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
@@ -21,9 +22,29 @@ import {
   createEmptyMonthlyAnalytics,
   formatMonth,
 } from '@auto-rfp/core';
-import type { DBProjectOutcome } from '@/types/project-outcome';
+import type { WinData, LossData } from '@auto-rfp/core';
+
+/**
+ * Outcome shape consumed by the monthly aggregation. Adapted from the Opportunity
+ * record (whose status now carries the outcome) into the legacy field names the
+ * aggregation expects.
+ */
+interface AnalyticsOutcome {
+  projectId: string;
+  status: 'PENDING' | 'WON' | 'LOST' | 'NO_BID' | 'WITHDRAWN';
+  statusDate?: string;
+  updatedAt?: string;
+  createdAt?: string;
+  winData?: WinData;
+  lossData?: LossData;
+}
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+
+/** Opportunity statuses that correspond to a recorded outcome (submitted or decided). */
+const COUNTED_OPPORTUNITY_STATUSES = new Set<string>([
+  'SUBMITTED', 'WON', 'LOST', 'NO_BID', 'WITHDRAWN',
+]);
 
 /**
  * GET /analytics/get-analytics?orgId=X&startMonth=YYYY-MM&endMonth=YYYY-MM
@@ -260,8 +281,17 @@ export const baseHandler = async (
 
 // ── DynamoDB helpers ──────────────────────────────────────────────────────────
 
-async function fetchOrgOutcomes(orgId: string): Promise<DBProjectOutcome[]> {
-  const items: DBProjectOutcome[] = [];
+/**
+ * The opportunity outcome now lives on the Opportunity record (status + winData /
+ * lossData + outcomeDate). This adapts those opportunities into the legacy
+ * "outcome" shape the monthly aggregation expects, so the downstream logic is
+ * unchanged. Only opportunities that reached submission are counted:
+ *   - opportunity status SUBMITTED ≡ legacy 'PENDING' (submitted, awaiting decision)
+ *   - WON / LOST / NO_BID / WITHDRAWN map 1:1
+ *   - IDENTIFIED / QUALIFYING / PURSUING never had an outcome record → skipped
+ */
+async function fetchOrgOutcomes(orgId: string): Promise<AnalyticsOutcome[]> {
+  const items: AnalyticsOutcome[] = [];
   let lastKey: Record<string, unknown> | undefined;
 
   do {
@@ -269,12 +299,29 @@ async function fetchOrgOutcomes(orgId: string): Promise<DBProjectOutcome[]> {
       TableName: DB_TABLE_NAME,
       KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
       ExpressionAttributeNames: { '#pk': PK_NAME, '#sk': SK_NAME },
-      ExpressionAttributeValues: { ':pk': PROJECT_OUTCOME_PK, ':prefix': orgId },
+      ExpressionAttributeValues: { ':pk': OPPORTUNITY_PK, ':prefix': orgId },
       ExclusiveStartKey: lastKey,
       Limit: 500,
     });
     const res = await docClient.send(cmd);
-    items.push(...((res.Items ?? []) as DBProjectOutcome[]));
+
+    for (const opp of res.Items ?? []) {
+      const status = opp.status as string | undefined;
+      if (!status || !COUNTED_OPPORTUNITY_STATUSES.has(status)) continue;
+
+      const legacyStatus = (status === 'SUBMITTED' ? 'PENDING' : status) as AnalyticsOutcome['status'];
+      items.push({
+        projectId: opp.projectId as string,
+        status: legacyStatus,
+        // Terminal outcomes carry outcomeDate; SUBMITTED falls back to updatedAt.
+        statusDate: (opp.outcomeDate as string | undefined) ?? (opp.updatedAt as string | undefined),
+        updatedAt: opp.updatedAt as string | undefined,
+        createdAt: opp.createdAt as string | undefined,
+        winData: opp.winData as WinData | undefined,
+        lossData: opp.lossData as LossData | undefined,
+      });
+    }
+
     lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
   } while (lastKey);
 

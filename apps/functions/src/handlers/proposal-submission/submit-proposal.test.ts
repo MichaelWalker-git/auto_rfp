@@ -47,7 +47,7 @@ const mockCheckSubmissionReadiness = jest.fn();
 const mockCreateSubmissionRecord = jest.fn();
 const mockListRFPDocumentsByProject = jest.fn();
 const mockGetOpportunity = jest.fn();
-const mockOnProjectOutcomeSet = jest.fn();
+const mockTransitionOpportunityStatus = jest.fn();
 const mockGetOrgMembers = jest.fn();
 const mockSendNotification = jest.fn();
 const mockBuildNotification = jest.fn();
@@ -67,8 +67,8 @@ jest.mock('@/helpers/opportunity', () => ({
   getOpportunity: (...args: unknown[]) => mockGetOpportunity(...args),
 }));
 
-jest.mock('@/helpers/opportunity-stage', () => ({
-  onProjectOutcomeSet: (...args: unknown[]) => mockOnProjectOutcomeSet(...args),
+jest.mock('@/helpers/opportunity-status', () => ({
+  transitionOpportunityStatus: (...args: unknown[]) => mockTransitionOpportunityStatus(...args),
 }));
 
 jest.mock('@/helpers/user', () => ({
@@ -131,7 +131,7 @@ const mockOpp = {
   item: {
     title: 'Test Opportunity',
     responseDeadlineIso: '2025-12-31T00:00:00Z',
-    stage: 'PURSUING',
+    status: 'PURSUING',
   },
 };
 
@@ -166,7 +166,7 @@ describe('submit-proposal handler', () => {
       items: [{ documentId: 'doc-1', status: 'READY', deletedAt: undefined }],
     });
     mockCreateSubmissionRecord.mockResolvedValue(mockSubmission);
-    mockOnProjectOutcomeSet.mockResolvedValue(undefined);
+    mockTransitionOpportunityStatus.mockResolvedValue(undefined);
     mockGetOrgMembers.mockResolvedValue([]);
     mockWriteAuditLog.mockResolvedValue(undefined);
     mockGetHmacSecret.mockResolvedValue('hmac-secret');
@@ -323,17 +323,17 @@ describe('submit-proposal handler', () => {
       // but the submission record should use the provided documentIds, not the list result
     });
 
-    it('triggers onProjectOutcomeSet with PENDING status (non-blocking)', async () => {
+    it('transitions the opportunity to SUBMITTED (non-blocking)', async () => {
       await (handler as unknown as { handler: (e: AuthedEvent) => Promise<unknown> }).handler(
         makeEvent(validBody),
       );
 
-      expect(mockOnProjectOutcomeSet).toHaveBeenCalledWith(
+      expect(mockTransitionOpportunityStatus).toHaveBeenCalledWith(
         expect.objectContaining({
           orgId: 'org-1',
           projectId: 'proj-1',
           oppId: 'opp-1',
-          outcomeStatus: 'PENDING',
+          toStatus: 'SUBMITTED',
           changedBy: 'user-123',
         }),
       );
@@ -361,7 +361,7 @@ describe('submit-proposal handler', () => {
 
   describe('edge cases', () => {
     it('continues even when stage transition fails (non-blocking)', async () => {
-      mockOnProjectOutcomeSet.mockRejectedValue(new Error('Stage transition failed'));
+      mockTransitionOpportunityStatus.mockRejectedValue(new Error('Status transition failed'));
 
       const result = await (handler as unknown as { handler: (e: AuthedEvent) => Promise<unknown> }).handler(
         makeEvent(validBody),
