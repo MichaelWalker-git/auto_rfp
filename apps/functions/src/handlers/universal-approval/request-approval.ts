@@ -8,7 +8,7 @@ import {
   cancelPendingUniversalApprovals,
   updateUniversalApprovalLinearTicket,
 } from '@/helpers/universal-approval';
-import { getUserByOrgAndId } from '@/helpers/user';
+import { getUserByOrgAndId, getUserDisplayName } from '@/helpers/user';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
 import { createLinearTicket } from '@/helpers/linear';
 import { writeAuditLog } from '@/helpers/audit-log';
@@ -44,10 +44,11 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     getUserByOrgAndId(orgId, requestedBy).catch(() => null),
     getUserByOrgAndId(orgId, data.reviewerId),
   ]);
-  
+
   if (!reviewer) return apiResponse(404, { message: 'Reviewer not found in this organization' });
-  
-  const requestedByName = requester?.displayName ?? requester?.firstName ?? requester?.email ?? requestedBy;
+
+  const requestedByName = getUserDisplayName(requester, requestedBy);
+  const reviewerName = getUserDisplayName(reviewer, data.reviewerId);
 
   // ── Cancel any existing PENDING approvals for this entity ──
   await cancelPendingUniversalApprovals(orgId, data.entityType, data.entitySK);
@@ -57,7 +58,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     data,
     requestedBy,
     requestedByName,
-    reviewer.displayName ?? reviewer.firstName ?? reviewer.email,
+    reviewerName,
     reviewer.email,
   );
 
