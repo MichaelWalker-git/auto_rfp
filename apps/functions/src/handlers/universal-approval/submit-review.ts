@@ -7,7 +7,7 @@ import {
   getUniversalApprovalRecord,
   updateUniversalApprovalStatus,
 } from '@/helpers/universal-approval';
-import { getUserByOrgAndId } from '@/helpers/user';
+import { getUserByOrgAndId, getUserDisplayName } from '@/helpers/user';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
 import { writeAuditLog } from '@/helpers/audit-log';
 import { getHmacSecret } from '@/helpers/secret';
@@ -52,8 +52,8 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     getUserByOrgAndId(orgId, approval.requestedBy).catch(() => null),
   ]);
 
-  const reviewerName = reviewer?.displayName ?? reviewer?.firstName ?? reviewer?.email ?? reviewerId;
-  const requesterName = requester?.displayName ?? requester?.firstName ?? requester?.email ?? approval.requestedBy;
+  const reviewerName = getUserDisplayName(reviewer, reviewerId);
+  const requesterName = getUserDisplayName(requester, approval.requestedBy);
 
   // ── Update approval status ──
   const updatedApproval = await updateUniversalApprovalStatus(

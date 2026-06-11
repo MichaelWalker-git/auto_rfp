@@ -20,7 +20,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { ClipboardCheck, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { useUsersList } from '@/lib/hooks/use-user';
+import { useEligibleReviewers } from '@/lib/hooks/use-eligible-reviewers';
 import { useRequestApproval } from '../hooks/useRequestApproval';
 import { useAuth } from '@/components/AuthProvider';
 
@@ -49,12 +49,7 @@ export const RequestApprovalButton = ({
   const { toast } = useToast();
   const { userSub } = useAuth();
 
-  const { data: usersData, isLoading: isLoadingUsers } = useUsersList(orgId, { status: 'ACTIVE', limit: 200 });
-
-  // Filter out the current user — cannot request approval from yourself
-  const eligibleReviewers = (usersData?.items ?? []).filter(
-    (u: { userId: string; email: string; displayName?: string; firstName?: string }) => u.userId !== userSub,
-  );
+  const { eligibleReviewers, isLoading: isLoadingUsers } = useEligibleReviewers(orgId, projectId, userSub ?? undefined);
 
   const handleSubmit = async () => {
     if (!reviewerId) return;
@@ -138,9 +133,12 @@ export const RequestApprovalButton = ({
                   ) : (
                     eligibleReviewers.map((u) => (
                       <SelectItem key={u.userId} value={u.userId}>
-                        {u.displayName ?? u.firstName ?? u.email}
-                        {u.email && (u.displayName ?? u.firstName) ? (
-                          <span className="text-muted-foreground ml-1 text-xs">({u.email})</span>
+                        {u.displayName}
+                        {u.isAdmin && (
+                          <span className="text-primary ml-1 text-xs font-medium">(Admin)</span>
+                        )}
+                        {u.email && u.displayName !== u.email ? (
+                          <span className="text-muted-foreground ml-1 text-xs">• {u.email}</span>
                         ) : null}
                       </SelectItem>
                     ))
