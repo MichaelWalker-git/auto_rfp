@@ -144,5 +144,17 @@ export class AmplifyFeStack extends cdk.Stack {
       value: `https://${amplifyBranch.branchName}.${this.amplifyApp.defaultDomain}`,
       description: 'Use this URL as Cognito redirect URL',
     });
+
+    // Output Amplify App ID for reference (not exported - just visible in console)
+    new cdk.CfnOutput(this, 'AmplifyAppIdOutput', {
+      value: this.amplifyApp.appId,
+      description: 'Amplify App ID for URL construction',
+    });
+
+    // Output default domain for reference
+    new cdk.CfnOutput(this, 'AmplifyDefaultDomainOutput', {
+      value: this.amplifyApp.defaultDomain,
+      description: 'Amplify default domain (e.g., d1vua4yzm2hpyn.amplifyapp.com)',
+    });
   }
 }

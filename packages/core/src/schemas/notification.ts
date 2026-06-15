@@ -105,7 +105,7 @@ export const NotificationPayloadSchema = z.object({
   type: NotificationTypeSchema,
   title: z.string().min(1).max(200),
   message: z.string().min(1).max(1000),
-  link: z.string().url().optional(),
+  link: z.string().startsWith('/').optional(),
   recipientUserIds: z.array(z.string().uuid()),
   orgId: z.string().uuid(),
   projectId: z.string().uuid().optional(),

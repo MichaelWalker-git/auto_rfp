@@ -119,6 +119,8 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
         const message = nextStatus === 'WON'
           ? `Your team won "${item.title ?? oppId}".`
           : `The proposal for "${item.title ?? oppId}" was not selected.`;
+        const outcomeLink = `/organizations/${orgId}/projects/${projectId}/opportunities/${oppId}`;
+
         getOrgMembers(orgId)
           .then((members) => {
             if (members.length === 0) return;
@@ -129,6 +131,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
                 entityId: oppId,
                 recipientUserIds: members.map((m) => m.userId),
                 recipientEmails: members.map((m) => m.email),
+                link: outcomeLink,
               }),
             );
           })

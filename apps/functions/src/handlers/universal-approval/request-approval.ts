@@ -23,6 +23,7 @@ import {
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
+import { buildEntityReviewLink } from '@/helpers/approval-links';
 
 const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   const orgId = getOrgId(event);
@@ -104,6 +105,15 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     .catch((err) => console.warn('[request-universal-approval] Linear ticket creation failed:', (err as Error).message));
 
   // ── Notify reviewer (non-blocking) ──
+  const reviewLink = buildEntityReviewLink(
+    orgId,
+    data.projectId,
+    data.entityType,
+    data.entityId,
+    data.opportunityId,
+    data.documentId,
+  );
+
   sendNotification(
     buildNotification(
       'DOCUMENT_APPROVAL_REQUESTED', // Using existing notification type for compatibility
@@ -111,11 +121,12 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
       `${requestedByName} has requested your approval for "${data.entityName ?? `a ${entityDisplayName.toLowerCase()}`}"`,
       {
         orgId,
-        projectId: data.projectId ?? '',
+        projectId: data.projectId,
         entityId: data.entityId,
         recipientUserIds: [data.reviewerId],
         recipientEmails: reviewer.email ? [reviewer.email] : [],
         actorDisplayName: requestedByName,
+        link: reviewLink,
       },
     ),
   ).catch((err) => console.warn('[request-universal-approval] Notification failed:', (err as Error).message));
