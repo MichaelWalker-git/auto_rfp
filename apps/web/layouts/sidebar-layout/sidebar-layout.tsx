@@ -228,9 +228,9 @@ export function SidebarLayout({ children }: { children: ReactNode }) {
     <TooltipProvider>
       <SidebarProvider>
         <AppSidebar/>
-        <SidebarInset className="flex-1 flex flex-col overflow-hidden">
+        <SidebarInset className="flex-1 flex flex-col overflow-x-hidden overflow-y-hidden">
           <GlobalHeader/>
-          <main className="flex-1 overflow-y-auto">{children}</main>
+          <main className="flex-1 overflow-x-hidden overflow-y-auto">{children}</main>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>

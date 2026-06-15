@@ -19,7 +19,8 @@ export const useEligibleReviewers = (
   currentUserId?: string,
 ) => {
   const { users: accessUsers, isLoading: isLoadingAccess } = useProjectAccessUsers(orgId, projectId);
-  const { data: usersListResponse, isLoading: isLoadingUsers } = useUsersList(orgId, { status: 'ACTIVE', limit: 200 });
+  // Include all users (ACTIVE and INVITED) - invited users can still review
+  const { data: usersListResponse, isLoading: isLoadingUsers } = useUsersList(orgId, { limit: 200 });
   const orgUsers = usersListResponse?.items ?? [];
 
   const eligibleReviewers = useMemo(() => {

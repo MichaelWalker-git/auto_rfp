@@ -27,6 +27,8 @@ export interface CollaborationWebSocketStackProps extends cdk.StackProps {
    * The queue URL and ARN are constructed from this name + pseudo-parameters.
    */
   notificationQueueName: string;
+  /** Frontend URL for email links and integrations (e.g., https://rfp.horustech.dev or https://develop.d*.amplifyapp.com) */
+  frontendUrl?: string;
 }
 
 export class CollaborationWebSocketStack extends cdk.Stack {
@@ -37,7 +39,7 @@ export class CollaborationWebSocketStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: CollaborationWebSocketStackProps) {
     super(scope, id, props);
 
-    const { stage, commonLambdaRoleArn, commonEnv, notificationQueueName } = props;
+    const { stage, commonLambdaRoleArn, commonEnv, notificationQueueName, frontendUrl } = props;
 
     // Resolve the shared Lambda role within this Stack's scope
     const lambdaRole = iam.Role.fromRoleArn(this, 'SharedLambdaRole', commonLambdaRoleArn);
@@ -189,6 +191,7 @@ export class CollaborationWebSocketStack extends cdk.Stack {
         ...commonEnv,
         NOTIFICATION_FROM_EMAIL: commonEnv['SES_FROM_EMAIL'] ?? 'noreply@horustech.dev',
         NOTIFICATION_QUEUE_URL: notificationQueueUrl,
+        APP_URL: frontendUrl ?? 'https://rfp.horustech.dev',
       },
       bundling,
     });

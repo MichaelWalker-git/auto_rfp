@@ -243,7 +243,7 @@ export const ProjectAccessManager = ({ orgId, projectId, projectCreatorId }: Pro
                     </div>
 
                     <div className="flex items-center gap-3">
-                      {canManage && !isCurrentUser && (
+                      {canManage && !isCurrentUser && !isCreator && (
                         <Button
                           variant="ghost"
                           size="icon"

@@ -20,6 +20,7 @@ import {
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
+import { buildRfpDocumentReviewLink } from '@/helpers/approval-links';
 
 const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   const orgId = getOrgId(event);
@@ -107,6 +108,8 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     ? `${reviewerName} approved "${doc['name'] ?? doc['title'] ?? 'your document'}"${data.reviewNote ? `: ${data.reviewNote}` : ''}`
     : `${reviewerName} rejected "${doc['name'] ?? doc['title'] ?? 'your document'}"${data.reviewNote ? `: ${data.reviewNote}` : ''}`;
 
+  const reviewLink = buildRfpDocumentReviewLink(orgId, data.projectId, data.opportunityId, data.documentId);
+
   sendNotification(
     buildNotification(
       notificationType,
@@ -119,6 +122,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
         recipientUserIds: [approval.requestedBy],
         recipientEmails: requester?.email ? [requester.email] : [],
         actorDisplayName: reviewerName,
+        link: reviewLink,
       },
     ),
   ).catch((err) => console.warn('[submit-review] Notification failed:', (err as Error).message));

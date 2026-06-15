@@ -100,6 +100,8 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
   );
 
   // ── 6. Notify all org members (non-blocking) ──
+  const submissionLink = `/organizations/${data.orgId}/projects/${data.projectId}/opportunities/${data.oppId}`;
+
   getOrgMembers(data.orgId)
     .then((members) => {
       if (!members.length) return;
@@ -115,6 +117,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
             recipientUserIds: members.map((m) => m.userId),
             recipientEmails: members.map((m) => m.email),
             actorDisplayName: userName,
+            link: submissionLink,
           },
         ),
       );

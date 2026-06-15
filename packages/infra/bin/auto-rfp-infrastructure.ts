@@ -79,16 +79,26 @@ const feURL = `https://${branch}.${amplifyDomain}`;
 
 console.log(`=🌐 Frontend URL pattern: ${feURL}`);
 
-// Portal URL for invitation emails. Set PORTAL_URL env var to override.
-// Defaults to rfp.horustech.dev for all environments since the Amplify domain
-// is not known at Auth stack creation time (Auth is created before Amplify).
-const portalUrl = process.env.PORTAL_URL || 'https://rfp.horustech.dev';
+// Frontend URL for email links and other integrations.
+// Can be overridden via FRONTEND_URL environment variable.
+// Default strategy:
+//   - Use AMPLIFY_APP_ID env var if set (for dynamic construction)
+//   - Otherwise use hardcoded app ID (d1vua4yzm2hpyn) as fallback
+//   - Main/Prod always use custom domain regardless
+const amplifyAppId = process.env.AMPLIFY_APP_ID || 'd1vua4yzm2hpyn';
+const defaultFrontendUrl = stage.toLowerCase() === 'dev'
+  ? `https://${branch}.${amplifyAppId}.amplifyapp.com`
+  : 'https://rfp.horustech.dev';  // Main/Prod use custom domain
+
+const frontendUrl = process.env.FRONTEND_URL || defaultFrontendUrl;
+
+console.log(`=📧 Frontend URL for integrations: ${frontendUrl}`);
 
 const auth = new AuthStack(app, `AutoRfp-Auth-${stage}`, {
   env,
   stage: stage,
   domainPrefixBase: 'auto-rfp',
-  portalUrl,
+  portalUrl: frontendUrl,
   callbackUrls: [
     'http://localhost:3000',
     `https://${branch}.d*.amplifyapp.com`,
@@ -183,6 +193,7 @@ const collaborationWsStack = new CollaborationWebSocketStack(app, `AutoRfp-${sta
   userPool: auth.userPool,
   commonLambdaRoleArn: api.commonLambdaRoleArn,
   notificationQueueName,
+  frontendUrl,
   commonEnv: {
     STAGE: stage,
     DB_TABLE_NAME: db.tableName.tableName,

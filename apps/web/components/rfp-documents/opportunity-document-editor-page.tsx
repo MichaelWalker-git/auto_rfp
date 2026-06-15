@@ -586,7 +586,7 @@ export const OpportunityDocumentEditorPage = ({
   }
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 56px)' }}>
+    <div className="flex flex-col overflow-x-hidden" style={{ height: 'calc(100vh - 56px)' }}>
 
       {/* ── Toolbar ── */}
       <div className="flex items-center gap-2 px-4 py-2 border-b bg-background shrink-0">
@@ -737,7 +737,7 @@ export const OpportunityDocumentEditorPage = ({
       </div>{/* end toolbar */}
 
       {/* ── Editor with permanent right sidebar ── */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-x-hidden overflow-y-hidden">
         {/* Main editor area */}
         <div className="flex-1 min-h-0 overflow-hidden">
           {/* Priority 1: Generation state — checked first, always wins */}

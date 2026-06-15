@@ -151,11 +151,11 @@ export const ReviewSidebarPanel = ({
   return (
     <div className="flex flex-col h-full bg-background">
       <ScrollArea className="flex-1 overflow-y-auto">
-        <div className="p-6 space-y-6">
+        <div className="p-4 space-y-4">
           {/* Current Review Action */}
           {canReview && (
-            <Card className="border-amber-200 bg-amber-50/50">
-              <CardHeader className="pb-3">
+            <Card className="border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/50 w-full">
+              <CardHeader className="pb-3 px-4 pt-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <ClipboardCheck className="h-4 w-4 text-amber-600" />
                   Your Review is Required
@@ -173,7 +173,7 @@ export const ReviewSidebarPanel = ({
                   })()}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-3 px-4 pb-4">
                 <div className="space-y-1.5">
                   <Label>
                     Note / Reason
@@ -221,8 +221,8 @@ export const ReviewSidebarPanel = ({
 
           {/* Resubmit for Review — shown to requester when document is rejected */}
           {canResubmit && rejectedApproval && (
-            <Card className="border-red-200 bg-red-50/50">
-              <CardHeader className="pb-3">
+            <Card className="border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/50 w-full">
+              <CardHeader className="pb-3 px-4 pt-4">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <XCircle className="h-4 w-4 text-red-600" />
                   Document Rejected
@@ -234,7 +234,7 @@ export const ReviewSidebarPanel = ({
                   {resolveDisplayName(rejectedApproval.reviewerName, 'The reviewer')} rejected this document. Please address the feedback and resubmit.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-3 px-4 pb-4">
                 {/* Rejection reason */}
                 {rejectedApproval.reviewNote && (
                   <div className="bg-red-100 border border-red-200 rounded-lg p-3">
@@ -256,13 +256,13 @@ export const ReviewSidebarPanel = ({
 
           {/* Current Approval Status - Show for any approval */}
           {approvals.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
+            <Card className="w-full">
+              <CardHeader className="pb-3 px-4 pt-4">
                 <CardTitle className="text-sm font-medium">
                   {approval ? 'Current Status' : 'Latest Status'}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-3 px-4 pb-4">
                 {/* Show current approval or most recent approval */}
                 {(() => {
                   const displayApproval = approval || approvals[0];
@@ -343,11 +343,11 @@ export const ReviewSidebarPanel = ({
 
           {/* Approval History */}
           {approvals.length > 1 && (
-            <Card>
-              <CardHeader className="pb-3">
+            <Card className="w-full">
+              <CardHeader className="pb-3 px-4 pt-4">
                 <CardTitle className="text-sm font-medium">Approval History</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-4 pb-4">
                 <div className="space-y-3">
                   {approvals.slice(1).map((pastApproval) => (
                     <div key={pastApproval.approvalId} className="flex items-start gap-3 p-2 rounded-lg bg-muted/30">
@@ -379,8 +379,8 @@ export const ReviewSidebarPanel = ({
 
           {/* No approvals state */}
           {approvals.length === 0 && (
-            <Card>
-              <CardContent className="p-6 text-center">
+            <Card className="w-full">
+              <CardContent className="p-4 text-center">
                 <ClipboardCheck className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">
                   No approval requests for this document yet.

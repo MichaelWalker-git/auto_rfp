@@ -8,8 +8,8 @@ const NOTIFICATION_QUEUE_URL = process.env['NOTIFICATION_QUEUE_URL'];
  * Enqueue a notification to the SQS notification queue.
  * Best-effort — never throws; logs errors instead.
  *
- * NOTE: Do NOT set `link` in the payload — the frontend constructs
- * the destination URL from `type` + `orgId` + `projectId`.
+ * NOTE: The `link` field is optional and used for email deep-linking.
+ * Frontend in-app notifications construct their own URLs from `type` + `orgId` + `projectId`.
  */
 export const sendNotification = async (payload: NotificationPayload): Promise<void> => {
   if (!NOTIFICATION_QUEUE_URL) {
@@ -30,7 +30,8 @@ export const sendNotification = async (payload: NotificationPayload): Promise<vo
 
 /**
  * Build a notification payload.
- * Do NOT pass `link` — the frontend constructs the URL from type + orgId + projectId.
+ * The `link` parameter is optional and used for email deep-linking.
+ * Frontend in-app notifications construct their own URLs from type + orgId + projectId.
  */
 export const buildNotification = (
   type: NotificationType,
@@ -44,6 +45,8 @@ export const buildNotification = (
     recipientUserIds: string[];
     recipientEmails?: string[];
     actorDisplayName?: string;
+    /** Optional link for email deep-linking to specific entity */
+    link?: string;
   },
 ): NotificationPayload => ({
   type,
@@ -55,4 +58,5 @@ export const buildNotification = (
   projectId: opts.projectId,
   entityId: opts.entityId,
   actorDisplayName: opts.actorDisplayName,
+  link: opts.link,
 });

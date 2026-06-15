@@ -2,6 +2,7 @@ import { apiResponse, getOrgId } from '@/helpers/api';
 import { getProjectAccessUsers } from '@/helpers/user-project';
 import { getProjectById } from '@/helpers/project';
 import { withSentryLambda } from '@/sentry-lambda';
+import type { UserProjectAccess } from '@auto-rfp/core';
 import {
   authContextMiddleware,
   httpErrorMiddleware,
@@ -31,6 +32,21 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
     }
 
     const users = await getProjectAccessUsers(projectId);
+
+    // Always include the project creator, even if they don't have an explicit access record
+    const creatorId = project.createdBy;
+    const creatorAlreadyIncluded = users.some((u) => u.userId === creatorId);
+
+    if (creatorId && !creatorAlreadyIncluded) {
+      users.unshift({
+        userId: creatorId,
+        projectId,
+        orgId,
+        assignedAt: project.createdAt ?? new Date().toISOString(),
+        assignedBy: 'system', // Creator gets implicit access
+      } satisfies UserProjectAccess);
+    }
+
     return apiResponse(200, { users, projectId });
   } catch (err) {
     const error = err as Error;
