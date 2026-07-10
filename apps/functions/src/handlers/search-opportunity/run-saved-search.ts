@@ -65,7 +65,33 @@ const SAM_API_ORIGIN = requireEnv('SAM_API_ORIGIN', 'https://api.sam.gov');
 const httpsAgent = new https.Agent({ keepAlive: true });
 const sfn = new SFNClient({});
 
+// Max concurrent orgs when fetching saved searches (read-only DynamoDB queries).
+const ORG_LISTING_CONCURRENCY = 8;
+
 type RunnerEvent = EventBridgeEvent<'sam.runSavedSearches', { dryRun?: boolean; orgId?: string }>;
+
+/**
+ * Runs `worker` over `items` with at most `limit` promises in flight at once,
+ * preserving input order in the returned results.
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await worker(items[index]!, index);
+    }
+  });
+
+  await Promise.all(runners);
+  return results;
+}
 
 function mmddyyyy(d: Date) {
   const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
@@ -341,17 +367,20 @@ async function runForOrg(args: {
   ranAtIso: string;
   samImportCfg: ImportSamConfig;
   dryRun: boolean;
+  searches: SavedSearch[];
 }) {
-  const searches = await listSavedSearchesForOrg(args.orgId);
-  console.log('searches ', searches);
+  const out: any[] = [];
+
+  // Only the searches that are actually due this run. If none are due we can
+  // skip the org entirely — crucially, we avoid the getOrgDefaultProjectId
+  // query, which previously ran for every org on every invocation.
+  const dueSearches = args.searches.filter((s) => shouldRunNow(s, args.now));
+  if (dueSearches.length === 0) return out;
+
   const projectId = await getOrgDefaultProjectId(args.orgId);
   console.log('projectId ', projectId);
 
-  const out: any[] = [];
-
-  for (const s of searches) {
-    if (!shouldRunNow(s, args.now)) continue;
-
+  for (const s of dueSearches) {
     const criteria = buildRuntimeCriteria(s, args.now);
     console.log('criteria ', criteria, 'source', s.source);
 
@@ -608,16 +637,28 @@ export const baseHandler = async (event: RunnerEvent) => {
 
   console.log('orgIds: ', orgIds);
 
+  // Fetch each org's saved searches concurrently (read-only, no SAM calls) so
+  // we don't pay one sequential DynamoDB round-trip per org. Bounded to keep
+  // DynamoDB request volume reasonable for large org counts.
+  const searchesByOrg = await mapWithConcurrency(orgIds, ORG_LISTING_CONCURRENCY, async (orgId) => ({
+    orgId,
+    searches: await listSavedSearchesForOrg(orgId),
+  }));
+
+  // Only orgs that actually have saved searches are worth processing further.
+  const orgsWithSearches = searchesByOrg.filter(({ searches }) => searches.length > 0);
+
   const resultsByOrg: Array<{ orgId: string; results: any[] }> = [];
 
   // Sequential to be safe with SAM throttling; can add concurrency later.
-  for (const orgId of orgIds) {
+  for (const { orgId, searches } of orgsWithSearches) {
     const results = await runForOrg({
       orgId,
       now,
       ranAtIso,
       samImportCfg,
       dryRun,
+      searches,
     });
 
     if (results.length) resultsByOrg.push({ orgId, results });
