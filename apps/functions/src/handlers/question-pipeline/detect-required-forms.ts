@@ -210,13 +210,21 @@ export const baseHandler = async (
       // XLSX forms parse synchronously — no Textract roundtrip needed
       try {
         const sheets = await parseXlsxForms(stableFileKey);
-        const target = sheets[0];
-        let fields = target?.fields ?? [];
+        // Merge fields across every sheet that yielded fields. Instruction-only
+        // sheets produce none and are naturally excluded. The parser only returns
+        // sheets with content, so a workbook whose real fields live on sheet 2+
+        // (instructions on sheet 1) is preserved instead of being dropped.
+        let fields = sheets.flatMap((s) => s.fields);
+        // Matrix wins if any content sheet is a matrix — matrices always require
+        // human review and drive the reviewRequired flag below.
+        const detectedFormType: FormType = sheets.some((s) => s.formType === 'XLSX_MATRIX')
+          ? 'XLSX_MATRIX'
+          : validFormType;
 
         // For matrix forms, run Bedrock against the org's CompanyProfile
         // CAPABILITY entries to populate the Comments column. Response
         // columns stay MANUAL_REQUIRED — autofill never claims compliance.
-        if (validFormType === 'XLSX_MATRIX' && fields.length > 0) {
+        if (detectedFormType === 'XLSX_MATRIX' && fields.length > 0) {
           fields = await autofillMatrixComments({ orgId, fields });
         }
 
@@ -234,7 +242,7 @@ export const baseHandler = async (
             manualFieldCount: manual,
             autoFillPercentage,
             // Matrix forms always require human review before submission.
-            reviewRequired: validFormType === 'XLSX_MATRIX' ? true : undefined,
+            reviewRequired: detectedFormType === 'XLSX_MATRIX' ? true : undefined,
           },
         });
       } catch (err) {
