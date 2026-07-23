@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { XlsxFormEditor } from '../XlsxFormEditor';
 import type { RequiredFormItem } from '@auto-rfp/core';
 
@@ -170,6 +170,20 @@ describe('XlsxFormEditor — multipage support', () => {
     expect(screen.getByRole('button', { name: 'Pricing' })).toBeTruthy();
     // The instructions sheet still gets no tab.
     expect(screen.queryByRole('button', { name: 'Instructions' })).toBeNull();
+
+    // Compliance is the active tab: its field is in the sidebar, Pricing's is not.
+    // This guards the sheetIndex-vs-filtered-tabs mismatch: field-2 has
+    // sheetIndex=2, but sheetTabs=["Compliance","Pricing"], so a naive
+    // sheetTabs[2] lookup would mis-scope it.
+    expect(screen.getByText('MFA support — Fully Meets')).toBeTruthy();
+    expect(screen.queryByText('License — Cost')).toBeNull();
+
+    // Switch to Pricing: now its field shows and Compliance's is hidden.
+    fireEvent.click(screen.getByRole('button', { name: 'Pricing' }));
+    await waitFor(() => {
+      expect(screen.getByText('License — Cost')).toBeTruthy();
+    });
+    expect(screen.queryByText('MFA support — Fully Meets')).toBeNull();
   });
 
   it('lists the sheet-2 field in the sidebar', async () => {

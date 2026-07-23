@@ -43,6 +43,10 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
   const [grids, setGrids] = useState<SheetGrids>({});
   const [sheetTabs, setSheetTabs] = useState<string[]>([]);
   const [activeSheet, setActiveSheet] = useState<string>('');
+  // fieldId → resolved sheet name, computed against the real workbook during
+  // load. The sidebar filter reads this so it can never disagree with the grid
+  // (sheetIndex indexes the full workbook, not the filtered tab list).
+  const [fieldSheetById, setFieldSheetById] = useState<Record<string, string>>({});
   const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null);
   const [editingSidebarField, setEditingSidebarField] = useState<string | null>(null);
   const [sidebarValues, setSidebarValues] = useState<Record<string, string>>({});
@@ -85,13 +89,16 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
           return workbook.SheetNames[0];
         };
 
-        // Group fields by their resolved sheet.
+        // Group fields by their resolved sheet, and record the resolution per
+        // field so the sidebar can scope itself using the exact same mapping.
         const fieldsBySheet = new Map<string, DetectedFormField[]>();
+        const sheetByField: Record<string, string> = {};
         for (const f of fields) {
           const sheetName = resolveFieldSheet(f);
           const bucket = fieldsBySheet.get(sheetName) ?? [];
           bucket.push(f);
           fieldsBySheet.set(sheetName, bucket);
+          sheetByField[f.fieldId] = sheetName;
         }
 
         // Only show sheets that actually own fields, preserving workbook order.
@@ -154,6 +161,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
 
         setGrids(nextGrids);
         setSheetTabs(tabs);
+        setFieldSheetById(sheetByField);
         setActiveSheet((prev) => (prev && tabs.includes(prev) ? prev : tabs[0] ?? ''));
       } catch (err) {
         console.error('Failed to load XLSX:', err);
@@ -165,6 +173,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
         ]);
         setGrids({ [fallbackName]: fallback });
         setSheetTabs([fallbackName]);
+        setFieldSheetById(Object.fromEntries(fields.map((f) => [f.fieldId, fallbackName])));
         setActiveSheet(fallbackName);
       } finally {
         setLoading(false);
@@ -276,13 +285,14 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
   }, [doc, orgId, toast, backUrl, confirm]);
 
   // Fields shown in the sidebar are scoped to the active sheet so the tab and
-  // sidebar stay coherent. Fields with no sheet identity (legacy) surface on the
-  // fallback / first tab.
+  // sidebar stay coherent. We reuse the fieldId → sheet resolution computed at
+  // load time (against the real workbook) rather than re-deriving it from
+  // sheetIndex here — sheetIndex points into the full workbook, not the filtered
+  // tab list, so indexing sheetTabs[f.sheetIndex] would mis-assign fields.
   const activeSheetFields = fields.filter((f) => {
     if (deletedFieldIds.has(f.fieldId)) return false;
     if (sheetTabs.length <= 1) return true;
-    const fieldSheet = f.sheetName ?? (f.sheetIndex !== null && f.sheetIndex !== undefined ? sheetTabs[f.sheetIndex] : undefined);
-    return fieldSheet ? fieldSheet === activeSheet : activeSheet === sheetTabs[0];
+    return fieldSheetById[f.fieldId] === activeSheet;
   });
 
   return (
