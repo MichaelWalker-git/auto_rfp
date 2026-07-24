@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useApi, apiMutate, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { PdfFormEditor } from '@/features/required-forms/components/PdfFormEditor';
 import { XlsxFormEditor } from '@/features/required-forms/components/XlsxFormEditor';
+import { DocxFormEditor } from '@/features/required-forms/components/DocxFormEditor';
 import type { RequiredFormItem } from '@auto-rfp/core';
 import { useCurrentOrganization } from '@/context/organization-context';
 
@@ -100,6 +101,13 @@ export default function RequiredFormEditorPage() {
 
   if (isXlsx) {
     return <XlsxFormEditor doc={form as any} orgId={navOrgId} onFieldUpdated={() => mutateForm()} />;
+  }
+
+  const isDocx = form.sourceFileKey?.toLowerCase().endsWith('.docx') ||
+    form.sourceFileKey?.toLowerCase().endsWith('.doc') || form.formType === 'DOCX_FORM';
+
+  if (isDocx) {
+    return <DocxFormEditor doc={form as any} orgId={navOrgId} onFieldUpdated={() => mutateForm()} />;
   }
 
   return (

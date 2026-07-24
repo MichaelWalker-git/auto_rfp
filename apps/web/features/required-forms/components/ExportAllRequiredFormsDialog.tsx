@@ -47,6 +47,7 @@ const FORM_TYPE_LABEL: Record<string, string> = {
   PDF_SCANNED: 'PDF · scanned',
   XLSX_MATRIX: 'XLSX · matrix',
   XLSX_FORM: 'XLSX · form',
+  DOCX_FORM: 'Word · form',
   CONTRACT_TEMPLATE: 'Contract template',
 };
 
