@@ -65,12 +65,13 @@ describe('parseDocxForms', () => {
     expect(fields).toEqual([]);
   });
 
-  it('returns an empty array when the model returns non-JSON', async () => {
+  it('throws when the model returns unparseable output (not a field-less doc)', async () => {
     mockInvokeModel.mockResolvedValueOnce(
       encodeModelResponse('not json at all no braces'),
     );
-    const fields = await parseDocxForms('some text');
-    expect(fields).toEqual([]);
+    // A parse failure must surface as an error so the caller marks the form
+    // FAILED — it must NOT be swallowed into an empty (READY, 0-field) result.
+    await expect(parseDocxForms('some text')).rejects.toThrow();
   });
 
   it('skips field entries without a usable label', async () => {

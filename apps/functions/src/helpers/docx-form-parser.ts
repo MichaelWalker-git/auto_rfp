@@ -40,7 +40,9 @@ const buildFieldExtractionPrompt = (docText: string) => {
       'Return ONLY valid JSON (no markdown, no commentary).',
     messages: [{ role: 'user', content: [{ type: 'text', text: userText }] }],
     temperature: 0,
-    max_tokens: 4000,
+    // Headroom for the MAX_FIELDS (200) cap: each field entry is small JSON, but
+    // a large form's full list can exceed 4k tokens and truncate → parse failure.
+    max_tokens: 16000,
   };
 };
 
@@ -62,15 +64,19 @@ export const parseDocxForms = async (docText: string): Promise<DetectedFormField
   const responseJson = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as Record<string, unknown>;
   const contentBlocks = (responseJson?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
   const rawText = contentBlocks.find((c) => c?.type === 'text')?.text ?? null;
-  if (!rawText) return [];
-
-  let modelOut: Record<string, unknown> | null;
-  try {
-    modelOut = safeParseJsonFromModel(String(rawText)) as Record<string, unknown>;
-  } catch {
-    return [];
+  if (!rawText) {
+    // Empty model envelope is a hard failure, not a field-less document — throw
+    // so the caller marks the form FAILED rather than silently READY with 0 fields.
+    throw new Error('DOCX field extraction returned an empty model response');
   }
-  if (!modelOut) return [];
+
+  // A JSON parse failure here (e.g. a truncated response when the field list
+  // overflows max_tokens) must NOT masquerade as "no fields detected". Throw so
+  // the caller records FAILED; only a well-formed { fields: [] } means field-less.
+  const modelOut = safeParseJsonFromModel(String(rawText)) as Record<string, unknown> | null;
+  if (!modelOut) {
+    throw new Error('DOCX field extraction returned unparseable model output');
+  }
 
   const rawFields = Array.isArray(modelOut.fields) ? (modelOut.fields as ExtractedField[]) : [];
 
