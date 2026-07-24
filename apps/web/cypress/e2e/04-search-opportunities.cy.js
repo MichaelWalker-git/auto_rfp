@@ -7,6 +7,49 @@ const goToSearchOpportunities = () => {
   cy.contains('Search Opportunities', { timeout: 15000 }).should('be.visible')
 }
 
+// The search results tests must not depend on live SAM.gov / DIBBS / HigherGov
+// data, which is unavailable/empty in CI (external APIs, no creds) and makes the
+// "Import"-button assertions flaky. Stub the unified search endpoint with a
+// deterministic result so the real results-table render path (result card +
+// Import button + detail badges) is exercised regardless of provider state.
+const STUBBED_OPPORTUNITY = {
+  id: 'cy-stub-opp-1',
+  source: 'SAM_GOV',
+  solicitationNumber: 'CY-DOC-001',
+  noticeId: 'cy-stub-notice-1',
+  title: 'Document Management Services',
+  type: 'SOLICITATION',
+  postedDate: '2026-07-01',
+  closingDate: '2026-08-15',
+  naicsCode: '541519',
+  organizationName: 'Test Agency',
+  contractVehicle: null,
+  setAside: 'Small Business',
+  technologyArea: null,
+  description: 'Stubbed opportunity for e2e determinism.',
+  active: true,
+  baseAndAllOptionsValue: null,
+  attachmentsCount: 0,
+  url: 'https://sam.gov/opp/cy-stub-opp-1',
+  descriptionUrl: null,
+}
+
+const stubSearch = () => {
+  cy.intercept('POST', '**/search-opportunities/search*', {
+    statusCode: 200,
+    body: {
+      opportunities: [STUBBED_OPPORTUNITY],
+      totalSamGov: 1,
+      totalDibbs: 0,
+      totalHigherGov: 0,
+      total: 1,
+      samGovError: null,
+      dibbsError: null,
+      higherGovError: null,
+    },
+  }).as('searchOpportunities')
+}
+
 describe('Search Opportunities', () => {
   before(() => { cy.login(); goToSearchOpportunities() })
 
@@ -52,12 +95,13 @@ describe('Search Opportunities', () => {
   })
 
   describe('Search Results', () => {
-    beforeEach(() => { cy.login(); goToSearchOpportunities() })
+    beforeEach(() => { stubSearch(); cy.login(); goToSearchOpportunities() })
 
     it('runs a keyword search and shows results with details', () => {
       cy.get('input[placeholder*="Keywords" i], input[placeholder*="solicitation" i], input[placeholder*="technology" i]')
         .type('document')
       cy.contains('button', 'Search').click()
+      cy.wait('@searchOpportunities')
       cy.contains('results', { timeout: 15000 }).should('be.visible')
       cy.contains('SAM.gov').should('be.visible')
       cy.contains('NAICS').should('be.visible')
@@ -67,19 +111,19 @@ describe('Search Opportunities', () => {
     })
 
     it('imports a solicitation into the project', () => {
+      cy.intercept('POST', '**/search-opportunities/import-solicitation*', {
+        statusCode: 200,
+        body: { imported: 1 },
+      }).as('importSolicitation')
+
       cy.get('input[placeholder*="Keywords" i], input[placeholder*="solicitation" i], input[placeholder*="technology" i]')
         .type('document')
       cy.contains('button', 'Search').click()
+      cy.wait('@searchOpportunities')
       cy.contains('results', { timeout: 15000 }).should('be.visible')
-      cy.contains('Import').first().click()
-      cy.get('body', { timeout: 10000 }).then(($body) => {
-        const imported = $body.text().match(/imported|added|success|opportunity/i)
-        if (imported) {
-          cy.log('Import succeeded')
-        } else {
-          cy.get('main').should('be.visible')
-        }
-      })
+      cy.contains('button', 'Import').first().click()
+      cy.wait('@importSolicitation')
+      cy.get('main').should('be.visible')
     })
   })
 
