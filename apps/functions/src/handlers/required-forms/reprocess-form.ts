@@ -37,7 +37,7 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
   });
   if (!form) return apiResponse(404, { message: 'Form not found' });
 
-  const lowerKey = form.sourceFileKey.toLowerCase();
+  const lowerKey = form.sourceFileKey?.toLowerCase() ?? '';
   const isPdf = lowerKey.endsWith('.pdf');
   const isDocx = lowerKey.endsWith('.docx') || lowerKey.endsWith('.doc');
   if (!isPdf && !isDocx) {
