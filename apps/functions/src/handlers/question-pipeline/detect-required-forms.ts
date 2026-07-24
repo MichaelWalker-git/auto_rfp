@@ -6,6 +6,7 @@ import { getQuestionFileItem, checkQuestionFileCancelled, updateQuestionFile } f
 import { createRequiredForm, listRequiredFormsByOpportunity, updateRequiredForm } from '@/helpers/required-form';
 import { startFormsAnalysis } from '@/helpers/textract-forms';
 import { parseXlsxForms } from '@/helpers/xlsx-form-parser';
+import { extractAndAutofillDocxForm } from '@/helpers/docx-form-parser';
 import { autofillMatrixComments } from '@/helpers/matrix-autofill';
 import { withSentryLambda } from '@/sentry-lambda';
 
@@ -63,7 +64,8 @@ const buildDetectionPrompt = (docText: string, mimeType: string) => {
     'Only return documents that have ACTUAL BLANKS, FIELDS, OR CELLS that the vendor must fill in.\n\n' +
     'For each form found, return:\n' +
     '- name: descriptive form title\n' +
-    '- formType: one of PDF_FILLABLE, PDF_SCANNED, XLSX_MATRIX, XLSX_FORM, CONTRACT_TEMPLATE\n' +
+    '- formType: one of PDF_FILLABLE, PDF_SCANNED, XLSX_MATRIX, XLSX_FORM, DOCX_FORM, CONTRACT_TEMPLATE. ' +
+    'Use DOCX_FORM for Word (.docx) documents.\n' +
     '- pageRange: page numbers if identifiable (e.g. "3-5")\n' +
     '- sheetName: sheet/tab name if XLSX\n\n' +
     'Return JSON: { "forms": [...], "confidence": number (0-1) }\n' +
@@ -148,6 +150,8 @@ export const baseHandler = async (
   const isPdf = mimeType.includes('pdf') || sourceFileKey.toLowerCase().endsWith('.pdf');
   const isXlsx = mimeType.includes('spreadsheet') || mimeType.includes('excel') ||
     sourceFileKey.toLowerCase().endsWith('.xlsx') || sourceFileKey.toLowerCase().endsWith('.xls');
+  const isDocx = mimeType.includes('wordprocessingml') || mimeType.includes('msword') ||
+    sourceFileKey.toLowerCase().endsWith('.docx') || sourceFileKey.toLowerCase().endsWith('.doc');
 
   let createdCount = 0;
 
@@ -248,6 +252,37 @@ export const baseHandler = async (
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error(`XLSX parse failed for form ${formId}: ${message}`);
+        await updateRequiredForm({
+          orgId, projectId, opportunityId, formId,
+          patch: { status: 'FAILED', errorMessage: message },
+        });
+      }
+    } else if (isDocx) {
+      // DOCX forms have no PDF/Textract geometry. Extract fields from the text
+      // we already loaded, then autofill from the company profile exactly like
+      // the Textract callback does for PDFs. Fields carry a null boundingBox.
+      try {
+        await updateRequiredForm({
+          orgId, projectId, opportunityId, formId,
+          patch: { status: 'IN_PROGRESS' },
+        });
+
+        const { fields, totalFieldCount, manualFieldCount, autoFillPercentage } =
+          await extractAndAutofillDocxForm(docText, orgId);
+
+        await updateRequiredForm({
+          orgId, projectId, opportunityId, formId,
+          patch: {
+            fields,
+            status: 'READY',
+            totalFieldCount,
+            manualFieldCount,
+            autoFillPercentage,
+          },
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`DOCX form parse failed for form ${formId}: ${message}`);
         await updateRequiredForm({
           orgId, projectId, opportunityId, formId,
           patch: { status: 'FAILED', errorMessage: message },

@@ -51,6 +51,7 @@ const FORM_TYPE_LABEL: Record<string, string> = {
   PDF_SCANNED: 'PDF · scanned',
   XLSX_MATRIX: 'XLSX · matrix',
   XLSX_FORM: 'XLSX · form',
+  DOCX_FORM: 'Word · form',
   CONTRACT_TEMPLATE: 'Contract template',
 };
 
@@ -290,7 +291,12 @@ export const RequiredFormsList = ({ orgId, projectId, opportunityId }: RequiredF
 
   const forms = data?.forms ?? [];
   const attachedCount = forms.filter((f) => f.attachedToProposal).length;
-  const exportableForms = forms.filter((f) => f.fields.length > 0 && f.sourceFileKey);
+  // Bulk export fills forms through the PDF filler, which can't handle DOCX yet,
+  // so DOCX forms are excluded from "Export All" (kept in sync with the backend
+  // export-all handler). A single DOCX can still be downloaded from its detail page.
+  const exportableForms = forms.filter(
+    (f) => f.fields.length > 0 && f.sourceFileKey && f.formType !== 'DOCX_FORM',
+  );
 
   return (
     <Card>
