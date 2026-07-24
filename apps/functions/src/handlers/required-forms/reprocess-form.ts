@@ -95,10 +95,23 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
   }
 };
 
+// DOCX forms are buffered fully into memory before mammoth parses them. Cap the
+// size while streaming so an unexpectedly large source file can't exhaust the
+// Lambda's memory — we abort as soon as the accumulated bytes exceed the limit
+// rather than after the whole object is in memory. 25MB comfortably covers real
+// solicitation Word docs; anything larger is surfaced as a FAILED reprocess.
+const MAX_DOCX_BYTES = 25 * 1024 * 1024;
+
 const streamToBuffer = async (stream: unknown): Promise<Buffer> => {
   const chunks: Buffer[] = [];
+  let total = 0;
   for await (const chunk of stream as AsyncIterable<Buffer | Uint8Array>) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += buf.length;
+    if (total > MAX_DOCX_BYTES) {
+      throw new Error(`DOCX file exceeds the ${MAX_DOCX_BYTES / (1024 * 1024)}MB reprocessing limit`);
+    }
+    chunks.push(buf);
   }
   return Buffer.concat(chunks);
 };

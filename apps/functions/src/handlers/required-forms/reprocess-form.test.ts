@@ -128,6 +128,25 @@ describe('reprocess-form', () => {
     expect(readyCall).toBeDefined();
   });
 
+  it('marks a DOCX form FAILED when the source file exceeds the size limit', async () => {
+    mockGetForm.mockResolvedValueOnce({ ...formStub, sourceFileKey: 'org-1/proj-1/opp-1/required-forms/form-1/huge.docx' });
+    mockUpdateForm.mockResolvedValue(formStub);
+    // Stream a single chunk larger than the 25MB cap; streamToBuffer must abort
+    // before buffering it all and never reach mammoth/extraction.
+    mockGetFileFromS3.mockResolvedValueOnce([Buffer.alloc(26 * 1024 * 1024)]);
+
+    const res = await baseHandler(event({
+      orgId: 'org-1', projectId: 'proj-1', opportunityId: 'opp-1', formId: 'form-1',
+    }));
+
+    expect(res.statusCode).toBe(500);
+    expect(mockMammoth).not.toHaveBeenCalled();
+    expect(mockExtractDocx).not.toHaveBeenCalled();
+    expect(mockUpdateForm).toHaveBeenLastCalledWith(expect.objectContaining({
+      patch: expect.objectContaining({ status: 'FAILED', errorMessage: expect.stringContaining('exceeds') }),
+    }));
+  });
+
   it('marks a DOCX form FAILED and returns 500 if extraction throws', async () => {
     mockGetForm.mockResolvedValueOnce({ ...formStub, sourceFileKey: 'org-1/proj-1/opp-1/required-forms/form-1/rfp.docx' });
     mockUpdateForm.mockResolvedValue(formStub);
