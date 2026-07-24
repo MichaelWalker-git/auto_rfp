@@ -23,11 +23,31 @@ const sheetToBytes = (rows: (string | number | null)[][]) => {
   return new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer);
 };
 
+const multiSheetToBytes = (sheets: { name: string; rows: (string | number | null)[][] }[]) => {
+  const wb = XLSX.utils.book_new();
+  for (const { name, rows } of sheets) {
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), name);
+  }
+  return new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer);
+};
+
 const mockSourceFile = (rows: (string | number | null)[][]) => {
   const bytes = sheetToBytes(rows);
   mockSend.mockResolvedValueOnce({
     Body: { transformToByteArray: async () => bytes },
   });
+};
+
+const mockMultiSheetSource = (sheets: { name: string; rows: (string | number | null)[][] }[]) => {
+  const bytes = multiSheetToBytes(sheets);
+  mockSend.mockResolvedValueOnce({
+    Body: { transformToByteArray: async () => bytes },
+  });
+};
+
+const readUploadedWorkbook = (): XLSX.WorkBook => {
+  const buf = mockUpload.mock.calls[0][2] as Buffer;
+  return XLSX.read(buf, { type: 'buffer' });
 };
 
 const buildField = (overrides: Partial<DetectedFormField>): DetectedFormField => ({
@@ -40,6 +60,8 @@ const buildField = (overrides: Partial<DetectedFormField>): DetectedFormField =>
   manualReason: null,
   pageNumber: null,
   cellReference: 'A1',
+  sheetName: null,
+  sheetIndex: null,
   boundingBox: null,
   markType: 'TEXT',
   markChar: null,
@@ -114,5 +136,47 @@ describe('fillXlsxForm', () => {
       expect.any(Buffer),
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     );
+  });
+
+  it('routes fields to the sheet named on the field, not just the first sheet', async () => {
+    mockMultiSheetSource([
+      { name: 'Instructions', rows: [['Read me first']] },
+      { name: 'Compliance', rows: [['Feature', 'Fully Meets'], ['MFA', '']] },
+    ]);
+    const fields = [buildField({
+      cellReference: 'B2', value: 'X', sheetName: 'Compliance', sheetIndex: 1,
+    })];
+    await fillXlsxForm({ sourceFileKey: 'src', fields, outputKey: 'out' });
+
+    const wb = readUploadedWorkbook();
+    expect(wb.Sheets['Compliance']?.['B2']?.v).toBe('X');
+  });
+
+  it('drops sheets that contain no fields from the exported workbook', async () => {
+    mockMultiSheetSource([
+      { name: 'Instructions', rows: [['Read me first']] },
+      { name: 'Compliance', rows: [['Feature', 'Fully Meets'], ['MFA', '']] },
+    ]);
+    const fields = [buildField({
+      cellReference: 'B2', value: 'X', sheetName: 'Compliance', sheetIndex: 1,
+    })];
+    await fillXlsxForm({ sourceFileKey: 'src', fields, outputKey: 'out' });
+
+    const wb = readUploadedWorkbook();
+    // Only the data sheet survives; the instructions tab is stripped.
+    expect(wb.SheetNames).toEqual(['Compliance']);
+  });
+
+  it('falls back to the first sheet for legacy fields with no sheet identity', async () => {
+    mockMultiSheetSource([
+      { name: 'Data', rows: [['', '']] },
+      { name: 'Other', rows: [['', '']] },
+    ]);
+    const fields = [buildField({ cellReference: 'A1', value: 'legacy', sheetName: null, sheetIndex: null })];
+    await fillXlsxForm({ sourceFileKey: 'src', fields, outputKey: 'out' });
+
+    const wb = readUploadedWorkbook();
+    expect(wb.Sheets['Data']?.['A1']?.v).toBe('legacy');
+    expect(wb.SheetNames).toEqual(['Data']);
   });
 });

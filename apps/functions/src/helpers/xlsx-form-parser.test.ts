@@ -22,6 +22,14 @@ const sheetToBytes = (rows: (string | number | null)[][]) => {
   return new Uint8Array(out);
 };
 
+const multiSheetToBytes = (sheets: { name: string; rows: (string | number | null)[][] }[]) => {
+  const wb = XLSX.utils.book_new();
+  for (const { name, rows } of sheets) {
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), name);
+  }
+  return new Uint8Array(XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer);
+};
+
 const mockS3Body = (bytes: Uint8Array) => {
   mockSend.mockResolvedValueOnce({
     Body: { transformToByteArray: async () => bytes },
@@ -120,5 +128,45 @@ describe('parseXlsxForms', () => {
     const result = await parseXlsxForms('any/key.xlsx');
     expect(result[0]?.formType).toBe('XLSX_FORM');
     expect(result[0]?.fields.every((f) => f.markType === 'TEXT')).toBe(true);
+  });
+
+  it('stamps each field with the sheet name and index it came from', async () => {
+    mockS3Body(sheetToBytes([
+      ['Company Name:', '', '', ''],
+      ['EIN:', '', '', ''],
+    ]));
+
+    const result = await parseXlsxForms('any/key.xlsx');
+    expect(result[0].fields[0].sheetName).toBe('Sheet1');
+    expect(result[0].fields[0].sheetIndex).toBe(0);
+  });
+
+  it('extracts fields from a later sheet when the first sheet is instructions-only', async () => {
+    mockSend.mockResolvedValueOnce({
+      Body: {
+        transformToByteArray: async () => multiSheetToBytes([
+          // Sheet 1: instructions, no label/value structure the parser recognizes
+          { name: 'Instructions', rows: [['Please complete the compliance matrix on the next tab.']] },
+          // Sheet 2: the actual matrix
+          {
+            name: 'Compliance',
+            rows: [
+              ['Feature', 'Fully Meets', 'Partially Meets', 'Cannot Meet', 'Comments'],
+              ['MFA support', '', '', '', ''],
+            ],
+          },
+        ]),
+      },
+    });
+
+    const result = await parseXlsxForms('any/key.xlsx');
+
+    // Only the sheet with real fields is returned.
+    const compliance = result.find((s) => s.sheetName === 'Compliance');
+    expect(compliance).toBeDefined();
+    expect(compliance?.formType).toBe('XLSX_MATRIX');
+    expect(compliance?.fields.length).toBeGreaterThan(0);
+    // Every field carries the correct sheet identity (index 1, not 0).
+    expect(compliance?.fields.every((f) => f.sheetName === 'Compliance' && f.sheetIndex === 1)).toBe(true);
   });
 });

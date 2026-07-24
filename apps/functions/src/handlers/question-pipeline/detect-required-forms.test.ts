@@ -205,6 +205,43 @@ describe('detect-required-forms', () => {
     }));
   });
 
+  it('merges fields from every parsed sheet (instructions sheet contributes none, form sheet contributes all)', async () => {
+    const xlsxEvent = {
+      ...baseEvent,
+      sourceFileKey: 'org-1/proj-1/opp-1/multipage.xlsx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    };
+    mockLoadTextFromS3.mockResolvedValueOnce('document text');
+    mockInvokeModel.mockResolvedValueOnce(
+      encodeModelResponse(JSON.stringify({
+        forms: [{ name: 'Multi-tab', formType: 'XLSX_FORM' }],
+        confidence: 0.9,
+      })),
+    );
+    mockCreateForm.mockResolvedValueOnce({ formId: 'form-multi', item: {} });
+    // Parser only returns sheets that yielded fields — the instructions sheet is
+    // absent, and the real fields live on the second (Compliance) sheet.
+    mockParseXlsx.mockResolvedValueOnce([{
+      sheetName: 'Compliance',
+      formType: 'XLSX_MATRIX',
+      fields: [
+        { fieldId: 'a', label: 'MFA — Fully Meets', status: 'MANUAL_REQUIRED', matrixColumn: 'FULLY_MEETS', sheetName: 'Compliance', sheetIndex: 1 },
+        { fieldId: 'b', label: 'MFA — Comments', status: 'EMPTY', matrixColumn: 'COMMENTS', sheetName: 'Compliance', sheetIndex: 1 },
+      ],
+    }]);
+    mockAutofillMatrix.mockImplementationOnce(async ({ fields }: { fields: unknown[] }) => fields);
+
+    await baseHandler(xlsxEvent);
+
+    const readyCall = mockUpdateForm.mock.calls.find((c) => c[0].patch?.status === 'READY');
+    expect(readyCall).toBeDefined();
+    // Both fields from the Compliance sheet are preserved (none dropped).
+    expect(readyCall![0].patch).toMatchObject({ status: 'READY', totalFieldCount: 2 });
+    // A matrix sheet anywhere in the workbook forces review + autofill.
+    expect(mockAutofillMatrix).toHaveBeenCalledTimes(1);
+    expect(readyCall![0].patch).toHaveProperty('reviewRequired', true);
+  });
+
   it('runs autofillMatrixComments and forces reviewRequired=true on XLSX_MATRIX forms', async () => {
     const xlsxEvent = {
       ...baseEvent,

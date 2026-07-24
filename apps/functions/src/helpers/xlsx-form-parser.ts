@@ -113,7 +113,8 @@ export const parseXlsxForms = async (fileKey: string): Promise<ParsedSheet[]> =>
   const workbook = XLSX.read(bytes, { type: 'array' });
   const results: ParsedSheet[] = [];
 
-  for (const sheetName of workbook.SheetNames) {
+  for (let sheetIndex = 0; sheetIndex < workbook.SheetNames.length; sheetIndex++) {
+    const sheetName = workbook.SheetNames[sheetIndex];
     const sheet = workbook.Sheets[sheetName];
     if (!sheet) continue;
 
@@ -172,6 +173,8 @@ export const parseXlsxForms = async (fileKey: string): Promise<ParsedSheet[]> =>
               manualReason: isResponseCol ? 'Compliance determination requires manual review' : null,
               pageNumber: null,
               cellReference: cellRef,
+              sheetName,
+              sheetIndex,
               boundingBox: null,
               markType,
               markChar: null,
@@ -207,6 +210,8 @@ export const parseXlsxForms = async (fileKey: string): Promise<ParsedSheet[]> =>
               manualReason: null,
               pageNumber: null,
               cellReference: valueCellRef,
+              sheetName,
+              sheetIndex,
               boundingBox: null,
               markType: 'TEXT',
               markChar: null,
