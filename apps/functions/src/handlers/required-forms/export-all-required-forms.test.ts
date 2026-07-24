@@ -194,6 +194,43 @@ describe('export-all-required-forms', () => {
       expect(body.export.url).toBe('https://s3.example.com/presigned-url');
       expect(body.summary.totalForms).toBe(2);
     });
+
+    it('excludes DOCX forms from bulk export so they never hit the PDF filler', async () => {
+      const mockForms = [
+        {
+          formId: 'form-pdf',
+          name: 'PDF Form',
+          formType: 'PDF_SCANNED',
+          fields: [{ fieldId: 'f1', value: 'x' }],
+          sourceFileKey: 's3://bucket/form.pdf',
+          orgId: 'org-123', projectId: 'proj-123', opportunityId: 'opp-123',
+        },
+        {
+          formId: 'form-docx',
+          name: 'DOCX Form',
+          formType: 'DOCX_FORM',
+          fields: [{ fieldId: 'f2', value: 'y' }],
+          sourceFileKey: 's3://bucket/form.docx',
+          orgId: 'org-123', projectId: 'proj-123', opportunityId: 'opp-123',
+        },
+      ];
+      mockListRequiredForms.mockResolvedValue(mockForms as never);
+      mockFillPdfForm.mockResolvedValue(undefined);
+      mockSend.mockResolvedValue({
+        Body: { transformToByteArray: async () => new Uint8Array([1, 2, 3, 4]) },
+      });
+
+      const result = await baseHandler(createMockEvent({ projectId: 'proj-123', opportunityId: 'opp-123' }));
+
+      expect(result.statusCode).toBe(200);
+      const body = JSON.parse(result.body as string);
+      // Only the PDF form is bundled; the DOCX form is filtered out entirely.
+      expect(body.summary.totalForms).toBe(1);
+      // fillPdfForm must never be called with the .docx source.
+      const filledKeys = mockFillPdfForm.mock.calls.map((c) => (c[0] as { sourceFileKey: string }).sourceFileKey);
+      expect(filledKeys).not.toContain('s3://bucket/form.docx');
+      expect(filledKeys).toContain('s3://bucket/form.pdf');
+    });
   });
 
   describe('merged export mode', () => {

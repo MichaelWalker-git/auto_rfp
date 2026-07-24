@@ -49,6 +49,17 @@ interface ExportedFormInfo {
   skipReason?: string;
 }
 
+// The bulk export path fills every form through the PDF filler
+// (exportFilledForm → fillPdfForm). DOCX forms have no PDF filler yet, so
+// running them through it errors/produces garbage. Exclude them here until a
+// DOCX filler exists — a single DOCX can still be downloaded (as its source)
+// from the per-form export endpoint. Tracked for a real DOCX filler.
+const isBulkExportableForm = (form: RequiredFormDBItem): boolean => {
+  const key = form.sourceFileKey?.toLowerCase() ?? '';
+  const isDocx = key.endsWith('.docx') || key.endsWith('.doc') || form.formType === 'DOCX_FORM';
+  return !isDocx;
+};
+
 const buildExportAllS3Key = (
   orgId: string,
   projectId: string,
@@ -191,7 +202,7 @@ const handleMergedExport = async (
 
   // Filter to selected forms with fields
   const selectedForms = allForms.filter(
-    (f) => documentIds.includes(f.formId) && f.fields.length > 0 && f.sourceFileKey,
+    (f) => documentIds.includes(f.formId) && f.fields.length > 0 && f.sourceFileKey && isBulkExportableForm(f),
   );
 
   if (selectedForms.length === 0) {
@@ -336,7 +347,7 @@ export const baseHandler = async (
 
     // Filter to only forms with fields and source files
     const exportableForms = forms.filter(
-      (form) => form.fields.length > 0 && form.sourceFileKey,
+      (form) => form.fields.length > 0 && form.sourceFileKey && isBulkExportableForm(form),
     );
 
     if (exportableForms.length === 0) {

@@ -47,6 +47,7 @@ const FORM_TYPE_LABEL: Record<string, string> = {
   PDF_SCANNED: 'PDF · scanned',
   XLSX_MATRIX: 'XLSX · matrix',
   XLSX_FORM: 'XLSX · form',
+  DOCX_FORM: 'Word · form',
   CONTRACT_TEMPLATE: 'Contract template',
 };
 
@@ -80,9 +81,11 @@ export const ExportAllRequiredFormsDialog = ({
   // Individual mode state
   const [pageSize, setPageSize] = useState<'letter' | 'a4'>('letter');
 
-  // Merged mode state
+  // Merged mode state.
+  // DOCX forms are excluded from bulk export — the export path fills via the PDF
+  // filler, which doesn't support DOCX yet (kept in sync with the backend).
   const exportableForms = useMemo(
-    () => forms.filter((f) => f.fields.length > 0 && f.sourceFileKey),
+    () => forms.filter((f) => f.fields.length > 0 && f.sourceFileKey && f.formType !== 'DOCX_FORM'),
     [forms],
   );
   const [selectedFormIds, setSelectedFormIds] = useState<string[]>(() =>

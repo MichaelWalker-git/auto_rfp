@@ -21,7 +21,6 @@ localstorage/
 .next/
 **/cdk.out/
 **/cdk-diff.out/
-pnpm-lock.yaml
 promptfoo-errors.log
 packages/infra/resource-mapping.json
 
@@ -60,3 +59,6 @@ packages/**/pnpm-workspace.yaml
 .daily-progress/
 cypress.env.json
 **/cypress.env.json
+
+# Local credentials — never commit
+ADMIN-CREDENTIALS.md

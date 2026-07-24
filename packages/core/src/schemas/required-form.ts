@@ -18,6 +18,7 @@ export const FormTypeSchema = z.enum([
   'PDF_SCANNED',
   'XLSX_MATRIX',
   'XLSX_FORM',
+  'DOCX_FORM',
   'CONTRACT_TEMPLATE',
 ]);
 

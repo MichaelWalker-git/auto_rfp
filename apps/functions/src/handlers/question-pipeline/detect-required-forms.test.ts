@@ -54,6 +54,11 @@ jest.mock('@/helpers/matrix-autofill', () => ({
   autofillMatrixComments: (...args: unknown[]) => mockAutofillMatrix(...args),
 }));
 
+const mockExtractDocx = jest.fn();
+jest.mock('@/helpers/docx-form-parser', () => ({
+  extractAndAutofillDocxForm: (...args: unknown[]) => mockExtractDocx(...args),
+}));
+
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.DOCUMENTS_BUCKET = 'docs-bucket';
 process.env.BEDROCK_MODEL_ID = 'anthropic.claude-test';
@@ -270,6 +275,95 @@ describe('detect-required-forms', () => {
     const readyCall = mockUpdateForm.mock.calls.find((c) => c[0].patch?.status === 'READY');
     // reviewRequired is left undefined (not forced) for XLSX_FORM
     expect(readyCall![0].patch).not.toHaveProperty('reviewRequired', true);
+  });
+
+  it('parses DOCX inline (no Textract), autofills from profile, and writes READY', async () => {
+    const docxEvent = {
+      ...baseEvent,
+      sourceFileKey: 'org-1/proj-1/opp-1/Request for Proposal.docx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    };
+    mockLoadTextFromS3.mockResolvedValueOnce('Company Name: ___\nAuthorized Signature: ___');
+    mockInvokeModel.mockResolvedValueOnce(
+      encodeModelResponse(JSON.stringify({
+        forms: [{ name: 'Offer Submission Form', formType: 'DOCX_FORM' }],
+        confidence: 0.9,
+      })),
+    );
+    mockCreateForm.mockResolvedValueOnce({ formId: 'form-d', item: {} });
+    mockExtractDocx.mockResolvedValueOnce({
+      fields: [
+        { fieldId: 'a', label: 'Company Name', status: 'AUTO_FILLED', value: 'Acme' },
+        { fieldId: 'b', label: 'Authorized Signature', status: 'MANUAL_REQUIRED' },
+      ],
+      totalFieldCount: 2,
+      manualFieldCount: 1,
+      autoFillPercentage: 50,
+    });
+
+    const res = await baseHandler(docxEvent);
+
+    expect(res).toEqual({ ok: true, formsDetected: 1 });
+    expect(mockStartTextract).not.toHaveBeenCalled();
+    expect(mockExtractDocx).toHaveBeenCalledWith('Company Name: ___\nAuthorized Signature: ___', 'org-1');
+    const readyCall = mockUpdateForm.mock.calls.find((c) => c[0].patch?.status === 'READY');
+    expect(readyCall![0]).toMatchObject({
+      formId: 'form-d',
+      patch: expect.objectContaining({
+        status: 'READY',
+        totalFieldCount: 2,
+        manualFieldCount: 1,
+        autoFillPercentage: 50,
+      }),
+    });
+  });
+
+  it('writes READY with zero fields for a DOCX form with no extracted fields', async () => {
+    const docxEvent = {
+      ...baseEvent,
+      sourceFileKey: 'org-1/proj-1/opp-1/notice.docx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    };
+    mockLoadTextFromS3.mockResolvedValueOnce('informational notice, no blanks');
+    mockInvokeModel.mockResolvedValueOnce(
+      encodeModelResponse(JSON.stringify({
+        forms: [{ name: 'Notice', formType: 'DOCX_FORM' }],
+        confidence: 0.9,
+      })),
+    );
+    mockCreateForm.mockResolvedValueOnce({ formId: 'form-e', item: {} });
+    mockExtractDocx.mockResolvedValueOnce({
+      fields: [], totalFieldCount: 0, manualFieldCount: 0, autoFillPercentage: 0,
+    });
+
+    await baseHandler(docxEvent);
+
+    const readyCall = mockUpdateForm.mock.calls.find((c) => c[0].patch?.status === 'READY');
+    expect(readyCall![0].patch).toMatchObject({ status: 'READY', totalFieldCount: 0 });
+  });
+
+  it('marks a DOCX form FAILED if field extraction throws', async () => {
+    const docxEvent = {
+      ...baseEvent,
+      sourceFileKey: 'org-1/proj-1/opp-1/form.docx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    };
+    mockLoadTextFromS3.mockResolvedValueOnce('some text');
+    mockInvokeModel.mockResolvedValueOnce(
+      encodeModelResponse(JSON.stringify({
+        forms: [{ name: 'Form', formType: 'DOCX_FORM' }],
+        confidence: 0.9,
+      })),
+    );
+    mockCreateForm.mockResolvedValueOnce({ formId: 'form-f', item: {} });
+    mockExtractDocx.mockRejectedValueOnce(new Error('bedrock down'));
+
+    await baseHandler(docxEvent);
+
+    expect(mockUpdateForm).toHaveBeenLastCalledWith(expect.objectContaining({
+      formId: 'form-f',
+      patch: expect.objectContaining({ status: 'FAILED', errorMessage: 'bedrock down' }),
+    }));
   });
 
   it('skips duplicate forms by case-insensitive name match', async () => {
