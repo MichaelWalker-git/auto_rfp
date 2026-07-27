@@ -1,4 +1,5 @@
 import { LinearClient } from '@linear/sdk';
+import type { RfpDigestIssue } from '@auto-rfp/core';
 import { getApiKey } from './api-key-storage';
 import { LINEAR_SECRET_PREFIX } from '../constants/linear';
 
@@ -32,6 +33,95 @@ async function getLinearApiKey(orgId: string): Promise<string> {
 
   return cachedApiKey;
 }
+
+const PROJECT_ISSUES_QUERY = `
+  query ProjectIssues($projectId: ID!, $after: String) {
+    project(id: $projectId) {
+      issues(first: 250, after: $after) {
+        pageInfo { hasNextPage endCursor }
+        nodes {
+          identifier
+          title
+          createdAt
+          updatedAt
+          startedAt
+          completedAt
+          state { name }
+          assignee { name }
+          creator { name }
+          labels { nodes { name } }
+        }
+      }
+    }
+  }
+`;
+
+interface ProjectIssuesResponse {
+  project: {
+    issues: {
+      pageInfo: { hasNextPage: boolean; endCursor: string | null };
+      nodes: Array<{
+        identifier: string;
+        title: string;
+        createdAt: string;
+        updatedAt: string;
+        startedAt: string | null;
+        completedAt: string | null;
+        state: { name: string } | null;
+        assignee: { name: string } | null;
+        creator: { name: string } | null;
+        labels: { nodes: Array<{ name: string }> };
+      }>;
+    };
+  } | null;
+}
+
+/**
+ * Lists every issue on a Linear project with the status, labels and transition
+ * timestamps the digest needs. Uses a single raw GraphQL query per page —
+ * the SDK's lazy relations would otherwise cost one round trip per issue for
+ * state, labels, assignee and creator.
+ */
+export const listProjectIssues = async (
+  orgId: string,
+  projectId: string,
+): Promise<RfpDigestIssue[]> => {
+  const apiKey = await getLinearApiKey(orgId);
+  const client = new LinearClient({ apiKey });
+
+  const issues: RfpDigestIssue[] = [];
+  let after: string | null = null;
+
+  do {
+    const response: { data?: ProjectIssuesResponse } = await client.client.rawRequest(
+      PROJECT_ISSUES_QUERY,
+      { projectId, after },
+    );
+
+    const page = response.data?.project?.issues;
+    if (!page) break;
+
+    for (const node of page.nodes) {
+      issues.push({
+        identifier: node.identifier,
+        title: node.title,
+        status: node.state?.name ?? '',
+        labels: node.labels.nodes.map((label) => label.name),
+        assigneeName: node.assignee?.name ?? undefined,
+        creatorName: node.creator?.name ?? undefined,
+        createdAt: node.createdAt,
+        updatedAt: node.updatedAt,
+        startedAt: node.startedAt ?? undefined,
+        completedAt: node.completedAt ?? undefined,
+      });
+    }
+
+    after = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+  } while (after);
+
+  console.log(`[linear] Fetched ${issues.length} issues for project ${projectId}`);
+  return issues;
+};
 
 export interface CreateLinearTicketParams {
   orgId: string;
