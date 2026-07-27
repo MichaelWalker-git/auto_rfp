@@ -293,11 +293,19 @@ export class QuestionExtractionPipelineStack extends Stack {
       logGroup: mkFnLogGroup('DetectRequiredForms'),
       entry: path.join(__dirname, '../../apps/functions/src/handlers/question-pipeline/detect-required-forms.ts'),
       handler: 'handler',
-      timeout: Duration.minutes(5),
+      // 10 min (not 5) so a long document scanned in multiple sequential Bedrock
+      // chunk calls doesn't hit the ceiling mid-scan. Lambda bills per-ms, so idle
+      // headroom is free.
+      timeout: Duration.minutes(10),
       memorySize: 1024,
       environment: {
         ...commonLambdaEnv,
+        // BEDROCK_MODEL_ID (Opus) drives the AUTOFILL paths (matrix comment autofill,
+        // DOCX field autofill) where answer quality matters.
         BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
+        // DETECTION_MODEL_ID drives the whole-document form-DETECTION scan, which runs
+        // over every non-questionnaire doc (up to 8 chunks). 
+        DETECTION_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
         BEDROCK_REGION: 'us-east-1',
         BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
         PINECONE_API_KEY: props.pineconeApiKey,
