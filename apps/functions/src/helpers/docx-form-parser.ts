@@ -95,6 +95,9 @@ export const parseDocxForms = async (docText: string): Promise<DetectedFormField
       manualReason: null,
       pageNumber,
       cellReference: null,
+      // DOCX forms have no worksheets; null routes every consumer to sheet index 0.
+      sheetName: null,
+      sheetIndex: null,
       boundingBox: null,
       markType: 'TEXT',
       markChar: null,
