@@ -110,6 +110,75 @@ export const OpportunityStatusTransitionSchema = z.object({
 
 export type OpportunityStatusTransition = z.infer<typeof OpportunityStatusTransitionSchema>;
 
+// ─── Approval status (RFP-tracking two-gate workflow) ───────────────────────────
+
+/**
+ * Approval status — a second axis layered on top of the pipeline `status`,
+ * mirroring how the team's Linear board tracks approval as labels on top of the
+ * stage. This governs only the pre-submission approval flow through SUBMITTED;
+ * it does NOT touch `status` (which drives brief scoring, APN sync, WON/LOST
+ * notifications, and the Slack digest).
+ *
+ * Two approval gates:
+ *   INITIAL_APPROVAL → I_APPROVED       gate 1 (Brennen): RFP sourced, awaiting review
+ *   I_APPROVED       → PRE_SUB_APPROVAL send for pre-submission review
+ *   PRE_SUB_APPROVAL → II_APPROVED      gate 2 (Michael): proposal ready, sign-off
+ *   II_APPROVED      → SUBMITTED        e-signed PDF sent
+ *   INITIAL_APPROVAL → NOT_APPROVED     gate-1 rejection (terminal dead-end)
+ */
+export const OpportunityApprovalStatusSchema = z.enum([
+  'INITIAL_APPROVAL',  // Pending gate 1 — RFP sourced, awaiting review
+  'I_APPROVED',        // Gate 1 passed — reviewed & cleared
+  'PRE_SUB_APPROVAL',  // Pending gate 2 — proposal ready, awaiting sign-off
+  'II_APPROVED',       // Gate 2 passed — post-signature, cleared to submit
+  'SUBMITTED',         // E-signed PDF sent
+  'NOT_APPROVED',      // Gate-1 rejection (terminal)
+]);
+
+export type OpportunityApprovalStatus = z.infer<typeof OpportunityApprovalStatusSchema>;
+
+/** Human-readable labels — exact Linear label text. */
+export const OPPORTUNITY_APPROVAL_LABELS: Record<OpportunityApprovalStatus, string> = {
+  INITIAL_APPROVAL: 'Initial Approval',
+  I_APPROVED:       'I Approved',
+  PRE_SUB_APPROVAL: 'Pre Sub Approval',
+  II_APPROVED:      'II Approved',
+  SUBMITTED:        'Submitted',
+  NOT_APPROVED:     'Not Approved',
+};
+
+/** Tailwind badge classes, borrowing the Linear label colors. */
+export const OPPORTUNITY_APPROVAL_COLORS: Record<OpportunityApprovalStatus, string> = {
+  INITIAL_APPROVAL: 'bg-amber-100 text-amber-700 border-amber-200',
+  I_APPROVED:       'bg-emerald-100 text-emerald-700 border-emerald-200',
+  PRE_SUB_APPROVAL: 'bg-orange-100 text-orange-700 border-orange-200',
+  II_APPROVED:      'bg-cyan-100 text-cyan-700 border-cyan-200',
+  SUBMITTED:        'bg-slate-100 text-slate-700 border-slate-200',
+  NOT_APPROVED:     'bg-red-100 text-red-700 border-red-200',
+};
+
+/** The six approval values in board order — column layout + forward-move checks. */
+export const APPROVAL_ORDER: OpportunityApprovalStatus[] = [
+  'INITIAL_APPROVAL',
+  'I_APPROVED',
+  'PRE_SUB_APPROVAL',
+  'II_APPROVED',
+  'SUBMITTED',
+  'NOT_APPROVED',
+];
+
+/** Approval transition history entry (parallels OpportunityStatusTransition). */
+export const OpportunityApprovalTransitionSchema = z.object({
+  from:      OpportunityApprovalStatusSchema.nullable(),
+  to:        OpportunityApprovalStatusSchema,
+  changedAt: z.string().datetime(),
+  changedBy: z.string().min(1),  // userId or 'system'
+  reason:    z.string().optional(),
+  gate:      z.enum(['INITIAL', 'FINAL', 'STAGE']),
+});
+
+export type OpportunityApprovalTransition = z.infer<typeof OpportunityApprovalTransitionSchema>;
+
 // ─── Stored opportunity item ──────────────────────────────────────────────────
 
 export const OpportunityItemSchema = z.object({
@@ -148,6 +217,14 @@ export const OpportunityItemSchema = z.object({
   active:              z.boolean().optional(),
   /** History of status transitions */
   statusHistory:       z.array(OpportunityStatusTransitionSchema).optional(),
+  /**
+   * Approval status — the RFP-tracking two-gate axis, independent of `status`.
+   * Defaults to INITIAL_APPROVAL for new opportunities (applied at the create
+   * helper); existing records without it default on read.
+   */
+  approvalStatus:      OpportunityApprovalStatusSchema.optional(),
+  /** History of approval transitions */
+  approvalHistory:     z.array(OpportunityApprovalTransitionSchema).optional(),
   baseAndAllOptionsValue: z.number().nonnegative().nullable(),
   // ── Outcome detail (formerly the standalone ProjectOutcome record) ──────────
   /** Free-form outcome reason / comment (e.g. why a no-bid). */
@@ -272,6 +349,7 @@ export const OpportunityListItemSchema = z.object({
   source:    OpportunitySourceSchema,
   title:     z.string(),
   status:    OpportunityStatusSchema.optional(),
+  approvalStatus: OpportunityApprovalStatusSchema.optional(),
   active:    z.boolean().optional(),
   organizationName:     z.string().nullish(),
   noticeId:             z.string().nullish(),

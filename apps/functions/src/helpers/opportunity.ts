@@ -1,7 +1,7 @@
 import { GetCommand, QueryCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 
-import { createItem, docClient, UserContext } from './db';
+import { createItem, docClient, queryAllBySkPrefix, UserContext } from './db';
 import { requireEnv } from './env';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { OPPORTUNITY_PK } from '../constants/opportunity';
@@ -44,6 +44,9 @@ export const createOpportunity = async (args: {
     {
       ...args.opportunity,
       oppId,
+      // New opportunities enter gate 1 of the RFP-tracking approval workflow.
+      // Existing records without approvalStatus default to INITIAL_APPROVAL on read.
+      approvalStatus: args.opportunity.approvalStatus ?? 'INITIAL_APPROVAL',
       // Normalize date fields to full ISO datetime (handles date-only and offset formats)
       postedDateIso: toIsoDatetime(args.opportunity.postedDateIso),
       responseDeadlineIso: toIsoDatetime(args.opportunity.responseDeadlineIso),
@@ -114,6 +117,24 @@ export const listOpportunitiesByProject = async (args: {
     items: enriched,
     nextToken: res.LastEvaluatedKey ?? null,
   };
+};
+
+/**
+ * LIST (by org — across all projects)
+ * PK = OPPORTUNITY_PK
+ * SK begins_with `${orgId}#`
+ * Paginates through the full result set (RFP-tracking board fetches org-wide).
+ * Enriches items with createdByName / updatedByName from the user table.
+ */
+export const listOpportunitiesByOrg = async (args: { orgId: string }) => {
+  const items = await queryAllBySkPrefix<OpportunityDBItem>(
+    OPPORTUNITY_PK,
+    `${args.orgId}#`,
+  );
+
+  const enriched = await enrichWithUserNames(args.orgId, items);
+
+  return { items: enriched };
 };
 
 /**

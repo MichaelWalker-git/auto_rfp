@@ -53,6 +53,15 @@ export const PROPOSAL_PERMISSIONS = [
 
 export const OPPORTUNITY_PERMISSIONS = [
   'opportunity:read', 'opportunity:create', 'opportunity:delete', 'opportunity:edit',
+  // RFP tracking two-gate approval write-back. Split by gate so each reviewer sees
+  // only the queue they own:
+  //   rfp:approve_initial — gate 1 (Brennen): Initial Approval → I Approved / Not Approved.
+  //     Granted to EDITOR so a reviewer/manager can clear gate 1 without full admin.
+  //   rfp:approve_final   — gate 2 (Michael): Pre Sub Approval → II Approved. ADMIN-only.
+  // EDITOR/MEMBER list opportunity permissions explicitly rather than spreading this
+  // group, so they do NOT inherit approve rights they shouldn't have.
+  'rfp:approve_initial',
+  'rfp:approve_final',
 ] as const;
 
 export const PROMPT_PERMISSIONS = [
@@ -134,8 +143,11 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     ...VIEWER_PERMISSIONS,
     'question:create', 'kb:create', 'proposal:create', 'project:create', 'document:create', 'user:create', 'answer:create', 'opportunity:create',
     'question:edit', 'org:edit', 'kb:edit', 'proposal:edit', 'project:edit', 'document:edit', 'user:edit', 'answer:edit', 'opportunity:edit',
+    // Gate 1 (Brennen) — reviewer/manager clears Initial Approval. Gate 2
+    // (rfp:approve_final) stays ADMIN-only via [...ALL_PERMISSIONS].
+    'rfp:approve_initial',
     'form:edit',
-    'brief:create', 'brief:edit', 
+    'brief:create', 'brief:edit',
     'rfp_document:delete', 
     'template:create', 'template:update', 'template:publish', 'template:apply',
     'collaboration:presence',

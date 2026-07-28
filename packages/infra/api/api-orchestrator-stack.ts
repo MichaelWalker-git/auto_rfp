@@ -60,6 +60,7 @@ import { extractionDomain } from './routes/extraction.routes';
 import { opportunityAssistantDomain } from './routes/opportunity-assistant.routes';
 import { companyProfileDomain } from './routes/company-profile.routes';
 import { requiredFormsDomain } from './routes/required-forms.routes';
+import { dashboardDomain } from './routes/dashboard.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -644,6 +645,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       opportunityAssistantDomain(),
       companyProfileDomain(),
       requiredFormsDomain(),
+      dashboardDomain(),
     ];
 
     // ─── Rasterize PDF worker ─────────────────────────────────────────────
@@ -716,6 +718,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'OpportunityAssistantRoutes',
       'CompanyProfileRoutes',
       'RequiredFormsRoutes',
+      'DashboardRoutes',
     ];
 
     // allDomains and domainStackNames are mapped 1:1 by index. A mismatch silently
