@@ -132,6 +132,8 @@ export const AuditActionSchema = z.enum([
   // Opportunity assistant (RAG chat)
   'OPPORTUNITY_ASSISTANT_MESSAGE_SENT',
   'SOLICITATION_DOCUMENT_INDEXED',
+  // AI compliance review
+  'COMPLIANCE_REVIEW_MESSAGE_SENT',
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 
@@ -176,6 +178,8 @@ export const AuditResourceSchema = z.enum([
   // Opportunity assistant
   'opportunity_assistant_chat',
   'solicitation_chunk',
+  // AI compliance review
+  'compliance_review_chat',
 ]);
 export type AuditResource = z.infer<typeof AuditResourceSchema>;
 

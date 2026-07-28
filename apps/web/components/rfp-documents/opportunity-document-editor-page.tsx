@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { highlightFromParams } from '@/features/compliance-review';
 import { ArrowLeft, Bot, FileDown, FileText, History, Loader2, RefreshCw, Save, ClipboardCheck, XCircle, AlertTriangle, ChevronRight, ChevronLeft } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -502,6 +504,23 @@ export const OpportunityDocumentEditorPage = ({
   const isBusy = isMutating || isInGeneration;
   const isEditingDisabled = isBusy || isApproved;
   const backUrl = `/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}`;
+
+  // Compliance-review deep-link: when opened with ?highlightSection / ?findSnippet,
+  // ephemerally scroll to + flash the referenced spot once the editor is ready.
+  // DOM-only (never persisted) so export is unaffected.
+  const searchParams = useSearchParams();
+  const highlightSection = searchParams.get('highlightSection');
+  const findSnippet = searchParams.get('findSnippet');
+  const hasHighlightedRef = useRef(false);
+  useEffect(() => {
+    if (!isEditorReady || hasHighlightedRef.current) return;
+    if (!highlightSection && !findSnippet) return;
+    hasHighlightedRef.current = true;
+    // Wait for editor remount/render + image resolution, matching the existing
+    // post-edit scroll delay.
+    const t = setTimeout(() => highlightFromParams({ highlightSection, findSnippet }), 800);
+    return () => clearTimeout(t);
+  }, [isEditorReady, highlightSection, findSnippet]);
 
   // Auto-switch to review tab when there are pending actions
   useEffect(() => {

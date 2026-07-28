@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Paperclip,
   FileEdit,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ import {
   ComplianceReport,
 } from '@/features/proposal-submission';
 import { RequiredFormsList } from '@/features/required-forms';
+import { ComplianceReviewPanel } from '@/features/compliance-review';
 import { OpportunityApprovalPanel } from '@/features/opportunity-approval';
 import PermissionWrapper from '@/components/permission-wrapper';
 
@@ -82,6 +84,7 @@ const SECTION_NAV_ITEMS: SectionNavItem[] = [
   { id: 'solicitation-documents', label: 'Solicitations', icon: <Paperclip className="h-3.5 w-3.5" /> },
   { id: 'required-forms', label: 'Required Forms', icon: <FileEdit className="h-3.5 w-3.5" /> },
   { id: 'rfp-documents', label: 'RFP Documents', icon: <FileEdit className="h-3.5 w-3.5" /> },
+  { id: 'ai-compliance-review', label: 'AI Review', icon: <Sparkles className="h-3.5 w-3.5" /> },
   { id: 'submission-compliance', label: 'Submission', icon: <ShieldCheck className="h-3.5 w-3.5" /> },
   { id: 'post-award', label: 'Post-Award', icon: <Trophy className="h-3.5 w-3.5" /> },
 ];
@@ -291,6 +294,15 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       {/* ── Context & Knowledge Base ───────────────────────────────────── */}
       <section className="scroll-mt-4">
         <OpportunityContextPanel />
+      </section>
+
+      {/* ── AI Compliance Review ───────────────────────────────────────── */}
+      <section id="ai-compliance-review" className="space-y-4 scroll-mt-4">
+        <SectionDivider
+          icon={<Sparkles className="h-4 w-4" />}
+          title="AI Compliance Review"
+        />
+        <ComplianceReviewPanel orgId={orgId} projectId={projectId} oppId={oppId} />
       </section>
 
       {/* ── Submission & Compliance ────────────────────────────────────── */}

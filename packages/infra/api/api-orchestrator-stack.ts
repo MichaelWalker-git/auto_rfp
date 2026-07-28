@@ -58,6 +58,7 @@ import { universalApprovalDomain } from './routes/universal-approval.routes';
 import { pricingDomain } from './routes/pricing.routes';
 import { extractionDomain } from './routes/extraction.routes';
 import { opportunityAssistantDomain } from './routes/opportunity-assistant.routes';
+import { complianceReviewDomain } from './routes/compliance-review.routes';
 import { companyProfileDomain } from './routes/company-profile.routes';
 import { requiredFormsDomain } from './routes/required-forms.routes';
 
@@ -176,8 +177,28 @@ export class ApiOrchestratorStack extends cdk.Stack {
     );
 
     // 2. Create shared infrastructure (Lambda role + common env)
+    // ─── Compliance Review queue (async full-package review) ──────────────
+    // Owned by this stack (self-contained) rather than threaded through props.
+    const complianceReviewDlq = new sqs.Queue(this, `ComplianceReviewDLQ-${stage}`, {
+      queueName: `auto-rfp-compliance-review-dlq-${stage}`,
+      retentionPeriod: cdk.Duration.days(14),
+    });
+    const complianceReviewQueue = new sqs.Queue(this, `ComplianceReviewQueue-${stage}`, {
+      queueName: `auto-rfp-compliance-review-${stage}`,
+      // Must be >= the worker Lambda timeout so a message isn't redelivered mid-run.
+      visibilityTimeout: cdk.Duration.minutes(16),
+      // A full review is a long, expensive Sonnet job. If it fails, don't burn
+      // ~15 min of model time retrying twice more — one attempt, then DLQ. The
+      // run is marked FAILED by the worker/stale-recovery so the user can re-run.
+      deadLetterQueue: { queue: complianceReviewDlq, maxReceiveCount: 1 },
+    });
+
     const commonEnv: Record<string, string> = {
       STAGE: stage,
+      // AI compliance review — fast model for sync chat, stronger model for the async worker.
+      COMPLIANCE_REVIEW_CHAT_MODEL_ID: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+      COMPLIANCE_REVIEW_WORKER_MODEL_ID: 'us.anthropic.claude-sonnet-4-6',
+      COMPLIANCE_REVIEW_QUEUE_URL: complianceReviewQueue.queueUrl,
       AWS_ACCOUNT_ID: cdk.Aws.ACCOUNT_ID,
       DOCUMENTS_BUCKET: documentsBucket.bucketName,
       NODE_ENV: 'production',
@@ -642,9 +663,37 @@ export class ApiOrchestratorStack extends cdk.Stack {
       pricingDomain(),
       extractionDomain({ extractionQueueUrl }),
       opportunityAssistantDomain(),
+      complianceReviewDomain(),
       companyProfileDomain(),
       requiredFormsDomain(),
     ];
+
+    // ─── Compliance Review worker ─────────────────────────────────────────
+    // Processes async full-package review jobs (Sonnet, no API Gateway 29s
+    // limit). REST handlers enqueue via COMPLIANCE_REVIEW_QUEUE_URL (in commonEnv).
+    complianceReviewQueue.grantSendMessages(sharedInfraStack.commonLambdaRole);
+    const complianceReviewWorker = new lambdaNodejs.NodejsFunction(this, `ComplianceReviewWorker-${stage}`, {
+      functionName: `auto-rfp-compliance-review-worker-${stage}`,
+      entry: path.join(__dirname, '../../../apps/functions/src/handlers/compliance-review/review-worker.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.minutes(15), // Lambda max; < queue visibility timeout (16m)
+      memorySize: 1024,
+      role: sharedInfraStack.commonLambdaRole,
+      environment: { ...commonEnv },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        externalModules: ['@aws-sdk/*', '@smithy/*'],
+      },
+    });
+    complianceReviewWorker.addEventSource(
+      new lambdaEventSources.SqsEventSource(complianceReviewQueue, {
+        batchSize: 1,
+        reportBatchItemFailures: true,
+      }),
+    );
+    complianceReviewQueue.grantConsumeMessages(complianceReviewWorker);
 
     // ─── Rasterize PDF worker ─────────────────────────────────────────────
     // Owns the heavy pdfjs-dist + @napi-rs/canvas deps so callers
@@ -714,6 +763,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'EngagementLogRoutes', 'ApnRoutes', 'ProposalSubmissionRoutes',
       'DocumentApprovalRoutes', 'UniversalApprovalRoutes', 'PricingRoutes', 'ExtractionRoutes',
       'OpportunityAssistantRoutes',
+      'ComplianceReviewRoutes',
       'CompanyProfileRoutes',
       'RequiredFormsRoutes',
     ];
