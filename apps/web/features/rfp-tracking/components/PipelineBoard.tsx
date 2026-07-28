@@ -32,21 +32,20 @@ export function PipelineBoard({ items, orgId, nowIso, canAdvance }: PipelineBoar
   );
 
   return (
-    // Horizontal-scroll kanban: fixed-width columns in a flex row so the board
-    // never crams its six columns into a narrow viewport. Below 1280px the row
-    // scrolls sideways instead of overflowing the layout.
-    <div className="overflow-x-auto pb-2">
-      <div className="flex gap-4">
-        {APPROVAL_ORDER.map((status) => (
-          <BoardColumn
-            key={status}
-            status={status}
-            cards={grouped[status] ?? []}
-            orgId={orgId}
-            canAdvance={canAdvance}
-          />
-        ))}
-      </div>
+    // Fit all six stages at 1280px with NO horizontal scroll (acceptance §7/#8).
+    // A grid with minmax(0,1fr) columns shrinks to fit the container instead of
+    // overflowing; below xl the columns wrap to fewer rows (vertical scroll is
+    // fine — only horizontal scroll is prohibited).
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      {APPROVAL_ORDER.map((status) => (
+        <BoardColumn
+          key={status}
+          status={status}
+          cards={grouped[status] ?? []}
+          orgId={orgId}
+          canAdvance={canAdvance}
+        />
+      ))}
     </div>
   );
 }
@@ -63,7 +62,7 @@ function BoardColumn({
   canAdvance: boolean;
 }) {
   return (
-    <div className="flex w-72 shrink-0 flex-col gap-3 rounded-lg bg-slate-50 p-3">
+    <div className="flex min-w-0 flex-col gap-3 rounded-lg bg-slate-50 p-2.5">
       <div className="flex items-center justify-between">
         <Badge variant="outline" className={cn('text-xs', OPPORTUNITY_APPROVAL_COLORS[status])}>
           {OPPORTUNITY_APPROVAL_LABELS[status]}
