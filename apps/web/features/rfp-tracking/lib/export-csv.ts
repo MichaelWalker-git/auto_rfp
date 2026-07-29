@@ -1,6 +1,6 @@
 import type { RfpPipelineItem } from '@auto-rfp/core';
-import { OPPORTUNITY_STATUS_LABELS, OPPORTUNITY_APPROVAL_LABELS } from '@auto-rfp/core';
-import { toBoardCard, resolveApprovalStatus } from './derive-board';
+import { OPPORTUNITY_STATUS_LABELS, OPPORTUNITY_APPROVAL_LABELS, RFP_STAGE_LABELS } from '@auto-rfp/core';
+import { toBoardCard, resolveApprovalStatus, resolveStage } from './derive-board';
 
 /** Escape a CSV cell — wrap in quotes and double any embedded quotes. */
 const csvCell = (value: string | number | null | undefined): string => {
@@ -11,6 +11,7 @@ const csvCell = (value: string | number | null | undefined): string => {
 const HEADERS = [
   'Title',
   'Opportunity ID',
+  'Board Stage',
   'Status',
   'Approval',
   'Owner',
@@ -37,6 +38,7 @@ export const exportPipelineToCsv = (
       return [
         item.title ?? '',
         item.oppId ?? item.id,
+        RFP_STAGE_LABELS[resolveStage(item)],
         item.status ? OPPORTUNITY_STATUS_LABELS[item.status] : '',
         OPPORTUNITY_APPROVAL_LABELS[resolveApprovalStatus(item)],
         item.assigneeName ?? '',

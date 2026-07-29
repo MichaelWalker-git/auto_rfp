@@ -13,12 +13,13 @@ const NOW = '2026-07-27T00:00:00.000Z';
 beforeEach(() => jest.clearAllMocks());
 
 describe('PipelineCard', () => {
-  it('renders title, owner, value, approval badge, and days-in-stage', () => {
+  it('renders title, owner, value, stage badge, and days-in-stage', () => {
     const item = makeItem({
       title: 'Cloud RFP',
       assigneeName: 'Jane Doe',
       baseAndAllOptionsValue: 250_000,
       approvalStatus: 'PRE_SUB_APPROVAL',
+      pipelineStage: 'preSubmissionReview',
       approvalHistory: [approvalTransition('PRE_SUB_APPROVAL', '2026-07-17T00:00:00.000Z', 'I_APPROVED', 'STAGE')],
     });
     render(<PipelineCard card={toBoardCard(item, NOW)} orgId="org-1" canAdvance={false} />);
@@ -26,7 +27,7 @@ describe('PipelineCard', () => {
     expect(screen.getByText('Cloud RFP')).toBeTruthy();
     expect(screen.getByText('Jane Doe')).toBeTruthy();
     expect(screen.getByText('$250,000')).toBeTruthy();
-    expect(screen.getByText('Pre Sub Approval')).toBeTruthy();
+    expect(screen.getByText('Pre-submission review')).toBeTruthy();
     expect(screen.getByText(/10d in stage/)).toBeTruthy();
   });
 

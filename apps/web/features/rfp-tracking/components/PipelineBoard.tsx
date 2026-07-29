@@ -4,12 +4,12 @@ import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
-  APPROVAL_ORDER,
-  OPPORTUNITY_APPROVAL_LABELS,
-  OPPORTUNITY_APPROVAL_COLORS,
+  RFP_BOARD_STAGE_ORDER,
+  RFP_STAGE_LABELS,
+  RFP_STAGE_COLORS,
 } from '@auto-rfp/core';
-import type { RfpPipelineItem, OpportunityApprovalStatus } from '@auto-rfp/core';
-import { groupByApprovalStatus } from '../lib/derive-board';
+import type { RfpPipelineItem, RfpPipelineStage } from '@auto-rfp/core';
+import { groupByStage } from '../lib/derive-board';
 import { PipelineCard } from './PipelineCard';
 
 interface PipelineBoardProps {
@@ -21,27 +21,27 @@ interface PipelineBoardProps {
 }
 
 /**
- * The pipeline board — one column per approval stage in APPROVAL_ORDER. Cards
- * carry the stage-advance actions ("Send for Pre-Sub Review" on I Approved,
- * "Mark Submitted" on II Approved) when the caller can advance.
+ * The pipeline board — one column per stage in RFP_BOARD_STAGE_ORDER, mirroring
+ * the Linear "Government Contracting" board (open funnel → expired → terminal
+ * outcomes). Cards carry the stage-advance actions ("Send for Pre-Sub Review",
+ * "Mark Submitted") when the caller can advance.
  */
 export function PipelineBoard({ items, orgId, nowIso, canAdvance }: PipelineBoardProps) {
   const grouped = useMemo(
-    () => groupByApprovalStatus(items, APPROVAL_ORDER, nowIso),
+    () => groupByStage(items, RFP_BOARD_STAGE_ORDER, nowIso),
     [items, nowIso],
   );
 
   return (
-    // Fit all six stages at 1280px with NO horizontal scroll (acceptance §7/#8).
-    // A grid with minmax(0,1fr) columns shrinks to fit the container instead of
-    // overflowing; below xl the columns wrap to fewer rows (vertical scroll is
-    // fine — only horizontal scroll is prohibited).
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-      {APPROVAL_ORDER.map((status) => (
+    // The board has 11 stages; a horizontally-scrollable row of fixed-width
+    // columns is the readable layout (matching Linear's own board). Only the
+    // board scrolls, not the page.
+    <div className="flex gap-3 overflow-x-auto pb-2">
+      {RFP_BOARD_STAGE_ORDER.map((stage) => (
         <BoardColumn
-          key={status}
-          status={status}
-          cards={grouped[status] ?? []}
+          key={stage}
+          stage={stage}
+          cards={grouped[stage] ?? []}
           orgId={orgId}
           canAdvance={canAdvance}
         />
@@ -51,21 +51,21 @@ export function PipelineBoard({ items, orgId, nowIso, canAdvance }: PipelineBoar
 }
 
 function BoardColumn({
-  status,
+  stage,
   cards,
   orgId,
   canAdvance,
 }: {
-  status: OpportunityApprovalStatus;
-  cards: ReturnType<typeof groupByApprovalStatus>[OpportunityApprovalStatus];
+  stage: RfpPipelineStage;
+  cards: ReturnType<typeof groupByStage>[RfpPipelineStage];
   orgId: string;
   canAdvance: boolean;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-lg bg-slate-50 p-2.5">
-      <div className="flex items-center justify-between">
-        <Badge variant="outline" className={cn('text-xs', OPPORTUNITY_APPROVAL_COLORS[status])}>
-          {OPPORTUNITY_APPROVAL_LABELS[status]}
+    <div className="flex w-64 shrink-0 flex-col gap-3 rounded-lg bg-slate-50 p-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <Badge variant="outline" className={cn('text-xs', RFP_STAGE_COLORS[stage])}>
+          {RFP_STAGE_LABELS[stage]}
         </Badge>
         <span className="text-xs font-medium text-slate-400">{cards.length}</span>
       </div>

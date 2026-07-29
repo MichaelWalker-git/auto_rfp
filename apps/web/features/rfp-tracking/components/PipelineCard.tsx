@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CalendarClock, User, Clock, ArrowRight, Send } from 'lucide-react';
-import { OPPORTUNITY_APPROVAL_LABELS, OPPORTUNITY_APPROVAL_COLORS } from '@auto-rfp/core';
+import { RFP_STAGE_LABELS, RFP_STAGE_COLORS } from '@auto-rfp/core';
 import type { BoardCard } from '../lib/derive-board';
 import { useApprovalAdvance } from '../hooks/use-approval-advance';
 import {
@@ -29,7 +29,7 @@ interface PipelineCardProps {
  *   II_APPROVED → "Mark Submitted"
  */
 export function PipelineCard({ card, orgId, canAdvance }: PipelineCardProps) {
-  const { item, approvalStatus, daysInCurrentStage, deadlineUrgency, daysToDeadline } = card;
+  const { item, stage, approvalStatus, daysInCurrentStage, deadlineUrgency, daysToDeadline } = card;
   const { advance, pendingOppId } = useApprovalAdvance(orgId);
 
   const oppId = item.oppId ?? item.id;
@@ -86,8 +86,8 @@ export function PipelineCard({ card, orgId, canAdvance }: PipelineCardProps) {
         )}
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant="outline" className={cn('text-xs', OPPORTUNITY_APPROVAL_COLORS[approvalStatus])}>
-            {OPPORTUNITY_APPROVAL_LABELS[approvalStatus]}
+          <Badge variant="outline" className={cn('text-xs', RFP_STAGE_COLORS[stage])}>
+            {RFP_STAGE_LABELS[stage]}
           </Badge>
           <Badge variant="outline" className={cn('gap-1 text-xs', DEADLINE_BADGE_CLASSES[deadlineUrgency])}>
             <CalendarClock className="h-3 w-3" />

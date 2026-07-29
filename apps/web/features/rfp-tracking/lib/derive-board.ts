@@ -1,9 +1,12 @@
-import type { RfpPipelineItem, OpportunityApprovalStatus } from '@auto-rfp/core';
+import type { RfpPipelineItem, RfpPipelineStage, OpportunityApprovalStatus } from '@auto-rfp/core';
 
 export type DeadlineUrgency = 'none' | 'safe' | 'soon' | 'urgent' | 'overdue';
 
 export interface BoardCard {
   item: RfpPipelineItem;
+  /** The Linear-mirroring board stage this card sits in. */
+  stage: RfpPipelineStage;
+  /** The two-gate approval axis — retained for the stage-advance actions. */
   approvalStatus: OpportunityApprovalStatus;
   daysInCurrentStage: number | null;
   deadlineUrgency: DeadlineUrgency;
@@ -25,10 +28,15 @@ const daysBetween = (fromIso: string | null | undefined, toIso: string | null | 
 export const resolveApprovalStatus = (item: RfpPipelineItem): OpportunityApprovalStatus =>
   item.approvalStatus ?? 'INITIAL_APPROVAL';
 
+/** The board stage an item sits in, defaulting missing → found. */
+export const resolveStage = (item: RfpPipelineItem): RfpPipelineStage =>
+  item.pipelineStage ?? 'found';
+
 /**
- * When did the item enter its current approval stage? The last approvalHistory
- * entry whose `to` matches the current approvalStatus wins; otherwise fall back
- * to statusHistory's latest change, then updatedAt/createdAt.
+ * When did the item enter its current stage? The last approvalHistory entry
+ * whose `to` matches the current approvalStatus wins (that's when the sync last
+ * moved it); otherwise fall back to statusHistory's latest change, then
+ * updatedAt/createdAt.
  */
 export const entryIntoCurrentStageIso = (item: RfpPipelineItem): string | null => {
   const approvalStatus = resolveApprovalStatus(item);
@@ -60,11 +68,13 @@ export const deadlineUrgency = (
 
 export const toBoardCard = (item: RfpPipelineItem, nowIso: string): BoardCard => {
   const approvalStatus = resolveApprovalStatus(item);
+  const stage = resolveStage(item);
   const entryIso = entryIntoCurrentStageIso(item);
   const { urgency, daysToDeadline } = deadlineUrgency(item.responseDeadlineIso, nowIso);
 
   return {
     item,
+    stage,
     approvalStatus,
     daysInCurrentStage: daysBetween(entryIso, nowIso),
     deadlineUrgency: urgency,
@@ -72,20 +82,20 @@ export const toBoardCard = (item: RfpPipelineItem, nowIso: string): BoardCard =>
   };
 };
 
-/** Group items into an approvalStatus → cards map. Empty stages get an empty array. */
-export const groupByApprovalStatus = (
+/** Group items into a stage → cards map. Empty stages get an empty array. */
+export const groupByStage = (
   items: RfpPipelineItem[],
-  statuses: OpportunityApprovalStatus[],
+  stages: RfpPipelineStage[],
   nowIso: string,
-): Record<OpportunityApprovalStatus, BoardCard[]> => {
-  const grouped = Object.fromEntries(statuses.map((s) => [s, [] as BoardCard[]])) as Record<
-    OpportunityApprovalStatus,
+): Record<RfpPipelineStage, BoardCard[]> => {
+  const grouped = Object.fromEntries(stages.map((s) => [s, [] as BoardCard[]])) as Record<
+    RfpPipelineStage,
     BoardCard[]
   >;
 
   for (const item of items) {
     const card = toBoardCard(item, nowIso);
-    if (grouped[card.approvalStatus]) grouped[card.approvalStatus].push(card);
+    if (grouped[card.stage]) grouped[card.stage].push(card);
   }
 
   return grouped;

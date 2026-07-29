@@ -179,6 +179,38 @@ export const OpportunityApprovalTransitionSchema = z.object({
 
 export type OpportunityApprovalTransition = z.infer<typeof OpportunityApprovalTransitionSchema>;
 
+// ─── RFP-tracking board stage (Linear-mirroring, 11-stage model) ───────────────
+
+/**
+ * The RFP-tracking board stages — a faithful mirror of the team's Linear
+ * "Government Contracting" board, derived from Linear workflow status + gate
+ * labels (first-match-wins; see resolveRfpStage in rfp-tracking.ts). This is a
+ * presentation axis for the board and is independent of both `status` (brief
+ * scoring / outcome) and `approvalStatus` (the two-gate approval queue).
+ *
+ * Open stages (counted all-time):
+ *   found → execSummaryToReview → firstApproved → inProgress
+ *         → preSubmissionReview → secondApproved
+ * Terminal stages (counted over a rolling window):
+ *   submitted · notApproved · awarded · lost
+ * Standing stage (counted until cleaned up):
+ *   expired
+ */
+export const RfpPipelineStageSchema = z.enum([
+  'found',
+  'execSummaryToReview',
+  'firstApproved',
+  'inProgress',
+  'preSubmissionReview',
+  'secondApproved',
+  'submitted',
+  'notApproved',
+  'awarded',
+  'lost',
+  'expired',
+]);
+export type RfpPipelineStage = z.infer<typeof RfpPipelineStageSchema>;
+
 // ─── Stored opportunity item ──────────────────────────────────────────────────
 
 export const OpportunityItemSchema = z.object({
@@ -225,6 +257,19 @@ export const OpportunityItemSchema = z.object({
   approvalStatus:      OpportunityApprovalStatusSchema.optional(),
   /** History of approval transitions */
   approvalHistory:     z.array(OpportunityApprovalTransitionSchema).optional(),
+  /**
+   * RFP-tracking board stage — the 11-stage model that mirrors the Linear
+   * "Government Contracting" board (status + gate labels, first-match-wins).
+   * Set by the Linear sync; the board groups columns by this. See
+   * RfpPipelineStageSchema in rfp-tracking.ts.
+   */
+  pipelineStage:       RfpPipelineStageSchema.optional(),
+  /**
+   * ISO datetime the record reached a terminal stage (submitted/awarded/lost).
+   * Set by the Linear sync from the issue's completedAt; the board uses it for
+   * the closed-window cutoff so terminal columns show only recent throughput.
+   */
+  completedAt:         z.string().datetime().nullish(),
   baseAndAllOptionsValue: z.number().nonnegative().nullable(),
   // ── Outcome detail (formerly the standalone ProjectOutcome record) ──────────
   /** Free-form outcome reason / comment (e.g. why a no-bid). */
@@ -350,6 +395,7 @@ export const OpportunityListItemSchema = z.object({
   title:     z.string(),
   status:    OpportunityStatusSchema.optional(),
   approvalStatus: OpportunityApprovalStatusSchema.optional(),
+  pipelineStage: RfpPipelineStageSchema.optional(),
   active:    z.boolean().optional(),
   organizationName:     z.string().nullish(),
   noticeId:             z.string().nullish(),

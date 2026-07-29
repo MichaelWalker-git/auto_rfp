@@ -2,10 +2,11 @@ import {
   entryIntoCurrentStageIso,
   deadlineUrgency,
   toBoardCard,
-  groupByApprovalStatus,
+  groupByStage,
   resolveApprovalStatus,
+  resolveStage,
 } from '../derive-board';
-import { APPROVAL_ORDER } from '@auto-rfp/core';
+import { RFP_BOARD_STAGE_ORDER } from '@auto-rfp/core';
 import { makeItem, transition, approvalTransition } from '../../__tests__/fixtures';
 
 const NOW = '2026-07-27T00:00:00.000Z';
@@ -96,22 +97,32 @@ describe('toBoardCard', () => {
   });
 });
 
-describe('groupByApprovalStatus', () => {
-  it('buckets items under their approval stage and leaves empty stages as empty arrays', () => {
-    const items = [
-      makeItem({ id: 'a', approvalStatus: 'INITIAL_APPROVAL' }),
-      makeItem({ id: 'b', approvalStatus: 'I_APPROVED' }),
-      makeItem({ id: 'c', approvalStatus: 'I_APPROVED' }),
-    ];
-    const grouped = groupByApprovalStatus(items, APPROVAL_ORDER, NOW);
-    expect(grouped.INITIAL_APPROVAL).toHaveLength(1);
-    expect(grouped.I_APPROVED).toHaveLength(2);
-    expect(grouped.SUBMITTED).toEqual([]);
+describe('resolveStage', () => {
+  it('defaults a missing pipelineStage to found', () => {
+    expect(resolveStage(makeItem({ pipelineStage: undefined }))).toBe('found');
   });
 
-  it('defaults a missing approvalStatus into the INITIAL_APPROVAL column', () => {
-    const items = [makeItem({ id: 'x', approvalStatus: undefined })];
-    const grouped = groupByApprovalStatus(items, APPROVAL_ORDER, NOW);
-    expect(grouped.INITIAL_APPROVAL).toHaveLength(1);
+  it('returns the item pipelineStage when present', () => {
+    expect(resolveStage(makeItem({ pipelineStage: 'submitted' }))).toBe('submitted');
+  });
+});
+
+describe('groupByStage', () => {
+  it('buckets items under their board stage and leaves empty stages as empty arrays', () => {
+    const items = [
+      makeItem({ id: 'a', pipelineStage: 'execSummaryToReview' }),
+      makeItem({ id: 'b', pipelineStage: 'firstApproved' }),
+      makeItem({ id: 'c', pipelineStage: 'firstApproved' }),
+    ];
+    const grouped = groupByStage(items, RFP_BOARD_STAGE_ORDER, NOW);
+    expect(grouped.execSummaryToReview).toHaveLength(1);
+    expect(grouped.firstApproved).toHaveLength(2);
+    expect(grouped.submitted).toEqual([]);
+  });
+
+  it('defaults a missing pipelineStage into the found column', () => {
+    const items = [makeItem({ id: 'x', pipelineStage: undefined })];
+    const grouped = groupByStage(items, RFP_BOARD_STAGE_ORDER, NOW);
+    expect(grouped.found).toHaveLength(1);
   });
 });

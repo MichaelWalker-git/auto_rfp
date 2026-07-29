@@ -14,6 +14,7 @@ import { ApiOrchestratorStack } from '../api/api-orchestrator-stack';
 import { CollaborationWebSocketStack } from '../collaboration-websocket-stack';
 import { AuditStack } from '../audit-stack';
 import { OpportunityEventsStack } from '../opportunity-events-stack';
+import { RfpLinearSyncStack } from '../rfp-linear-sync-stack';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import {
   addAllSuppressions,
@@ -227,6 +228,29 @@ const auditStack = new AuditStack(app, `AutoRfp-Audit-${stage}`, {
 auditStack.addDependency(db);
 auditStack.addDependency(api);
 
+// Scheduled sync: mirror the Linear "Government Contracting" board into the
+// RFP-tracking pipeline every 15 minutes (Horustech org, dev only for now).
+const rfpLinearSyncStack = new RfpLinearSyncStack(app, `AutoRfp-RfpLinearSync-${stage}`, {
+  env,
+  stage,
+  mainTable: db.tableName,
+  rfpOrgId: '9c0a5757-e2da-4e71-9490-01c558f7ffc3',
+  rfpProjectId: 'gov-contracting',
+  linearOrgId: '6fbf749f-7173-489c-be0a-564f97ebf8b0',
+  linearProjectName: 'Government Contracting',
+  windowDays: 14,
+  commonEnv: {
+    STAGE: stage,
+    DB_TABLE_NAME: db.tableName.tableName,
+    REGION: env.region ?? 'us-east-1',
+    SENTRY_DSN: sentryDNS,
+    SENTRY_ENVIRONMENT: stage,
+    NODE_ENV: 'production',
+  },
+});
+
+rfpLinearSyncStack.addDependency(db);
+
 new cdk.CfnOutput(collaborationWsStack, 'CollaborationWsApiUrl', {
   value: collaborationWsStack.wsApiUrl,
   description: 'WebSocket API URL for real-time collaboration',
@@ -325,6 +349,9 @@ addAllSuppressions(auditStack, isProduction);
 addSQSSuppressions(auditStack, isProduction);
 addS3Suppressions(auditStack, isProduction);
 addLambdaSuppressions(auditStack, isProduction);
+
+addLambdaSuppressions(rfpLinearSyncStack, isProduction);
+addDynamoDBSuppressions(rfpLinearSyncStack, isProduction);
 
 console.log(`\n=📝 Note: After deployment, update Cognito callback URLs with the actual Amplify domain from the FrontendURL output if needed.`);
 console.log('=🔒 CDK NAG AWS Solutions Checks enabled for security compliance');

@@ -13,8 +13,173 @@ import {
   OpportunityListItemSchema,
   OpportunityStatusTransitionSchema,
   OpportunityApprovalTransitionSchema,
+  RfpPipelineStageSchema,
 } from './opportunity';
+import type { RfpPipelineStage } from './opportunity';
 import { WinDataSchema, LossDataSchema } from './outcome-detail';
+
+// ─── RFP board stage model (mirrors the Linear "Government Contracting" board) ──
+
+/**
+ * The Linear workflow statuses on the Government Contracting board. New RFPs
+ * land in "To be Reviewed"; "Todo"/"Backlog" hold internal admin tickets.
+ */
+export const RFP_LINEAR_STATUS = {
+  TODO: 'Todo',
+  BACKLOG: 'Backlog',
+  TO_BE_REVIEWED: 'To be Reviewed',
+  REVIEWED_APPROVED: 'Reviewed - Approved',
+  REVIEWED_NOT_APPROVED: 'Reviewed / Not Approved',
+  IN_PROGRESS: 'In Progress',
+  SUBMITTED: 'Submitted',
+  AWARDED: 'Awarded',
+} as const;
+
+/**
+ * The two later approval gates exist only as Linear labels — the board has no
+ * status for them — so stage resolution must read labels as well as status.
+ */
+export const RFP_LINEAR_LABEL = {
+  FIRST_APPROVED: 'I Approved',
+  SECOND_APPROVED: 'II Approved',
+  PRE_SUB_APPROVAL: 'Pre Sub Approval',
+  DID_NOT_WIN: 'dnw',
+  SKIP: 'skip',
+  EXPIRED: 'expired',
+  CANCELLED_BID: 'Cancelled Bid',
+} as const;
+
+/**
+ * Statuses that are not part of the RFP lifecycle and must not appear on the
+ * board. `Todo` holds internal admin/training tickets on this board, not RFPs.
+ */
+export const RFP_NON_LIFECYCLE_STATUSES: readonly string[] = [
+  'Todo',
+  'Done',
+  'Duplicate',
+  'Important Information',
+  'Task checklist',
+];
+
+/** Internal admin/report tickets that live on the RFP board but are not RFPs. */
+export const RFP_EXCLUDED_IDENTIFIERS: readonly string[] = ['HOR-2073', 'HOR-1488'];
+
+/** Human-readable board column labels (exact digest wording). */
+export const RFP_STAGE_LABELS: Record<RfpPipelineStage, string> = {
+  found: 'Found',
+  execSummaryToReview: 'Exec summary, to be reviewed',
+  firstApproved: 'First approved',
+  inProgress: 'In progress',
+  preSubmissionReview: 'Pre-submission review',
+  secondApproved: 'Second approved',
+  submitted: 'Submitted',
+  notApproved: 'Not approved',
+  awarded: 'Awarded',
+  lost: 'Lost',
+  expired: 'Expired',
+};
+
+/** Tailwind badge classes per stage. */
+export const RFP_STAGE_COLORS: Record<RfpPipelineStage, string> = {
+  found: 'bg-slate-100 text-slate-600 border-slate-200',
+  execSummaryToReview: 'bg-amber-100 text-amber-700 border-amber-200',
+  firstApproved: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  inProgress: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  preSubmissionReview: 'bg-orange-100 text-orange-700 border-orange-200',
+  secondApproved: 'bg-cyan-100 text-cyan-700 border-cyan-200',
+  submitted: 'bg-blue-100 text-blue-700 border-blue-200',
+  notApproved: 'bg-red-100 text-red-700 border-red-200',
+  awarded: 'bg-green-100 text-green-700 border-green-200',
+  lost: 'bg-rose-100 text-rose-700 border-rose-200',
+  expired: 'bg-gray-100 text-gray-500 border-gray-200',
+};
+
+/** Live inventory — every open issue, counted regardless of age. */
+export const RFP_OPEN_STAGES = [
+  'found',
+  'execSummaryToReview',
+  'firstApproved',
+  'inProgress',
+  'preSubmissionReview',
+  'secondApproved',
+] as const satisfies readonly RfpPipelineStage[];
+
+/** Throughput — only counted within the terminal window (RFP_TERMINAL_WINDOW_DAYS). */
+export const RFP_TERMINAL_STAGES = [
+  'submitted',
+  'notApproved',
+  'awarded',
+  'lost',
+] as const satisfies readonly RfpPipelineStage[];
+
+/** Deadline passed while still open — dead, but stays counted until cleaned up. */
+export const RFP_STANDING_STAGES = ['expired'] as const satisfies readonly RfpPipelineStage[];
+
+/** Board column order: open funnel, then standing, then terminal outcomes. */
+export const RFP_BOARD_STAGE_ORDER: RfpPipelineStage[] = [
+  ...RFP_OPEN_STAGES,
+  ...RFP_STANDING_STAGES,
+  ...RFP_TERMINAL_STAGES,
+];
+
+/** Terminal stages are only shown/counted if they closed within this many days. */
+export const RFP_TERMINAL_WINDOW_DAYS = 30;
+
+const isOpenStage = (stage: RfpPipelineStage): boolean =>
+  (RFP_OPEN_STAGES as readonly RfpPipelineStage[]).includes(stage);
+const isStandingStage = (stage: RfpPipelineStage): boolean =>
+  (RFP_STANDING_STAGES as readonly RfpPipelineStage[]).includes(stage);
+
+/** Open and standing stages are shown regardless of age; terminals must be recent. */
+export const isStageAlwaysShown = (stage: RfpPipelineStage): boolean =>
+  isOpenStage(stage) || isStandingStage(stage);
+
+/** A Linear issue as stage resolution needs it. */
+export interface RfpStageInput {
+  identifier: string;
+  status: string;
+  labels: string[];
+}
+
+/**
+ * Should this issue appear on the RFP board at all? Retired rows (skip label),
+ * non-lifecycle statuses, and known admin tickets are excluded.
+ */
+export const isTrackedRfpIssue = (issue: RfpStageInput): boolean =>
+  !issue.labels.includes(RFP_LINEAR_LABEL.SKIP) &&
+  !RFP_NON_LIFECYCLE_STATUSES.includes(issue.status) &&
+  !RFP_EXCLUDED_IDENTIFIERS.includes(issue.identifier);
+
+/**
+ * Resolve the board stage from Linear status + labels. Ordered, first-match-wins:
+ * order is load-bearing because gate labels are additive and never removed (a
+ * Submitted issue still carries "I Approved"), and ~15% of issues carry labels
+ * that contradict their status. Returns null for non-lifecycle/untracked issues.
+ */
+export const resolveRfpStage = (issue: RfpStageInput): RfpPipelineStage | null => {
+  const { status, labels } = issue;
+  const has = (label: string) => labels.includes(label);
+
+  if (!isTrackedRfpIssue(issue)) return null;
+
+  if (status === RFP_LINEAR_STATUS.AWARDED) {
+    return has(RFP_LINEAR_LABEL.DID_NOT_WIN) ? 'lost' : 'awarded';
+  }
+  if (status === RFP_LINEAR_STATUS.SUBMITTED) return 'submitted';
+  if (status === RFP_LINEAR_STATUS.REVIEWED_NOT_APPROVED) return 'notApproved';
+  // After the real outcomes but before the open stages: a passed deadline kills
+  // an in-flight bid, but it doesn't rewrite one that already resolved.
+  if (has(RFP_LINEAR_LABEL.EXPIRED)) return 'expired';
+  if (has(RFP_LINEAR_LABEL.SECOND_APPROVED)) return 'secondApproved';
+  if (has(RFP_LINEAR_LABEL.PRE_SUB_APPROVAL)) return 'preSubmissionReview';
+  if (status === RFP_LINEAR_STATUS.IN_PROGRESS) return 'inProgress';
+  if (status === RFP_LINEAR_STATUS.REVIEWED_APPROVED || has(RFP_LINEAR_LABEL.FIRST_APPROVED)) {
+    return 'firstApproved';
+  }
+  if (status === RFP_LINEAR_STATUS.TO_BE_REVIEWED) return 'execSummaryToReview';
+  if (status === RFP_LINEAR_STATUS.TODO || status === RFP_LINEAR_STATUS.BACKLOG) return 'found';
+  return null;
+};
 
 // ─── Pipeline board item ────────────────────────────────────────────────────
 
@@ -29,6 +194,10 @@ export const RfpPipelineItemSchema = OpportunityListItemSchema.extend({
   approvalHistory: z.array(OpportunityApprovalTransitionSchema).optional(),
   baseAndAllOptionsValue: z.number().nonnegative().nullable().optional(),
   updatedAt: z.string().nullish(),
+  /** ISO datetime a terminal stage (submitted/awarded/lost) completed — for the closed-window cutoff. */
+  completedAt: z.string().nullish(),
+  /** The Linear-mirroring board stage (set by the sync). */
+  pipelineStage: RfpPipelineStageSchema.optional(),
   winData: WinDataSchema.optional(),
   lossData: LossDataSchema.optional(),
 });
