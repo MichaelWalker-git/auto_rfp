@@ -18,7 +18,7 @@ export interface RfpDigestStackProps extends cdk.StackProps {
 }
 
 /**
- * Posts the RFP pipeline digest to Slack every Monday and Thursday at 11am PT.
+ * Posts the RFP pipeline digest to Slack every Monday and Thursday at 12pm PT.
  * Reads Linear and writes to Slack only — it touches no customer data and needs
  * no DynamoDB access.
  */
@@ -81,13 +81,13 @@ export class RfpDigestStack extends cdk.Stack {
     postRfpDigestLambda.node.addDependency(logGroup);
 
     // EventBridge Scheduler (not events.Rule) because it honours a timezone —
-    // 11am PT stays 11am PT across the DST changes.
+    // 12pm PT stays 12pm PT across the DST changes.
     new scheduler.Schedule(this, 'RfpDigestSchedule', {
       scheduleName: `auto-rfp-rfp-digest-${stage}`,
-      description: 'Posts the RFP pipeline digest to Slack Monday and Thursday at 11am PT',
+      description: 'Posts the RFP pipeline digest to Slack Monday and Thursday at 12pm PT',
       schedule: scheduler.ScheduleExpression.cron({
         minute: '0',
-        hour: '11',
+        hour: '12',
         weekDay: 'MON,THU',
         month: '*',
         year: '*',

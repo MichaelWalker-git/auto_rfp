@@ -35,7 +35,7 @@ async function getLinearApiKey(orgId: string): Promise<string> {
 }
 
 const PROJECT_ISSUES_QUERY = `
-  query ProjectIssues($projectId: ID!, $after: String) {
+  query ProjectIssues($projectId: String!, $after: String) {
     project(id: $projectId) {
       issues(first: 250, after: $after) {
         pageInfo { hasNextPage endCursor }

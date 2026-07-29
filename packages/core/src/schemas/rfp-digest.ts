@@ -89,6 +89,8 @@ export const RfpDigestRowSchema = z.object({
   title: z.string(),
   assigneeName: z.string().optional(),
   ageDays: z.number().int().nonnegative().optional(),
+  /** Which approval gate this row is blocked on, so the digest can @-mention the right approver. */
+  stage: RfpPipelineStageSchema,
 });
 export type RfpDigestRow = z.infer<typeof RfpDigestRowSchema>;
 

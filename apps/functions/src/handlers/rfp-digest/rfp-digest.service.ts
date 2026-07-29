@@ -11,10 +11,12 @@ import {
 } from '@auto-rfp/core';
 import {
   LINEAR_ISSUE_URL_BASE,
+  RFP_APPROVER_SLACK_IDS,
   RFP_DIGEST_MAX_ROWS,
   RFP_EXCLUDED_IDENTIFIERS,
   RFP_LABEL,
   RFP_NON_LIFECYCLE_STATUSES,
+  RFP_SLACK_USER_IDS,
   RFP_STATUS,
   RFP_TERMINAL_WINDOW_DAYS,
   RFP_TRACKED_PEOPLE,
@@ -179,16 +181,19 @@ const ageInDays = (issue: RfpDigestIssue, now: Date): number | undefined => {
 
 export const buildAwaitingApproval = (issues: RfpDigestIssue[], now: Date): RfpDigestRow[] =>
   issues
-    .filter((issue) => {
+    .flatMap((issue) => {
       const stage = resolveStage(issue);
-      return stage === 'execSummaryToReview' || stage === 'preSubmissionReview';
+      if (stage !== 'execSummaryToReview' && stage !== 'preSubmissionReview') return [];
+      return [
+        {
+          identifier: issue.identifier,
+          title: truncateTitle(issue.title),
+          assigneeName: issue.assigneeName,
+          ageDays: ageInDays(issue, now),
+          stage,
+        },
+      ];
     })
-    .map((issue) => ({
-      identifier: issue.identifier,
-      title: truncateTitle(issue.title),
-      assigneeName: issue.assigneeName,
-      ageDays: ageInDays(issue, now),
-    }))
     .sort((a, b) => (b.ageDays ?? 0) - (a.ageDays ?? 0));
 
 export const buildDigest = (
@@ -251,31 +256,82 @@ const INDENT = '\u00A0'.repeat(4);
 const formatRefs = (refs: RfpDigestIssueRef[]): string[] =>
   refs.map((ref) => `${INDENT}${INDENT}• ${formatIssueLink(ref.identifier)} ${ref.title}`);
 
+/** Aggregate open-work summary, e.g. "6 first approved · 2 in progress". */
 const formatOpenQueue = (openByStage: RfpStageCounts): string => {
-  const parts = FUNNEL_ORDER.filter((stage) => isOpenStage(stage) && openByStage[stage])
-    .map((stage) => `${openByStage[stage]} ${STAGE_LABELS[stage].toLowerCase()}`);
+  const parts = OPEN_FUNNEL_ORDER.filter((stage) => openByStage[stage]).map(
+    (stage) => `${openByStage[stage]} ${STAGE_LABELS[stage].toLowerCase()}`,
+  );
   return parts.length ? parts.join(' · ') : 'nothing open';
 };
 
-export const formatSlackMessage = (digest: RfpDigest, now: Date): string => {
-  const heading = now.toLocaleDateString('en-US', {
+/** Slack `<@ID>` mention when the name is known, otherwise a bold plain name. */
+const formatMention = (name: string): string => {
+  const id = RFP_SLACK_USER_IDS[name];
+  return id ? `<@${id}>` : `*${name}*`;
+};
+
+/**
+ * Who to ping for a blocked row: the first review gate is Brennen's, the
+ * pre-submission gate is Michael's. Anything else (shouldn't happen) is silent.
+ */
+const approverMention = (stage: RfpPipelineStage): string | null => {
+  if (stage === 'execSummaryToReview') return `<@${RFP_APPROVER_SLACK_IDS.INITIAL}>`;
+  if (stage === 'preSubmissionReview') return `<@${RFP_APPROVER_SLACK_IDS.PRE_SUBMISSION}>`;
+  return null;
+};
+
+const formatHeading = (now: Date): string =>
+  now.toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     timeZone: 'America/Los_Angeles',
   });
 
+/** One person's activity block within the digest, @-mentioning them. */
+const formatPersonSection = (person: RfpPersonProgress): string[] => {
+  const lines: string[] = [
+    `${formatMention(person.name)} — submitted ${person.submitted.length} · no-go ${person.noGo.length} · started ${person.started.length} · sourced ${person.sourced.length}`,
+  ];
+
+  if (person.submitted.length) {
+    lines.push(`${INDENT}*Submitted:*`, ...formatRefs(person.submitted));
+  }
+  if (person.started.length) {
+    lines.push(`${INDENT}*Started:*`, ...formatRefs(person.started));
+  }
+  if (person.noGo.length) {
+    lines.push(`${INDENT}*No-go:*`, ...formatRefs(person.noGo));
+  }
+  if (person.sourced.length) {
+    lines.push(`${INDENT}*Sourced:*`, ...formatRefs(person.sourced));
+  }
+  lines.push(`${INDENT}*Open:* ${formatOpenQueue(person.openByStage)}`);
+
+  return lines;
+};
+
+/**
+ * The whole digest as a single Slack message: what's blocked on an approval
+ * (each row pinging the approver who owns that gate), the funnel counts, then
+ * each tracked person's activity block (@-mentioning them).
+ */
+export const formatSlackMessage = (digest: RfpDigest, now: Date): string => {
   const count = (stage: RfpPipelineStage) => digest.stageCounts[stage] ?? 0;
   const openTotal = OPEN_FUNNEL_ORDER.reduce((sum, stage) => sum + count(stage), 0);
 
-  const lines: string[] = [`*RFP Pipeline — ${heading}*`];
+  const lines: string[] = [`*RFP Pipeline — ${formatHeading(now)}*`];
 
   // First, because it is the only section that asks someone to do something today.
   if (digest.awaitingApproval.length) {
     lines.push('', '*Blocked waiting on an approval*');
     for (const row of digest.awaitingApproval) {
       const owner = formatOwner(row.assigneeName);
-      lines.push(`${formatIssueLink(row.identifier)} ${row.title} — ${owner}, ${row.ageDays ?? 0}d`);
+      const approver = approverMention(row.stage);
+      const suffix = approver ? ` — ${approver} to approve` : '';
+      lines.push(
+        `${formatIssueLink(row.identifier)} ${row.title} — ${owner}, ${row.ageDays ?? 0}d${suffix}`,
+      );
     }
     if (digest.awaitingApprovalTotal > digest.awaitingApproval.length) {
       lines.push(`+${digest.awaitingApprovalTotal - digest.awaitingApproval.length} more`);
@@ -283,7 +339,6 @@ export const formatSlackMessage = (digest: RfpDigest, now: Date): string => {
   }
 
   lines.push('', `*Open right now — ${openTotal} live bids*`);
-
   for (const stage of OPEN_FUNNEL_ORDER) {
     lines.push(`${STAGE_LABELS[stage]} · ${count(stage)}`);
   }
@@ -297,24 +352,8 @@ export const formatSlackMessage = (digest: RfpDigest, now: Date): string => {
   }
 
   lines.push('', `*What each person moved in the last ${digest.windowDays} days*`);
-
   for (const person of digest.people) {
-    lines.push(
-      `*${person.name}* — submitted ${person.submitted.length} · no-go ${person.noGo.length} · started ${person.started.length} · sourced ${person.sourced.length}`,
-    );
-    if (person.submitted.length) {
-      lines.push(`${INDENT}*Submitted:*`, ...formatRefs(person.submitted));
-    }
-    if (person.started.length) {
-      lines.push(`${INDENT}*Started:*`, ...formatRefs(person.started));
-    }
-    if (person.noGo.length) {
-      lines.push(`${INDENT}*No-go:*`, ...formatRefs(person.noGo));
-    }
-    if (person.sourced.length) {
-      lines.push(`${INDENT}*Sourced:*`, ...formatRefs(person.sourced));
-    }
-    lines.push(`${INDENT}*Open:* ${formatOpenQueue(person.openByStage)}`);
+    lines.push(...formatPersonSection(person));
   }
 
   lines.push('', '_No Lost / No Response status on the board; losses are inferred from the `dnw` label._');

@@ -316,34 +316,48 @@ describe('formatSlackMessage', () => {
           completedAt: '2026-07-25T00:00:00.000Z',
         }),
         issue({ identifier: 'HOR-81', status: 'Awarded', labels: ['dnw'], updatedAt: '2026-07-25T00:00:00.000Z' }),
+        issue({ identifier: 'HOR-82', status: 'To be Reviewed', updatedAt: '2026-07-25T00:00:00.000Z' }),
+        issue({ identifier: 'HOR-83', status: 'In Progress', labels: ['Pre Sub Approval'], updatedAt: '2026-07-25T00:00:00.000Z' }),
+        issue({ identifier: 'HOR-84', status: 'Reviewed - Approved', assigneeName: 'Jhoan Santamaria' }),
       ],
       NOW,
       4,
     );
 
-  it('renders the funnel, per-person titles and the loss caveat', () => {
+  it('renders the funnel, per-person section and the loss caveat in one message', () => {
     const message = formatSlackMessage(digest(), NOW);
     expect(message).toContain('*RFP Pipeline — Mon, Jul 27*');
-    expect(message).toContain('*Jhoan Santamaria*');
+    expect(message).toContain('*What each person moved in the last 4 days*');
     expect(message).toContain('Student Information System');
-    expect(message).toContain('Brennen Stones');
     expect(message).toContain('Lost · 1');
     expect(message).toContain('dnw');
   });
 
   it('separates live inventory from windowed throughput', () => {
-    // The two must never share a list — 23 open is all-time, 47 not-approved is 30d.
     const message = formatSlackMessage(digest(), NOW);
     expect(message).toContain('*Open right now —');
     expect(message).toContain('*Closed in the last 30 days*');
   });
 
-  it('states the reporting window', () => {
-    expect(formatSlackMessage(digest(), NOW)).toContain('*What each person moved in the last 4 days*');
+  it('pings Brennen on the first-review gate and Michael on the pre-submission gate', () => {
+    const message = formatSlackMessage(digest(), NOW);
+    // HOR-82 is at the exec-summary gate (Brennen), HOR-83 at pre-submission (Michael).
+    expect(message).toMatch(/HOR-82\|HOR-82>.*<@U097XHX6Q2J> to approve/);
+    expect(message).toMatch(/HOR-83\|HOR-83>.*<@U03DJAC3QH4> to approve/);
+  });
+
+  it('@-mentions tracked people by Slack ID in their section', () => {
+    const message = formatSlackMessage(digest(), NOW);
+    expect(message).toContain('<@U098C1UPBB9>'); // Jhoan Santamaria
+    expect(message).toContain('<@U097XHX6Q2J>'); // Brennen Stones
+  });
+
+  it('shows an aggregate open queue per person', () => {
+    const message = formatSlackMessage(digest(), NOW);
+    expect(message).toMatch(/\*Open:\* .*first approved/);
   });
 
   it('links issue identifiers instead of emitting bare tokens', () => {
-    // Bare `HOR-80` would make the Linear Slack app reply in-thread to every row.
     const message = formatSlackMessage(digest(), NOW);
     expect(message).toContain('<https://linear.app/horustech/issue/HOR-80|HOR-80>');
     expect(message).not.toMatch(/(^|[^|/])HOR-80(?![|>])/);

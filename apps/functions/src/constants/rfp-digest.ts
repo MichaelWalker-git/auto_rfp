@@ -61,5 +61,25 @@ export const LINEAR_ISSUE_URL_BASE = 'https://linear.app/horustech/issue';
 /** Always shown in the per-person section, even at zero. */
 export const RFP_TRACKED_PEOPLE: readonly string[] = ['Brennen Stones', 'Jhoan Santamaria'];
 
+/**
+ * Slack user IDs, keyed by Linear display name, used to @-mention each tracked
+ * person on their own update post. A missing entry falls back to plain text.
+ */
+export const RFP_SLACK_USER_IDS: Record<string, string> = {
+  'Brennen Stones': 'U097XHX6Q2J',
+  'Jhoan Santamaria': 'U098C1UPBB9',
+  'Michael Walker': 'U03DJAC3QH4',
+};
+
+/**
+ * Who owns each approval gate in the "Blocked waiting on an approval" section:
+ * the first review gate (exec summary) is Brennen's, the pre-submission gate is
+ * Michael's. Values are Slack user IDs for `<@ID>` mentions.
+ */
+export const RFP_APPROVER_SLACK_IDS = {
+  INITIAL: 'U097XHX6Q2J', // Brennen Stones — first review of the exec summary
+  PRE_SUBMISSION: 'U03DJAC3QH4', // Michael Walker — final sign-off before submission
+} as const;
+
 export const RFP_TERMINAL_WINDOW_DAYS = 30;
 export const RFP_DIGEST_MAX_ROWS = 8;
