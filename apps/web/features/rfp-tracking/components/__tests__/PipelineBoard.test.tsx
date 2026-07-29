@@ -19,14 +19,11 @@ describe('PipelineBoard', () => {
     // badge), so assert at least one of each renders.
     expect(screen.getAllByText('Exec summary, to be reviewed').length).toBeGreaterThan(0);
     expect(screen.getAllByText('First approved').length).toBeGreaterThan(0);
-    expect(screen.getByText('Found')).toBeTruthy();
     expect(screen.getByText('In progress')).toBeTruthy();
     expect(screen.getByText('Second approved')).toBeTruthy();
     expect(screen.getByText('Submitted')).toBeTruthy();
-    expect(screen.getByText('Not approved')).toBeTruthy();
     expect(screen.getByText('Awarded')).toBeTruthy();
     expect(screen.getByText('Lost')).toBeTruthy();
-    expect(screen.getByText('Expired')).toBeTruthy();
   });
 
   it('places cards in the column matching their pipelineStage', () => {

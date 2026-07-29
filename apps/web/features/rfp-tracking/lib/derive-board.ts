@@ -28,9 +28,13 @@ const daysBetween = (fromIso: string | null | undefined, toIso: string | null | 
 export const resolveApprovalStatus = (item: RfpPipelineItem): OpportunityApprovalStatus =>
   item.approvalStatus ?? 'INITIAL_APPROVAL';
 
-/** The board stage an item sits in, defaulting missing → found. */
+/**
+ * The board stage an item sits in. Missing stage → execSummaryToReview (the
+ * first visible column) so a record without a synced stage still appears rather
+ * than landing in the hidden `found` bucket.
+ */
 export const resolveStage = (item: RfpPipelineItem): RfpPipelineStage =>
-  item.pipelineStage ?? 'found';
+  item.pipelineStage ?? 'execSummaryToReview';
 
 /**
  * When did the item enter its current stage? The last approvalHistory entry

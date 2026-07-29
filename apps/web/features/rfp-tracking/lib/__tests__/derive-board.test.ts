@@ -98,8 +98,8 @@ describe('toBoardCard', () => {
 });
 
 describe('resolveStage', () => {
-  it('defaults a missing pipelineStage to found', () => {
-    expect(resolveStage(makeItem({ pipelineStage: undefined }))).toBe('found');
+  it('defaults a missing pipelineStage to the first visible column', () => {
+    expect(resolveStage(makeItem({ pipelineStage: undefined }))).toBe('execSummaryToReview');
   });
 
   it('returns the item pipelineStage when present', () => {
@@ -117,12 +117,12 @@ describe('groupByStage', () => {
     const grouped = groupByStage(items, RFP_BOARD_STAGE_ORDER, NOW);
     expect(grouped.execSummaryToReview).toHaveLength(1);
     expect(grouped.firstApproved).toHaveLength(2);
-    expect(grouped.submitted).toEqual([]);
+    expect(grouped.awarded).toEqual([]);
   });
 
-  it('defaults a missing pipelineStage into the found column', () => {
+  it('defaults a missing pipelineStage into the first visible column', () => {
     const items = [makeItem({ id: 'x', pipelineStage: undefined })];
     const grouped = groupByStage(items, RFP_BOARD_STAGE_ORDER, NOW);
-    expect(grouped.found).toHaveLength(1);
+    expect(grouped.execSummaryToReview).toHaveLength(1);
   });
 });

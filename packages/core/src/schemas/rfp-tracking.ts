@@ -94,9 +94,12 @@ export const RFP_STAGE_COLORS: Record<RfpPipelineStage, string> = {
   expired: 'bg-gray-100 text-gray-500 border-gray-200',
 };
 
-/** Live inventory — every open issue, counted regardless of age. */
+/**
+ * Live inventory — every open issue, counted regardless of age. `found`
+ * (Todo/Backlog) is intentionally excluded from the board: those are freshly
+ * sourced/admin rows that haven't entered the review funnel yet.
+ */
 export const RFP_OPEN_STAGES = [
-  'found',
   'execSummaryToReview',
   'firstApproved',
   'inProgress',
@@ -104,16 +107,23 @@ export const RFP_OPEN_STAGES = [
   'secondApproved',
 ] as const satisfies readonly RfpPipelineStage[];
 
-/** Throughput — only counted within the terminal window (RFP_TERMINAL_WINDOW_DAYS). */
+/**
+ * Throughput — only counted within the terminal window (RFP_TERMINAL_WINDOW_DAYS).
+ * `notApproved` is intentionally excluded from the board (a rejected bid has left
+ * the active pipeline); submitted/awarded/lost outcomes are shown.
+ */
 export const RFP_TERMINAL_STAGES = [
   'submitted',
-  'notApproved',
   'awarded',
   'lost',
 ] as const satisfies readonly RfpPipelineStage[];
 
-/** Deadline passed while still open — dead, but stays counted until cleaned up. */
-export const RFP_STANDING_STAGES = ['expired'] as const satisfies readonly RfpPipelineStage[];
+/**
+ * Standing stages (shown regardless of age). `expired` is intentionally NOT a
+ * board column — stale intake is reclassified to it by the sync purely so it
+ * drops out of the live review queue, not so it gets its own column.
+ */
+export const RFP_STANDING_STAGES = [] as const satisfies readonly RfpPipelineStage[];
 
 /** Board column order: open funnel, then standing, then terminal outcomes. */
 export const RFP_BOARD_STAGE_ORDER: RfpPipelineStage[] = [

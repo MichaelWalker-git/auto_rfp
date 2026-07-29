@@ -64,6 +64,13 @@ const ORG_ID = requireEnv('RFP_SYNC_ORG_ID');
 const PROJECT_ID = requireEnv('RFP_SYNC_PROJECT_ID');
 const LINEAR_ORG_ID = requireEnv('RFP_SYNC_LINEAR_ORG_ID');
 const PROJECT_NAME = requireEnv('RFP_SYNC_PROJECT_NAME', 'Government Contracting');
+/**
+ * Intake staleness cutoff. An issue still in the intake stage
+ * (execSummaryToReview) that is past its due date, or has gone untouched for
+ * this many days, is treated as dead and reclassified to `expired` so it drops
+ * off the live review queue. Default 21 days; set 0 to disable.
+ */
+const INTAKE_STALE_DAYS = Number(requireEnv('RFP_SYNC_INTAKE_STALE_DAYS', '21'));
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -227,6 +234,21 @@ const isWithinWindow = (row: LinearRow, stage: RfpPipelineStage, cutoffMs: numbe
   return !Number.isNaN(closed) && closed >= cutoffMs;
 };
 
+/**
+ * Intake staleness: an issue still in the intake stage (execSummaryToReview) is
+ * considered dead — and reclassified to `expired` — if its due date has passed
+ * or it has gone untouched for INTAKE_STALE_DAYS. This keeps abandoned sourced
+ * items from inflating the review queue. Disabled when INTAKE_STALE_DAYS <= 0.
+ */
+const isStaleIntake = (row: LinearRow, nowMs: number): boolean => {
+  const due = row.dueDate ? Date.parse(`${row.dueDate}T23:59:59.000Z`) : NaN;
+  if (!Number.isNaN(due) && due < nowMs) return true;
+
+  if (INTAKE_STALE_DAYS <= 0) return false;
+  const touched = Date.parse(row.updatedAt);
+  return !Number.isNaN(touched) && touched < nowMs - INTAKE_STALE_DAYS * DAY_MS;
+};
+
 const buildRecord = (row: LinearRow, stage: RfpPipelineStage) => {
   const approvalStatus = STAGE_TO_APPROVAL[stage];
   const status = STAGE_TO_STATUS[stage];
@@ -295,6 +317,7 @@ interface SyncResult {
   pruned: number;
   skippedUntracked: number;
   skippedOutOfWindow: number;
+  expiredIntake: number;
   byStage: Record<string, number>;
 }
 
@@ -310,16 +333,28 @@ export const syncLinearPipeline = async (): Promise<SyncResult> => {
 
   const client = new LinearClient({ apiKey });
   const rows = await fetchLinearRows(client);
-  const cutoffMs = Date.now() - RFP_TERMINAL_WINDOW_DAYS * DAY_MS;
+  const nowMs = Date.now();
+  const cutoffMs = nowMs - RFP_TERMINAL_WINDOW_DAYS * DAY_MS;
 
   let skippedUntracked = 0;
   let skippedOutOfWindow = 0;
+  let expiredIntake = 0;
   const records: ReturnType<typeof buildRecord>[] = [];
 
   for (const row of rows) {
     const stage = resolveRfpStage({ identifier: row.id, status: row.linearStatus, labels: row.labels });
-    if (!stage) {
+    // Stages not shown on the board are dropped alongside untracked issues:
+    // `found` (Todo/Backlog) hasn't entered the review funnel yet, `notApproved`
+    // is a rejected bid that has left the pipeline, and `expired` is not a board
+    // column (stale intake is dropped below, not given a column).
+    if (!stage || stage === 'found' || stage === 'notApproved' || stage === 'expired') {
       skippedUntracked += 1;
+      continue;
+    }
+    // Drop dead intake (past due / untouched) so it stops inflating the
+    // "Exec summary, to be reviewed" column instead of lingering as live work.
+    if (stage === 'execSummaryToReview' && isStaleIntake(row, nowMs)) {
+      expiredIntake += 1;
       continue;
     }
     if (!isWithinWindow(row, stage, cutoffMs)) {
@@ -360,6 +395,7 @@ export const syncLinearPipeline = async (): Promise<SyncResult> => {
     pruned,
     skippedUntracked,
     skippedOutOfWindow,
+    expiredIntake,
     byStage,
   };
 };

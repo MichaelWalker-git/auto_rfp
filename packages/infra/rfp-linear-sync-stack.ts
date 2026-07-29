@@ -23,6 +23,8 @@ export interface RfpLinearSyncStackProps extends cdk.StackProps {
   linearProjectName?: string;
   /** Look-back window in days. */
   windowDays?: number;
+  /** Intake staleness cutoff in days — past-due/untouched intake → expired. 0 disables. */
+  intakeStaleDays?: number;
 }
 
 /**
@@ -45,6 +47,7 @@ export class RfpLinearSyncStack extends cdk.Stack {
       linearOrgId,
       linearProjectName = 'Government Contracting',
       windowDays = 14,
+      intakeStaleDays = 21,
     } = props;
 
     // 1. Lambda execution role (no AWS managed policies)
@@ -98,6 +101,7 @@ export class RfpLinearSyncStack extends cdk.Stack {
         RFP_SYNC_LINEAR_ORG_ID: linearOrgId,
         RFP_SYNC_PROJECT_NAME: linearProjectName,
         RFP_SYNC_WINDOW_DAYS: String(windowDays),
+        RFP_SYNC_INTAKE_STALE_DAYS: String(intakeStaleDays),
       },
       bundling: {
         minify: true,
