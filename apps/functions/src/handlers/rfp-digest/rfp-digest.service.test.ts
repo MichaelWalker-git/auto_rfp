@@ -327,7 +327,7 @@ describe('formatSlackMessage', () => {
   it('renders the funnel, per-person section and the loss caveat in one message', () => {
     const message = formatSlackMessage(digest(), NOW);
     expect(message).toContain('*RFP Pipeline — Mon, Jul 27*');
-    expect(message).toContain('*What each person moved in the last 4 days*');
+    expect(message).toContain('*What each person moved since Thursday, Jul 23*');
     expect(message).toContain('Student Information System');
     expect(message).toContain('Lost · 1');
     expect(message).toContain('dnw');

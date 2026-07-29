@@ -288,6 +288,21 @@ const formatHeading = (now: Date): string =>
     timeZone: 'America/Los_Angeles',
   });
 
+/**
+ * The day the current window opened, named by weekday — e.g. "Monday, Jul 21".
+ * Thursday's digest looks back to Monday; Monday's looks back to Thursday, so
+ * naming the day reads more naturally than "the last N days".
+ */
+const formatSinceDay = (now: Date, windowDays: number): string => {
+  const since = new Date(now.getTime() - windowDays * DAY_MS);
+  return since.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'America/Los_Angeles',
+  });
+};
+
 /** One person's activity block within the digest, @-mentioning them. */
 const formatPersonSection = (person: RfpPersonProgress): string[] => {
   const lines: string[] = [
@@ -351,7 +366,7 @@ export const formatSlackMessage = (digest: RfpDigest, now: Date): string => {
     lines.push(`${STAGE_LABELS[stage]} · ${count(stage)}`);
   }
 
-  lines.push('', `*What each person moved in the last ${digest.windowDays} days*`);
+  lines.push('', `*What each person moved since ${formatSinceDay(now, digest.windowDays)}*`);
   for (const person of digest.people) {
     lines.push(...formatPersonSection(person));
   }
