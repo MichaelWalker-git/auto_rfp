@@ -1,3 +1,5 @@
+import { gzipSync, gunzipSync } from 'node:zlib';
+
 import { GetCommand, QueryCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -17,6 +19,61 @@ import type {
 const DOCUMENTS_TABLE = requireEnv('DB_TABLE_NAME');
 
 export type RequiredFormDBItem = RequiredFormItem & DBItem;
+
+// ─── Field compression ───────────────────────────────────────────────────────
+//
+// A single required-form item stores its whole `fields` array inline. Large
+// multi-sheet XLSX compliance matrices produce hundreds–thousands of fields —
+// each duplicating the feature text (`label` + `matrixFeature`) plus autofilled
+// comment sentences — which pushes the item past DynamoDB's hard 400 KB limit
+// and fails the write with "Item size to update has exceeded the maximum
+// allowed size".
+//
+// The `fields` JSON is highly repetitive (repeated feature text, shared column
+// headers, many nulls), so gzip shrinks it ~8–15×. We store the compressed
+// bytes in a binary `fieldsGz` attribute and keep the inline `fields` array
+// empty; reads transparently decompress. Legacy items written before this
+// change have no `fieldsGz` and are read straight from inline `fields`.
+
+const FIELDS_GZ_ATTR = 'fieldsGz';
+
+// DynamoDB's hard item limit is 400 KB. Leave headroom for the rest of the
+// item (ids, counts, timestamps, error messages) so a form that still overflows
+// after compression fails with a clear message instead of the raw DDB error.
+const MAX_FIELDS_GZ_BYTES = 380_000;
+
+// Stored shape: the domain item plus the internal compressed-fields attribute.
+type StoredRequiredForm = RequiredFormDBItem & { [FIELDS_GZ_ATTR]?: Uint8Array };
+
+const encodeFields = (fields: DetectedFormField[]): Uint8Array => {
+  const gz = gzipSync(Buffer.from(JSON.stringify(fields), 'utf-8'));
+  if (gz.byteLength > MAX_FIELDS_GZ_BYTES) {
+    throw new Error(
+      `Compressed form fields (${gz.byteLength} bytes) exceed the DynamoDB item budget ` +
+        `(${MAX_FIELDS_GZ_BYTES} bytes); form has ${fields.length} fields`,
+    );
+  }
+  return new Uint8Array(gz);
+};
+
+const decodeFields = (raw: Uint8Array): DetectedFormField[] => {
+  const json = gunzipSync(raw).toString('utf-8');
+  return JSON.parse(json) as DetectedFormField[];
+};
+
+/**
+ * Reconstruct a domain form item from its stored shape: decompress `fieldsGz`
+ * into `fields` (falling back to inline `fields` for legacy items) and drop the
+ * internal `fieldsGz` attribute so callers never see it.
+ */
+function decodeStoredForm(item: StoredRequiredForm): RequiredFormDBItem;
+function decodeStoredForm(item: StoredRequiredForm | null | undefined): RequiredFormDBItem | null;
+function decodeStoredForm(item: StoredRequiredForm | null | undefined): RequiredFormDBItem | null {
+  if (!item) return null;
+  const { [FIELDS_GZ_ATTR]: gz, ...rest } = item;
+  const fields = gz != null ? decodeFields(gz) : (rest.fields ?? []);
+  return { ...rest, fields };
+}
 
 export const buildRequiredFormSk = (
   orgId: string,
@@ -42,14 +99,17 @@ export const createRequiredForm = async (args: {
   const manual = fields.filter((f) => f.status === 'MANUAL_REQUIRED').length;
   const total = fields.length;
 
-  const item = await createItem<RequiredFormDBItem>(
+  const stored = await createItem<StoredRequiredForm>(
     REQUIRED_FORM_PK,
     buildRequiredFormSk(dto.orgId, dto.projectId, dto.opportunityId, formId),
     {
       ...dto,
       formId,
       status: total > 0 ? 'READY' : 'NEW',
-      fields,
+      // Fields live in the compressed `fieldsGz` attribute; keep inline `fields`
+      // empty so the item stays under the DynamoDB 400 KB limit.
+      fields: [],
+      [FIELDS_GZ_ATTR]: encodeFields(fields),
       filledFileKey: null,
       autoFillPercentage: total > 0 ? Math.round((autoFilled / total) * 100) : 0,
       manualFieldCount: manual,
@@ -61,10 +121,10 @@ export const createRequiredForm = async (args: {
       reviewedBy: null,
       reviewedAt: null,
       errorMessage: null,
-    } as unknown as RequiredFormDBItem
+    } as unknown as StoredRequiredForm
   );
 
-  return { item, formId };
+  return { item: decodeStoredForm(stored), formId };
 };
 
 export const getRequiredForm = async (args: {
@@ -82,7 +142,7 @@ export const getRequiredForm = async (args: {
       },
     })
   );
-  return (res.Item as RequiredFormDBItem) ?? null;
+  return decodeStoredForm(res.Item as StoredRequiredForm | undefined);
 };
 
 export const listRequiredFormsByOpportunity = async (args: {
@@ -102,7 +162,7 @@ export const listRequiredFormsByOpportunity = async (args: {
     })
   );
 
-  return (res.Items ?? []) as RequiredFormDBItem[];
+  return ((res.Items ?? []) as StoredRequiredForm[]).map((i) => decodeStoredForm(i));
 };
 
 export const updateRequiredForm = async (args: {
@@ -129,6 +189,17 @@ export const updateRequiredForm = async (args: {
   const updates: string[] = [];
 
   for (const [k, v] of patchEntries) {
+    // `fields` is never written inline — compress it into the binary `fieldsGz`
+    // attribute so a large matrix doesn't blow the DynamoDB 400 KB item limit.
+    if (k === 'fields') {
+      names['#f_fields'] = 'fields';
+      values[':v_fields'] = [];
+      updates.push('#f_fields = :v_fields');
+      names[`#f_${FIELDS_GZ_ATTR}`] = FIELDS_GZ_ATTR;
+      values[`:v_${FIELDS_GZ_ATTR}`] = encodeFields(v as DetectedFormField[]);
+      updates.push(`#f_${FIELDS_GZ_ATTR} = :v_${FIELDS_GZ_ATTR}`);
+      continue;
+    }
     names[`#f_${k}`] = k;
     values[`:v_${k}`] = v;
     updates.push(`#f_${k} = :v_${k}`);
@@ -157,12 +228,12 @@ export const updateRequiredForm = async (args: {
     })
   );
 
-  return res.Attributes as RequiredFormDBItem;
+  return decodeStoredForm(res.Attributes as StoredRequiredForm);
 };
 
 export const findRequiredFormByFormId = async (formId: string): Promise<RequiredFormDBItem | null> => {
-  const items = await scanByPkWithFilter<RequiredFormDBItem>(REQUIRED_FORM_PK, 'formId', formId);
-  return items[0] ?? null;
+  const items = await scanByPkWithFilter<StoredRequiredForm>(REQUIRED_FORM_PK, 'formId', formId);
+  return decodeStoredForm(items[0]);
 };
 
 export const deleteRequiredForm = async (args: {

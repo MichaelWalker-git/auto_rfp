@@ -473,6 +473,35 @@ describe('detect-required-forms', () => {
     expect(readyCall![0].patch).not.toHaveProperty('reviewRequired', true);
   });
 
+  it('BACKSTOP: surfaces a detected XLSX form for manual review when the parser extracts 0 fields', async () => {
+    const xlsxEvent = {
+      ...baseEvent,
+      sourceFileKey: 'org-1/proj-1/opp-1/file.xlsx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    };
+    mockLoadTextFromS3.mockResolvedValueOnce('document text');
+    mockInvokeModel.mockResolvedValueOnce(
+      encodeModelResponse(JSON.stringify({
+        forms: [{ name: 'Unreadable Pricing Form', formType: 'XLSX_FORM' }],
+        confidence: 0.9,
+      })),
+    );
+    mockCreateForm.mockResolvedValueOnce({ formId: 'form-empty', item: {} });
+    // Parser finds no fillable structure (a layout it can't map).
+    mockParseXlsx.mockResolvedValueOnce([]);
+
+    await baseHandler(xlsxEvent);
+
+    // The form is NOT dropped — it is written READY, flagged for review, with a
+    // message telling the user to complete it from the attached file.
+    const call = mockUpdateForm.mock.calls.find((c) => c[0].formId === 'form-empty');
+    expect(call).toBeDefined();
+    expect(call![0].patch.status).toBe('READY');
+    expect(call![0].patch.reviewRequired).toBe(true);
+    expect(call![0].patch.totalFieldCount).toBe(0);
+    expect(call![0].patch.errorMessage).toMatch(/no fillable cells|manually/i);
+  });
+
   it('parses DOCX inline (no Textract), autofills from profile, and writes READY', async () => {
     const docxEvent = {
       ...baseEvent,

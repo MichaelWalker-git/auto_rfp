@@ -350,18 +350,45 @@ export const baseHandler = async (
         const autoFilled = fields.filter((f) => f.status === 'AUTO_FILLED').length;
         const autoFillPercentage = total > 0 ? Math.round((autoFilled / total) * 100) : 0;
 
-        await updateRequiredForm({
-          orgId, projectId, opportunityId, formId,
-          patch: {
-            fields,
-            status: 'READY',
-            totalFieldCount: total,
-            manualFieldCount: manual,
-            autoFillPercentage,
-            // Matrix forms always require human review before submission.
-            reviewRequired: detectedFormType === 'XLSX_MATRIX' ? true : undefined,
-          },
-        });
+        if (total === 0) {
+          // BACKSTOP: Bedrock detected a form in this workbook, but the
+          // structural parser extracted no fillable fields (a layout it can't
+          // read — e.g. a template pre-filled with placeholder text). Missing a
+          // required form is critical for submission, so never silently drop it:
+          // surface the form for manual review, linked to the source file, with
+          // reviewRequired set so the UI flags it. The user can fill it directly
+          // from the attached file even though we couldn't map its fields.
+          console.warn(
+            `XLSX form "${formName}" (${formId}) detected but parser extracted 0 fields — ` +
+            'surfacing for manual review instead of dropping.',
+          );
+          await updateRequiredForm({
+            orgId, projectId, opportunityId, formId,
+            patch: {
+              fields: [],
+              status: 'READY',
+              totalFieldCount: 0,
+              manualFieldCount: 0,
+              autoFillPercentage: 0,
+              reviewRequired: true,
+              errorMessage:
+                'Automatic field extraction found no fillable cells. Review and complete this form manually from the attached file.',
+            },
+          });
+        } else {
+          await updateRequiredForm({
+            orgId, projectId, opportunityId, formId,
+            patch: {
+              fields,
+              status: 'READY',
+              totalFieldCount: total,
+              manualFieldCount: manual,
+              autoFillPercentage,
+              // Matrix forms always require human review before submission.
+              reviewRequired: detectedFormType === 'XLSX_MATRIX' ? true : undefined,
+            },
+          });
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error(`XLSX parse failed for form ${formId}: ${message}`);
