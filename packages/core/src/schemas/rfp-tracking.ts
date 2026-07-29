@@ -64,6 +64,16 @@ export const RFP_NON_LIFECYCLE_STATUSES: readonly string[] = [
 /** Internal admin/report tickets that live on the RFP board but are not RFPs. */
 export const RFP_EXCLUDED_IDENTIFIERS: readonly string[] = ['HOR-2073', 'HOR-1488'];
 
+/**
+ * Synthetic project id under which the Linear sync stores its Opportunity
+ * records. The RFP-tracking dashboard scopes its fetch to this project so it
+ * mirrors the Linear "Government Contracting" board rather than every
+ * opportunity in the org (SAM.gov/HigherGov/manual imports live under other
+ * project ids and would otherwise flood the intake column). Single source of
+ * truth for both the sync writer (RFP_SYNC_PROJECT_ID env) and the board reader.
+ */
+export const RFP_SYNC_PROJECT_ID = 'gov-contracting';
+
 /** Human-readable board column labels (exact digest wording). */
 export const RFP_STAGE_LABELS: Record<RfpPipelineStage, string> = {
   found: 'Found',

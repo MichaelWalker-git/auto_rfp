@@ -120,17 +120,18 @@ export const listOpportunitiesByProject = async (args: {
 };
 
 /**
- * LIST (by org — across all projects)
+ * LIST (by org — optionally scoped to a single project)
  * PK = OPPORTUNITY_PK
- * SK begins_with `${orgId}#`
- * Paginates through the full result set (RFP-tracking board fetches org-wide).
+ * SK begins_with `${orgId}#` (org-wide) or `${orgId}#${projectId}#` (scoped).
+ * Paginates through the full result set. When `projectId` is supplied the query
+ * is scoped to that project — the RFP-tracking board passes the Linear-sync
+ * project id so it mirrors the Linear board instead of every org opportunity.
  * Enriches items with createdByName / updatedByName from the user table.
  */
-export const listOpportunitiesByOrg = async (args: { orgId: string }) => {
-  const items = await queryAllBySkPrefix<OpportunityDBItem>(
-    OPPORTUNITY_PK,
-    `${args.orgId}#`,
-  );
+export const listOpportunitiesByOrg = async (args: { orgId: string; projectId?: string }) => {
+  const skPrefix = args.projectId ? `${args.orgId}#${args.projectId}#` : `${args.orgId}#`;
+
+  const items = await queryAllBySkPrefix<OpportunityDBItem>(OPPORTUNITY_PK, skPrefix);
 
   const enriched = await enrichWithUserNames(args.orgId, items);
 

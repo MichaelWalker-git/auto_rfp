@@ -45,6 +45,12 @@ describe('listOpportunitiesByOrg', () => {
     expect(result).toEqual({ items: enriched });
   });
 
+  it('scopes the query to the project SK prefix when projectId is passed', async () => {
+    await listOpportunitiesByOrg({ orgId: 'org-1', projectId: 'gov-contracting' });
+
+    expect(mockQueryAllBySkPrefix).toHaveBeenCalledWith(OPPORTUNITY_PK, 'org-1#gov-contracting#');
+  });
+
   it('returns an empty list when the org has no opportunities', async () => {
     const result = await listOpportunitiesByOrg({ orgId: 'empty-org' });
     expect(result).toEqual({ items: [] });

@@ -12,14 +12,20 @@ import {
 } from '@/middleware/rbac-middleware';
 
 import { listOpportunitiesByOrg } from '@/helpers/opportunity';
+import { RFP_SYNC_PROJECT_ID } from '@auto-rfp/core';
 
 /**
  * GET /dashboard/get-rfp-pipeline
  *
- * Returns every opportunity in the org so the RFP-tracking board, approval
- * queue, and needs-attention flags can be derived client-side from a single
- * fetch. Items carry statusHistory + dollar value + outcome detail on top of
- * the list-card fields (see RfpPipelineItemSchema in @auto-rfp/core).
+ * Returns the Linear-synced RFP-tracking records for the org — scoped to the
+ * sync project (RFP_SYNC_PROJECT_ID) so the board mirrors the Linear
+ * "Government Contracting" board rather than every org opportunity (SAM.gov /
+ * HigherGov / manual imports live under other projects and would otherwise
+ * flood the intake column). The board, approval queue, and needs-attention
+ * flags are all derived client-side from this single fetch. Items carry
+ * statusHistory + dollar value + outcome detail on top of the list-card fields
+ * (see RfpPipelineItemSchema in @auto-rfp/core). An explicit `projectId` query
+ * param overrides the default scope.
  */
 export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   try {
@@ -28,7 +34,8 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
       return apiResponse(400, { ok: false, error: 'orgId is required' });
     }
 
-    const { items } = await listOpportunitiesByOrg({ orgId });
+    const projectId = event.queryStringParameters?.projectId ?? RFP_SYNC_PROJECT_ID;
+    const { items } = await listOpportunitiesByOrg({ orgId, projectId });
 
     return apiResponse(200, { ok: true, items });
   } catch (err: unknown) {

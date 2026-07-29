@@ -15,6 +15,7 @@ import { CollaborationWebSocketStack } from '../collaboration-websocket-stack';
 import { AuditStack } from '../audit-stack';
 import { OpportunityEventsStack } from '../opportunity-events-stack';
 import { RfpLinearSyncStack } from '../rfp-linear-sync-stack';
+import { RFP_SYNC_PROJECT_ID } from '@auto-rfp/core';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import {
   addAllSuppressions,
@@ -235,7 +236,7 @@ const rfpLinearSyncStack = new RfpLinearSyncStack(app, `AutoRfp-RfpLinearSync-${
   stage,
   mainTable: db.tableName,
   rfpOrgId: '9c0a5757-e2da-4e71-9490-01c558f7ffc3',
-  rfpProjectId: 'gov-contracting',
+  rfpProjectId: RFP_SYNC_PROJECT_ID,
   linearOrgId: '6fbf749f-7173-489c-be0a-564f97ebf8b0',
   linearProjectName: 'Government Contracting',
   windowDays: 14,

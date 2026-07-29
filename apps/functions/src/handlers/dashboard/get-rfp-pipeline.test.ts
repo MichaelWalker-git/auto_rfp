@@ -40,7 +40,7 @@ describe('get-rfp-pipeline', () => {
     expect(mockListOpportunitiesByOrg).not.toHaveBeenCalled();
   });
 
-  it('returns the org-wide opportunity list on the happy path', async () => {
+  it('scopes the fetch to the Linear-sync project on the happy path', async () => {
     const items = [
       { id: 'opp-1', title: 'A', status: 'QUALIFYING' },
       { id: 'opp-2', title: 'B', status: 'PURSUING' },
@@ -49,11 +49,25 @@ describe('get-rfp-pipeline', () => {
 
     const response = await baseHandler(makeEvent({ orgId: 'org-123' }));
 
-    expect(mockListOpportunitiesByOrg).toHaveBeenCalledWith({ orgId: 'org-123' });
+    expect(mockListOpportunitiesByOrg).toHaveBeenCalledWith({
+      orgId: 'org-123',
+      projectId: 'gov-contracting',
+    });
     expect(response).toMatchObject({ statusCode: 200 });
     const body = JSON.parse((response as { body: string }).body);
     expect(body.ok).toBe(true);
     expect(body.items).toHaveLength(2);
+  });
+
+  it('honors an explicit projectId query-param override', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValueOnce({ items: [] });
+
+    await baseHandler(makeEvent({ orgId: 'org-123', projectId: 'other-project' }));
+
+    expect(mockListOpportunitiesByOrg).toHaveBeenCalledWith({
+      orgId: 'org-123',
+      projectId: 'other-project',
+    });
   });
 
   it('returns 500 when the helper throws', async () => {
