@@ -129,21 +129,25 @@ const isAwarded = (item: RfpPipelineItem): boolean =>
 export interface MetricsFilter {
   startIso: string;
   endIso: string;
-  /** Optional owner (assigneeId) filter; undefined = all owners. */
-  assigneeId?: string;
+  /**
+   * Optional owner filter, keyed on the assignee's NAME (the only assignee
+   * identity present on Linear-synced items — there is no stable app user id).
+   * undefined = all owners.
+   */
+  assigneeName?: string;
 }
 
 /**
- * Owner-only filter — restricts the working set by assignee. Date-range scoping
- * is applied per metric (each metric decides what "in period" means), so this
- * intentionally does NOT drop items by date; it only narrows by owner.
+ * Owner-only filter — restricts the working set by assignee name. Date-range
+ * scoping is applied per metric (each metric decides what "in period" means), so
+ * this intentionally does NOT drop items by date; it only narrows by owner.
  */
 export const filterItems = (
   items: RfpPipelineItem[],
-  { assigneeId }: Pick<MetricsFilter, 'assigneeId'>,
+  { assigneeName }: Pick<MetricsFilter, 'assigneeName'>,
 ): RfpPipelineItem[] => {
-  if (!assigneeId) return items;
-  return items.filter((item) => item.assigneeId === assigneeId);
+  if (!assigneeName) return items;
+  return items.filter((item) => item.assigneeName === assigneeName);
 };
 
 // ─── 1. Throughput — submissions per ISO week ────────────────────────────────
@@ -540,22 +544,25 @@ export const aging = (
 // ─── Owner options ───────────────────────────────────────────────────────────
 
 export interface OwnerOption {
-  assigneeId: string;
   assigneeName: string;
 }
 
-/** Distinct assignees across the items, sorted by name, for the owner filter. */
+/**
+ * Distinct assignees across the items, keyed by NAME (the identity that exists
+ * on Linear-synced records — no stable assigneeId is available), sorted
+ * alphabetically, for the owner filter. Items with a null/undefined/empty name
+ * are skipped.
+ */
 export const ownerOptions = (items: RfpPipelineItem[]): OwnerOption[] => {
-  const byId = new Map<string, string>();
+  const names = new Set<string>();
   for (const item of items) {
-    if (!item.assigneeId) continue;
-    if (!byId.has(item.assigneeId)) {
-      byId.set(item.assigneeId, item.assigneeName ?? item.assigneeId);
-    }
+    const name = item.assigneeName?.trim();
+    if (!name) continue;
+    names.add(name);
   }
-  return [...byId.entries()]
-    .map(([assigneeId, assigneeName]) => ({ assigneeId, assigneeName }))
-    .sort((a, b) => a.assigneeName.localeCompare(b.assigneeName));
+  return [...names]
+    .sort((a, b) => a.localeCompare(b))
+    .map((assigneeName) => ({ assigneeName }));
 };
 
 // ─── Date-range presets ──────────────────────────────────────────────────────

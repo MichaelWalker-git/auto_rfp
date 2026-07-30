@@ -316,6 +316,8 @@ interface SyncResult {
   fetched: number;
   written: number;
   pruned: number;
+  /** True when the destructive prune was skipped by the zero-resolve safety floor. */
+  prunedSkipped: boolean;
   skippedUntracked: number;
   skippedOutOfWindow: number;
   expiredIntake: number;
@@ -413,6 +415,32 @@ export const syncLinearPipeline = async (): Promise<SyncResult> => {
   const skPrefix = `${buildOpportunitySk(ORG_ID, PROJECT_ID, 'linear-')}`;
   const existing = await queryAllBySkPrefix<{ [k: string]: string }>(OPPORTUNITY_PK, skPrefix);
 
+  // Safety floor against a degenerate run wiping the whole board. A healthy
+  // Linear board is never empty, so a run that resolved ZERO records almost
+  // always means an upstream hiccup — a transient empty page, or issues whose
+  // `state` came back null (eventual consistency) so every row fell through
+  // resolveRfpStage to null. Pruning on such a run would delete every existing
+  // record, blanking the dashboard until the next healthy run repopulates it.
+  // When there is prior inventory but nothing resolved, skip the prune entirely
+  // and let the next run reconcile. (A genuine empty board — no existing
+  // records either — needs no prune anyway.)
+  if (records.length === 0 && existing.length > 0) {
+    console.warn(
+      'Linear pipeline sync resolved 0 records while %d exist — skipping prune to avoid wiping the board',
+      existing.length,
+    );
+    return {
+      fetched: rows.length,
+      written: 0,
+      pruned: 0,
+      prunedSkipped: true,
+      skippedUntracked,
+      skippedOutOfWindow,
+      expiredIntake,
+      byStage,
+    };
+  }
+
   let pruned = 0;
   for (const item of existing) {
     const sk = item[SK_NAME];
@@ -426,6 +454,7 @@ export const syncLinearPipeline = async (): Promise<SyncResult> => {
     fetched: rows.length,
     written: records.length,
     pruned,
+    prunedSkipped: false,
     skippedUntracked,
     skippedOutOfWindow,
     expiredIntake,

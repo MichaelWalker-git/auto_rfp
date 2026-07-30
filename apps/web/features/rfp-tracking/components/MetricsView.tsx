@@ -53,13 +53,13 @@ export const MetricsView = ({
 }: MetricsViewProps) => {
   const now = nowIso ?? new Date().toISOString();
   const [weeks, setWeeks] = useState(DEFAULT_WEEKS);
-  const [assigneeId, setAssigneeId] = useState<string | undefined>(undefined);
+  const [assigneeName, setAssigneeName] = useState<string | undefined>(undefined);
 
   const owners = useMemo(() => ownerOptions(items), [items]);
   const range = useMemo(() => lastNWeeksRange(now, weeks), [now, weeks]);
 
   // Owner-filtered working set; date scoping is applied per metric.
-  const scoped = useMemo(() => filterItems(items, { assigneeId }), [items, assigneeId]);
+  const scoped = useMemo(() => filterItems(items, { assigneeName }), [items, assigneeName]);
 
   const throughput = useMemo(
     () => throughputByWeek(scoped, range.startIso, range.endIso),
@@ -82,8 +82,8 @@ export const MetricsView = ({
       <MetricsFilters
         weeks={weeks}
         onWeeksChange={setWeeks}
-        assigneeId={assigneeId}
-        onAssigneeChange={setAssigneeId}
+        assigneeName={assigneeName}
+        onAssigneeChange={setAssigneeName}
         owners={owners}
       />
 

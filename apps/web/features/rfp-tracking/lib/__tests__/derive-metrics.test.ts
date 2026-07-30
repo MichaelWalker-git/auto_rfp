@@ -96,17 +96,31 @@ describe('submittedAtIso', () => {
 
 describe('filterItems (owner filter)', () => {
   const items = [
-    makeItem({ id: 'a', assigneeId: 'u1' }),
-    makeItem({ id: 'b', assigneeId: 'u2' }),
-    makeItem({ id: 'c', assigneeId: 'u1' }),
+    makeItem({ id: 'a', assigneeName: 'Amy' }),
+    makeItem({ id: 'b', assigneeName: 'Bob' }),
+    makeItem({ id: 'c', assigneeName: 'Amy' }),
   ];
 
   it('returns all items when no owner is given', () => {
     expect(filterItems(items, {})).toHaveLength(3);
   });
 
-  it('narrows to the selected owner', () => {
-    expect(filterItems(items, { assigneeId: 'u1' }).map((i) => i.id)).toEqual(['a', 'c']);
+  it('narrows to the selected owner by name', () => {
+    expect(filterItems(items, { assigneeName: 'Amy' }).map((i) => i.id)).toEqual(['a', 'c']);
+  });
+
+  it('filters Linear-synced items that have ONLY a name (no assigneeId)', () => {
+    // Regression: Linear sync populates assigneeName but never assigneeId, so the
+    // owner filter must key on name. Items with assigneeId undefined must still
+    // be filterable by their name.
+    const linearSynced = [
+      makeItem({ id: 'l1', assigneeId: undefined, assigneeName: 'Grace Hopper' }),
+      makeItem({ id: 'l2', assigneeId: undefined, assigneeName: 'Alan Turing' }),
+      makeItem({ id: 'l3', assigneeId: undefined, assigneeName: 'Grace Hopper' }),
+    ];
+    expect(
+      filterItems(linearSynced, { assigneeName: 'Grace Hopper' }).map((i) => i.id),
+    ).toEqual(['l1', 'l3']);
   });
 });
 
@@ -351,17 +365,37 @@ describe('aging', () => {
 });
 
 describe('ownerOptions', () => {
-  it('returns distinct owners sorted by name', () => {
+  it('returns distinct owners keyed by name, sorted alphabetically', () => {
     const items = [
-      makeItem({ id: 'a', assigneeId: 'u2', assigneeName: 'Zed' }),
-      makeItem({ id: 'b', assigneeId: 'u1', assigneeName: 'Amy' }),
-      makeItem({ id: 'c', assigneeId: 'u1', assigneeName: 'Amy' }),
-      makeItem({ id: 'd', assigneeId: undefined, assigneeName: undefined }),
+      makeItem({ id: 'a', assigneeName: 'Zed' }),
+      makeItem({ id: 'b', assigneeName: 'Amy' }),
+      makeItem({ id: 'c', assigneeName: 'Amy' }),
+      makeItem({ id: 'd', assigneeName: undefined }),
     ];
-    expect(ownerOptions(items)).toEqual([
-      { assigneeId: 'u1', assigneeName: 'Amy' },
-      { assigneeId: 'u2', assigneeName: 'Zed' },
+    expect(ownerOptions(items)).toEqual([{ assigneeName: 'Amy' }, { assigneeName: 'Zed' }]);
+  });
+
+  it('builds owner options from Linear-synced items that have ONLY a name (no assigneeId)', () => {
+    // Regression: the entire board is Linear-synced, where assigneeId is always
+    // undefined and only assigneeName is set. The dropdown must still populate.
+    const linearSynced = [
+      makeItem({ id: 'l1', assigneeId: undefined, assigneeName: 'Grace Hopper' }),
+      makeItem({ id: 'l2', assigneeId: undefined, assigneeName: 'Alan Turing' }),
+      makeItem({ id: 'l3', assigneeId: undefined, assigneeName: 'Grace Hopper' }),
+    ];
+    expect(ownerOptions(linearSynced)).toEqual([
+      { assigneeName: 'Alan Turing' },
+      { assigneeName: 'Grace Hopper' },
     ]);
+  });
+
+  it('skips null/undefined/empty-string names', () => {
+    const items = [
+      makeItem({ id: 'a', assigneeName: undefined }),
+      makeItem({ id: 'b', assigneeName: '   ' }),
+      makeItem({ id: 'c', assigneeName: 'Ada' }),
+    ];
+    expect(ownerOptions(items)).toEqual([{ assigneeName: 'Ada' }]);
   });
 
   it('handles empty input', () => {

@@ -27,17 +27,34 @@ describe('NeedsAttentionPanel', () => {
     expect(screen.getByText(/is active but has no owner/i)).toBeTruthy();
   });
 
-  it('links each flagged item to its opportunity detail page', () => {
+  it('links a flagged item with a sourceUrl to its Linear issue in a new tab', () => {
     const item = makeItem({
       id: 'opp-5',
       oppId: 'opp-5',
       projectId: 'proj-2',
       status: 'PURSUING',
       responseDeadlineIso: undefined,
+      sourceUrl: 'https://linear.app/acme/issue/GOV-5',
     });
     render(<NeedsAttentionPanel items={[item]} orgId="org-9" />);
     const link = screen.getByRole('link');
-    expect(link.getAttribute('href')).toBe('/organizations/org-9/projects/proj-2/opportunities/opp-5');
+    expect(link.getAttribute('href')).toBe('https://linear.app/acme/issue/GOV-5');
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer');
+  });
+
+  it('renders a flagged item without a sourceUrl as non-clickable text', () => {
+    const item = makeItem({
+      id: 'opp-6',
+      oppId: 'opp-6',
+      projectId: 'proj-2',
+      status: 'PURSUING',
+      responseDeadlineIso: undefined,
+      sourceUrl: undefined,
+    });
+    render(<NeedsAttentionPanel items={[item]} orgId="org-9" />);
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.getByText(/is active but has no response deadline/i)).toBeTruthy();
   });
 
   it('renders multiple flag categories at once', () => {

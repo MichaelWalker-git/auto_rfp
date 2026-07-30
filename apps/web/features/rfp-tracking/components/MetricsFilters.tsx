@@ -23,9 +23,9 @@ interface MetricsFiltersProps {
   /** Currently selected preset (number of weeks). */
   weeks: number;
   onWeeksChange: (weeks: number) => void;
-  /** Selected owner assigneeId, or undefined for all owners. */
-  assigneeId?: string;
-  onAssigneeChange: (assigneeId: string | undefined) => void;
+  /** Selected owner name, or undefined for all owners. */
+  assigneeName?: string;
+  onAssigneeChange: (assigneeName: string | undefined) => void;
   owners: OwnerOption[];
 }
 
@@ -36,7 +36,7 @@ interface MetricsFiltersProps {
 export const MetricsFilters = ({
   weeks,
   onWeeksChange,
-  assigneeId,
+  assigneeName,
   onAssigneeChange,
   owners,
 }: MetricsFiltersProps) => (
@@ -58,7 +58,7 @@ export const MetricsFilters = ({
     <div className="flex items-center gap-2">
       <span className="text-xs text-muted-foreground">Owner</span>
       <Select
-        value={assigneeId ?? ALL_OWNERS}
+        value={assigneeName ?? ALL_OWNERS}
         onValueChange={(value) => onAssigneeChange(value === ALL_OWNERS ? undefined : value)}
       >
         <SelectTrigger className="h-8 w-44 text-xs">
@@ -69,7 +69,7 @@ export const MetricsFilters = ({
             All owners
           </SelectItem>
           {owners.map((owner) => (
-            <SelectItem key={owner.assigneeId} value={owner.assigneeId} className="text-xs">
+            <SelectItem key={owner.assigneeName} value={owner.assigneeName} className="text-xs">
               {owner.assigneeName}
             </SelectItem>
           ))}

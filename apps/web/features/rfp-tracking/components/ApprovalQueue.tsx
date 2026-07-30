@@ -126,7 +126,15 @@ function QueueSection({
           {emptyLabel}
         </p>
       ) : (
-        <Table>
+        <Table className="table-fixed">
+          <colgroup>
+            <col className="w-[34%]" />
+            <col className="w-[16%]" />
+            <col className="w-[12%]" />
+            <col className="w-[12%]" />
+            <col className="w-[10%]" />
+            {canApprove && <col className="w-[16%]" />}
+          </colgroup>
           <TableHeader>
             <TableRow>
               <TableHead>Opportunity</TableHead>
@@ -148,44 +156,47 @@ function QueueSection({
 
               return (
                 <TableRow key={item.id}>
-                  <TableCell className="max-w-xs">
+                  <TableCell className="min-w-0 overflow-hidden pr-4 align-top whitespace-normal">
                     {detailHref ? (
                       <Link
                         href={detailHref}
                         title={item.title}
-                        className="block max-w-xs truncate font-medium text-indigo-600 hover:underline"
+                        className="block break-words font-medium text-indigo-600 hover:underline"
                       >
                         {item.title}
                       </Link>
                     ) : (
-                      <span className="block max-w-xs truncate font-medium" title={item.title}>
+                      <span
+                        title={item.title}
+                        className="block break-words font-medium"
+                      >
                         {item.title}
                       </span>
                     )}
                     {item.solicitationNumber && (
-                      <span className="block max-w-xs truncate text-xs text-slate-400">
+                      <span className="block break-words text-xs text-slate-400">
                         {item.solicitationNumber}
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm text-slate-600">
+                  <TableCell className="align-top pl-4 text-sm text-slate-600 whitespace-nowrap">
                     {item.assigneeName ?? <span className="text-slate-400">Unassigned</span>}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="align-top">
                     <Badge variant="outline" className={cn('gap-1 text-xs', DEADLINE_BADGE_CLASSES[deadlineUrgency])}>
                       {deadlineLabel(deadlineUrgency, daysToDeadline)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm text-slate-700">
+                  <TableCell className="align-top text-sm text-slate-700">
                     {formatCurrency(item.baseAndAllOptionsValue)}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="align-top">
                     <Badge variant="outline" className="text-xs text-slate-600">
                       {formatDaysWaiting(daysWaiting)}
                     </Badge>
                   </TableCell>
                   {canApprove && (
-                    <TableCell className="text-right">
+                    <TableCell className="text-right align-top">
                       <div className="flex justify-end gap-2">
                         <Button
                           size="sm"

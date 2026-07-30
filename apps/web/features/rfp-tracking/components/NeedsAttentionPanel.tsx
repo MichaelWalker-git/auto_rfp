@@ -10,7 +10,11 @@ import { deriveFlags, groupFlagsByType, FLAG_LABELS, type FlagType } from '../li
 
 interface NeedsAttentionPanelProps {
   items: RfpPipelineItem[];
-  orgId: string;
+  /**
+   * @deprecated Rows now link to the source Linear issue via `sourceUrl`.
+   * Retained for call-site compatibility.
+   */
+  orgId?: string;
 }
 
 const FLAG_ORDER: FlagType[] = [
@@ -21,10 +25,10 @@ const FLAG_ORDER: FlagType[] = [
 ];
 
 /**
- * Grouped list of data-integrity flags. Each row links to the opportunity
- * detail page so the owner can fix the underlying record.
+ * Grouped list of data-integrity flags. Each row links to the source Linear
+ * issue (opened in a new tab) so the owner can fix the underlying record.
  */
-export function NeedsAttentionPanel({ items, orgId }: NeedsAttentionPanelProps) {
+export function NeedsAttentionPanel({ items }: NeedsAttentionPanelProps) {
   const grouped = useMemo(() => groupFlagsByType(deriveFlags(items)), [items]);
   const totalFlags = FLAG_ORDER.reduce((sum, type) => sum + grouped[type].length, 0);
 
@@ -51,20 +55,21 @@ export function NeedsAttentionPanel({ items, orgId }: NeedsAttentionPanelProps) 
           </CardHeader>
           <CardContent className="space-y-1.5">
             {grouped[type].map((flag) => {
-              const oppId = flag.item.oppId ?? flag.item.id;
-              const href =
-                flag.item.projectId && oppId
-                  ? `/organizations/${orgId}/projects/${flag.item.projectId}/opportunities/${oppId}`
-                  : null;
+              const sourceUrl = flag.item.sourceUrl?.trim();
 
               return (
                 <div key={`${type}-${flag.item.id}`} className="text-sm text-slate-600">
-                  {href ? (
-                    <Link href={href} className="text-indigo-600 hover:underline">
+                  {sourceUrl ? (
+                    <Link
+                      href={sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="break-words text-indigo-600 hover:underline"
+                    >
                       {flag.message}
                     </Link>
                   ) : (
-                    <span>{flag.message}</span>
+                    <span className="break-words">{flag.message}</span>
                   )}
                 </div>
               );

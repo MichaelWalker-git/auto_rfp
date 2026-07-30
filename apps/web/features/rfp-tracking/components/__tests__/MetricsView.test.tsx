@@ -33,11 +33,13 @@ import * as csv from '../../lib/export-metrics-csv';
 
 const NOW = '2026-07-27T12:00:00.000Z';
 
+// Linear-synced shape: assigneeId is always undefined, only assigneeName is set.
+// This exercises the regression — the owner filter must key on name.
 const fixtureItems = () => [
   makeItem({
     id: 'won',
     title: 'Won RFP',
-    assigneeId: 'u1',
+    assigneeId: undefined,
     assigneeName: 'Amy',
     status: 'WON',
     pipelineStage: 'awarded',
@@ -51,7 +53,7 @@ const fixtureItems = () => [
   makeItem({
     id: 'open',
     title: 'Open RFP',
-    assigneeId: 'u2',
+    assigneeId: undefined,
     assigneeName: 'Bob',
     pipelineStage: 'inProgress',
     approvalStatus: 'I_APPROVED',
@@ -94,17 +96,28 @@ describe('MetricsView', () => {
     expect(csv.exportThroughputCsv).toHaveBeenCalledTimes(1);
   });
 
-  it('recomputes when the owner filter changes', () => {
+  it('populates the owner dropdown from assigneeName and recomputes on select', () => {
     render(<MetricsView items={fixtureItems()} nowIso={NOW} orgId="org-1" orgName="Acme" />);
 
     // Baseline win rate reflects both submitted items in window (only 'won').
     expect(screen.getByText(/1 of 1 submitted/i)).toBeTruthy();
 
-    // Switch owner to Bob (u2) — Bob's RFP was never submitted → 0 of 0.
+    // The dropdown must populate from Linear-synced (name-only) items: both
+    // owner names appear as options alongside "All owners".
     const trigger = screen.getByRole('combobox');
     fireEvent.click(trigger);
-    fireEvent.click(screen.getByRole('option', { name: 'Bob' }));
+    expect(screen.getByRole('option', { name: 'All owners' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Amy' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Bob' })).toBeTruthy();
 
+    // Switch owner to Bob (name-only, no assigneeId) — Bob's RFP was never
+    // submitted → 0 of 0. This proves selecting by name filters the metrics.
+    fireEvent.click(screen.getByRole('option', { name: 'Bob' }));
     expect(screen.getByText(/0 of 0 submitted/i)).toBeTruthy();
+
+    // And selecting Amy (the submitted+won owner) restores 1 of 1.
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(screen.getByRole('option', { name: 'Amy' }));
+    expect(screen.getByText(/1 of 1 submitted/i)).toBeTruthy();
   });
 });
