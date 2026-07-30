@@ -5,7 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Download, RefreshCw } from 'lucide-react';
+import { Clock, Download, RefreshCw } from 'lucide-react';
 import { usePermission } from '@/components/permission-wrapper';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { useRfpPipeline } from '../hooks/use-rfp-pipeline';
@@ -14,7 +14,9 @@ import { exportPipelineToCsv } from '../lib/export-csv';
 import { PipelineBoard } from './PipelineBoard';
 import { ApprovalQueue } from './ApprovalQueue';
 import { NeedsAttentionPanel } from './NeedsAttentionPanel';
+import { MetricsView } from './MetricsView';
 import { deriveFlags } from '../lib/derive-flags';
+import { formatRelativeTime } from '../lib/format';
 
 interface RfpTrackingTabsProps {
   orgId: string;
@@ -37,6 +39,13 @@ export function RfpTrackingTabs({ orgId, nowIso }: RfpTrackingTabsProps) {
 
   const pendingCount = useMemo(() => pendingApprovalCount(items).total, [items]);
   const flagCount = useMemo(() => deriveFlags(items).length, [items]);
+
+  // The board's effective last-sync time is the most recent syncedAt across all
+  // items (each is stamped by the Linear sync). Ignore null/undefined.
+  const lastSyncedAt = useMemo(() => {
+    const stamps = items.map((item) => item.syncedAt).filter((s): s is string => Boolean(s));
+    return stamps.length > 0 ? stamps.reduce((a, b) => (a > b ? a : b)) : null;
+  }, [items]);
 
   const orgName = currentOrganization?.name ?? 'organization';
 
@@ -72,6 +81,12 @@ export function RfpTrackingTabs({ orgId, nowIso }: RfpTrackingTabsProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-end gap-2">
+        {lastSyncedAt && (
+          <span className="mr-1 flex items-center gap-1 text-xs text-slate-400">
+            <Clock className="h-3 w-3" />
+            Last synced {formatRelativeTime(lastSyncedAt, now)}
+          </span>
+        )}
         <Button variant="outline" size="sm" onClick={() => mutate()}>
           <RefreshCw className="h-3.5 w-3.5" />
           Refresh
@@ -106,6 +121,7 @@ export function RfpTrackingTabs({ orgId, nowIso }: RfpTrackingTabsProps) {
               </Badge>
             )}
           </TabsTrigger>
+          <TabsTrigger value="metrics">Metrics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="board" className="mt-4">
@@ -122,6 +138,9 @@ export function RfpTrackingTabs({ orgId, nowIso }: RfpTrackingTabsProps) {
         </TabsContent>
         <TabsContent value="attention" className="mt-4">
           <NeedsAttentionPanel items={items} orgId={orgId} />
+        </TabsContent>
+        <TabsContent value="metrics" className="mt-4">
+          <MetricsView items={items} nowIso={now} orgId={orgId} orgName={orgName} />
         </TabsContent>
       </Tabs>
     </div>

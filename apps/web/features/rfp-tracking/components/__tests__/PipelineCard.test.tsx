@@ -31,17 +31,37 @@ describe('PipelineCard', () => {
     expect(screen.getByText(/10d in stage/)).toBeTruthy();
   });
 
-  it('links to the opportunity detail route when projectId + oppId are present', () => {
-    const item = makeItem({ id: 'opp-9', oppId: 'opp-9', projectId: 'proj-7' });
+  it('opens the detail panel when the card body is clicked', () => {
+    const item = makeItem({ id: 'opp-9', oppId: 'opp-9', projectId: 'proj-7', title: 'Cloud RFP' });
     render(<PipelineCard card={toBoardCard(item, NOW)} orgId="org-3" canAdvance={false} />);
-    const link = screen.getByRole('link');
-    expect(link.getAttribute('href')).toBe('/organizations/org-3/projects/proj-7/opportunities/opp-9');
+
+    // Closed initially — no detail panel dialog rendered.
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /cloud rfp/i }));
+
+    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(
+      screen.getByRole('link', { name: /view full opportunity/i }).getAttribute('href'),
+    ).toBe('/organizations/org-3/projects/proj-7/opportunities/opp-9');
   });
 
-  it('renders as a static card (no link) when projectId is missing', () => {
-    const item = makeItem({ projectId: undefined });
+  it('drops the deadline badge on a submitted card (deadline is moot once the response is in)', () => {
+    const item = makeItem({
+      pipelineStage: 'submitted',
+      responseDeadlineIso: '2026-07-01T00:00:00.000Z', // 26d before NOW → would be "Overdue 26d"
+    });
     render(<PipelineCard card={toBoardCard(item, NOW)} orgId="org-1" canAdvance={false} />);
-    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.queryByText(/overdue/i)).toBeNull();
+  });
+
+  it('still shows the overdue badge on a non-submitted card past its deadline', () => {
+    const item = makeItem({
+      pipelineStage: 'inProgress',
+      responseDeadlineIso: '2026-07-01T00:00:00.000Z',
+    });
+    render(<PipelineCard card={toBoardCard(item, NOW)} orgId="org-1" canAdvance={false} />);
+    expect(screen.getByText(/overdue/i)).toBeTruthy();
   });
 
   it('shows "Unassigned" when there is no owner', () => {
@@ -50,24 +70,26 @@ describe('PipelineCard', () => {
     expect(screen.getByText('Unassigned')).toBeTruthy();
   });
 
-  it('offers "Send for Pre-Sub Review" on I_APPROVED and advances to PRE_SUB_APPROVAL', () => {
+  it('shows no advance action on I_APPROVED (First approved / In progress carry no button)', () => {
     const item = makeItem({ id: 'opp-1', oppId: 'opp-1', projectId: 'proj-1', approvalStatus: 'I_APPROVED' });
     render(<PipelineCard card={toBoardCard(item, NOW)} orgId="org-1" canAdvance />);
-    fireEvent.click(screen.getByRole('button', { name: /send for pre-sub review/i }));
-    expect(mockAdvance).toHaveBeenCalledWith({ projectId: 'proj-1', oppId: 'opp-1', to: 'PRE_SUB_APPROVAL' });
+    expect(screen.queryByRole('button', { name: /send for pre-sub review/i })).toBeNull();
+    expect(mockAdvance).not.toHaveBeenCalled();
   });
 
-  it('offers "Mark Submitted" on II_APPROVED and advances to SUBMITTED', () => {
+  it('offers "Mark Submitted" on II_APPROVED and advances to SUBMITTED without opening the panel', () => {
     const item = makeItem({ id: 'opp-2', oppId: 'opp-2', projectId: 'proj-1', approvalStatus: 'II_APPROVED' });
     render(<PipelineCard card={toBoardCard(item, NOW)} orgId="org-1" canAdvance />);
     fireEvent.click(screen.getByRole('button', { name: /mark submitted/i }));
     expect(mockAdvance).toHaveBeenCalledWith({ projectId: 'proj-1', oppId: 'opp-2', to: 'SUBMITTED' });
+    // The advance button is a sibling of the click target, so acting on it must not open the detail panel.
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('hides stage-advance actions when canAdvance is false', () => {
-    const item = makeItem({ approvalStatus: 'I_APPROVED', projectId: 'proj-1' });
+  it('hides the "Mark Submitted" action when canAdvance is false', () => {
+    const item = makeItem({ approvalStatus: 'II_APPROVED', projectId: 'proj-1' });
     render(<PipelineCard card={toBoardCard(item, NOW)} orgId="org-1" canAdvance={false} />);
-    expect(screen.queryByRole('button', { name: /send for pre-sub review/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /mark submitted/i })).toBeNull();
   });
 
   it('shows no advance action on a non-advanceable stage', () => {

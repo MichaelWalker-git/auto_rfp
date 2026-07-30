@@ -77,31 +77,28 @@ describe('ApprovalQueue', () => {
     expect(mockDecide).toHaveBeenCalledWith({ projectId: 'proj-1', oppId: 'b', gate: 'FINAL', decision: 'APPROVE' });
   });
 
-  it('hides gate-1 buttons when canApproveInitial is false but keeps the read-only row', () => {
+  it('shows gate-1 Approve/Reject for every member (approval is open)', () => {
     render(
       <ApprovalQueue
         items={[initialItem('a', '2026-07-01T00:00:00.000Z')]}
         orgId="org-1"
         nowIso={NOW}
-        canApproveInitial={false}
-        canApproveFinal
       />,
     );
-    expect(screen.queryByRole('button', { name: /^approve$/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /^approve$/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^reject$/i })).toBeTruthy();
     expect(screen.getByText('RFP a')).toBeTruthy();
   });
 
-  it('hides gate-2 buttons when canApproveFinal is false', () => {
+  it('shows the gate-2 Approve for every member (approval is open)', () => {
     render(
       <ApprovalQueue
         items={[preSubItem('b')]}
         orgId="org-1"
         nowIso={NOW}
-        canApproveInitial
-        canApproveFinal={false}
       />,
     );
-    expect(screen.queryByRole('button', { name: /^approve$/i })).toBeNull();
+    expect(screen.getByRole('button', { name: /^approve$/i })).toBeTruthy();
     expect(screen.getByText('RFP b')).toBeTruthy();
   });
 

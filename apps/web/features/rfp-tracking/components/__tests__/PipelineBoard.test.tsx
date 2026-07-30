@@ -17,11 +17,12 @@ describe('PipelineBoard', () => {
     render(<PipelineBoard items={items} orgId="org-1" nowIso={NOW} canAdvance />);
     // Labels appear as column headers (and, for populated stages, also on the card
     // badge), so assert at least one of each renders.
-    expect(screen.getAllByText('Exec summary, to be reviewed').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Initial Approval').length).toBeGreaterThan(0);
     expect(screen.getAllByText('First approved').length).toBeGreaterThan(0);
     expect(screen.getByText('In progress')).toBeTruthy();
     expect(screen.getByText('Second approved')).toBeTruthy();
     expect(screen.getByText('Submitted')).toBeTruthy();
+    expect(screen.getByText('Not approved')).toBeTruthy();
     expect(screen.getByText('Awarded')).toBeTruthy();
     expect(screen.getByText('Lost')).toBeTruthy();
   });

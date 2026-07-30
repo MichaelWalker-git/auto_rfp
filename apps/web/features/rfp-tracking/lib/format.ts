@@ -34,3 +34,27 @@ export const deadlineLabel = (urgency: DeadlineUrgency, daysToDeadline: number |
   if (daysToDeadline === 0) return 'Due today';
   return `${daysToDeadline}d left`;
 };
+
+/**
+ * A short, human-friendly "time ago" string relative to `nowIso` (injectable so
+ * it stays testable). Clamps future/negative deltas to "just now". Returns '' for
+ * missing or unparseable input so callers can render nothing.
+ */
+export const formatRelativeTime = (iso: string | null | undefined, nowIso: string): string => {
+  if (!iso) return '';
+  const then = Date.parse(iso);
+  const now = Date.parse(nowIso);
+  if (Number.isNaN(then) || Number.isNaN(now)) return '';
+
+  const diffSeconds = Math.floor((now - then) / 1000);
+  if (diffSeconds < 60) return 'just now';
+
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours} hr ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  return diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
+};

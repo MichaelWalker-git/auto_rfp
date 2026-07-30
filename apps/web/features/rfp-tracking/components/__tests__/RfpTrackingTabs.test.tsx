@@ -101,4 +101,29 @@ describe('RfpTrackingTabs', () => {
     fireEvent.click(screen.getByRole('button', { name: /refresh/i }));
     expect(mockMutate).toHaveBeenCalled();
   });
+
+  it('shows a "Last synced" label using the most recent syncedAt across items', () => {
+    pipelineState = {
+      items: [
+        makeItem({ id: 'a', syncedAt: '2026-07-26T00:00:00.000Z' }), // 1 day before NOW
+        makeItem({ id: 'b', syncedAt: '2026-07-26T23:57:00.000Z' }), // 3 min before NOW (most recent)
+      ],
+      isLoading: false,
+      isError: false,
+      mutate: mockMutate,
+    };
+    render(<RfpTrackingTabs orgId="org-1" nowIso={NOW} />);
+    expect(screen.getByText(/last synced 3 min ago/i)).toBeTruthy();
+  });
+
+  it('does not show a "Last synced" label when no item carries a syncedAt', () => {
+    pipelineState = {
+      items: [makeItem({ id: 'a' })],
+      isLoading: false,
+      isError: false,
+      mutate: mockMutate,
+    };
+    render(<RfpTrackingTabs orgId="org-1" nowIso={NOW} />);
+    expect(screen.queryByText(/last synced/i)).toBeNull();
+  });
 });

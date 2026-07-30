@@ -43,6 +43,10 @@ const TYPE_CONFIG: Record<NotificationType, { icon: React.ElementType; color: st
   DOCUMENT_APPROVAL_REQUESTED: { icon: ClipboardCheck, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-100 dark:bg-indigo-900/50' },
   DOCUMENT_APPROVED:    { icon: CheckCircle,  color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/50' },
   DOCUMENT_REJECTED:    { icon: XCircle,      color: 'text-red-500 dark:text-red-400',    bg: 'bg-red-100 dark:bg-red-900/50' },
+  DECISION_DATE_7_DAYS: { icon: Clock,        color: 'text-orange-500 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/50' },
+  DECISION_DATE_3_DAYS: { icon: Clock,        color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/50' },
+  DECISION_DATE_1_DAY:  { icon: AlertCircle,  color: 'text-red-500 dark:text-red-400',    bg: 'bg-red-100 dark:bg-red-900/50' },
+  DOCUMENT_GENERATION_FAILED: { icon: AlertCircle, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/50' },
 };
 
 const DEFAULT_CONFIG = { icon: Bell, color: 'text-muted-foreground', bg: 'bg-muted' };

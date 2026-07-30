@@ -32,23 +32,21 @@ interface ApprovalQueueProps {
   items: RfpPipelineItem[];
   orgId: string;
   nowIso: string;
-  /** Gate 1 (Initial Approval) — rfp:approve_initial. */
-  canApproveInitial: boolean;
-  /** Gate 2 (Pre-Submission Approval) — rfp:approve_final. */
-  canApproveFinal: boolean;
+  /** @deprecated Approval is open to every org member; retained for compatibility. */
+  canApproveInitial?: boolean;
+  /** @deprecated Approval is open to every org member; retained for compatibility. */
+  canApproveFinal?: boolean;
 }
 
 /**
  * Two approval queues stacked: gate 1 (Initial Approval) and gate 2
- * (Pre-Submission Approval). Approve/Reject buttons render only for the gate the
- * caller can act on; other users see each section read-only.
+ * (Pre-Submission Approval). Approve/Reject render for every org member — the
+ * backend enforces authorization on the decision endpoint.
  */
 export function ApprovalQueue({
   items,
   orgId,
   nowIso,
-  canApproveInitial,
-  canApproveFinal,
 }: ApprovalQueueProps) {
   const initialQueue = useMemo(() => deriveInitialQueue(items, nowIso), [items, nowIso]);
   const finalQueue = useMemo(() => deriveFinalQueue(items, nowIso), [items, nowIso]);
@@ -71,7 +69,8 @@ export function ApprovalQueue({
         emptyLabel="Nothing is waiting for initial approval."
         queue={initialQueue}
         orgId={orgId}
-        canApprove={canApproveInitial}
+        // Approval is open to every org member; the backend enforces authorization.
+        canApprove
         pendingOppId={pendingOppId}
         onApprove={(projectId, oppId) => decide({ projectId, oppId, gate: 'INITIAL', decision: 'APPROVE' })}
         onReject={(projectId, oppId) => decide({ projectId, oppId, gate: 'INITIAL', decision: 'REJECT' })}
@@ -82,7 +81,8 @@ export function ApprovalQueue({
         emptyLabel="Nothing is waiting for pre-submission approval."
         queue={finalQueue}
         orgId={orgId}
-        canApprove={canApproveFinal}
+        // Approval is open to every org member; the backend enforces authorization.
+        canApprove
         pendingOppId={pendingOppId}
         onApprove={(projectId, oppId) => decide({ projectId, oppId, gate: 'FINAL', decision: 'APPROVE' })}
       />
@@ -150,14 +150,22 @@ function QueueSection({
                 <TableRow key={item.id}>
                   <TableCell className="max-w-xs">
                     {detailHref ? (
-                      <Link href={detailHref} className="font-medium text-indigo-600 hover:underline">
+                      <Link
+                        href={detailHref}
+                        title={item.title}
+                        className="block max-w-xs truncate font-medium text-indigo-600 hover:underline"
+                      >
                         {item.title}
                       </Link>
                     ) : (
-                      <span className="font-medium">{item.title}</span>
+                      <span className="block max-w-xs truncate font-medium" title={item.title}>
+                        {item.title}
+                      </span>
                     )}
                     {item.solicitationNumber && (
-                      <span className="block text-xs text-slate-400">{item.solicitationNumber}</span>
+                      <span className="block max-w-xs truncate text-xs text-slate-400">
+                        {item.solicitationNumber}
+                      </span>
                     )}
                   </TableCell>
                   <TableCell className="text-sm text-slate-600">

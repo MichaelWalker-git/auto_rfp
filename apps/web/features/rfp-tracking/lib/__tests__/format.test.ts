@@ -3,6 +3,7 @@ import {
   formatDeadline,
   formatDaysWaiting,
   deadlineLabel,
+  formatRelativeTime,
   DEADLINE_BADGE_CLASSES,
 } from '../format';
 
@@ -50,6 +51,39 @@ describe('deadlineLabel', () => {
   });
   it('shows days left otherwise', () => {
     expect(deadlineLabel('soon', 5)).toBe('5d left');
+  });
+});
+
+describe('formatRelativeTime', () => {
+  const NOW = '2026-07-27T12:00:00.000Z';
+
+  it('returns an empty string for missing or unparseable input', () => {
+    expect(formatRelativeTime(null, NOW)).toBe('');
+    expect(formatRelativeTime(undefined, NOW)).toBe('');
+    expect(formatRelativeTime('not-a-date', NOW)).toBe('');
+    expect(formatRelativeTime('2026-07-27T12:00:00.000Z', 'not-a-date')).toBe('');
+  });
+
+  it('says "just now" for anything under a minute (including future/now)', () => {
+    expect(formatRelativeTime('2026-07-27T11:59:30.000Z', NOW)).toBe('just now');
+    expect(formatRelativeTime(NOW, NOW)).toBe('just now');
+    // Future timestamps clamp to "just now" rather than showing negatives.
+    expect(formatRelativeTime('2026-07-27T12:05:00.000Z', NOW)).toBe('just now');
+  });
+
+  it('formats minutes ago', () => {
+    expect(formatRelativeTime('2026-07-27T11:57:00.000Z', NOW)).toBe('3 min ago');
+    expect(formatRelativeTime('2026-07-27T11:01:00.000Z', NOW)).toBe('59 min ago');
+  });
+
+  it('formats hours ago', () => {
+    expect(formatRelativeTime('2026-07-27T11:00:00.000Z', NOW)).toBe('1 hr ago');
+    expect(formatRelativeTime('2026-07-27T02:00:00.000Z', NOW)).toBe('10 hr ago');
+  });
+
+  it('formats days ago with singular/plural', () => {
+    expect(formatRelativeTime('2026-07-26T12:00:00.000Z', NOW)).toBe('1 day ago');
+    expect(formatRelativeTime('2026-07-24T12:00:00.000Z', NOW)).toBe('3 days ago');
   });
 });
 

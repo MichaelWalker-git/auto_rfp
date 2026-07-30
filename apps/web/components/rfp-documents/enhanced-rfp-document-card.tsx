@@ -212,7 +212,7 @@ function DocumentInfo({ doc, typeStyle }: { doc: RFPDocumentItem; typeStyle: { c
           {doc.name}
         </p>
         <Badge variant="outline" className={cn('text-xs border', typeStyle.cls)}>
-          {RFP_DOCUMENT_TYPES[doc.documentType] ?? doc.documentType}
+          {RFP_DOCUMENT_TYPES[doc.documentType as keyof typeof RFP_DOCUMENT_TYPES] ?? doc.documentType}
         </Badge>
         <DocumentStatusBadges doc={doc} />
         <LinearSyncIndicator status={doc.linearSyncStatus} lastSyncedAt={doc.lastSyncedAt} />
