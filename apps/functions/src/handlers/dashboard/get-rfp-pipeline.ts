@@ -34,6 +34,19 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
       return apiResponse(400, { ok: false, error: 'orgId is required' });
     }
 
+    // Server-side allowlist. The dashboard is a single-org (Horus Tech) feature
+    // gated client-side by NEXT_PUBLIC_RFP_TRACKING_ORG_ID — but that gate is
+    // trivially bypassed by calling this endpoint directly with ?orgId=<any org>,
+    // and orgMembershipMiddleware does NOT verify org membership. So we enforce
+    // the allowlist here: if RFP_TRACKING_ORG_ID is configured for this stage and
+    // the requested org doesn't match, return 404 (not 403 — don't reveal that
+    // another org's board exists). If the env var is unset/empty (stages without
+    // a designated RFP org), we don't block, preserving prior behavior.
+    const allowedOrgId = process.env.RFP_TRACKING_ORG_ID;
+    if (allowedOrgId && orgId !== allowedOrgId) {
+      return apiResponse(404, { ok: false, error: 'Not found' });
+    }
+
     const projectId = event.queryStringParameters?.projectId ?? RFP_SYNC_PROJECT_ID;
     const { items } = await listOpportunitiesByOrg({ orgId, projectId });
 

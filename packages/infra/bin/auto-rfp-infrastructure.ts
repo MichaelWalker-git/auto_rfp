@@ -185,6 +185,9 @@ const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {
   textractFormsRoleArn: questionsPipelineStack.textractFormsRoleArn,
   sentryDNS,
   pineconeApiKey,
+  // Server-side allowlist for the RFP-tracking dashboard (get-rfp-pipeline).
+  // Same per-stage value as the frontend gate — enforced in the Lambda too.
+  rfpTrackingOrgId,
 });
 
 // Ensure API depends on required stacks

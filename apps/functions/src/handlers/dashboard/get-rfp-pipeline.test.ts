@@ -32,6 +32,12 @@ describe('get-rfp-pipeline', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockListOpportunitiesByOrg.mockResolvedValue({ items: [] });
+    // Default: no server-side allowlist configured (backward-compat behavior).
+    delete process.env.RFP_TRACKING_ORG_ID;
+  });
+
+  afterEach(() => {
+    delete process.env.RFP_TRACKING_ORG_ID;
   });
 
   it('returns 400 when orgId is missing', async () => {
@@ -74,5 +80,47 @@ describe('get-rfp-pipeline', () => {
     mockListOpportunitiesByOrg.mockRejectedValueOnce(new Error('dynamo down'));
     const response = await baseHandler(makeEvent({ orgId: 'org-123' }));
     expect(response).toMatchObject({ statusCode: 500 });
+  });
+
+  describe('server-side org allowlist (RFP_TRACKING_ORG_ID)', () => {
+    it('returns 404 for a mismatched orgId when the allowlist is set', async () => {
+      process.env.RFP_TRACKING_ORG_ID = 'allowed-org';
+
+      const response = await baseHandler(makeEvent({ orgId: 'attacker-org' }));
+
+      expect(response).toMatchObject({ statusCode: 404 });
+      const body = JSON.parse((response as { body: string }).body);
+      expect(body).toEqual({ ok: false, error: 'Not found' });
+      // Must not leak the resource — the helper is never called.
+      expect(mockListOpportunitiesByOrg).not.toHaveBeenCalled();
+    });
+
+    it('returns 200 for a matching orgId when the allowlist is set', async () => {
+      process.env.RFP_TRACKING_ORG_ID = 'allowed-org';
+      const items = [{ id: 'opp-1', title: 'A', status: 'QUALIFYING' }];
+      mockListOpportunitiesByOrg.mockResolvedValueOnce({ items });
+
+      const response = await baseHandler(makeEvent({ orgId: 'allowed-org' }));
+
+      expect(response).toMatchObject({ statusCode: 200 });
+      expect(mockListOpportunitiesByOrg).toHaveBeenCalledWith({
+        orgId: 'allowed-org',
+        projectId: 'gov-contracting',
+      });
+      const body = JSON.parse((response as { body: string }).body);
+      expect(body.ok).toBe(true);
+      expect(body.items).toHaveLength(1);
+    });
+
+    it('does not block any org when the allowlist env var is unset', async () => {
+      // RFP_TRACKING_ORG_ID is deleted in beforeEach — gate disabled.
+      const response = await baseHandler(makeEvent({ orgId: 'any-org' }));
+
+      expect(response).toMatchObject({ statusCode: 200 });
+      expect(mockListOpportunitiesByOrg).toHaveBeenCalledWith({
+        orgId: 'any-org',
+        projectId: 'gov-contracting',
+      });
+    });
   });
 });
