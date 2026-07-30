@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 import { ExportCsvButton } from './ExportCsvButton';
 import type { CycleTimeSummary } from '../lib/derive-metrics';
 
@@ -17,7 +18,10 @@ export const CycleTimeTable = ({ summary, onExport }: CycleTimeTableProps) => (
   <Card>
     <CardHeader className="flex flex-row items-start justify-between gap-2">
       <div>
-        <CardTitle className="text-base">Cycle Time</CardTitle>
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-base">Cycle Time</CardTitle>
+          <Badge variant="secondary" className="text-[10px] font-normal">All-time</Badge>
+        </div>
         <CardDescription>Average and median days spent per stage</CardDescription>
       </div>
       <ExportCsvButton onExport={onExport} />
@@ -51,6 +55,10 @@ export const CycleTimeTable = ({ summary, onExport }: CycleTimeTableProps) => (
           </TableRow>
         </TableFooter>
       </Table>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Durations accrue as records advance across syncs; freshly-synced items show n=0 until they
+        transition, and gates crossed within a single sync interval record as 0 days.
+      </p>
     </CardContent>
   </Card>
 );
