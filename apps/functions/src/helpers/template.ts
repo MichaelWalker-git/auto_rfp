@@ -268,9 +268,14 @@ export const buildMacroValues = async (params: {
 }): Promise<Record<string, string>> => {
   const { orgId, projectId, opportunityId } = params;
 
-  // Load data in parallel
+  // Load data in parallel.
+  // Pass orgId so the project fetch uses the exact-key GetItem path (not a Scan),
+  // and force a consistent read: generation is often triggered moments after the
+  // user saves POC contact info, and an eventually-consistent read can return a
+  // stale project whose contactInfo is still empty — silently resolving
+  // {{PROJECT_POC_EMAIL}} to '' and leaving "Email:" blank in the document.
   const [project, org, opportunity] = await Promise.all([
-    getProjectById(projectId),
+    getProjectById(projectId, orgId, { consistentRead: true }),
     getOrganizationById(orgId),
     opportunityId ? getOpportunity({ orgId, projectId, oppId: opportunityId }).then(result => result?.item) : Promise.resolve(undefined),
   ]);
@@ -303,6 +308,17 @@ export const buildMacroValues = async (params: {
     macroValues.PROJECT_POC_EMAIL = project.contactInfo?.primaryPocEmail || '';
     macroValues.PROJECT_POC_PHONE = project.contactInfo?.primaryPocPhone || '';
     macroValues.PROJECT_POC_TITLE = project.contactInfo?.primaryPocTitle || '';
+
+    // Diagnostic: a fully-empty contact block usually means the project was read
+    // before the user's POC save propagated, or POC was never set. Log it so a
+    // blank "Email:" line in the output is traceable instead of silent.
+    if (!project.contactInfo || Object.values(project.contactInfo).every((v) => !v)) {
+      console.warn(
+        `[buildMacroValues] Project ${projectId} has no contact info — PROJECT_POC_* macros will resolve empty (orgId=${orgId})`,
+      );
+    }
+  } else {
+    console.warn(`[buildMacroValues] Project ${projectId} not found (orgId=${orgId}) — PROJECT_* macros unavailable`);
   }
 
   // Opportunity macros
