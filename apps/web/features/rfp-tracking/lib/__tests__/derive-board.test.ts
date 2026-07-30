@@ -52,6 +52,20 @@ describe('entryIntoCurrentStageIso', () => {
     });
     expect(entryIntoCurrentStageIso(item)).toBe('2026-07-02T00:00:00.000Z');
   });
+
+  it('resolves the latest matching entry by changedAt even when history is out of order', () => {
+    const item = makeItem({
+      approvalStatus: 'PRE_SUB_APPROVAL',
+      approvalHistory: [
+        // Newest transition into the current status appears FIRST (backfilled/out of order).
+        approvalTransition('PRE_SUB_APPROVAL', '2026-07-20T00:00:00.000Z', 'I_APPROVED', 'STAGE'),
+        approvalTransition('I_APPROVED', '2026-07-05T00:00:00.000Z', 'INITIAL_APPROVAL', 'INITIAL'),
+        approvalTransition('PRE_SUB_APPROVAL', '2026-07-12T00:00:00.000Z', 'I_APPROVED', 'STAGE'),
+      ],
+    });
+    // Must pick the max changedAt among matches, not the last array position.
+    expect(entryIntoCurrentStageIso(item)).toBe('2026-07-20T00:00:00.000Z');
+  });
 });
 
 describe('deadlineUrgency', () => {
@@ -76,6 +90,28 @@ describe('deadlineUrgency', () => {
   it('returns none when there is no deadline', () => {
     expect(deadlineUrgency(null, NOW)).toEqual({ urgency: 'none', daysToDeadline: null });
   });
+
+  it('is stable across the time of day the dashboard loads (calendar-day comparison)', () => {
+    // Deadline is at UTC midnight two calendar days out.
+    const deadline = '2026-07-29T00:00:00.000Z';
+    const atMidnight = deadlineUrgency(deadline, '2026-07-27T00:00:00.000Z');
+    const atEvening = deadlineUrgency(deadline, '2026-07-27T18:00:00.000Z');
+    // Both loads on the same calendar day must agree — no drift from wall-clock time.
+    expect(atEvening).toEqual(atMidnight);
+    expect(atMidnight.daysToDeadline).toBe(2);
+    expect(atMidnight.urgency).toBe('urgent');
+  });
+
+  it('treats a deadline that is only hours in the past as overdue', () => {
+    // Deadline was 6h ago on the PREVIOUS UTC calendar day; a raw ms floor would
+    // yield 0 ("due today"), but calendar-day differencing correctly flips overdue.
+    const { urgency, daysToDeadline } = deadlineUrgency(
+      '2026-07-26T22:00:00.000Z',
+      '2026-07-27T04:00:00.000Z',
+    );
+    expect(urgency).toBe('overdue');
+    expect(daysToDeadline).toBe(-1);
+  });
 });
 
 describe('toBoardCard', () => {
@@ -94,6 +130,25 @@ describe('toBoardCard', () => {
   it('defaults a missing approvalStatus to INITIAL_APPROVAL', () => {
     const card = toBoardCard(makeItem({ approvalStatus: undefined }), NOW);
     expect(card.approvalStatus).toBe('INITIAL_APPROVAL');
+  });
+
+  it('measures daysInCurrentStage on the APPROVAL axis, not the board stage (documenting behavior)', () => {
+    // The card sits in the `submitted` board column, but its approval axis is
+    // untouched (INITIAL_APPROVAL, no matching approvalHistory). daysInCurrentStage
+    // therefore reflects the approval/last-update age (updatedAt), NOT how long the
+    // card has been in the `submitted` stage. This documents the known axis mismatch.
+    const item = makeItem({
+      pipelineStage: 'submitted',
+      approvalStatus: 'INITIAL_APPROVAL',
+      approvalHistory: [],
+      statusHistory: [],
+      updatedAt: '2026-07-25T00:00:00.000Z', // 2 days before NOW
+      createdAt: '2026-07-01T00:00:00.000Z',
+    });
+    const card = toBoardCard(item, NOW);
+    expect(card.stage).toBe('submitted');
+    // 2 days since updatedAt — NOT stage-dwell time for `submitted`.
+    expect(card.daysInCurrentStage).toBe(2);
   });
 });
 

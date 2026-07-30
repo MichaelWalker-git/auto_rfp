@@ -8,6 +8,12 @@ export interface BoardCard {
   stage: RfpPipelineStage;
   /** The two-gate approval axis — retained for the stage-advance actions. */
   approvalStatus: OpportunityApprovalStatus;
+  /**
+   * Whole days since the item's last APPROVAL-axis move (or last update if the
+   * approval axis is untouched) — NOT the age in the board `stage`. See
+   * entryIntoCurrentStageIso. Name kept for backward compatibility with
+   * consumers owned outside this file.
+   */
   daysInCurrentStage: number | null;
   deadlineUrgency: DeadlineUrgency;
   daysToDeadline: number | null;
@@ -24,6 +30,26 @@ const daysBetween = (fromIso: string | null | undefined, toIso: string | null | 
   return Math.floor((to - from) / MS_PER_DAY);
 };
 
+/**
+ * Whole CALENDAR days between two ISO timestamps (a → b), measured on the UTC
+ * date boundary, or null if either is unusable. Unlike `daysBetween` (which
+ * floors a raw ms delta and so drifts with the wall-clock time of day), this
+ * floors both timestamps to UTC midnight first — so urgency is stable across the
+ * day and "overdue" flips the moment the UTC calendar date passes the deadline.
+ */
+const calendarDaysBetween = (
+  fromIso: string | null | undefined,
+  toIso: string | null | undefined,
+): number | null => {
+  if (!fromIso || !toIso) return null;
+  const from = Date.parse(fromIso);
+  const to = Date.parse(toIso);
+  if (Number.isNaN(from) || Number.isNaN(to)) return null;
+  const fromMidnight = Math.floor(from / MS_PER_DAY);
+  const toMidnight = Math.floor(to / MS_PER_DAY);
+  return toMidnight - fromMidnight;
+};
+
 /** The approval status an item sits in, defaulting missing → INITIAL_APPROVAL. */
 export const resolveApprovalStatus = (item: RfpPipelineItem): OpportunityApprovalStatus =>
   item.approvalStatus ?? 'INITIAL_APPROVAL';
@@ -37,18 +63,34 @@ export const resolveStage = (item: RfpPipelineItem): RfpPipelineStage =>
   item.pipelineStage ?? 'execSummaryToReview';
 
 /**
- * When did the item enter its current stage? The last approvalHistory entry
- * whose `to` matches the current approvalStatus wins (that's when the sync last
- * moved it); otherwise fall back to statusHistory's latest change, then
- * updatedAt/createdAt.
+ * The timestamp of the item's most recent move on the APPROVAL axis (or, failing
+ * that, the last status change / updatedAt / createdAt).
+ *
+ * IMPORTANT: this measures the *approval-axis* age, NOT the board-stage
+ * (`pipelineStage`) age. The approvalHistory entry whose `to` matches the current
+ * approvalStatus wins (that's when the approval gate last moved the item). There
+ * is no per-`pipelineStage` history array on the item, so a truthful
+ * board-stage-entry time cannot be reconstructed here — for Linear-synced records
+ * whose approval axis is untouched, all fallbacks resolve to updatedAt (i.e.
+ * "time since last update"). Callers deriving `daysInCurrentStage` should treat
+ * the result as approval-axis / last-update age, not stage-dwell time.
+ *
+ * Picks the entry with the maximum `changedAt` among matches (not array
+ * position), so a backfilled / out-of-order history still resolves the true
+ * latest transition — consistent with derive-timeline.ts.
  */
 export const entryIntoCurrentStageIso = (item: RfpPipelineItem): string | null => {
   const approvalStatus = resolveApprovalStatus(item);
 
   const approvalHistory = item.approvalHistory ?? [];
-  for (let i = approvalHistory.length - 1; i >= 0; i--) {
-    if (approvalHistory[i]!.to === approvalStatus) return approvalHistory[i]!.changedAt;
+  let latestMatch: string | null = null;
+  for (const entry of approvalHistory) {
+    if (entry.to !== approvalStatus) continue;
+    if (latestMatch === null || Date.parse(entry.changedAt) > Date.parse(latestMatch)) {
+      latestMatch = entry.changedAt;
+    }
   }
+  if (latestMatch !== null) return latestMatch;
 
   const statusHistory = item.statusHistory ?? [];
   const lastStatus = statusHistory[statusHistory.length - 1];
@@ -62,7 +104,10 @@ export const deadlineUrgency = (
   responseDeadlineIso: string | null | undefined,
   nowIso: string,
 ): { urgency: DeadlineUrgency; daysToDeadline: number | null } => {
-  const days = daysBetween(nowIso, responseDeadlineIso);
+  // Calendar-day comparison so urgency doesn't drift with the time of day the
+  // dashboard loads (e.g. a midnight deadline viewed at 18:00 the prior day, or
+  // a 6h-overdue deadline, must not floor to 0 and mislabel).
+  const days = calendarDaysBetween(nowIso, responseDeadlineIso);
   if (days === null) return { urgency: 'none', daysToDeadline: null };
   if (days < 0) return { urgency: 'overdue', daysToDeadline: days };
   if (days <= 2) return { urgency: 'urgent', daysToDeadline: days };
@@ -80,6 +125,12 @@ export const toBoardCard = (item: RfpPipelineItem, nowIso: string): BoardCard =>
     item,
     stage,
     approvalStatus,
+    // NOTE: despite the name, this measures approval-axis / last-update age, NOT
+    // the age since the card entered its board `stage`. There is no per-
+    // pipelineStage history to reconstruct a true stage-entry time from, so this
+    // is derived from entryIntoCurrentStageIso (last approval-gate move, else
+    // last status change / updatedAt). See that function's JSDoc. Field name is
+    // kept to avoid breaking consumers (components/exports) owned elsewhere.
     daysInCurrentStage: daysBetween(entryIso, nowIso),
     deadlineUrgency: urgency,
     daysToDeadline,
