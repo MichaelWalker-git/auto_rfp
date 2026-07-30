@@ -62,17 +62,17 @@ function BoardColumn({
   canAdvance: boolean;
 }) {
   return (
-    <div className="flex w-64 shrink-0 flex-col gap-3 rounded-lg bg-slate-50 p-2.5">
+    <div className="flex w-64 shrink-0 flex-col gap-3 rounded-lg bg-muted p-2.5">
       <div className="flex items-center justify-between gap-2">
         <Badge variant="outline" className={cn('text-xs', RFP_STAGE_COLORS[stage])}>
           {RFP_STAGE_LABELS[stage]}
         </Badge>
-        <span className="text-xs font-medium text-slate-400">{cards.length}</span>
+        <span className="text-xs font-medium text-muted-foreground">{cards.length}</span>
       </div>
 
       <div className="flex flex-col gap-2">
         {cards.length === 0 ? (
-          <p className="py-6 text-center text-xs text-slate-400">No opportunities</p>
+          <p className="py-6 text-center text-xs text-muted-foreground">No opportunities</p>
         ) : (
           cards.map((card) => (
             <PipelineCard key={card.item.id} card={card} orgId={orgId} canAdvance={canAdvance} />

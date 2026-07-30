@@ -34,7 +34,7 @@ export function NeedsAttentionPanel({ items }: NeedsAttentionPanelProps) {
 
   if (totalFlags === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-slate-200 py-12 text-center text-sm text-slate-400">
+      <p className="rounded-lg border border-dashed py-12 text-center text-sm text-muted-foreground">
         Nothing needs attention — every opportunity looks healthy.
       </p>
     );
@@ -46,9 +46,11 @@ export function NeedsAttentionPanel({ items }: NeedsAttentionPanelProps) {
         <Card key={type}>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-sm">
+              {/* No semantic "warning" token in the theme; amber is kept
+                  intentionally for the warning icon. */}
               <AlertTriangle className="h-4 w-4 text-amber-500" />
               {FLAG_LABELS[type]}
-              <Badge variant="outline" className="ml-1 text-xs text-slate-500">
+              <Badge variant="outline" className="ml-1 text-xs text-muted-foreground">
                 {grouped[type].length}
               </Badge>
             </CardTitle>
@@ -58,13 +60,13 @@ export function NeedsAttentionPanel({ items }: NeedsAttentionPanelProps) {
               const sourceUrl = flag.item.sourceUrl?.trim();
 
               return (
-                <div key={`${type}-${flag.item.id}`} className="text-sm text-slate-600">
+                <div key={`${type}-${flag.item.id}`} className="text-sm text-muted-foreground">
                   {sourceUrl ? (
                     <Link
                       href={sourceUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="break-words text-indigo-600 hover:underline"
+                      className="break-words text-primary hover:underline"
                     >
                       {flag.message}
                     </Link>

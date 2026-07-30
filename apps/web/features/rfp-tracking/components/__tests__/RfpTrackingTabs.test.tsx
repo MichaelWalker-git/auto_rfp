@@ -63,7 +63,7 @@ describe('RfpTrackingTabs', () => {
     expect(mockMutate).toHaveBeenCalled();
   });
 
-  it('renders the three tabs and badge counts', () => {
+  it('renders the four tabs (including Metrics) and badge counts', () => {
     pipelineState = {
       items: [
         makeItem({ id: 'q', approvalStatus: 'INITIAL_APPROVAL' }), // 1 pending approval
@@ -77,6 +77,7 @@ describe('RfpTrackingTabs', () => {
     expect(screen.getByRole('tab', { name: /board/i })).toBeTruthy();
     expect(screen.getByRole('tab', { name: /approval queue/i })).toBeTruthy();
     expect(screen.getByRole('tab', { name: /needs attention/i })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: /metrics/i })).toBeTruthy();
   });
 
   it('disables Export CSV when the pipeline is empty and calls it when there are items', () => {

@@ -44,7 +44,9 @@ export const AgingTable = ({ rows, thresholdDays, onExport }: AgingTableProps) =
                 <TableCell>{row.label}</TableCell>
                 <TableCell className="text-muted-foreground">{row.item.assigneeName ?? '—'}</TableCell>
                 <TableCell className="text-right">
-                  <Badge variant="outline" className="bg-amber-100 text-amber-700 tabular-nums">
+                  {/* No semantic "warning" token in the theme; amber is kept
+                      intentionally to signal aging, with a dark-mode variant. */}
+                  <Badge variant="outline" className="bg-amber-100 text-amber-700 tabular-nums dark:bg-amber-950 dark:text-amber-300">
                     {row.daysInStage}d
                   </Badge>
                 </TableCell>

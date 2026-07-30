@@ -55,7 +55,7 @@ export function PipelineCard({ card, orgId, canAdvance }: PipelineCardProps) {
 
   return (
     <>
-      <Card className="transition-colors hover:border-indigo-300">
+      <Card className="transition-colors hover:border-primary/50">
         <CardContent className="space-y-2 p-3">
           {/*
            * The whole summary is one interactive element that opens the detail
@@ -70,9 +70,9 @@ export function PipelineCard({ card, orgId, canAdvance }: PipelineCardProps) {
             aria-haspopup="dialog"
           >
             <div>
-              <p className="line-clamp-2 text-sm font-medium text-slate-800">{item.title}</p>
+              <p className="line-clamp-2 text-sm font-medium text-foreground">{item.title}</p>
               {item.solicitationNumber && (
-                <p className="text-xs text-slate-400">{item.solicitationNumber}</p>
+                <p className="text-xs text-muted-foreground">{item.solicitationNumber}</p>
               )}
             </div>
 
@@ -92,19 +92,19 @@ export function PipelineCard({ card, orgId, canAdvance }: PipelineCardProps) {
                 </Badge>
               )}
               {daysInCurrentStage !== null && (
-                <Badge variant="outline" className="gap-1 text-xs text-slate-600">
+                <Badge variant="outline" className="gap-1 text-xs text-muted-foreground">
                   <Clock className="h-3 w-3" />
                   {daysInCurrentStage}d in stage
                 </Badge>
               )}
             </div>
 
-            <div className="flex items-center justify-between text-xs text-slate-500">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <User className="h-3 w-3" />
                 {item.assigneeName ?? 'Unassigned'}
               </span>
-              <span className="font-medium text-slate-700">
+              <span className="font-medium text-foreground">
                 {formatCurrency(item.baseAndAllOptionsValue)}
               </span>
             </div>

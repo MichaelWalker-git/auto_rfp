@@ -9,7 +9,8 @@ jest.mock('recharts', () => {
   return {
     ResponsiveContainer: Passthrough,
     BarChart: Passthrough,
-    Bar: () => null,
+    Bar: Passthrough,
+    LabelList: () => null,
     PieChart: Passthrough,
     Pie: () => null,
     Cell: () => null,

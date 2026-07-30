@@ -25,16 +25,17 @@ interface RfpTrackingTabsProps {
 }
 
 /**
- * Top-level RFP-tracking view: Board · Approval Queue · Needs Attention.
- * All data comes from a single org-wide pipeline fetch and is derived
- * client-side; the header offers CSV export and a manual refresh.
+ * Top-level RFP-tracking view: four tabs — Board · Approval Queue ·
+ * Needs Attention · Metrics. All data comes from a single org-wide pipeline
+ * fetch and is derived client-side; the header offers CSV export and a manual
+ * refresh. Approval authorization (rfp:approve_initial / rfp:approve_final) is
+ * enforced server-side on the decision endpoint, so the queue actions render
+ * for every org member.
  */
 export function RfpTrackingTabs({ orgId, nowIso }: RfpTrackingTabsProps) {
   const now = nowIso ?? new Date().toISOString();
   const { items, isLoading, isError, mutate } = useRfpPipeline(orgId);
   const { currentOrganization } = useCurrentOrganization();
-  const canApproveInitial = usePermission('rfp:approve_initial');
-  const canApproveFinal = usePermission('rfp:approve_final');
   const canAdvance = usePermission('opportunity:edit');
 
   const pendingCount = useMemo(() => pendingApprovalCount(items).total, [items]);
@@ -68,7 +69,7 @@ export function RfpTrackingTabs({ orgId, nowIso }: RfpTrackingTabsProps) {
 
   if (isError) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
+      <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-6 text-center text-sm text-destructive">
         <p>Could not load the RFP pipeline.</p>
         <Button variant="outline" size="sm" className="mt-3" onClick={() => mutate()}>
           <RefreshCw className="h-3.5 w-3.5" />
@@ -82,7 +83,7 @@ export function RfpTrackingTabs({ orgId, nowIso }: RfpTrackingTabsProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-end gap-2">
         {lastSyncedAt && (
-          <span className="mr-1 flex items-center gap-1 text-xs text-slate-400">
+          <span className="mr-1 flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
             Last synced {formatRelativeTime(lastSyncedAt, now)}
           </span>
@@ -108,15 +109,17 @@ export function RfpTrackingTabs({ orgId, nowIso }: RfpTrackingTabsProps) {
           <TabsTrigger value="queue" className="gap-1.5">
             Approval Queue
             {pendingCount > 0 && (
-              <Badge variant="outline" className="bg-blue-100 text-blue-700">
+              <Badge variant="outline" className="bg-primary/10 text-primary">
                 {pendingCount}
               </Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="attention" className="gap-1.5">
             Needs Attention
+            {/* No semantic "warning" token exists in the theme; amber is kept
+                intentionally for the needs-attention count. */}
             {flagCount > 0 && (
-              <Badge variant="outline" className="bg-amber-100 text-amber-700">
+              <Badge variant="outline" className="bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
                 {flagCount}
               </Badge>
             )}
@@ -128,13 +131,7 @@ export function RfpTrackingTabs({ orgId, nowIso }: RfpTrackingTabsProps) {
           <PipelineBoard items={items} orgId={orgId} nowIso={now} canAdvance={canAdvance} />
         </TabsContent>
         <TabsContent value="queue" className="mt-4">
-          <ApprovalQueue
-            items={items}
-            orgId={orgId}
-            nowIso={now}
-            canApproveInitial={canApproveInitial}
-            canApproveFinal={canApproveFinal}
-          />
+          <ApprovalQueue items={items} orgId={orgId} nowIso={now} />
         </TabsContent>
         <TabsContent value="attention" className="mt-4">
           <NeedsAttentionPanel items={items} orgId={orgId} />

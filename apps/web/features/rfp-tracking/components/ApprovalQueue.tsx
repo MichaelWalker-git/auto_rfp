@@ -32,16 +32,13 @@ interface ApprovalQueueProps {
   items: RfpPipelineItem[];
   orgId: string;
   nowIso: string;
-  /** @deprecated Approval is open to every org member; retained for compatibility. */
-  canApproveInitial?: boolean;
-  /** @deprecated Approval is open to every org member; retained for compatibility. */
-  canApproveFinal?: boolean;
 }
 
 /**
  * Two approval queues stacked: gate 1 (Initial Approval) and gate 2
- * (Pre-Submission Approval). Approve/Reject render for every org member — the
- * backend enforces authorization on the decision endpoint.
+ * (Pre-Submission Approval). Approve/Reject render for every org member —
+ * authorization (rfp:approve_initial / rfp:approve_final) is enforced
+ * server-side on the decision endpoint.
  */
 export function ApprovalQueue({
   items,
@@ -54,7 +51,7 @@ export function ApprovalQueue({
 
   if (initialQueue.length === 0 && finalQueue.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-slate-200 py-12 text-center text-sm text-slate-400">
+      <p className="rounded-lg border border-dashed py-12 text-center text-sm text-muted-foreground">
         Nothing is waiting for approval.
       </p>
     );
@@ -62,7 +59,7 @@ export function ApprovalQueue({
 
   return (
     <div className="space-y-8">
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-destructive">{error}</p>}
 
       <QueueSection
         title="Awaiting Initial Approval"
@@ -114,15 +111,15 @@ function QueueSection({
 }: QueueSectionProps) {
   return (
     <section className="space-y-3">
-      <h3 className="text-sm font-semibold text-slate-700">
+      <h3 className="text-sm font-semibold text-foreground">
         {title}
-        <Badge variant="outline" className="ml-2 text-xs text-slate-500">
+        <Badge variant="outline" className="ml-2 text-xs text-muted-foreground">
           {queue.length}
         </Badge>
       </h3>
 
       {queue.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-slate-200 py-8 text-center text-sm text-slate-400">
+        <p className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
           {emptyLabel}
         </p>
       ) : (
@@ -161,7 +158,7 @@ function QueueSection({
                       <Link
                         href={detailHref}
                         title={item.title}
-                        className="block break-words font-medium text-indigo-600 hover:underline"
+                        className="block break-words font-medium text-primary hover:underline"
                       >
                         {item.title}
                       </Link>
@@ -174,24 +171,24 @@ function QueueSection({
                       </span>
                     )}
                     {item.solicitationNumber && (
-                      <span className="block break-words text-xs text-slate-400">
+                      <span className="block break-words text-xs text-muted-foreground">
                         {item.solicitationNumber}
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="align-top pl-4 text-sm text-slate-600 whitespace-nowrap">
-                    {item.assigneeName ?? <span className="text-slate-400">Unassigned</span>}
+                  <TableCell className="align-top pl-4 text-sm text-muted-foreground whitespace-nowrap">
+                    {item.assigneeName ?? <span className="text-muted-foreground">Unassigned</span>}
                   </TableCell>
                   <TableCell className="align-top">
                     <Badge variant="outline" className={cn('gap-1 text-xs', DEADLINE_BADGE_CLASSES[deadlineUrgency])}>
                       {deadlineLabel(deadlineUrgency, daysToDeadline)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="align-top text-sm text-slate-700">
+                  <TableCell className="align-top text-sm text-foreground">
                     {formatCurrency(item.baseAndAllOptionsValue)}
                   </TableCell>
                   <TableCell className="align-top">
-                    <Badge variant="outline" className="text-xs text-slate-600">
+                    <Badge variant="outline" className="text-xs text-muted-foreground">
                       {formatDaysWaiting(daysWaiting)}
                     </Badge>
                   </TableCell>
@@ -211,7 +208,7 @@ function QueueSection({
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-red-600 hover:text-red-700"
+                            className="text-destructive hover:text-destructive"
                             disabled={isPending || !item.projectId}
                             onClick={() => item.projectId && onReject(item.projectId, oppId)}
                           >
