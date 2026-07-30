@@ -78,6 +78,15 @@ describe('exportPipelineToCsv', () => {
     expect(lastBlobText).not.toContain('"=HYPERLINK(');
   });
 
+  it('keeps an overdue (negative) daysToDeadline as a real number, not formula-escaped text', () => {
+    // Deadline two days before NOW → daysToDeadline of -2. The raw number must
+    // reach csvCell (not a pre-stringified "-2"), so it stays "-2" not '-2.
+    const items = [makeItem({ id: 'a', title: 'Overdue', responseDeadlineIso: '2026-07-25T00:00:00.000Z' })];
+    exportPipelineToCsv(items, 'Acme', NOW);
+    expect(lastBlobText).toContain('"-2"');
+    expect(lastBlobText).not.toContain(`"'-2"`);
+  });
+
   it('slugifies the org name into the download filename', () => {
     exportPipelineToCsv([makeItem()], 'Acme Corp', NOW);
     expect(lastDownloadName).toBe('rfp-pipeline-acme-corp.csv');

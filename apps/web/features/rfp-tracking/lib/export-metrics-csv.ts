@@ -5,7 +5,7 @@ import type {
   OutcomeSlice,
   AgingRow,
 } from './derive-metrics';
-import { csvCell } from './csv';
+import { csvCell, slug } from './csv';
 
 /**
  * export-metrics-csv.ts
@@ -18,9 +18,6 @@ import { csvCell } from './csv';
 export { csvCell };
 
 const round1 = (value: number | null): string => (value === null ? '' : value.toFixed(1));
-
-/** Slugify an org name for a filename segment. */
-const slug = (orgName: string): string => orgName.replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'export';
 
 /** Serialize rows to CSV text and trigger a browser download. */
 const downloadCsv = (rows: string[][], filename: string): void => {

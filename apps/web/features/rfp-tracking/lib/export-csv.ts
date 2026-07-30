@@ -1,7 +1,7 @@
 import type { RfpPipelineItem } from '@auto-rfp/core';
 import { OPPORTUNITY_STATUS_LABELS, OPPORTUNITY_APPROVAL_LABELS, RFP_STAGE_LABELS } from '@auto-rfp/core';
 import { toBoardCard, resolveApprovalStatus, resolveStage } from './derive-board';
-import { csvCell } from './csv';
+import { csvCell, slug } from './csv';
 
 const HEADERS = [
   'Title',
@@ -26,7 +26,7 @@ export const exportPipelineToCsv = (
   orgName: string,
   nowIso: string,
 ): void => {
-  const rows: string[][] = [
+  const rows: (string | number | null)[][] = [
     [...HEADERS],
     ...items.map((item) => {
       const card = toBoardCard(item, nowIso);
@@ -38,9 +38,11 @@ export const exportPipelineToCsv = (
         OPPORTUNITY_APPROVAL_LABELS[resolveApprovalStatus(item)],
         item.assigneeName ?? '',
         item.responseDeadlineIso ?? '',
-        card.daysToDeadline !== null ? String(card.daysToDeadline) : '',
-        card.daysInCurrentStage !== null ? String(card.daysInCurrentStage) : '',
-        item.baseAndAllOptionsValue != null ? String(item.baseAndAllOptionsValue) : '',
+        // Raw numbers (or null) — csvCell keeps numbers numeric so a genuine
+        // negative like an overdue -5 stays a number rather than becoming text.
+        card.daysToDeadline,
+        card.daysInCurrentStage,
+        item.baseAndAllOptionsValue ?? null,
         item.source ?? '',
       ];
     }),
@@ -52,8 +54,7 @@ export const exportPipelineToCsv = (
 
   const link = document.createElement('a');
   link.href = url;
-  const safeOrg = orgName.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
-  link.download = `rfp-pipeline-${safeOrg || 'export'}.csv`;
+  link.download = `rfp-pipeline-${slug(orgName)}.csv`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
