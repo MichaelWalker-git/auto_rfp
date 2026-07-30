@@ -2,6 +2,7 @@ import { LinearClient } from '@linear/sdk';
 import {
   resolveRfpStage,
   isStageAlwaysShown,
+  RFP_TERMINAL_STAGES,
   RFP_TERMINAL_WINDOW_DAYS,
   type RfpPipelineStage,
   type OpportunityApprovalStatus,
@@ -15,10 +16,13 @@ import { OPPORTUNITY_PK } from '@/constants/opportunity';
 import { PROJECT_PK } from '@/constants/organization';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { buildOpportunitySk } from '@/helpers/opportunity';
-import { docClient, queryAllBySkPrefix, deleteItem, getItem, putItem } from '@/helpers/db';
+import { queryAllBySkPrefix, deleteItem, getItem, putItem, putFullItem } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
 import { nowIso } from '@/helpers/date';
-import { PutCommand } from '@aws-sdk/lib-dynamodb';
+import type {
+  OpportunityApprovalTransition,
+  OpportunityStatusTransition,
+} from '@auto-rfp/core';
 
 /**
  * Scheduled sync: mirror the Linear "Government Contracting" board into the
@@ -71,7 +75,17 @@ const PROJECT_NAME = requireEnv('RFP_SYNC_PROJECT_NAME', 'Government Contracting
  * this many days, is treated as dead and reclassified to `expired` so it drops
  * off the live review queue. Default 21 days; set 0 to disable.
  */
-const INTAKE_STALE_DAYS = Number(requireEnv('RFP_SYNC_INTAKE_STALE_DAYS', '21'));
+const INTAKE_STALE_DAYS_PARSED = Number(requireEnv('RFP_SYNC_INTAKE_STALE_DAYS', '21'));
+const INTAKE_STALE_DAYS = Number.isFinite(INTAKE_STALE_DAYS_PARSED) ? INTAKE_STALE_DAYS_PARSED : 21;
+
+/**
+ * Prune safety: skip the destructive prune (and log loudly) if the number of
+ * records that WOULD be deleted exceeds this fraction of the existing inventory.
+ * A drop this large almost always means a partial Linear fetch (a paged request
+ * that errored halfway, or a transient empty page) rather than that many genuine
+ * board deletions in a single 15-minute window.
+ */
+const PRUNE_MAX_DROP_FRACTION = 0.5;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -118,6 +132,22 @@ const toDeadlineIso = (d: string | null): string | null => (d ? `${d}T23:59:59.0
 
 /** Stable, idempotent oppId derived from the Linear issue identifier. */
 const oppIdFor = (linearId: string) => `linear-${linearId.toLowerCase()}`;
+
+/**
+ * Stages that represent a genuinely closed/terminal outcome. Only these carry a
+ * `completedAt` — populating it for open/standing stages poisons `submittedAtIso`
+ * and the outcome-breakdown window (a still-open item would look "closed").
+ */
+const TERMINAL_STAGES = new Set<RfpPipelineStage>(RFP_TERMINAL_STAGES);
+const isTerminalStage = (stage: RfpPipelineStage): boolean => TERMINAL_STAGES.has(stage);
+
+/**
+ * The best real timestamp for a transition INTO `stage`. For terminal stages we
+ * prefer Linear's `completedAt` (when the issue actually closed); otherwise the
+ * issue's last-edit time is the closest available signal for the change.
+ */
+const transitionTimestamp = (row: LinearRow, stage: RfpPipelineStage): string =>
+  (isTerminalStage(stage) && row.completedAt ? row.completedAt : row.updatedAt);
 
 /**
  * A single raw GraphQL query per page, with every nested field inlined. The
@@ -250,11 +280,99 @@ const isStaleIntake = (row: LinearRow, nowMs: number): boolean => {
   return !Number.isNaN(touched) && touched < nowMs - INTAKE_STALE_DAYS * DAY_MS;
 };
 
-const buildRecord = (row: LinearRow, stage: RfpPipelineStage) => {
+/**
+ * The subset of an existing DynamoDB opportunity record this sync reads when
+ * merging. Only the fields we preserve or diff against are typed; everything
+ * else on the stored record is irrelevant to the merge.
+ */
+interface ExistingRecord {
+  createdAt?: string;
+  createdBy?: string;
+  status?: OpportunityStatus;
+  approvalStatus?: OpportunityApprovalStatus;
+  statusHistory?: OpportunityStatusTransition[];
+  approvalHistory?: OpportunityApprovalTransition[];
+}
+
+/**
+ * Merge a resolved Linear row into an existing record (or seed a fresh one when
+ * none exists). This is an INCREMENTAL merge, not a full overwrite:
+ *
+ *  - Current-state fields (status, approvalStatus, pipelineStage, title, etc.)
+ *    are authoritative from Linear.
+ *  - statusHistory / approvalHistory are PRESERVED. A new transition entry is
+ *    APPENDED only when the resolved value actually differs from the existing
+ *    current value (dedupe — an unchanged re-sync appends nothing), with the
+ *    best available real timestamp and `from` = the previous value.
+ *  - createdAt / createdBy are preserved from the existing record.
+ *  - For a brand-new record (no existing item) a single honest seed entry
+ *    (from: null → current) is written.
+ */
+const buildRecord = (row: LinearRow, stage: RfpPipelineStage, existing: ExistingRecord | null) => {
   const approvalStatus = STAGE_TO_APPROVAL[stage];
   const status = STAGE_TO_STATUS[stage];
   const oppId = oppIdFor(row.id);
   const syncedAt = nowIso();
+  const changedAt = transitionTimestamp(row, stage);
+
+  // ── statusHistory: preserve + append-on-change ──────────────────────────────
+  const existingStatusHistory = existing?.statusHistory ?? [];
+  const prevStatus = existing?.status ?? null;
+  const statusHistory: OpportunityStatusTransition[] =
+    existing === null
+      ? [
+          {
+            from: null,
+            to: status,
+            changedAt,
+            changedBy: 'system',
+            reason: `Synced from Linear ${row.id}`,
+            source: 'SYSTEM',
+          },
+        ]
+      : prevStatus === status
+        ? existingStatusHistory
+        : [
+            ...existingStatusHistory,
+            {
+              from: prevStatus,
+              to: status,
+              changedAt,
+              changedBy: 'system',
+              reason: `Synced from Linear ${row.id}`,
+              source: 'SYSTEM',
+            },
+          ];
+
+  // ── approvalHistory: preserve + append-on-change ────────────────────────────
+  const existingApprovalHistory = existing?.approvalHistory ?? [];
+  const prevApproval = existing?.approvalStatus ?? null;
+  const approvalReason = `Synced from Linear ${row.id} (${row.labels.join(', ') || 'no label'})`;
+  const approvalHistory: OpportunityApprovalTransition[] =
+    existing === null
+      ? [
+          {
+            from: null,
+            to: approvalStatus,
+            changedAt,
+            changedBy: 'system',
+            reason: approvalReason,
+            gate: gateFor(approvalStatus),
+          },
+        ]
+      : prevApproval === approvalStatus
+        ? existingApprovalHistory
+        : [
+            ...existingApprovalHistory,
+            {
+              from: prevApproval,
+              to: approvalStatus,
+              changedAt,
+              changedBy: 'system',
+              reason: approvalReason,
+              gate: gateFor(approvalStatus),
+            },
+          ];
 
   return {
     [PK_NAME]: OPPORTUNITY_PK,
@@ -276,36 +394,21 @@ const buildRecord = (row: LinearRow, stage: RfpPipelineStage) => {
     setAside: null,
     description: null,
     status,
-    statusHistory: [
-      {
-        from: null,
-        to: status,
-        changedAt: row.updatedAt,
-        changedBy: 'system',
-        reason: `Synced from Linear ${row.id}`,
-        source: 'SYSTEM' as const,
-      },
-    ],
+    statusHistory,
     approvalStatus,
-    approvalHistory: [
-      {
-        from: null,
-        to: approvalStatus,
-        changedAt: row.updatedAt,
-        changedBy: 'system',
-        reason: `Synced from Linear ${row.id} (${row.labels.join(', ') || 'no label'})`,
-        gate: gateFor(approvalStatus),
-      },
-    ],
+    approvalHistory,
     pipelineStage: stage,
-    completedAt: row.completedAt,
+    // Only genuinely terminal stages carry completedAt; open/standing stages get
+    // null so submittedAtIso and the outcome window don't treat live work as closed.
+    completedAt: isTerminalStage(stage) ? row.completedAt : null,
     baseAndAllOptionsValue: null,
     assigneeName: row.assignee ?? undefined,
     createdByName: row.creator ?? 'Linear sync',
     sourceUrl: row.url,
-    createdAt: row.createdAt,
+    // Preserve the original creation identity; only seed it for a brand-new record.
+    createdAt: existing?.createdAt ?? row.createdAt,
     updatedAt: row.updatedAt,
-    createdBy: 'system',
+    createdBy: existing?.createdBy ?? 'system',
     updatedBy: 'system',
     updatedByName: 'Linear sync',
     syncedAt,
@@ -371,6 +474,21 @@ export const syncLinearPipeline = async (): Promise<SyncResult> => {
   const nowMs = Date.now();
   const cutoffMs = nowMs - RFP_TERMINAL_WINDOW_DAYS * DAY_MS;
 
+  // Load the current inventory ONCE, up-front. It serves two purposes: the
+  // per-record merge below reads each existing item to preserve its real
+  // history/createdAt, and the prune step reconciles against the same snapshot —
+  // so we never re-query or clobber user-made gate approvals.
+  const skPrefix = `${buildOpportunitySk(ORG_ID, PROJECT_ID, 'linear-')}`;
+  const existing = await queryAllBySkPrefix<ExistingRecord & { [k: string]: unknown }>(
+    OPPORTUNITY_PK,
+    skPrefix,
+  );
+  const existingBySk = new Map<string, ExistingRecord>();
+  for (const item of existing) {
+    const sk = item[SK_NAME];
+    if (typeof sk === 'string') existingBySk.set(sk, item);
+  }
+
   let skippedUntracked = 0;
   let skippedOutOfWindow = 0;
   let expiredIntake = 0;
@@ -396,7 +514,8 @@ export const syncLinearPipeline = async (): Promise<SyncResult> => {
       skippedOutOfWindow += 1;
       continue;
     }
-    records.push(buildRecord(row, stage));
+    const sk = buildOpportunitySk(ORG_ID, PROJECT_ID, oppIdFor(row.id));
+    records.push(buildRecord(row, stage, existingBySk.get(sk) ?? null));
   }
 
   const byStage = records.reduce<Record<string, number>>((acc, r) => {
@@ -404,16 +523,19 @@ export const syncLinearPipeline = async (): Promise<SyncResult> => {
     return acc;
   }, {});
 
-  // Upsert every current record.
+  // Upsert every current record via a full overwrite of the merged item (history
+  // and createdAt already preserved by buildRecord, so this no longer clobbers).
   for (const record of records) {
-    await docClient.send(new PutCommand({ TableName: requireEnv('DB_TABLE_NAME'), Item: record }));
+    await putFullItem(record);
   }
 
   // Prune previously-synced records that are no longer shown. Only touch records
   // this job owns (SK prefix `${orgId}#${projectId}#linear-`).
   const keep = new Set(records.map((r) => r[SK_NAME]));
-  const skPrefix = `${buildOpportunitySk(ORG_ID, PROJECT_ID, 'linear-')}`;
-  const existing = await queryAllBySkPrefix<{ [k: string]: string }>(OPPORTUNITY_PK, skPrefix);
+  const toPrune = existing.filter((item) => {
+    const sk = item[SK_NAME];
+    return typeof sk === 'string' && !keep.has(sk);
+  });
 
   // Safety floor against a degenerate run wiping the whole board. A healthy
   // Linear board is never empty, so a run that resolved ZERO records almost
@@ -441,10 +563,34 @@ export const syncLinearPipeline = async (): Promise<SyncResult> => {
     };
   }
 
+  // Proportional guard: even when SOME records resolved, a prune that would drop
+  // more than PRUNE_MAX_DROP_FRACTION of the existing inventory almost certainly
+  // reflects a partial Linear fetch (a page that errored, or half the board
+  // coming back stage-less) rather than that many genuine deletions in one
+  // 15-minute window. Skip the prune and let the next healthy run reconcile.
+  if (existing.length > 0 && toPrune.length > existing.length * PRUNE_MAX_DROP_FRACTION) {
+    console.warn(
+      'Linear pipeline sync would prune %d of %d records (> %d%%) — skipping prune; likely a partial fetch, not real deletions',
+      toPrune.length,
+      existing.length,
+      Math.round(PRUNE_MAX_DROP_FRACTION * 100),
+    );
+    return {
+      fetched: rows.length,
+      written: records.length,
+      pruned: 0,
+      prunedSkipped: true,
+      skippedUntracked,
+      skippedOutOfWindow,
+      expiredIntake,
+      byStage,
+    };
+  }
+
   let pruned = 0;
-  for (const item of existing) {
+  for (const item of toPrune) {
     const sk = item[SK_NAME];
-    if (sk && !keep.has(sk)) {
+    if (typeof sk === 'string') {
       await deleteItem(OPPORTUNITY_PK, sk);
       pruned += 1;
     }

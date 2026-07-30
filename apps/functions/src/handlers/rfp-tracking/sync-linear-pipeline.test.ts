@@ -15,6 +15,7 @@ jest.mock('@linear/sdk', () => ({
 // DB helpers — hoisted so the full-sync tests can drive queries/deletes/puts.
 const mockGetItem = jest.fn();
 const mockPutItem = jest.fn();
+const mockPutFullItem = jest.fn();
 const mockQueryAllBySkPrefix = jest.fn();
 const mockDeleteItem = jest.fn();
 const mockDocSend = jest.fn();
@@ -24,6 +25,7 @@ jest.mock('@/helpers/db', () => ({
   deleteItem: (...args: unknown[]) => mockDeleteItem(...args),
   getItem: (...args: unknown[]) => mockGetItem(...args),
   putItem: (...args: unknown[]) => mockPutItem(...args),
+  putFullItem: (...args: unknown[]) => mockPutFullItem(...args),
 }));
 
 // Secrets lookup — the sync aborts early without a key, so resolve a stub.
@@ -49,6 +51,7 @@ beforeEach(() => {
   mockQueryAllBySkPrefix.mockResolvedValue([]);
   mockDeleteItem.mockResolvedValue(undefined);
   mockDocSend.mockResolvedValue({});
+  mockPutFullItem.mockImplementation((item: unknown) => Promise.resolve(item));
 });
 
 /** One node in the raw GraphQL issues connection. */
@@ -83,10 +86,17 @@ const linearPage = (nodes: Array<Record<string, unknown>>) => ({
 });
 
 /** An already-synced DynamoDB record as queryAllBySkPrefix would return it. */
-const existingRecord = (oppId: string) => ({
+const existingRecord = (oppId: string, extra: Record<string, unknown> = {}) => ({
   partition_key: OPPORTUNITY_PK,
   sort_key: `org-123#gov-contracting#${oppId}`,
+  ...extra,
 });
+
+/** The merged record for a given oppId as passed to putFullItem (docClient no longer used). */
+const putRecordFor = (oppId: string): Record<string, unknown> | undefined =>
+  mockPutFullItem.mock.calls
+    .map((c) => c[0] as Record<string, unknown>)
+    .find((r) => r.sort_key === `org-123#gov-contracting#${oppId}`);
 
 describe('ensureSyncProject', () => {
   it('seeds the synthetic gov-contracting project when it does not exist', async () => {
@@ -174,5 +184,155 @@ describe('syncLinearPipeline — prune safety floor', () => {
 
     expect(mockDeleteItem).not.toHaveBeenCalled();
     expect(result).toMatchObject({ written: 0, pruned: 0, prunedSkipped: false });
+  });
+
+  it('proportional guard: skips the prune (and reports the skip) when the drop exceeds 50%', async () => {
+    // Only 1 issue resolves, but there are 4 existing records → pruning would
+    // drop 3/4 (75%). That looks like a partial fetch, not real deletions.
+    mockRawRequest.mockResolvedValue(linearPage([issueNode({ identifier: 'HOR-100' })]));
+    mockQueryAllBySkPrefix.mockResolvedValue([
+      existingRecord('linear-hor-100'), // kept
+      existingRecord('linear-hor-201'), // would prune
+      existingRecord('linear-hor-202'), // would prune
+      existingRecord('linear-hor-203'), // would prune
+    ]);
+
+    const result = await syncLinearPipeline();
+
+    expect(mockDeleteItem).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ written: 1, pruned: 0, prunedSkipped: true });
+  });
+});
+
+describe('syncLinearPipeline — incremental history merge', () => {
+  it('preserves a real multi-entry approvalHistory instead of collapsing it to one entry', async () => {
+    // Real user-made gate approvals already recorded by opportunity-approval.ts.
+    const realApprovalHistory = [
+      { from: null, to: 'INITIAL_APPROVAL', changedAt: '2026-07-01T00:00:00.000Z', changedBy: 'system', gate: 'STAGE' },
+      { from: 'INITIAL_APPROVAL', to: 'I_APPROVED', changedAt: '2026-07-05T10:00:00.000Z', changedBy: 'user-brennen', gate: 'INITIAL' },
+      { from: 'I_APPROVED', to: 'PRE_SUB_APPROVAL', changedAt: '2026-07-10T12:00:00.000Z', changedBy: 'user-brennen', gate: 'STAGE' },
+    ];
+    // Existing item is already at PRE_SUB_APPROVAL / PURSUING (matches inProgress resolve).
+    mockRawRequest.mockResolvedValue(linearPage([issueNode({ identifier: 'HOR-100' })]));
+    mockQueryAllBySkPrefix.mockResolvedValue([
+      existingRecord('linear-hor-100', {
+        createdAt: '2026-06-15T00:00:00.000Z',
+        createdBy: 'user-brennen',
+        status: 'PURSUING',
+        approvalStatus: 'I_APPROVED', // matches inProgress → STAGE_TO_APPROVAL
+        approvalHistory: realApprovalHistory,
+      }),
+    ]);
+
+    await syncLinearPipeline();
+
+    const rec = putRecordFor('linear-hor-100');
+    // Unchanged approvalStatus → history preserved verbatim, NOT collapsed.
+    expect(rec?.approvalHistory).toEqual(realApprovalHistory);
+    // createdAt / createdBy preserved from the existing record.
+    expect(rec?.createdAt).toBe('2026-06-15T00:00:00.000Z');
+    expect(rec?.createdBy).toBe('user-brennen');
+  });
+
+  it('does not append a duplicate entry when the approval status is unchanged', async () => {
+    mockRawRequest.mockResolvedValue(linearPage([issueNode({ identifier: 'HOR-100' })]));
+    mockQueryAllBySkPrefix.mockResolvedValue([
+      existingRecord('linear-hor-100', {
+        status: 'PURSUING',
+        approvalStatus: 'I_APPROVED',
+        statusHistory: [
+          { from: null, to: 'PURSUING', changedAt: '2026-07-01T00:00:00.000Z', changedBy: 'system', source: 'SYSTEM' },
+        ],
+        approvalHistory: [
+          { from: null, to: 'I_APPROVED', changedAt: '2026-07-01T00:00:00.000Z', changedBy: 'system', gate: 'STAGE' },
+        ],
+      }),
+    ]);
+
+    await syncLinearPipeline();
+
+    const rec = putRecordFor('linear-hor-100');
+    expect(rec?.approvalHistory).toHaveLength(1);
+    expect(rec?.statusHistory).toHaveLength(1);
+  });
+
+  it('appends exactly one entry with from=previous on a real status change', async () => {
+    // Existing at INITIAL_APPROVAL/QUALIFYING; the issue now resolves inProgress
+    // → I_APPROVED / PURSUING, a genuine transition.
+    mockRawRequest.mockResolvedValue(linearPage([issueNode({ identifier: 'HOR-100' })]));
+    mockQueryAllBySkPrefix.mockResolvedValue([
+      existingRecord('linear-hor-100', {
+        status: 'QUALIFYING',
+        approvalStatus: 'INITIAL_APPROVAL',
+        statusHistory: [
+          { from: null, to: 'QUALIFYING', changedAt: '2026-07-01T00:00:00.000Z', changedBy: 'system', source: 'SYSTEM' },
+        ],
+        approvalHistory: [
+          { from: null, to: 'INITIAL_APPROVAL', changedAt: '2026-07-01T00:00:00.000Z', changedBy: 'system', gate: 'STAGE' },
+        ],
+      }),
+    ]);
+
+    await syncLinearPipeline();
+
+    const rec = putRecordFor('linear-hor-100');
+    const approvalHistory = rec?.approvalHistory as Array<Record<string, unknown>>;
+    const statusHistory = rec?.statusHistory as Array<Record<string, unknown>>;
+
+    expect(approvalHistory).toHaveLength(2);
+    expect(approvalHistory[1]).toMatchObject({ from: 'INITIAL_APPROVAL', to: 'I_APPROVED' });
+    expect(statusHistory).toHaveLength(2);
+    expect(statusHistory[1]).toMatchObject({ from: 'QUALIFYING', to: 'PURSUING' });
+  });
+
+  it('seeds a single honest from:null entry for a brand-new record', async () => {
+    mockRawRequest.mockResolvedValue(linearPage([issueNode({ identifier: 'HOR-100' })]));
+    mockQueryAllBySkPrefix.mockResolvedValue([]); // no existing item
+
+    await syncLinearPipeline();
+
+    const rec = putRecordFor('linear-hor-100');
+    const approvalHistory = rec?.approvalHistory as Array<Record<string, unknown>>;
+    expect(approvalHistory).toHaveLength(1);
+    expect(approvalHistory[0]).toMatchObject({ from: null, to: 'I_APPROVED' });
+  });
+
+  it('leaves completedAt null for a non-terminal stage even when Linear reports one', async () => {
+    // inProgress is a live stage — a stray completedAt from Linear must NOT leak
+    // through, or submittedAtIso/outcome window would treat live work as closed.
+    mockRawRequest.mockResolvedValue(
+      linearPage([issueNode({ identifier: 'HOR-100', completedAt: '2026-07-19T00:00:00.000Z' })]),
+    );
+    mockQueryAllBySkPrefix.mockResolvedValue([]);
+
+    await syncLinearPipeline();
+
+    const rec = putRecordFor('linear-hor-100');
+    expect(rec?.completedAt).toBeNull();
+    expect(rec?.pipelineStage).toBe('inProgress');
+  });
+
+  it('populates completedAt and stamps the transition at completedAt for a terminal stage', async () => {
+    // A submitted issue (status "Submitted") is terminal → completedAt kept, and a
+    // brand-new terminal record stamps its seed entry at completedAt, not updatedAt.
+    const completedAt = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    mockRawRequest.mockResolvedValue(
+      linearPage([
+        issueNode({
+          identifier: 'HOR-100',
+          state: { name: 'Submitted' },
+          completedAt,
+        }),
+      ]),
+    );
+    mockQueryAllBySkPrefix.mockResolvedValue([]);
+
+    await syncLinearPipeline();
+
+    const rec = putRecordFor('linear-hor-100');
+    expect(rec?.pipelineStage).toBe('submitted');
+    expect(rec?.completedAt).toBe(completedAt);
+    const approvalHistory = rec?.approvalHistory as Array<Record<string, unknown>>;
+    expect(approvalHistory[0]?.changedAt).toBe(completedAt);
   });
 });
