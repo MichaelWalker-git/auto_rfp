@@ -53,13 +53,13 @@ export const PROPOSAL_PERMISSIONS = [
 
 export const OPPORTUNITY_PERMISSIONS = [
   'opportunity:read', 'opportunity:create', 'opportunity:delete', 'opportunity:edit',
-  // RFP tracking two-gate approval write-back. Split by gate so each reviewer sees
-  // only the queue they own:
-  //   rfp:approve_initial — gate 1 (Brennen): Initial Approval → I Approved / Not Approved.
-  //     Granted to EDITOR so a reviewer/manager can clear gate 1 without full admin.
-  //   rfp:approve_final   — gate 2 (Michael): Pre Sub Approval → II Approved. ADMIN-only.
-  // EDITOR/MEMBER list opportunity permissions explicitly rather than spreading this
-  // group, so they do NOT inherit approve rights they shouldn't have.
+  // RFP tracking two-gate approval write-back. Split by gate for auditability
+  // (each decision records which gate it cleared), but BOTH gates are open to
+  // every org member — see ROLE_PERMISSIONS, where all roles grant both:
+  //   rfp:approve_initial — gate 1: Initial Approval → I Approved / Not Approved.
+  //   rfp:approve_final   — gate 2: Pre Sub Approval → II Approved.
+  // The backend (decide-rfp-approval) checks the gate-appropriate permission;
+  // since all roles hold both, any authenticated org member can accept/deny.
   'rfp:approve_initial',
   'rfp:approve_final',
 ] as const;
