@@ -70,6 +70,14 @@ describe('exportPipelineToCsv', () => {
     expect(lastBlobText).toContain('"The ""Big"" RFP"');
   });
 
+  it('neutralizes formula injection in a Linear-synced title', () => {
+    const items = [makeItem({ title: '=HYPERLINK("http://evil.example","click")' })];
+    exportPipelineToCsv(items, 'Acme', NOW);
+    // Leading '=' is defused with a single-quote prefix so spreadsheets treat it as text.
+    expect(lastBlobText).toContain(`"'=HYPERLINK(`);
+    expect(lastBlobText).not.toContain('"=HYPERLINK(');
+  });
+
   it('slugifies the org name into the download filename', () => {
     exportPipelineToCsv([makeItem()], 'Acme Corp', NOW);
     expect(lastDownloadName).toBe('rfp-pipeline-acme-corp.csv');

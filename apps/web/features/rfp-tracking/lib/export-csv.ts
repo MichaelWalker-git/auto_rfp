@@ -1,12 +1,7 @@
 import type { RfpPipelineItem } from '@auto-rfp/core';
 import { OPPORTUNITY_STATUS_LABELS, OPPORTUNITY_APPROVAL_LABELS, RFP_STAGE_LABELS } from '@auto-rfp/core';
 import { toBoardCard, resolveApprovalStatus, resolveStage } from './derive-board';
-
-/** Escape a CSV cell — wrap in quotes and double any embedded quotes. */
-const csvCell = (value: string | number | null | undefined): string => {
-  const str = value === null || value === undefined ? '' : String(value);
-  return `"${str.replace(/"/g, '""')}"`;
-};
+import { csvCell } from './csv';
 
 const HEADERS = [
   'Title',
