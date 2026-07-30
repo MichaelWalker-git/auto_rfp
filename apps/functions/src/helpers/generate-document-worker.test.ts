@@ -67,6 +67,8 @@ import {
   ensureDocumentTitleHeading,
   assessTemplateHealth,
   generateWithTemplateSections,
+  applyTemplateStylesToContent,
+  extractDocumentTitle,
 } from './generate-document-worker';
 import { generateDocumentSectionBySectionHtml } from './document-section-generator';
 
@@ -175,5 +177,201 @@ describe('assessTemplateHealth', () => {
     expect(ok).toBe(false);
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain('no <h1> document-type title');
+  });
+});
+
+describe('extractDocumentTitle', () => {
+  it('strips a leading &nbsp; entity from the template <h1> title', () => {
+    const template = '<h1>&nbsp;Physical Records Storage, Retrieval and Destruction Services</h1>';
+    expect(extractDocumentTitle(template, 'TECHNICAL_PROPOSAL')).toBe(
+      'Physical Records Storage, Retrieval and Destruction Services',
+    );
+  });
+
+  it('strips a raw non-breaking-space character from the title', () => {
+    const template = '<h1> Physical Records Storage</h1>';
+    expect(extractDocumentTitle(template, 'TECHNICAL_PROPOSAL')).toBe('Physical Records Storage');
+  });
+
+  it('decodes numeric nbsp entities and collapses internal whitespace', () => {
+    const template = '<h1>Storage&#160;&nbsp;Services</h1>';
+    expect(extractDocumentTitle(template, 'TECHNICAL_PROPOSAL')).toBe('Storage Services');
+  });
+
+  it('strips a leading zero-padded hex nbsp entity (&#x00a0;)', () => {
+    const template = '<h1>&#x00a0;Physical Records Storage</h1>';
+    expect(extractDocumentTitle(template, 'TECHNICAL_PROPOSAL')).toBe('Physical Records Storage');
+  });
+
+  it('strips a leading zero-padded decimal nbsp entity (&#0160;)', () => {
+    const template = '<h1>&#0160;Physical Records Storage</h1>';
+    expect(extractDocumentTitle(template, 'TECHNICAL_PROPOSAL')).toBe('Physical Records Storage');
+  });
+
+  it('strips a bare &nbsp entity without a trailing semicolon', () => {
+    const template = '<h1>&nbsp Physical Records Storage</h1>';
+    expect(extractDocumentTitle(template, 'TECHNICAL_PROPOSAL')).toBe('Physical Records Storage');
+  });
+
+  it('falls back to the document-type label when the title has no real text', () => {
+    const template = '<h1>&nbsp;{{PROJECT_TITLE}}</h1>';
+    expect(extractDocumentTitle(template, 'TECHNICAL_PROPOSAL')).toBe('Technical Proposal');
+  });
+
+  it('falls back to the document-type label when there is no <h1>', () => {
+    expect(extractDocumentTitle('<h2>Section</h2>', 'COVER_LETTER')).toBe('Cover Letter');
+  });
+});
+
+describe('applyTemplateStylesToContent', () => {
+  it('does NOT broadcast text-align from the template to AI paragraphs', () => {
+    // The template's first styled <p> is a centered title line. Its center
+    // alignment must NOT leak onto body paragraphs (the original bug).
+    const template =
+      '<p style="text-align:center;color:#123456">Centered Title</p>' +
+      '<p style="color:#123456">Left body</p>';
+    const content = '<p>AI generated paragraph</p>';
+
+    const result = applyTemplateStylesToContent(content, template);
+
+    // Brand color propagates, alignment does not.
+    expect(result).toContain('color: #123456');
+    expect(result).not.toContain('text-align');
+  });
+
+  it('does not center unstyled table cells (Description column stays left)', () => {
+    // First styled <td> in the template is a centered number cell; the
+    // Description cells are unstyled and must remain left-aligned.
+    const template =
+      '<table><tr>' +
+      '<td style="text-align:center;color:#111">2a</td>' +
+      '<td>VitalWeb Portal Access</td>' +
+      '</tr></table>';
+    const content =
+      '<table><tr><td>3a</td><td>New description cell</td></tr></table>';
+
+    const result = applyTemplateStylesToContent(content, template);
+
+    expect(result).not.toContain('text-align: center');
+    // Cosmetic color still propagates to cells without their own style.
+    expect(result).toContain('color: #111');
+  });
+
+  it('strips AI-invented white-on-dark header colors when the template is black-on-white', () => {
+    const template =
+      '<table><tr><th style="color:#000;font-weight:600">Item</th></tr></table>';
+    // AI regenerated the header row with the prompt-default white-on-dark style.
+    const content =
+      '<table><tr style="background:#333;color:#fff"><th>Item</th></tr></table>';
+
+    const result = applyTemplateStylesToContent(content, template);
+
+    expect(result).not.toMatch(/color:\s*#fff/i);
+    expect(result).not.toMatch(/background:\s*#333/i);
+  });
+
+  it('strips white header text while keeping a light (non-dark) header background', () => {
+    // The client's case: header keeps the template's light lavender background,
+    // but the AI colored the text white → invisible text on a light background.
+    const template =
+      '<table><tr style="background:#e6e6fa"><th style="color:#0b6b3a">Item</th></tr></table>';
+    const content =
+      '<table><tr style="background:#e6e6fa;color:#fff"><th>Item</th></tr></table>';
+
+    const result = applyTemplateStylesToContent(content, template);
+
+    // White text removed…
+    expect(result).not.toMatch(/color:\s*#fff/i);
+    // …but the light background is NOT stripped (only dark #333/#000 backgrounds are).
+    expect(result).toMatch(/background:\s*#e6e6fa/i);
+  });
+
+  it('strips white header text set directly on the <th>', () => {
+    const template =
+      '<table><tr style="background:#e6e6fa"><th style="color:#0b6b3a">Item</th></tr></table>';
+    // No template-forced <th> reshaping needed to hit the strip path: put white on <th>.
+    const content =
+      '<table><tr style="background:#e6e6fa"><th style="color:#ffffff">Item</th></tr></table>';
+
+    const result = applyTemplateStylesToContent(content, template);
+
+    // The template DOES define a <th> style (color:#0b6b3a), so it is forced back on,
+    // overwriting the AI's white text with the template's green header text.
+    expect(result).toMatch(/color:\s*#0b6b3a/i);
+    expect(result).not.toMatch(/color:\s*#ffffff/i);
+  });
+
+  it('strips a dark <tr> background even when the white text lives on the <th>', () => {
+    // The AI sometimes splits its invented header look: dark band on the row,
+    // white text on the cell. Both halves must be removed, or a black-on-white
+    // template ends up with a dark header band (invisible black text on #333).
+    const template =
+      '<table><tr><th style="color:#0b6b3a">Item</th></tr></table>';
+    const content =
+      '<table><tr style="background:#333"><th style="color:#fff">Item</th></tr></table>';
+
+    const result = applyTemplateStylesToContent(content, template);
+
+    // Dark row background stripped…
+    expect(result).not.toMatch(/background:\s*#333/i);
+    // …and the white text on the <th> is replaced by the template's green header.
+    expect(result).toMatch(/color:\s*#0b6b3a/i);
+    expect(result).not.toMatch(/color:\s*#fff/i);
+  });
+
+  it('does not strip a legitimate dark-blue header background that only prefix-matches #000', () => {
+    // #0000ff (blue) prefix-matches "#000"; anchoring the regex prevents it from
+    // being mistaken for the AI's invented #000 dark background.
+    const template =
+      '<table><tr style="background:#0000ff"><th style="color:#0b6b3a">Item</th></tr></table>';
+    const content =
+      '<table><tr style="background:#0000ff;color:#fff"><th>Item</th></tr></table>';
+
+    const result = applyTemplateStylesToContent(content, template);
+
+    // White text is stripped, but the legitimate blue background is preserved.
+    expect(result).not.toMatch(/color:\s*#fff/i);
+    expect(result).toMatch(/background:\s*#0000ff/i);
+  });
+
+  it('preserves intentional white headers when the template itself uses them', () => {
+    const template =
+      '<table><tr style="background:#333;color:#fff"><th>Item</th></tr></table>';
+    const content =
+      '<table><tr style="background:#333;color:#fff"><th>Item</th></tr></table>';
+
+    const result = applyTemplateStylesToContent(content, template);
+
+    expect(result).toMatch(/color:\s*#fff/i);
+  });
+
+  it('applies the template heading brand color while keeping the heading own alignment', () => {
+    const template = '<h2 style="color:#1e40af;font-weight:700">Section</h2>';
+    const content = '<h2 style="text-align:center">Generated Section</h2>';
+
+    const result = applyTemplateStylesToContent(content, template);
+
+    expect(result).toContain('color: #1e40af');
+    // The AI heading explicitly centered itself — that intent is preserved.
+    expect(result).toContain('text-align: center');
+  });
+
+  it('does not corrupt a data-style="..." attribute when restyling a heading', () => {
+    // The style-strip must not match inside data-style (or any *-style) attribute
+    // and leave a dangling "data-" fragment.
+    const template = '<h2 style="color:#1e40af">Section</h2>';
+    const content = '<h2 data-style="keep" style="color:#000">Generated</h2>';
+
+    const result = applyTemplateStylesToContent(content, template);
+
+    expect(result).toContain('data-style="keep"');
+    expect(result).toContain('color: #1e40af');
+    expect(result).not.toContain('data- ');
+    expect(result).not.toMatch(/data-\s*style="color: #1e40af"/);
+  });
+
+  it('returns content unchanged when template has no inline styles', () => {
+    const content = '<p>Body</p><h2>Heading</h2>';
+    expect(applyTemplateStylesToContent(content, '<p>plain</p>')).toBe(content);
   });
 });
