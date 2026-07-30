@@ -1,6 +1,6 @@
 'use client';
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LabelList, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ExportCsvButton } from './ExportCsvButton';
 import type { ThroughputBucket } from '../lib/derive-metrics';
@@ -30,11 +30,14 @@ export const ThroughputChart = ({ data, onExport }: ThroughputChartProps) => {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={224}>
-            <BarChart data={data} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+            <BarChart data={data} margin={{ top: 20, right: 8, left: -16, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
               <Tooltip
+                cursor={{ fill: 'hsl(var(--muted))', opacity: 0.35 }}
+                labelFormatter={() => ''}
+                formatter={(value: number) => [value, '']}
                 contentStyle={{
                   fontSize: 12,
                   borderRadius: 8,
@@ -42,7 +45,15 @@ export const ThroughputChart = ({ data, onExport }: ThroughputChartProps) => {
                   background: 'hsl(var(--background))',
                 }}
               />
-              <Bar dataKey="count" name="Submitted" fill="#6366f1" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="count" name="Submitted" fill="#6366f1" radius={[3, 3, 0, 0]}>
+                <LabelList
+                  dataKey="count"
+                  position="top"
+                  fontSize={11}
+                  fill="hsl(var(--foreground))"
+                  formatter={(value: number) => (value === 0 ? '' : value)}
+                />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         )}
