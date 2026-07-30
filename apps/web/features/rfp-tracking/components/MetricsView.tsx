@@ -65,7 +65,7 @@ export const MetricsView = ({
     () => throughputByWeek(scoped, range.startIso, range.endIso),
     [scoped, range],
   );
-  const funnelRows = useMemo(() => funnel(scoped, range.startIso, range.endIso), [scoped, range]);
+  const funnelRows = useMemo(() => funnel(scoped), [scoped]);
   const cycle = useMemo(() => cycleTime(scoped), [scoped]);
   const win = useMemo(() => winRate(scoped, range.startIso, range.endIso), [scoped, range]);
   const outcomes = useMemo(

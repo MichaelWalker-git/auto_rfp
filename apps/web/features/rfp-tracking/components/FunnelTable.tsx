@@ -19,7 +19,7 @@ export const FunnelTable = ({ rows, onExport }: FunnelTableProps) => (
     <CardHeader className="flex flex-row items-start justify-between gap-2">
       <div>
         <CardTitle className="text-base">Funnel</CardTitle>
-        <CardDescription>Items entering each stage, with conversion between stages</CardDescription>
+        <CardDescription>Items that reached each stage, with conversion between stages</CardDescription>
       </div>
       <ExportCsvButton onExport={onExport} disabled={rows.length === 0} />
     </CardHeader>
@@ -28,7 +28,7 @@ export const FunnelTable = ({ rows, onExport }: FunnelTableProps) => (
         <TableHeader>
           <TableRow>
             <TableHead>Stage</TableHead>
-            <TableHead className="text-right">Entered</TableHead>
+            <TableHead className="text-right">Reached</TableHead>
             <TableHead className="text-right">Conversion</TableHead>
           </TableRow>
         </TableHeader>

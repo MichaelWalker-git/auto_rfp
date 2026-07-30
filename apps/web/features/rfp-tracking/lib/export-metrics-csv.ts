@@ -47,7 +47,7 @@ export const exportThroughputCsv = (buckets: ThroughputBucket[], orgName: string
 
 export const exportFunnelCsv = (funnelRows: FunnelRow[], orgName: string): void => {
   const rows: string[][] = [
-    ['Stage', 'Entered', 'Conversion From Previous (%)'],
+    ['Stage', 'Reached', 'Conversion From Previous (%)'],
     ...funnelRows.map((r) => [
       r.label,
       String(r.entered),

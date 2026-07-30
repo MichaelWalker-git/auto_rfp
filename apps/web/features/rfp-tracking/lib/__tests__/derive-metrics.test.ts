@@ -157,55 +157,88 @@ describe('throughputByWeek', () => {
 });
 
 describe('funnel', () => {
-  const { startIso, endIso } = lastNWeeksRange(NOW, 8);
-
   it('follows the canonical lead-to-deal stage order', () => {
-    const rows = funnel([], startIso, endIso);
+    const rows = funnel([]);
     expect(rows.map((r) => r.stage)).toEqual([...FUNNEL_STAGE_ORDER]);
     expect(rows.every((r) => r.entered === 0)).toBe(true);
     expect(rows[0]!.conversionFromPrev).toBeNull();
   });
 
-  it('counts entries per stage and computes conversion between stages', () => {
-    const inWin = '2026-07-20T00:00:00.000Z';
+  it('counts each item cumulatively at its furthest stage + conversion between stages', () => {
+    const at = '2026-07-20T00:00:00.000Z';
     const items = [
-      // Reaches initial + first approval + submitted.
+      // Furthest = submitted (rank 3).
       makeItem({
         id: 'a',
+        approvalStatus: 'SUBMITTED',
         approvalHistory: [
-          approvalTransition('INITIAL_APPROVAL', inWin),
-          approvalTransition('I_APPROVED', inWin),
-          approvalTransition('SUBMITTED', inWin),
+          approvalTransition('INITIAL_APPROVAL', at),
+          approvalTransition('I_APPROVED', at),
+          approvalTransition('SUBMITTED', at),
         ],
       }),
-      // Reaches only initial + first approval.
+      // Furthest = first approval (rank 1).
       makeItem({
         id: 'b',
+        approvalStatus: 'I_APPROVED',
         approvalHistory: [
-          approvalTransition('INITIAL_APPROVAL', inWin),
-          approvalTransition('I_APPROVED', inWin),
+          approvalTransition('INITIAL_APPROVAL', at),
+          approvalTransition('I_APPROVED', at),
         ],
       }),
-      // Reaches only initial.
-      makeItem({ id: 'c', approvalHistory: [approvalTransition('INITIAL_APPROVAL', inWin)] }),
+      // Furthest = initial (rank 0).
+      makeItem({
+        id: 'c',
+        approvalStatus: 'INITIAL_APPROVAL',
+        approvalHistory: [approvalTransition('INITIAL_APPROVAL', at)],
+      }),
     ];
-    const rows = funnel(items, startIso, endIso);
+    const rows = funnel(items);
     const byStage = Object.fromEntries(rows.map((r) => [r.stage, r]));
+    // Cumulative: reached this stage OR beyond → monotonically non-increasing.
     expect(byStage.execSummaryToReview!.entered).toBe(3);
     expect(byStage.firstApproved!.entered).toBe(2);
+    expect(byStage.preSubmissionReview!.entered).toBe(1);
     expect(byStage.submitted!.entered).toBe(1);
-    // 2 of 3 → 66.7%
+    expect(byStage.awarded!.entered).toBe(0);
+    // 2 of 3 reached first approval → 66.7%
     expect(byStage.firstApproved!.conversionFromPrev).toBeCloseTo(66.67, 1);
-    // preSubmissionReview had 0 entries → submitted conversion from 0 = 0
-    expect(byStage.submitted!.conversionFromPrev).toBe(0);
+    // 1 of 2 advanced to pre-submission → 50%
+    expect(byStage.preSubmissionReview!.conversionFromPrev).toBe(50);
+    // 1 of 1 advanced to submitted → 100% (never exceeds 100)
+    expect(byStage.submitted!.conversionFromPrev).toBe(100);
+    // 0 of 1 reached awarded → 0%
+    expect(byStage.awarded!.conversionFromPrev).toBe(0);
   });
 
-  it('counts awarded via current stage + completedAt in window', () => {
+  it('never produces a conversion above 100% even when later stages look fuller', () => {
+    // A pathological input: many items currently at first-approved, few at intake.
+    const items = [
+      ...Array.from({ length: 20 }, (_v, i) =>
+        makeItem({ id: `fa-${i}`, approvalStatus: 'I_APPROVED' }),
+      ),
+      makeItem({ id: 'init-1', approvalStatus: 'INITIAL_APPROVAL' }),
+      makeItem({ id: 'init-2', approvalStatus: 'INITIAL_APPROVAL' }),
+    ];
+    const rows = funnel(items);
+    const byStage = Object.fromEntries(rows.map((r) => [r.stage, r]));
+    // All 22 reached intake; 20 reached first approval → 90.9%, not 1000%.
+    expect(byStage.execSummaryToReview!.entered).toBe(22);
+    expect(byStage.firstApproved!.entered).toBe(20);
+    expect(byStage.firstApproved!.conversionFromPrev).toBeCloseTo(90.9, 1);
+    rows.forEach((r) => {
+      if (r.conversionFromPrev !== null) expect(r.conversionFromPrev).toBeLessThanOrEqual(100);
+    });
+  });
+
+  it('counts awarded via current stage', () => {
     const items = [
       makeItem({ id: 'a', status: 'WON', pipelineStage: 'awarded', completedAt: '2026-07-20T00:00:00.000Z' }),
     ];
-    const rows = funnel(items, startIso, endIso);
+    const rows = funnel(items);
     expect(rows.find((r) => r.stage === 'awarded')!.entered).toBe(1);
+    // Awarded item counts at every earlier stage too.
+    expect(rows.find((r) => r.stage === 'execSummaryToReview')!.entered).toBe(1);
   });
 });
 

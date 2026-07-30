@@ -222,57 +222,49 @@ export const FUNNEL_STAGE_ORDER: readonly RfpPipelineStage[] = [
   'awarded',
 ];
 
-/**
- * The approval-status milestones that map onto each funnel stage. Entry into a
- * funnel stage is detected from EITHER an approvalHistory `to` reaching the
- * milestone OR the item's current board stage being at/at-least that stage.
- */
-const FUNNEL_APPROVAL_FOR_STAGE: Partial<Record<RfpPipelineStage, OpportunityApprovalStatus>> = {
-  execSummaryToReview: 'INITIAL_APPROVAL',
-  firstApproved: 'I_APPROVED',
-  preSubmissionReview: 'PRE_SUB_APPROVAL',
-  submitted: 'SUBMITTED',
+/** Rank of an approval milestone along the lead-to-deal path (higher = further). */
+const APPROVAL_RANK: Record<OpportunityApprovalStatus, number> = {
+  INITIAL_APPROVAL: 0,
+  I_APPROVED: 1,
+  PRE_SUB_APPROVAL: 2,
+  II_APPROVED: 2, // cleared to submit, still sits in the pre-submission funnel stage
+  SUBMITTED: 3,
+  NOT_APPROVED: 0, // terminal gate-1 rejection — off the funnel, never advanced it
 };
 
 /**
- * Did the item enter `stage` within the window? Uses the approvalHistory event
- * log first (the intended source per spec §5); for `awarded` there is no
- * approval milestone, so we fall back to the current stage + completedAt.
+ * The furthest funnel stage index (0-based into FUNNEL_STAGE_ORDER) an item has
+ * ever reached. Because the Linear sync stores only an item's CURRENT state
+ * (not its full transition path), we infer the furthest point from the highest
+ * approval milestone seen (current status + any approvalHistory `to`), plus the
+ * submitted/awarded signals. Every item has at least reached intake (rank 0).
  */
-const enteredStageInWindow = (
-  item: RfpPipelineItem,
-  stage: RfpPipelineStage,
-  startIso: string,
-  endIso: string,
-): boolean => {
-  if (stage === 'submitted') {
-    return inWindow(submittedAtIso(item), startIso, endIso);
-  }
-  if (stage === 'awarded') {
-    if (!isAwarded(item)) return false;
-    const at = item.completedAt ?? item.updatedAt ?? null;
-    return inWindow(at, startIso, endIso);
-  }
-  const milestone = FUNNEL_APPROVAL_FOR_STAGE[stage];
-  if (!milestone) return false;
-  const ah = item.approvalHistory ?? [];
-  for (const t of ah) {
-    if (t.to === milestone && inWindow(t.changedAt, startIso, endIso)) return true;
-  }
-  return false;
+const furthestFunnelRank = (item: RfpPipelineItem): number => {
+  const seen: OpportunityApprovalStatus[] = [
+    item.approvalStatus ?? 'INITIAL_APPROVAL',
+    ...(item.approvalHistory ?? []).map((t) => t.to),
+  ];
+  const maxApprovalRank = seen.reduce((max, s) => Math.max(max, APPROVAL_RANK[s] ?? 0), 0);
+
+  let rank = Math.min(maxApprovalRank, 2); // approval milestones cover ranks 0–2 of the funnel
+  if (hasSubmitted(item) || maxApprovalRank >= 3) rank = Math.max(rank, 3); // submitted
+  if (isAwarded(item)) rank = Math.max(rank, 4); // awarded
+  return rank;
 };
 
 /**
- * Count of items that ENTERED each funnel stage during the window, with the
- * stage-to-stage conversion percentage between consecutive rows.
+ * Cumulative funnel: each row counts every item that has reached that stage OR
+ * BEYOND, so counts are monotonically non-increasing and each conversion is the
+ * share of the previous stage that advanced (always 0–100%).
+ *
+ * This is a CURRENT-STATE snapshot, not a windowed transition count — the sync
+ * only persists an item's latest state, so a true per-window transition funnel
+ * isn't derivable. The `scoped` items are already owner-filtered by the caller.
  */
-export const funnel = (
-  items: RfpPipelineItem[],
-  startIso: string,
-  endIso: string,
-): FunnelRow[] => {
+export const funnel = (items: RfpPipelineItem[]): FunnelRow[] => {
+  const ranks = items.map(furthestFunnelRank);
   const counts = FUNNEL_STAGE_ORDER.map(
-    (stage) => items.filter((item) => enteredStageInWindow(item, stage, startIso, endIso)).length,
+    (_stage, i) => ranks.filter((r) => r >= i).length,
   );
 
   return FUNNEL_STAGE_ORDER.map((stage, i) => {
