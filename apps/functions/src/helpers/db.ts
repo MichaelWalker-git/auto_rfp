@@ -257,6 +257,25 @@ export const putItem = async <T extends Record<string, any>>(
 };
 
 
+/**
+ * Overwrite an item with a fully-formed record whose PK/SK are already embedded.
+ *
+ * Unlike `putItem`, this does NOT inject/overwrite `createdAt`/`updatedAt` — the
+ * caller supplies the complete record (timestamps included). Use it when the
+ * caller has already merged the desired state (e.g. an incremental sync that
+ * preserves existing history/createdAt) and needs an idempotent full overwrite
+ * keyed on the record's own PK/SK.
+ */
+export const putFullItem = async <T extends { [PK_NAME]: string; [SK_NAME]: string }>(
+  item: T,
+): Promise<T> => {
+  await withRetry(
+    () => docClient.send(new PutCommand({ TableName: DB_TABLE_NAME, Item: item })),
+    { label: 'putFullItem' },
+  );
+  return item;
+};
+
 export const deleteItem = async (pk: string, sk: string) => {
   console.log('Deleting record from DynamoDB', DB_TABLE_NAME, pk, sk);
   return await withRetry(

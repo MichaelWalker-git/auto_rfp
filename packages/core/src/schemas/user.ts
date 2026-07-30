@@ -53,6 +53,15 @@ export const PROPOSAL_PERMISSIONS = [
 
 export const OPPORTUNITY_PERMISSIONS = [
   'opportunity:read', 'opportunity:create', 'opportunity:delete', 'opportunity:edit',
+  // RFP tracking two-gate approval write-back. Split by gate for auditability
+  // (each decision records which gate it cleared), but BOTH gates are open to
+  // every org member — see ROLE_PERMISSIONS, where all roles grant both:
+  //   rfp:approve_initial — gate 1: Initial Approval → I Approved / Not Approved.
+  //   rfp:approve_final   — gate 2: Pre Sub Approval → II Approved.
+  // The backend (decide-rfp-approval) checks the gate-appropriate permission;
+  // since all roles hold both, any authenticated org member can accept/deny.
+  'rfp:approve_initial',
+  'rfp:approve_final',
 ] as const;
 
 export const PROMPT_PERMISSIONS = [
@@ -129,13 +138,19 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'collaboration:activity',
     'notification:read',
     'apn:read',
+    // RFP-tracking approval is open to every org member (both gates).
+    'rfp:approve_initial',
+    'rfp:approve_final',
   ],
   EDITOR: [
     ...VIEWER_PERMISSIONS,
     'question:create', 'kb:create', 'proposal:create', 'project:create', 'document:create', 'user:create', 'answer:create', 'opportunity:create',
     'question:edit', 'org:edit', 'kb:edit', 'proposal:edit', 'project:edit', 'document:edit', 'user:edit', 'answer:edit', 'opportunity:edit',
+    // RFP-tracking approval is open to every org member (both gates).
+    'rfp:approve_initial',
+    'rfp:approve_final',
     'form:edit',
-    'brief:create', 'brief:edit', 
+    'brief:create', 'brief:edit',
     'rfp_document:delete', 
     'template:create', 'template:update', 'template:publish', 'template:apply',
     'collaboration:presence',
@@ -150,6 +165,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   BILLING: [
     'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read',
     'pricing:read', 'pricing:calculate',
+    // RFP-tracking approval is open to every org member (both gates).
+    'rfp:approve_initial',
+    'rfp:approve_final',
   ],
   MEMBER: [
     ...VIEWER_PERMISSIONS,
@@ -162,6 +180,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'answer:create',
     'document:create',
     'proposal:create',
+    // RFP-tracking approval is open to every org member (both gates).
+    'rfp:approve_initial',
+    'rfp:approve_final',
   ]
 };
 

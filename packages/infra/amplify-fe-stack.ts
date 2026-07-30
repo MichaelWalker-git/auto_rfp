@@ -43,6 +43,13 @@ export interface AmplifyFeStackProps extends cdk.StackProps {
 
   /** Custom domain to attach to the main branch (e.g. 'rfp.horustech.dev') */
   customDomain?: string;
+
+  /**
+   * Org id the RFP Tracking dashboard is enabled for in this stage (Horus Tech).
+   * Exposed to the frontend as NEXT_PUBLIC_RFP_TRACKING_ORG_ID; when unset the
+   * feature is hidden for every org.
+   */
+  rfpTrackingOrgId?: string;
 }
 
 export class AmplifyFeStack extends cdk.Stack {
@@ -65,6 +72,7 @@ export class AmplifyFeStack extends cdk.Stack {
       sentryDNS,
       sentryAuthToken,
       customDomain,
+      rfpTrackingOrgId,
     } = props;
 
     this.amplifyApp = new amplify.App(this, 'NextJsAmplifyApp', {
@@ -93,6 +101,7 @@ export class AmplifyFeStack extends cdk.Stack {
         NEXT_PUBLIC_SENTRY_DSN: sentryDNS,
         NEXT_PUBLIC_SENTRY_ENVIRONMENT: stage,
         NEXT_PUBLIC_DEFAULT_TEMP_PASSWORD: process.env.DEFAULT_TEMP_PASSWORD || 'Welcome1!',
+        NEXT_PUBLIC_RFP_TRACKING_ORG_ID: rfpTrackingOrgId ?? '',
 
         // Sentry build-time vars for source map uploads
         // SENTRY_AUTH_TOKEN is required by @sentry/nextjs withSentryConfig to upload source maps

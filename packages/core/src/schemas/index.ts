@@ -10,6 +10,7 @@ export * from './project-kb';
 export * from './user-kb';
 export * from './user-project';
 export * from './opportunity'
+export * from './rfp-tracking';
 export * from './search-opportunity';
 export * from './prompt'
 export * from './outcome-detail'

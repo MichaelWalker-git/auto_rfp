@@ -1,6 +1,6 @@
 import {
-  RFP_OPEN_STAGES,
-  RFP_STANDING_STAGES,
+  RFP_DIGEST_OPEN_STAGES,
+  RFP_DIGEST_STANDING_STAGES,
   type RfpDigest,
   type RfpDigestIssue,
   type RfpDigestIssueRef,
@@ -85,10 +85,10 @@ const toRef = (issue: RfpDigestIssue): RfpDigestIssueRef => ({
 });
 
 const isOpenStage = (stage: RfpPipelineStage): boolean =>
-  (RFP_OPEN_STAGES as readonly RfpPipelineStage[]).includes(stage);
+  (RFP_DIGEST_OPEN_STAGES as readonly RfpPipelineStage[]).includes(stage);
 
 const isStandingStage = (stage: RfpPipelineStage): boolean =>
-  (RFP_STANDING_STAGES as readonly RfpPipelineStage[]).includes(stage);
+  (RFP_DIGEST_STANDING_STAGES as readonly RfpPipelineStage[]).includes(stage);
 
 /**
  * Open and standing stages count everything; terminal stages only count the

@@ -1,29 +1,11 @@
 import { z } from 'zod';
-
-/**
- * The 8 canonical RFP pipeline stages. `3a`/`3b` split the first-review gate into
- * approved vs dead-ended, so stage keys are strings rather than an index.
- */
-export const RfpPipelineStageSchema = z.enum([
-  'found',
-  'execSummaryToReview',
-  'firstApproved',
-  'notApproved',
-  'inProgress',
-  'preSubmissionReview',
-  'secondApproved',
-  'submitted',
-  'awarded',
-  'lost',
-  'expired',
-]);
-export type RfpPipelineStage = z.infer<typeof RfpPipelineStageSchema>;
+import { RfpPipelineStageSchema, type RfpPipelineStage } from './opportunity';
 
 /**
  * Stages 1–6 count every open issue; 7/3b/8 are counted over a rolling window
  * because lifetime totals are dominated by years of closed work.
  */
-export const RFP_OPEN_STAGES = [
+export const RFP_DIGEST_OPEN_STAGES = [
   'found',
   'execSummaryToReview',
   'firstApproved',
@@ -32,7 +14,7 @@ export const RFP_OPEN_STAGES = [
   'secondApproved',
 ] as const satisfies readonly RfpPipelineStage[];
 
-export const RFP_TERMINAL_STAGES = [
+export const RFP_DIGEST_TERMINAL_STAGES = [
   'submitted',
   'notApproved',
   'awarded',
@@ -43,7 +25,7 @@ export const RFP_TERMINAL_STAGES = [
  * Deadline passed while the issue was still open. Neither open (it's dead) nor
  * windowed like a terminal stage — it stays counted until someone cleans it up.
  */
-export const RFP_STANDING_STAGES = ['expired'] as const satisfies readonly RfpPipelineStage[];
+export const RFP_DIGEST_STANDING_STAGES = ['expired'] as const satisfies readonly RfpPipelineStage[];
 
 export const RfpStageCountsSchema = z.record(RfpPipelineStageSchema, z.number().int().nonnegative());
 export type RfpStageCounts = z.infer<typeof RfpStageCountsSchema>;

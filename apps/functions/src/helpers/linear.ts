@@ -242,6 +242,72 @@ export async function reassignLinearTicket(
   }
 }
 
+/**
+ * Swap a card's gate label on Linear, keyed by human identifier (e.g. "HOR-2628").
+ *
+ * The RFP-tracking sync stores the Linear identifier (not the internal UUID) on
+ * each opportunity, so the approval write-back resolves the issue by identifier
+ * first. Adds `addLabel`, removes every label in `removeLabels`, and preserves
+ * all other labels the issue carries. Unknown label names are skipped with a
+ * warning rather than failing the whole update.
+ *
+ * Returns true when the issue was found and updated; false when the identifier
+ * did not resolve to a Linear issue (caller decides whether that's fatal).
+ */
+export async function swapLinearGateLabelByIdentifier(
+  orgId: string,
+  identifier: string,
+  addLabel: string,
+  removeLabels: string[],
+): Promise<boolean> {
+  const apiKey = await getLinearApiKey(orgId);
+  const client = new LinearClient({ apiKey });
+
+  // Resolve the issue by its human identifier (HOR-1234).
+  const search = await client.issues({
+    filter: { number: { eq: Number(identifier.split('-')[1]) } },
+    first: 50,
+  });
+  const issue = search.nodes.find((n) => n.identifier === identifier);
+  if (!issue) {
+    console.warn(`[linear] Issue not found for identifier ${identifier}`);
+    return false;
+  }
+
+  const team = await issue.team;
+  const teamId = team?.id;
+  if (!teamId) {
+    console.warn(`[linear] No team for issue ${identifier}`);
+    return false;
+  }
+
+  const teamObj = await client.team(teamId);
+  const allLabels = await teamObj.labels();
+  const labelIdByName = new Map(allLabels.nodes.map((l) => [l.name.toLowerCase(), l.id]));
+
+  const addLabelId = labelIdByName.get(addLabel.toLowerCase());
+  if (!addLabelId) {
+    console.warn(`[linear] Label to add not found: "${addLabel}" — skipping update for ${identifier}`);
+    return false;
+  }
+
+  const removeIds = new Set(
+    removeLabels
+      .map((name) => labelIdByName.get(name.toLowerCase()))
+      .filter((id): id is string => !!id),
+  );
+
+  const current = await issue.labels();
+  const currentIds = current.nodes.map((l) => l.id);
+
+  // Preserve everything except the gate labels we're removing, then add the new one.
+  const nextIds = Array.from(new Set([...currentIds.filter((id) => !removeIds.has(id)), addLabelId]));
+
+  await client.updateIssue(issue.id, { labelIds: nextIds });
+  console.log(`[linear] ${identifier}: +"${addLabel}" −[${removeLabels.join(', ')}]`);
+  return true;
+}
+
 export async function updateLinearTicket(
   orgId: string,
   issueId: string,

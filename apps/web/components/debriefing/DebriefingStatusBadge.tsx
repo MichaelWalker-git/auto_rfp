@@ -4,7 +4,8 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, CheckCircle2, Clock, MessageSquare, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { DebriefingStatus } from '@auto-rfp/core';
+
+type DebriefingStatus = 'NOT_REQUESTED' | 'REQUESTED' | 'SCHEDULED' | 'COMPLETED' | 'DECLINED';
 
 interface DebriefingStatusBadgeProps {
   status: DebriefingStatus;

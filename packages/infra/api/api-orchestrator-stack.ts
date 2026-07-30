@@ -60,6 +60,7 @@ import { extractionDomain } from './routes/extraction.routes';
 import { opportunityAssistantDomain } from './routes/opportunity-assistant.routes';
 import { companyProfileDomain } from './routes/company-profile.routes';
 import { requiredFormsDomain } from './routes/required-forms.routes';
+import { dashboardDomain } from './routes/dashboard.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -81,6 +82,13 @@ export interface ApiOrchestratorStackProps extends cdk.StackProps {
   textractFormsRoleArn: string;
   sentryDNS: string;
   pineconeApiKey: string;
+  /**
+   * Server-side allowlist for the RFP-tracking dashboard. When set, the
+   * get-rfp-pipeline Lambda rejects any orgId that does not match this value
+   * (closes the client-only gate / IDOR gap). Empty string = gate disabled
+   * (stages without a designated RFP org fall back to prior behavior).
+   */
+  rfpTrackingOrgId?: string;
 }
 
 /**
@@ -123,6 +131,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       textractFormsRoleArn,
       sentryDNS,
       pineconeApiKey,
+      rfpTrackingOrgId,
     } = props;
 
     // ── Keep old REST API alive temporarily to preserve CloudFormation exports ──
@@ -200,6 +209,14 @@ export class ApiOrchestratorStack extends cdk.Stack {
       SAM_OPPS_BASE_URL: 'https://api.sam.gov',
       DIBBS_BASE_URL: 'https://www.dibbs.bsm.dla.mil',
       HIGHERGOV_BASE_URL: 'https://www.highergov.com/api-external',
+      // Linear org id whose Secrets Manager entry (linear-api-key-<id>) holds the
+      // key used to write RFP-tracking approval decisions back onto the Linear board.
+      RFP_SYNC_LINEAR_ORG_ID: '6fbf749f-7173-489c-be0a-564f97ebf8b0',
+      // Server-side allowlist for the RFP-tracking dashboard (get-rfp-pipeline).
+      // Mirrors the per-stage rfpTrackingOrgId used for the frontend feature gate,
+      // but enforced in the Lambda so a caller cannot bypass the client check by
+      // passing ?orgId=<other org>. Empty when the stage has no designated RFP org.
+      ...(rfpTrackingOrgId ? { RFP_TRACKING_ORG_ID: rfpTrackingOrgId } : {}),
       // Verified SES sender identity — horustech.dev domain must be verified in SES
       SES_FROM_EMAIL: 'noreply@horustech.dev',
       // Construct the notification queue URL from the queue name — no cross-stack token reference
@@ -644,6 +661,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       opportunityAssistantDomain(),
       companyProfileDomain(),
       requiredFormsDomain(),
+      dashboardDomain(),
     ];
 
     // ─── Rasterize PDF worker ─────────────────────────────────────────────
@@ -716,6 +734,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'OpportunityAssistantRoutes',
       'CompanyProfileRoutes',
       'RequiredFormsRoutes',
+      'DashboardRoutes',
     ];
 
     // allDomains and domainStackNames are mapped 1:1 by index. A mismatch silently
