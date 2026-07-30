@@ -12,9 +12,10 @@ import { withSentryLambda } from '@/sentry-lambda';
 import { getApiKey } from '@/helpers/api-key-storage';
 import { LINEAR_SECRET_PREFIX } from '@/constants/linear';
 import { OPPORTUNITY_PK } from '@/constants/opportunity';
+import { PROJECT_PK } from '@/constants/organization';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { buildOpportunitySk } from '@/helpers/opportunity';
-import { docClient, queryAllBySkPrefix, deleteItem } from '@/helpers/db';
+import { docClient, queryAllBySkPrefix, deleteItem, getItem, putItem } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
 import { nowIso } from '@/helpers/date';
 import { PutCommand } from '@aws-sdk/lib-dynamodb';
@@ -322,10 +323,42 @@ interface SyncResult {
 }
 
 /**
+ * Materialize the synthetic project these records live under, so the app's
+ * deep links resolve. The sync writes opportunities under a synthetic
+ * `${ORG_ID}#${PROJECT_ID}` (gov-contracting) project that no user ever created,
+ * so no Project record exists for it. The board's "View full opportunity" link
+ * points at `/organizations/${ORG_ID}/projects/${PROJECT_ID}/opportunities/...`,
+ * and the global ProjectProvider redirects to the projects list whenever the
+ * URL's project id isn't in the org's project list — bouncing the user off the
+ * opportunity page. Seeding the Project record fixes that.
+ *
+ * Idempotent: only writes when the record is missing, so we don't churn
+ * updatedAt on every 15-minute run. Deliberately omits `createdBy` so
+ * get-projects treats it as a legacy project that is visible to every org
+ * member (not gated behind an explicit per-user assignment).
+ *
+ * Exported for direct unit testing.
+ */
+export const ensureSyncProject = async (): Promise<void> => {
+  const sk = `${ORG_ID}#${PROJECT_ID}`;
+  const existing = await getItem(PROJECT_PK, sk);
+  if (existing) return;
+
+  await putItem(PROJECT_PK, sk, {
+    id: PROJECT_ID,
+    orgId: ORG_ID,
+    name: PROJECT_NAME,
+    description: 'Government contracting RFPs mirrored from Linear. Managed by the RFP-tracking sync.',
+  });
+};
+
+/**
  * Exported for direct unit testing (per project convention — test the business
  * function, not the Lambda wrapper).
  */
 export const syncLinearPipeline = async (): Promise<SyncResult> => {
+  await ensureSyncProject();
+
   const apiKey = await getApiKey(LINEAR_ORG_ID, LINEAR_SECRET_PREFIX);
   if (!apiKey) {
     throw new Error(`Linear API key not found in Secrets Manager for org ${LINEAR_ORG_ID}`);
@@ -344,10 +377,10 @@ export const syncLinearPipeline = async (): Promise<SyncResult> => {
   for (const row of rows) {
     const stage = resolveRfpStage({ identifier: row.id, status: row.linearStatus, labels: row.labels });
     // Stages not shown on the board are dropped alongside untracked issues:
-    // `found` (Todo/Backlog) hasn't entered the review funnel yet, `notApproved`
-    // is a rejected bid that has left the pipeline, and `expired` is not a board
-    // column (stale intake is dropped below, not given a column).
-    if (!stage || stage === 'found' || stage === 'notApproved' || stage === 'expired') {
+    // `found` (Todo/Backlog) hasn't entered the review funnel yet, and `expired`
+    // is not a board column (stale intake is dropped below, not given a column).
+    // `notApproved` IS shown — a gate-1 rejection needs a visible destination.
+    if (!stage || stage === 'found' || stage === 'expired') {
       skippedUntracked += 1;
       continue;
     }
