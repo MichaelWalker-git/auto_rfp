@@ -32,6 +32,11 @@ jest.mock('@/helpers/opportunity-approval', () => ({
   InvalidApprovalTransitionError,
 }));
 
+const mockWriteBack = jest.fn();
+jest.mock('@/helpers/rfp-linear-writeback', () => ({
+  writeBackApprovalToLinear: (...args: unknown[]) => mockWriteBack(...args),
+}));
+
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.REGION = 'us-east-1';
 
@@ -63,8 +68,10 @@ describe('decide-rfp-approval', () => {
     mockGetOpportunity.mockReset();
     mockTransition.mockReset();
     (setAuditContext as jest.Mock).mockClear();
-    mockGetOpportunity.mockResolvedValue({ item: { approvalStatus: 'INITIAL_APPROVAL', title: 'X' }, oppId: 'opp-1' });
+    mockGetOpportunity.mockResolvedValue({ item: { approvalStatus: 'INITIAL_APPROVAL', title: 'X', oppId: 'linear-hor-1', id: 'linear-hor-1', noticeId: 'HOR-1' }, oppId: 'opp-1' });
     mockTransition.mockResolvedValue({ oppId: 'opp-1', approvalStatus: 'I_APPROVED' });
+    mockWriteBack.mockReset();
+    mockWriteBack.mockResolvedValue({ updated: true });
   });
 
   it('returns 400 for an invalid payload', async () => {
@@ -100,6 +107,31 @@ describe('decide-rfp-approval', () => {
         changes: { before: { approvalStatus: 'INITIAL_APPROVAL' }, after: { approvalStatus: 'I_APPROVED' } },
       }),
     );
+  });
+
+  it('writes the decision back to Linear (INITIAL + APPROVE → I_APPROVED)', async () => {
+    await baseHandler(makeEvent({ ...base, gate: 'INITIAL', decision: 'APPROVE' }));
+    expect(mockWriteBack).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'I_APPROVED',
+        item: expect.objectContaining({ noticeId: 'HOR-1' }),
+      }),
+    );
+  });
+
+  it('reports linearSynced in the response body', async () => {
+    mockWriteBack.mockResolvedValueOnce({ updated: true });
+    const response = await baseHandler(makeEvent({ ...base, gate: 'INITIAL', decision: 'APPROVE' }));
+    const body = JSON.parse((response as { body: string }).body);
+    expect(body.linearSynced).toBe(true);
+  });
+
+  it('still returns 200 when the Linear write-back fails (best-effort)', async () => {
+    mockWriteBack.mockResolvedValueOnce({ updated: false, reason: 'Linear down' });
+    const response = await baseHandler(makeEvent({ ...base, gate: 'INITIAL', decision: 'APPROVE' }));
+    expect(response).toMatchObject({ statusCode: 200 });
+    const body = JSON.parse((response as { body: string }).body);
+    expect(body.linearSynced).toBe(false);
   });
 
   it('INITIAL + REJECT transitions to NOT_APPROVED', async () => {

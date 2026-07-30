@@ -4,6 +4,10 @@ import {
   GetRfpPipelineResponseSchema,
   RfpApprovalDecisionSchema,
   RfpApprovalAdvanceSchema,
+  resolveRfpStage,
+  linearGateLabelSwap,
+  RFP_BOARD_STAGE_ORDER,
+  RFP_GATE_LABELS,
 } from './rfp-tracking';
 import {
   OpportunityApprovalStatusSchema,
@@ -204,5 +208,56 @@ describe('RfpApprovalAdvanceSchema', () => {
   it('rejects a gate-only target', () => {
     expect(RfpApprovalAdvanceSchema.safeParse({ ...base, to: 'I_APPROVED' }).success).toBe(false);
     expect(RfpApprovalAdvanceSchema.safeParse({ ...base, to: 'NOT_APPROVED' }).success).toBe(false);
+  });
+});
+
+describe('resolveRfpStage — reject via label', () => {
+  it('resolves notApproved from the "Not Approved" label (write-back survives re-sync)', () => {
+    expect(
+      resolveRfpStage({ identifier: 'HOR-9', status: 'To be Reviewed', labels: ['Not Approved'] }),
+    ).toBe('notApproved');
+  });
+
+  it('still resolves notApproved from the dedicated Linear status', () => {
+    expect(
+      resolveRfpStage({ identifier: 'HOR-9', status: 'Reviewed / Not Approved', labels: [] }),
+    ).toBe('notApproved');
+  });
+
+  it('resolves firstApproved from the "I Approved" label', () => {
+    expect(
+      resolveRfpStage({ identifier: 'HOR-9', status: 'To be Reviewed', labels: ['I Approved'] }),
+    ).toBe('firstApproved');
+  });
+});
+
+describe('linearGateLabelSwap', () => {
+  it('adds the target gate label and removes all other gate labels', () => {
+    const swap = linearGateLabelSwap('I_APPROVED');
+    expect(swap).toEqual({
+      addLabel: 'I Approved',
+      removeLabels: expect.arrayContaining(['Initial Approval', 'Pre Sub Approval', 'II Approved', 'Not Approved']),
+    });
+    expect(swap?.removeLabels).not.toContain('I Approved');
+  });
+
+  it('maps a rejection to the "Not Approved" label', () => {
+    expect(linearGateLabelSwap('NOT_APPROVED')?.addLabel).toBe('Not Approved');
+  });
+
+  it('returns null for SUBMITTED (expressed by Linear status, not a gate label)', () => {
+    expect(linearGateLabelSwap('SUBMITTED')).toBeNull();
+  });
+
+  it('every gate label is a known label removed by some other transition', () => {
+    // Sanity: the swap removeLabels universe equals RFP_GATE_LABELS minus the added one.
+    const swap = linearGateLabelSwap('INITIAL_APPROVAL');
+    expect(new Set([...(swap?.removeLabels ?? []), 'Initial Approval'])).toEqual(new Set(RFP_GATE_LABELS));
+  });
+});
+
+describe('RFP_BOARD_STAGE_ORDER', () => {
+  it('includes a Not approved column', () => {
+    expect(RFP_BOARD_STAGE_ORDER).toContain('notApproved');
   });
 });

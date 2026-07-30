@@ -16,12 +16,13 @@ import {
   transitionOpportunityApproval,
   InvalidApprovalTransitionError,
 } from '@/helpers/opportunity-approval';
+import { writeBackApprovalToLinear } from '@/helpers/rfp-linear-writeback';
 import { RfpApprovalAdvanceSchema } from '@auto-rfp/core';
 
 /**
  * POST /dashboard/advance-rfp-approval
  *
- * Non-gate stage moves that don't require an approver — just opportunity:edit:
+ * Non-gate stage moves that don't require an approver (opportunity:read floor):
  *   I_APPROVED  → PRE_SUB_APPROVAL  "send for pre-sub review"
  *   II_APPROVED → SUBMITTED         "mark submitted"
  *
@@ -69,7 +70,15 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
       throw transitionErr;
     }
 
-    return apiResponse(200, { ok: true, oppId, item });
+    // Mirror the stage move onto Linear so it survives the 15-min re-sync.
+    // PRE_SUB_APPROVAL swaps in the "Pre Sub Approval" label; SUBMITTED has no
+    // label mapping (submission is a Linear status change), so it's a no-op.
+    const linear = await writeBackApprovalToLinear({
+      item: { oppId: item.oppId, id: item.id, noticeId: item.noticeId },
+      to,
+    });
+
+    return apiResponse(200, { ok: true, oppId, item, linearSynced: linear.updated });
   } catch (err: unknown) {
     if (err instanceof Error && err.name === 'ConditionalCheckFailedException') {
       return apiResponse(404, { ok: false, error: 'Opportunity not found' });
@@ -86,5 +95,5 @@ export const handler = withSentryLambda(
     .use(httpErrorMiddleware())
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
-    .use(requirePermission('opportunity:edit')),
+    .use(requirePermission('opportunity:read')),
 );

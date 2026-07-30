@@ -201,6 +201,9 @@ export class ApiOrchestratorStack extends cdk.Stack {
       SAM_OPPS_BASE_URL: 'https://api.sam.gov',
       DIBBS_BASE_URL: 'https://www.dibbs.bsm.dla.mil',
       HIGHERGOV_BASE_URL: 'https://www.highergov.com/api-external',
+      // Linear org id whose Secrets Manager entry (linear-api-key-<id>) holds the
+      // key used to write RFP-tracking approval decisions back onto the Linear board.
+      RFP_SYNC_LINEAR_ORG_ID: '6fbf749f-7173-489c-be0a-564f97ebf8b0',
       // Verified SES sender identity — horustech.dev domain must be verified in SES
       SES_FROM_EMAIL: 'noreply@horustech.dev',
       // Construct the notification queue URL from the queue name — no cross-stack token reference

@@ -22,6 +22,11 @@ jest.mock('@/helpers/opportunity-approval', () => ({
   InvalidApprovalTransitionError,
 }));
 
+const mockWriteBack = jest.fn();
+jest.mock('@/helpers/rfp-linear-writeback', () => ({
+  writeBackApprovalToLinear: (...args: unknown[]) => mockWriteBack(...args),
+}));
+
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.REGION = 'us-east-1';
 
@@ -43,7 +48,8 @@ const base = { orgId: 'org-1', projectId: 'proj-1', oppId: 'opp-1' };
 describe('advance-rfp-approval', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockTransition.mockResolvedValue({ oppId: 'opp-1', approvalStatus: 'PRE_SUB_APPROVAL' });
+    mockTransition.mockResolvedValue({ oppId: 'linear-hor-1', id: 'linear-hor-1', noticeId: 'HOR-1', approvalStatus: 'PRE_SUB_APPROVAL' });
+    mockWriteBack.mockResolvedValue({ updated: true });
   });
 
   it('returns 400 for an invalid payload', async () => {
@@ -72,6 +78,13 @@ describe('advance-rfp-approval', () => {
     const response = await baseHandler(makeEvent({ ...base, to: 'SUBMITTED' }));
     expect(mockTransition).toHaveBeenCalledWith(expect.objectContaining({ to: 'SUBMITTED', gate: 'STAGE' }));
     expect(response).toMatchObject({ statusCode: 200 });
+  });
+
+  it('writes the Pre-Sub advance back to Linear', async () => {
+    await baseHandler(makeEvent({ ...base, to: 'PRE_SUB_APPROVAL' }));
+    expect(mockWriteBack).toHaveBeenCalledWith(
+      expect.objectContaining({ to: 'PRE_SUB_APPROVAL', item: expect.objectContaining({ noticeId: 'HOR-1' }) }),
+    );
   });
 
   it('returns 409 when the transition is illegal', async () => {

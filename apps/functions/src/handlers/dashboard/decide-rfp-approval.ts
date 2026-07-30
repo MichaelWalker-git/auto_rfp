@@ -18,6 +18,7 @@ import {
   transitionOpportunityApproval,
   InvalidApprovalTransitionError,
 } from '@/helpers/opportunity-approval';
+import { writeBackApprovalToLinear } from '@/helpers/rfp-linear-writeback';
 import { RfpApprovalDecisionSchema } from '@auto-rfp/core';
 import type { OpportunityApprovalStatus, Permission } from '@auto-rfp/core';
 
@@ -30,8 +31,10 @@ import type { OpportunityApprovalStatus, Permission } from '@auto-rfp/core';
  *   FINAL   + APPROVE → II_APPROVED   (gate 2 — requires rfp:approve_final)
  *   FINAL   + REJECT  → 400           (no reject at gate 2)
  *
- * The middy stack keeps opportunity:edit as a floor; the per-gate permission is
- * enforced in-handler because requirePermission is static.
+ * The middy stack keeps opportunity:read as a floor (every org member has it);
+ * the per-gate approval permission is enforced in-handler because
+ * requirePermission is static. Both gate permissions are granted to every role,
+ * so any authenticated org member may approve/reject.
  */
 export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   try {
@@ -116,7 +119,15 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
       },
     });
 
-    return apiResponse(200, { ok: true, oppId, item });
+    // Mirror the decision onto Linear so it survives the 15-min re-sync.
+    // Best-effort: the DynamoDB transition is already committed; a Linear
+    // failure is surfaced as a soft warning, never a request failure.
+    const linear = await writeBackApprovalToLinear({
+      item: { oppId: existing.item.oppId, id: existing.item.id, noticeId: existing.item.noticeId },
+      to: toApproval,
+    });
+
+    return apiResponse(200, { ok: true, oppId, item, linearSynced: linear.updated });
   } catch (err: unknown) {
     if (err instanceof Error && err.name === 'ConditionalCheckFailedException') {
       return apiResponse(404, { ok: false, error: 'Opportunity not found' });
@@ -134,5 +145,5 @@ export const handler = withSentryLambda(
     .use(httpErrorMiddleware())
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
-    .use(requirePermission('opportunity:edit')),
+    .use(requirePermission('opportunity:read')),
 );

@@ -15,7 +15,7 @@ import {
   OpportunityApprovalTransitionSchema,
   RfpPipelineStageSchema,
 } from './opportunity';
-import type { RfpPipelineStage } from './opportunity';
+import type { RfpPipelineStage, OpportunityApprovalStatus } from './opportunity';
 import { WinDataSchema, LossDataSchema } from './outcome-detail';
 
 // ─── RFP board stage model (mirrors the Linear "Government Contracting" board) ──
@@ -40,14 +40,29 @@ export const RFP_LINEAR_STATUS = {
  * status for them — so stage resolution must read labels as well as status.
  */
 export const RFP_LINEAR_LABEL = {
+  INITIAL_APPROVAL: 'Initial Approval',
   FIRST_APPROVED: 'I Approved',
   SECOND_APPROVED: 'II Approved',
   PRE_SUB_APPROVAL: 'Pre Sub Approval',
+  NOT_APPROVED: 'Not Approved',
   DID_NOT_WIN: 'dnw',
   SKIP: 'skip',
   EXPIRED: 'expired',
   CANCELLED_BID: 'Cancelled Bid',
 } as const;
+
+/**
+ * The mutually-exclusive gate labels — a card carries exactly one at a time.
+ * Write-back swaps between them (remove the current gate label, add the next);
+ * all other labels (proposal, genai, physical submission, …) are preserved.
+ */
+export const RFP_GATE_LABELS: readonly string[] = [
+  RFP_LINEAR_LABEL.INITIAL_APPROVAL,
+  RFP_LINEAR_LABEL.FIRST_APPROVED,
+  RFP_LINEAR_LABEL.PRE_SUB_APPROVAL,
+  RFP_LINEAR_LABEL.SECOND_APPROVED,
+  RFP_LINEAR_LABEL.NOT_APPROVED,
+];
 
 /**
  * Statuses that are not part of the RFP lifecycle and must not appear on the
@@ -77,7 +92,7 @@ export const RFP_SYNC_PROJECT_ID = 'gov-contracting';
 /** Human-readable board column labels (exact digest wording). */
 export const RFP_STAGE_LABELS: Record<RfpPipelineStage, string> = {
   found: 'Found',
-  execSummaryToReview: 'Exec summary, to be reviewed',
+  execSummaryToReview: 'Initial Approval',
   firstApproved: 'First approved',
   inProgress: 'In progress',
   preSubmissionReview: 'Pre-submission review',
@@ -119,11 +134,12 @@ export const RFP_OPEN_STAGES = [
 
 /**
  * Throughput — only counted within the terminal window (RFP_TERMINAL_WINDOW_DAYS).
- * `notApproved` is intentionally excluded from the board (a rejected bid has left
- * the active pipeline); submitted/awarded/lost outcomes are shown.
+ * `notApproved` is a gate-1 rejection: shown so a reject made from the board has a
+ * visible destination (and survives the re-sync via the "Not Approved" label).
  */
 export const RFP_TERMINAL_STAGES = [
   'submitted',
+  'notApproved',
   'awarded',
   'lost',
 ] as const satisfies readonly RfpPipelineStage[];
@@ -186,7 +202,12 @@ export const resolveRfpStage = (issue: RfpStageInput): RfpPipelineStage | null =
     return has(RFP_LINEAR_LABEL.DID_NOT_WIN) ? 'lost' : 'awarded';
   }
   if (status === RFP_LINEAR_STATUS.SUBMITTED) return 'submitted';
-  if (status === RFP_LINEAR_STATUS.REVIEWED_NOT_APPROVED) return 'notApproved';
+  // A gate-1 rejection is expressed either as the dedicated status or as the
+  // "Not Approved" label (the label is what the dashboard write-back sets, since
+  // the board has no reject action that flips workflow status).
+  if (status === RFP_LINEAR_STATUS.REVIEWED_NOT_APPROVED || has(RFP_LINEAR_LABEL.NOT_APPROVED)) {
+    return 'notApproved';
+  }
   // After the real outcomes but before the open stages: a passed deadline kills
   // an in-flight bid, but it doesn't rewrite one that already resolved.
   if (has(RFP_LINEAR_LABEL.EXPIRED)) return 'expired';
@@ -199,6 +220,42 @@ export const resolveRfpStage = (issue: RfpStageInput): RfpPipelineStage | null =
   if (status === RFP_LINEAR_STATUS.TO_BE_REVIEWED) return 'execSummaryToReview';
   if (status === RFP_LINEAR_STATUS.TODO || status === RFP_LINEAR_STATUS.BACKLOG) return 'found';
   return null;
+};
+
+// ─── Linear write-back (dashboard approval decision → Linear label) ──────────
+
+/**
+ * The gate label a given approvalStatus should carry on Linear. Approve/reject
+ * decisions and stage advances all resolve to exactly one of these; the sync's
+ * resolveRfpStage reads them back so the change survives the 15-min re-sync.
+ * SUBMITTED intentionally has no label — submission is expressed by the Linear
+ * workflow *status*, which the dashboard doesn't flip, so we leave its gate
+ * label (II Approved) in place and let the human move the status.
+ */
+export const APPROVAL_STATUS_TO_LINEAR_LABEL: Partial<Record<OpportunityApprovalStatus, string>> = {
+  INITIAL_APPROVAL: RFP_LINEAR_LABEL.INITIAL_APPROVAL,
+  I_APPROVED: RFP_LINEAR_LABEL.FIRST_APPROVED,
+  PRE_SUB_APPROVAL: RFP_LINEAR_LABEL.PRE_SUB_APPROVAL,
+  II_APPROVED: RFP_LINEAR_LABEL.SECOND_APPROVED,
+  NOT_APPROVED: RFP_LINEAR_LABEL.NOT_APPROVED,
+};
+
+/**
+ * Compute the Linear label swap for an approval transition: the single gate
+ * label to add, and the other gate labels to remove (all of them except the one
+ * being added — a card carries exactly one gate label). Returns null when the
+ * target status has no label mapping (e.g. SUBMITTED). Non-gate labels are never
+ * touched by the caller.
+ */
+export const linearGateLabelSwap = (
+  to: OpportunityApprovalStatus,
+): { addLabel: string; removeLabels: string[] } | null => {
+  const addLabel = APPROVAL_STATUS_TO_LINEAR_LABEL[to];
+  if (!addLabel) return null;
+  return {
+    addLabel,
+    removeLabels: RFP_GATE_LABELS.filter((l) => l !== addLabel),
+  };
 };
 
 // ─── Pipeline board item ────────────────────────────────────────────────────
@@ -218,6 +275,10 @@ export const RfpPipelineItemSchema = OpportunityListItemSchema.extend({
   completedAt: z.string().nullish(),
   /** The Linear-mirroring board stage (set by the sync). */
   pipelineStage: RfpPipelineStageSchema.optional(),
+  /** ISO datetime of the last Linear sync that wrote this record (set by the sync). */
+  syncedAt: z.string().nullish(),
+  /** Link to the source system record (the Linear issue URL for synced RFPs). */
+  sourceUrl: z.string().nullish(),
   winData: WinDataSchema.optional(),
   lossData: LossDataSchema.optional(),
 });

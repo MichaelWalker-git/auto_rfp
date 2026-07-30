@@ -138,14 +138,17 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'collaboration:activity',
     'notification:read',
     'apn:read',
+    // RFP-tracking approval is open to every org member (both gates).
+    'rfp:approve_initial',
+    'rfp:approve_final',
   ],
   EDITOR: [
     ...VIEWER_PERMISSIONS,
     'question:create', 'kb:create', 'proposal:create', 'project:create', 'document:create', 'user:create', 'answer:create', 'opportunity:create',
     'question:edit', 'org:edit', 'kb:edit', 'proposal:edit', 'project:edit', 'document:edit', 'user:edit', 'answer:edit', 'opportunity:edit',
-    // Gate 1 (Brennen) — reviewer/manager clears Initial Approval. Gate 2
-    // (rfp:approve_final) stays ADMIN-only via [...ALL_PERMISSIONS].
+    // RFP-tracking approval is open to every org member (both gates).
     'rfp:approve_initial',
+    'rfp:approve_final',
     'form:edit',
     'brief:create', 'brief:edit',
     'rfp_document:delete', 
@@ -162,6 +165,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   BILLING: [
     'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read',
     'pricing:read', 'pricing:calculate',
+    // RFP-tracking approval is open to every org member (both gates).
+    'rfp:approve_initial',
+    'rfp:approve_final',
   ],
   MEMBER: [
     ...VIEWER_PERMISSIONS,
@@ -174,6 +180,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'answer:create',
     'document:create',
     'proposal:create',
+    // RFP-tracking approval is open to every org member (both gates).
+    'rfp:approve_initial',
+    'rfp:approve_final',
   ]
 };
 
