@@ -48,7 +48,7 @@ import { useProjectContext } from '@/context/project-context';
 import { OrganizationBadge } from '@/components/organization-badge';
 import { GlobalHeader } from '@/components/global/global-header';
 import { usePermission } from '@/components/permission-wrapper';
-import { useRfpPipeline, pendingApprovalCount } from '@/features/rfp-tracking';
+import { useRfpPipeline, pendingApprovalCount, isRfpTrackingEnabledForOrg } from '@/features/rfp-tracking';
 
 interface RouteInfo {
   orgId: string | null;
@@ -115,8 +115,12 @@ function AppSidebar() {
   const orgId = route.orgId ?? currentOrganization?.id ?? null;
   const projectId = route.projectId ?? currentProject?.id ?? null;
 
+  // RFP Tracking is a single-org (Horus Tech) feature, enabled per stage via
+  // NEXT_PUBLIC_RFP_TRACKING_ORG_ID. Only fetch the pipeline / show the nav when enabled.
+  const rfpTrackingEnabled = isRfpTrackingEnabledForOrg(orgId);
+
   // Pending approvals (gate 1 + gate 2) drive the RFP Tracking nav badge.
-  const { items: pipelineItems } = useRfpPipeline(orgId);
+  const { items: pipelineItems } = useRfpPipeline(rfpTrackingEnabled ? orgId : null);
   const pendingApprovals = useMemo(
     () => pendingApprovalCount(pipelineItems).total,
     [pipelineItems],
@@ -128,7 +132,9 @@ function AppSidebar() {
       orgId
         ? [
           { title: 'Dashboard',       url: `/organizations/${orgId}/dashboard`,      icon: BarChart2 },
-          { title: 'RFP Tracking',    url: `/organizations/${orgId}/rfp-tracking`,   icon: KanbanSquare, badge: pendingApprovals > 0 ? pendingApprovals : undefined },
+          ...(rfpTrackingEnabled
+            ? [{ title: 'RFP Tracking', url: `/organizations/${orgId}/rfp-tracking`, icon: KanbanSquare, badge: pendingApprovals > 0 ? pendingApprovals : undefined }]
+            : []),
           { title: 'Projects',        url: `/organizations/${orgId}/projects`,       icon: FolderOpen },
           { title: 'Org Documents',     url: `/organizations/${orgId}/knowledge-base`,   icon: BookOpen },
           { title: 'Q&A Library',       url: `/organizations/${orgId}/content-library`,  icon: FileText },
@@ -143,7 +149,7 @@ function AppSidebar() {
           { title: 'Settings',        url: `/organizations/${orgId}/settings`,       icon: Settings },
         ]
         : [],
-    [orgId, canViewAudit, pendingApprovals]
+    [orgId, canViewAudit, pendingApprovals, rfpTrackingEnabled]
   );
 
   const projectNav: NavItem[] = useMemo(

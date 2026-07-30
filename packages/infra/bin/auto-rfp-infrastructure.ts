@@ -38,6 +38,15 @@ const env = {
 const stage = process.env.STAGE || app.node.tryGetContext('stage') || 'Dev';
 console.log(`=🚀 Deploying with stage: ${stage}`);
 
+// RFP Tracking is a single-org (Horus Tech) feature. Its org id differs per
+// environment because each stage has its own DynamoDB table / org records.
+// This drives the frontend feature gate (NEXT_PUBLIC_RFP_TRACKING_ORG_ID).
+const RFP_TRACKING_ORG_ID_BY_STAGE: Record<string, string> = {
+  Dev: '9c0a5757-e2da-4e71-9490-01c558f7ffc3', // Horus Tech (dev) — gov-contracting RFP org
+  Test: '0e832bda-3489-4932-a9d5-9fa82a86a97a', // Horus Tech (test) — owns RFP-table-Test opportunities
+};
+const rfpTrackingOrgId = RFP_TRACKING_ORG_ID_BY_STAGE[stage] ?? '';
+
 const awsMarketplaceProductCode = process.env.AWS_MARKETPLACE_PRODUCT_CODE || '';
 if (awsMarketplaceProductCode) {
   cdk.Tags.of(app).add('aws-apn-id', `pc:${awsMarketplaceProductCode}`);
@@ -273,6 +282,8 @@ const amplifyStack = new AmplifyFeStack(app, `AmplifyFeStack-${stage}`, {
   region: env.region!,
   sentryDNS,
   sentryAuthToken,
+  // Restrict the RFP Tracking dashboard to the Horus Tech org for this stage.
+  rfpTrackingOrgId,
   // Attach rfp.horustech.dev to the main branch only
   ...(branch === 'main' ? { customDomain: 'rfp.horustech.dev' } : {}),
 });

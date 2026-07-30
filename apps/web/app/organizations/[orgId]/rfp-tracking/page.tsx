@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
+import { notFound } from 'next/navigation';
 import { PageLoadingSkeleton } from '@/components/layout/page-loading-skeleton';
-import { RfpTrackingTabs } from '@/features/rfp-tracking';
+import { RfpTrackingTabs, isRfpTrackingEnabledForOrg } from '@/features/rfp-tracking';
 
 interface RfpTrackingPageProps {
   params: Promise<{ orgId: string }>;
@@ -8,6 +9,12 @@ interface RfpTrackingPageProps {
 
 export default async function RfpTrackingPage({ params }: RfpTrackingPageProps) {
   const { orgId } = await params;
+
+  // RFP Tracking is a single-org (Horus Tech) feature, enabled per stage via
+  // NEXT_PUBLIC_RFP_TRACKING_ORG_ID. Any other org gets a 404.
+  if (!isRfpTrackingEnabledForOrg(orgId)) {
+    notFound();
+  }
 
   return (
     <div className="space-y-6 p-6">

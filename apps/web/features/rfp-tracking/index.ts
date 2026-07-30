@@ -10,6 +10,7 @@ export { useRfpPipeline, rfpPipelineKey } from './hooks/use-rfp-pipeline';
 export { useApprovalDecision } from './hooks/use-approval-decision';
 export { useApprovalAdvance } from './hooks/use-approval-advance';
 
+export { isRfpTrackingEnabledForOrg, RFP_TRACKING_ORG_ID } from './lib/access';
 export { pendingApprovalCount } from './lib/derive-approval-queue';
 export { deriveFlags } from './lib/derive-flags';
 export {
