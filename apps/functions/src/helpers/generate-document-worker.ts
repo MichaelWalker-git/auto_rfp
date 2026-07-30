@@ -25,11 +25,10 @@ import {
   loadQaPairs,
   loadSolicitation,
   resolveTemplateHtml,
-  buildMacroValues,
   validateGeneratedContent,
   type QaPair,
 } from '@/helpers/document-generation';
-import { getTemplate, findBestTemplate, loadTemplateHtml, replaceMacros } from '@/helpers/template';
+import { getTemplate, findBestTemplate, loadTemplateHtml, replaceMacros, buildMacroValues } from '@/helpers/template';
 import { uploadRFPDocumentHtml, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
 import {
   createVersion,
@@ -128,9 +127,15 @@ export const extractDocumentTitle = (templateHtml: string, documentType: string)
 
   if (rawTitle) {
     const cleaned = rawTitle
-      .replace(/<[^>]+>/g, '')           // Remove HTML tags
+      .replace(/<[^>]+>/g, '')            // Remove HTML tags
       .replace(/\{\{[A-Z0-9_]+\}\}/g, '') // Remove unresolved macros
       .replace(/\[[^\]]+\]/g, '')         // Remove [placeholder] text
+      // Decode whitespace entities to real spaces BEFORE trimming — a literal
+      // "&nbsp;" is not whitespace, so .trim() alone leaves it stuck to the title
+      // (e.g. TipTap emits "<h1>&nbsp;Physical Records…</h1>" and the entity
+      // persists into the stored title/name, rendering as literal "&nbsp;" text).
+      .replace(/&nbsp;?|&#x0*a0;?|&#0*160;?| /gi, ' ')
+      .replace(/\s+/g, ' ')               // Collapse runs of whitespace
       .trim();
     if (cleaned) return cleaned;
   }
@@ -333,6 +338,234 @@ export const stripTemplateImagesFromContent = (html: string, templateHtml: strin
   }
 
   return result;
+};
+
+// ─── Template Style Reconciliation ────────────────────────────────────────────
+
+/**
+ * CSS properties that describe per-element LAYOUT rather than the template's
+ * visual "brand" (colors, fonts). These MUST NOT be broadcast from one
+ * representative element to every element of the same tag — doing so was the
+ * root cause of the "everything is center-aligned" bug: the template's first
+ * styled <p> (a centered title line) and first styled <td> (a centered number
+ * cell) had their `text-align:center` copied onto every AI paragraph and every
+ * unstyled table cell (including the left-aligned Description column).
+ *
+ * Alignment/spacing legitimately varies per element, so we strip these before
+ * broadcasting and keep only cosmetic properties (color, background, font-*).
+ */
+const LAYOUT_STYLE_PROPS = new Set([
+  'text-align',
+  'vertical-align',
+  'margin',
+  'margin-top',
+  'margin-right',
+  'margin-bottom',
+  'margin-left',
+  'padding',
+  'padding-top',
+  'padding-right',
+  'padding-bottom',
+  'padding-left',
+  'width',
+  'height',
+  'float',
+  'display',
+]);
+
+/** Parse a `style="..."` string into an ordered list of `[prop, value]` pairs. */
+const parseStyleDecls = (style: string): Array<[string, string]> =>
+  style
+    .split(';')
+    .map((decl) => decl.trim())
+    .filter(Boolean)
+    .map((decl) => {
+      const idx = decl.indexOf(':');
+      if (idx === -1) return null;
+      return [decl.slice(0, idx).trim().toLowerCase(), decl.slice(idx + 1).trim()] as [string, string];
+    })
+    .filter((d): d is [string, string] => d !== null);
+
+/** Serialize `[prop, value]` pairs back into a `style` attribute value. */
+const serializeStyleDecls = (decls: Array<[string, string]>): string =>
+  decls.map(([prop, value]) => `${prop}: ${value}`).join('; ');
+
+/** Remove layout/positioning declarations, keeping only cosmetic (brand) ones. */
+const stripLayoutProps = (style: string): string =>
+  serializeStyleDecls(parseStyleDecls(style).filter(([prop]) => !LAYOUT_STYLE_PROPS.has(prop)));
+
+/**
+ * The AI's prompt-default header coloring: white (or near-white) text and a dark
+ * (#333/#000/black) background. Defined once and shared by every check/strip so
+ * the white-text and dark-background patterns cannot drift apart — both are
+ * anchored with `$` so prefix look-alikes like `#0000ff` or `#3333cc` are NOT
+ * mistaken for the invented dark values.
+ */
+const INVENTED_WHITE_TEXT_RE = /^(#fff(?:fff)?|white|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\))$/i;
+const INVENTED_DARK_BG_RE = /^(#333(?:333)?|#000(?:000)?|black|rgb\(\s*(?:51|0)\s*,\s*(?:51|0)\s*,\s*(?:51|0)\s*\))$/i;
+
+/** True when a style declares white (or near-white) text — the AI's default header color. */
+const declaresWhiteText = (style: string): boolean =>
+  parseStyleDecls(style).some(
+    ([prop, value]) => prop === 'color' && INVENTED_WHITE_TEXT_RE.test(value.trim()),
+  );
+
+/** True when a style declares a dark (#333/#000/black) background — the AI's default header band. */
+const declaresDarkBackground = (style: string): boolean =>
+  parseStyleDecls(style).some(
+    ([prop, value]) => (prop === 'background' || prop === 'background-color') && INVENTED_DARK_BG_RE.test(value.trim()),
+  );
+
+/** True when a style carries EITHER half of the AI's invented white-on-dark header look. */
+const declaresInventedHeaderStyle = (style: string): boolean =>
+  declaresWhiteText(style) || declaresDarkBackground(style);
+
+/**
+ * True when the template itself styles table headers with the white-on-dark look
+ * (white text and/or a dark band) — i.e. it's intentional and must be preserved
+ * rather than stripped. Checks the header-level tags where such styling could
+ * live (<tr>/<thead>/<th>).
+ */
+const templateUsesInventedHeaderStyle = (templateHtml: string): boolean => {
+  const headerTagRe = /<(?:tr|thead|th)(\s[^>]*)?>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = headerTagRe.exec(templateHtml)) !== null) {
+    const style = /style="([^"]*)"/i.exec(m[1] ?? '')?.[1];
+    if (style && declaresInventedHeaderStyle(style)) return true;
+  }
+  return false;
+};
+
+/**
+ * Strip AI-invented header coloring (white text + dark background) that the
+ * template header does NOT use. The document-generation prompt tells the model
+ * to render tables with `<tr style="background:#333;color:#fff">`, so the AI
+ * frequently emits white-on-dark headers even when the template's headers are
+ * plain black-on-white. This removes those specific declarations from a style
+ * string, leaving all other properties intact.
+ */
+const stripInventedHeaderColors = (style: string): string =>
+  serializeStyleDecls(
+    parseStyleDecls(style).filter(([prop, value]) => {
+      if (prop === 'color' && INVENTED_WHITE_TEXT_RE.test(value.trim())) {
+        return false;
+      }
+      if ((prop === 'background' || prop === 'background-color') && INVENTED_DARK_BG_RE.test(value.trim())) {
+        return false;
+      }
+      return true;
+    }),
+  );
+
+/**
+ * Replace the `style="..."` attribute on a matched open tag (or add one).
+ * The strip regex requires `style` at an attribute boundary (start of the attr
+ * string or after whitespace) so it never matches inside `data-style="..."` or
+ * any other `*-style="..."` attribute and leaves a dangling `data-` fragment.
+ */
+const withStyleAttr = (attrs: string, style: string): string => {
+  const cleaned = attrs.replace(/(^|\s)style="[^"]*"/gi, '$1').trim();
+  const space = cleaned ? ' ' : '';
+  return style ? ` style="${style}"${space}${cleaned}` : (cleaned ? ` ${cleaned}` : '');
+};
+
+/**
+ * Collect a representative inline style per tag from the original template.
+ * TipTap stores styles either directly on the element (`<h2 style="...">`) or
+ * on a nested span (`<h2><span style="...">`). First match per tag wins.
+ */
+const collectTemplateStyles = (templateHtml: string): Map<string, string> => {
+  const styleMap = new Map<string, string>();
+
+  const directStyleRegex = /<(h[1-6]|p|ul|ol|li|strong|em|a|td|th|table)\s+[^>]*style="([^"]*)"[^>]*>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = directStyleRegex.exec(templateHtml)) !== null) {
+    const tag = m[1]!.toLowerCase();
+    if (!styleMap.has(tag)) styleMap.set(tag, m[2]!);
+  }
+
+  const spanInHeadingRegex = /<(h[1-6])[^>]*>\s*<span\s+[^>]*style="([^"]*)"[^>]*>/gi;
+  while ((m = spanInHeadingRegex.exec(templateHtml)) !== null) {
+    const tag = m[1]!.toLowerCase();
+    if (!styleMap.has(tag)) styleMap.set(tag, m[2]!);
+  }
+
+  return styleMap;
+};
+
+/**
+ * Reconcile AI-generated content with the original template's visual design.
+ *
+ * Fixes two distinct template-fidelity bugs:
+ *
+ * 1. **Alignment broadcast** — the previous implementation copied the first
+ *    styled element's ENTIRE style (including `text-align`) onto every element
+ *    of that tag, so a centered title paragraph made every paragraph centered
+ *    and a centered number cell made every unstyled cell (Description column
+ *    included) centered. We now strip layout props before broadcasting, so only
+ *    cosmetic/brand styling (color, font) propagates and per-element alignment
+ *    is left intact.
+ *
+ * 2. **White table headers** — the AI regenerates tables with its prompt-default
+ *    `color:#fff;background:#333` header styling. We force the template's own
+ *    `<th>` style back on (when the template defines one), and otherwise strip
+ *    the invented white-text/dark-background declarations so headers render in
+ *    the template's plain black-on-white.
+ */
+export const applyTemplateStylesToContent = (
+  content: string,
+  templateHtml: string,
+): string => {
+  if (!content?.trim() || !templateHtml?.trim()) return content;
+
+  const styleMap = collectTemplateStyles(templateHtml);
+  let styled = content;
+
+  for (const [tag, rawStyle] of styleMap) {
+    const brandStyle = stripLayoutProps(rawStyle);
+    if (!brandStyle) continue;
+
+    if (tag.startsWith('h')) {
+      // Headings: apply the template's brand style (color/font), replacing any
+      // AI-generated style, but preserve the element's own text-align if it set one.
+      styled = styled.replace(new RegExp(`<${tag}(\\s[^>]*)?>`, 'gi'), (match, attrs: string | undefined) => {
+        const ownStyle = /style="([^"]*)"/i.exec(attrs ?? '')?.[1] ?? '';
+        const ownAlign = parseStyleDecls(ownStyle).find(([prop]) => prop === 'text-align');
+        const merged = ownAlign ? `${brandStyle}; text-align: ${ownAlign[1]}` : brandStyle;
+        return `<${tag}${withStyleAttr(attrs ?? '', merged)}>`;
+      });
+    } else if (tag === 'th') {
+      // Table headers: force the template's <th> style so the AI's white-on-dark
+      // header is overwritten by the template's (typically black) header styling.
+      styled = styled.replace(/<th(\s[^>]*)?>/gi, (match, attrs: string | undefined) => {
+        return `<th${withStyleAttr(attrs ?? '', brandStyle)}>`;
+      });
+    } else {
+      // Other tags: only style elements that have no style of their own, so we
+      // never override alignment/spacing the AI (or template) set deliberately.
+      styled = styled.replace(new RegExp(`<${tag}(?![^>]*style=)(\\s[^>]*)?>`, 'gi'), (match, attrs: string | undefined) => {
+        return `<${tag}${withStyleAttr(attrs ?? '', brandStyle)}>`;
+      });
+    }
+  }
+
+  // White-header reconciliation. The generation prompt tells the AI to render
+  // table headers as `<tr style="background:#333;color:#fff">`, so the invented
+  // styling usually lives on the header ROW (cascading to the <th>s). But the AI
+  // sometimes SPLITS it — the dark background on <tr>, the white text on <th> —
+  // so we must strip either half wherever it appears. When the template's own
+  // headers are NOT white-on-dark, strip the invented white-text AND
+  // dark-background declarations from every header-level tag (<tr>/<thead>/<th>)
+  // so headers render in the template's plain black-on-white.
+  if (!templateUsesInventedHeaderStyle(templateHtml)) {
+    styled = styled.replace(/<(tr|thead|th)(\s[^>]*)?>/gi, (match, tag: string, attrs: string | undefined) => {
+      const ownStyle = /style="([^"]*)"/i.exec(attrs ?? '')?.[1];
+      if (!ownStyle || !declaresInventedHeaderStyle(ownStyle)) return match;
+      return `<${tag}${withStyleAttr(attrs ?? '', stripInventedHeaderColors(ownStyle))}>`;
+    });
+  }
+
+  return styled;
 };
 
 // ─── Template-Based Section Generation ────────────────────────────────────────
@@ -693,10 +926,42 @@ export const processJobInner = async (job: Job): Promise<void> => {
     return;
   }
 
-  // ─── QUESTIONNAIRE: No AI — fill answers into original XLSX ───
+  // ─── QUESTIONNAIRE: Fill XLSX or generate formatted Q&A document ───
   if (documentType === 'QUESTIONNAIRE') {
-    const { generateQuestionnaireDocument } = await import('@/helpers/questionnaire-document');
-    await generateQuestionnaireDocument({ orgId, projectId, opportunityId, documentId });
+    // Try to find the source questionnaire file to determine format
+    const { queryAllBySkPrefix } = await import('@/helpers/db');
+    const { QUESTION_FILE_PK } = await import('@/constants/question-file');
+
+    const skPrefix = `${projectId}#${opportunityId}#`;
+    const questionFiles = await queryAllBySkPrefix<{
+      questionFileId: string;
+      docType?: string;
+      originalFileName?: string;
+      fileKey?: string;
+      answerColumn?: string;
+      firstDataRow?: number;
+    }>(QUESTION_FILE_PK, skPrefix);
+
+    const questionnaireFiles = questionFiles.filter(f => f.docType === 'QUESTIONNAIRE');
+
+    // Check if we have an XLSX questionnaire file that can be auto-filled
+    const xlsxFile = questionnaireFiles.find(f => {
+      const fileName = (f.originalFileName ?? f.fileKey ?? '').toLowerCase();
+      const isXlsx = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+      return isXlsx && f.answerColumn && f.firstDataRow && f.fileKey;
+    });
+
+    if (xlsxFile) {
+      // XLSX questionnaire — fill the original spreadsheet with answers
+      console.log(`XLSX questionnaire detected (${xlsxFile.originalFileName}), using fill-in-place logic`);
+      const { generateQuestionnaireDocument } = await import('@/helpers/questionnaire-document');
+      await generateQuestionnaireDocument({ orgId, projectId, opportunityId, documentId });
+    } else {
+      // DOCX questionnaire or no source file — generate formatted Q&A document
+      console.log(`Non-XLSX questionnaire detected, generating formatted Q&A document with template support`);
+      const { generateQaDocument } = await import('@/helpers/qa-questions-document');
+      await generateQaDocument({ orgId, projectId, opportunityId, documentId, templateId });
+    }
     return;
   }
 
@@ -1000,65 +1265,13 @@ export const processJobInner = async (job: Job): Promise<void> => {
     console.log(`[worker] Final assembly: header(${templateHeader.length}) + body(${aiBody.length}) + footer(${templateFooter.length}) = ${assembled.length} chars`);
     finalDocument = { ...finalDocument, content: assembled };
 
-    // Apply original template inline styles to ALL elements in the generated document.
-    // This ensures the AI-generated content matches the template's visual design.
-    let styledContent = finalDocument.content;
-    
-    // Collect all unique element styles from the original template.
-    // TipTap stores styles in two ways:
-    // 1. Inline style on the element: <h2 style="color: blue">
-    // 2. Span with style inside the element: <h2><span style="color: blue">Title</span></h2>
-    const styleMap = new Map<string, string>();
-    
-    // Pattern 1: Direct inline styles on elements
-    const directStyleRegex = /<(h[1-6]|p|ul|ol|li|strong|em|a|td|th|table)\s+[^>]*style="([^"]*)"[^>]*>/gi;
-    let styleMatch: RegExpExecArray | null;
-    while ((styleMatch = directStyleRegex.exec(originalTemplateHtml)) !== null) {
-      const tag = styleMatch[1]!.toLowerCase();
-      if (!styleMap.has(tag)) {
-        styleMap.set(tag, styleMatch[2]!);
-      }
-    }
-    
-    // Pattern 2: TipTap color spans inside headings (e.g., <h2><span style="color: #1e40af">Title</span></h2>)
-    // Extract the span style and apply it as the heading style
-    const spanInHeadingRegex = /<(h[1-6])[^>]*>\s*<span\s+[^>]*style="([^"]*)"[^>]*>/gi;
-    while ((styleMatch = spanInHeadingRegex.exec(originalTemplateHtml)) !== null) {
-      const tag = styleMatch[1]!.toLowerCase();
-      if (!styleMap.has(tag)) {
-        styleMap.set(tag, styleMatch[2]!);
-        console.log(`[worker] Found TipTap span style for ${tag}: "${styleMatch[2]}"`);
-      }
-    }
-    
-    // Apply collected styles to matching elements in the generated content
-    for (const [tag, style] of styleMap) {
-      if (tag.startsWith('h')) {
-        // For headings: replace ALL styles (even AI-generated ones) with template style
-        styledContent = styledContent?.replace(
-          new RegExp(`<${tag}(\\s[^>]*)?>`, 'gi'),
-          (match, attrs) => {
-            if (attrs && attrs.includes(style)) return match;
-            const cleanAttrs = (attrs || '').replace(/\s*style="[^"]*"/gi, '').trim();
-            const space = cleanAttrs ? ' ' : '';
-            return `<${tag} style="${style}"${space}${cleanAttrs}>`;
-          },
-        );
-      } else {
-        // For other elements: only apply to those without existing style
-        styledContent = styledContent?.replace(
-          new RegExp(`<${tag}(?![^>]*style=)(\\s[^>]*)?>`, 'gi'),
-          (match, attrs) => {
-            const cleanAttrs = (attrs || '').trim();
-            const space = cleanAttrs ? ' ' : '';
-            return `<${tag} style="${style}"${space}${cleanAttrs}>`;
-          },
-        );
-      }
-    }
-    
-    if (styledContent !== finalDocument.content) {
-      console.log(`[worker] Applied ${styleMap.size} template styles: ${[...styleMap.keys()].join(', ')}`);
+    // Apply the original template's inline styles to the generated content so it
+    // matches the template's visual design, and reconcile AI-invented table-header
+    // styling (white-on-dark) with the template. See applyTemplateStylesToContent
+    // for why per-element layout props (text-align) are deliberately NOT broadcast.
+    const styledContent = applyTemplateStylesToContent(assembled, originalTemplateHtml);
+    if (styledContent !== assembled) {
+      console.log(`[worker] Applied template styles to generated content`);
       finalDocument = { ...finalDocument, content: styledContent };
     }
   }

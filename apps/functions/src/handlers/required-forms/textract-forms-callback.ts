@@ -2,48 +2,12 @@ import type { Context, SNSEvent } from 'aws-lambda';
 
 import { withSentryLambda } from '@/sentry-lambda';
 import { fetchAllAnalysisBlocks, mapBlocksToFields, parsePageRange } from '@/helpers/textract-forms';
-import { findRequiredFormByFormId, listRequiredFormsByOpportunity, updateRequiredForm } from '@/helpers/required-form';
+import { findRequiredFormByFormId, updateRequiredForm } from '@/helpers/required-form';
 import { getCompanyProfile } from '@/helpers/company-profile';
 import { autofillFieldsWithTools } from '@/helpers/autofill-fields-with-tools';
-import { docClient, queryAllBySkPrefix } from '@/helpers/db';
-import { PK_NAME, SK_NAME } from '@/constants/common';
-import { QUESTION_FILE_PK } from '@/constants/question-file';
-import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { requireEnv } from '@/helpers/env';
-import { nowIso } from '@/helpers/date';
+import { markFormsReadyIfAllDone } from '@/helpers/mark-forms-ready';
 
 import type { DetectedFormField } from '@auto-rfp/core';
-
-/**
- * After a form transitions to a terminal state (READY/FAILED), check whether
- * every form for the opportunity is terminal. If yes, mark every QUESTION_FILE
- * for this opportunity as FORMS_READY so the UI's "Filling forms…" badge
- * clears. Best-effort — a status-write failure is logged, not thrown.
- */
-const markFormsReadyIfAllDone = async (orgId: string, projectId: string, opportunityId: string): Promise<void> => {
-  try {
-    const forms = await listRequiredFormsByOpportunity({ orgId, projectId, opportunityId });
-    const anyPending = forms.some((f) => f.status !== 'READY' && f.status !== 'DONE' && f.status !== 'FAILED');
-    if (anyPending) return;
-
-    const tableName = requireEnv('DB_TABLE_NAME');
-    const skPrefix = `${projectId}#${opportunityId}#`;
-    const files = await queryAllBySkPrefix<{ [PK_NAME]: string; [SK_NAME]: string }>(QUESTION_FILE_PK, skPrefix);
-    await Promise.all(
-      files.map((f) =>
-        docClient.send(new UpdateCommand({
-          TableName: tableName,
-          Key: { [PK_NAME]: QUESTION_FILE_PK, [SK_NAME]: f[SK_NAME] },
-          UpdateExpression: 'SET #status = :status, #updatedAt = :now',
-          ExpressionAttributeNames: { '#status': 'status', '#updatedAt': 'updatedAt' },
-          ExpressionAttributeValues: { ':status': 'FORMS_READY', ':now': nowIso() },
-        })).catch((err) => console.warn(`Failed to set FORMS_READY on ${f[SK_NAME]}:`, (err as Error)?.message)),
-      ),
-    );
-  } catch (err) {
-    console.warn('markFormsReadyIfAllDone failed:', (err as Error)?.message);
-  }
-};
 
 type TextractSnsMessage = {
   JobId?: string;

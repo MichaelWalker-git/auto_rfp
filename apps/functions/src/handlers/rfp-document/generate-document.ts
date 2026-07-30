@@ -21,8 +21,7 @@ import { enqueueDocumentGeneration } from '@/helpers/document-generation-queue';
 import { nowIso } from '@/helpers/date';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { RFP_DOCUMENT_PK } from '@/constants/rfp-document';
-import type { DBProjectItem } from '@/types/project';
-import { RFP_DOCUMENT_TYPES, RFPDocumentTypeSchema } from '@auto-rfp/core';
+import { RFP_DOCUMENT_TYPES, RFPDocumentTypeSchema, type ProjectDBItem } from '@auto-rfp/core';
 
 // ─── Input Schema ───
 
@@ -62,7 +61,7 @@ export const baseHandler = async (
     const project = await getProjectById(projectId);
     if (!project) return apiResponse(404, { message: 'Project not found' });
 
-    const orgId = getOrgId(event) || extractOrgId((project as DBProjectItem).sort_key);
+    const orgId = getOrgId(event) || extractOrgId((project as ProjectDBItem).sort_key);
     if (!orgId) return apiResponse(400, { message: 'Cannot extract orgId from project' });
 
     const userId = getUserId(event);

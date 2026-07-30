@@ -27,6 +27,27 @@ interface UserRecord {
   lastName?: string;
 }
 
+/**
+ * Get the best display name for a user.
+ * Priority: displayName > "firstName lastName" > firstName > email > userId
+ */
+export const getUserDisplayName = (user: UserRecord | null, fallbackId?: string): string => {
+  if (!user) return fallbackId ?? 'Unknown';
+
+  // 1. Use displayName if set
+  if (user.displayName?.trim()) return user.displayName.trim();
+
+  // 2. Construct from firstName + lastName
+  const firstName = user.firstName?.trim();
+  const lastName = user.lastName?.trim();
+  if (firstName && lastName) return `${firstName} ${lastName}`;
+  if (firstName) return firstName;
+  if (lastName) return lastName;
+
+  // 3. Fallback to email or userId
+  return user.email ?? fallbackId ?? 'Unknown';
+};
+
 export const getUserByOrgAndId = async (
   orgId: string,
   userId: string,

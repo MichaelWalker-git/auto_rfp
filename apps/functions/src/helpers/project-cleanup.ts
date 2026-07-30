@@ -28,7 +28,7 @@ interface QuestionFileItem {
   executiveBriefId?: string;
 }
 
-interface ProjectItem {
+interface ProjectCleanupItem {
   [PK_NAME]: string;
   [SK_NAME]: string;
   executiveBriefId?: string;
@@ -68,7 +68,7 @@ export async function deleteProjectAndRelatedEntities(
 
   // Verify project exists
   const projectSk = `${orgId}#${projectId}`;
-  const project = await getItem<ProjectItem>(PROJECT_PK, projectSk);
+  const project = await getItem<ProjectCleanupItem>(PROJECT_PK, projectSk);
 
   if (!project) {
     const err: any = new Error('Project not found');
@@ -129,8 +129,8 @@ export async function deleteProjectAndRelatedEntities(
 /**
  * Get all projects for an organization
  */
-export async function getProjectsByOrgId(orgId: string): Promise<ProjectItem[]> {
-  return queryAllBySkPrefix<ProjectItem>(PROJECT_PK, `${orgId}#`);
+export async function getProjectsByOrgId(orgId: string): Promise<ProjectCleanupItem[]> {
+  return queryAllBySkPrefix<ProjectCleanupItem>(PROJECT_PK, `${orgId}#`);
 }
 
 /**
@@ -153,7 +153,7 @@ function collectS3Keys(items: QuestionFileItem[]): string[] {
 }
 
 function collectExecBriefIds(
-  project: ProjectItem | null,
+  project: ProjectCleanupItem | null,
   questionFiles: QuestionFileItem[],
 ): string[] {
   const ids = new Set<string>();

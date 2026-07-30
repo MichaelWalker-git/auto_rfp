@@ -32,23 +32,29 @@ jest.mock('./executive-opportunity-brief', () => ({
   loadAllSolicitationTexts: jest.fn(),
   getExecutiveBriefByProjectId: jest.fn(),
 }));
-jest.mock('./template', () => ({
-  getTemplate: jest.fn(),
-  listTemplatesByOrg: jest.fn(),
-  loadTemplateHtml: jest.fn(),
-  replaceMacros: jest.fn((text: string, macros: Record<string, string>) => {
-    let result = text;
-    Object.entries(macros).forEach(([key, value]) => {
-      result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
-    });
-    return result;
-  }),
-}));
+// Partially mock template - allow buildMacroValues to use real implementation
+jest.mock('./template', () => {
+  const actual = jest.requireActual('./template');
+  return {
+    ...actual,
+    getTemplate: jest.fn(),
+    listTemplatesByOrg: jest.fn(),
+    loadTemplateHtml: jest.fn(),
+    replaceMacros: jest.fn((text: string, macros: Record<string, string>) => {
+      let result = text;
+      Object.entries(macros).forEach(([key, value]) => {
+        result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+      });
+      return result;
+    }),
+  };
+});
 
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.REGION = 'us-east-1';
 
-import { buildMacroValues, prepareTemplateScaffoldForAI } from './document-generation';
+import { prepareTemplateScaffoldForAI } from './document-generation';
+import { buildMacroValues } from './template';
 import { getProjectById } from './project';
 import { getOrganizationById } from './org';
 import { getOpportunity } from './opportunity';

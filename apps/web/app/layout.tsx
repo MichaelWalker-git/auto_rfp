@@ -20,10 +20,10 @@ type Props = {
 export default function RootLayout({ children }: Props) {
   return (
     <html lang="en" suppressHydrationWarning>
-    <body suppressHydrationWarning>
+    <body suppressHydrationWarning className="overflow-x-hidden">
     <Providers>
       <ErrorBoundary>
-        <div className="flex flex-col">
+        <div className="flex flex-col overflow-x-hidden">
           {children}
         </div>
       </ErrorBoundary>

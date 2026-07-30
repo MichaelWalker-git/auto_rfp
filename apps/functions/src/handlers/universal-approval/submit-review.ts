@@ -7,7 +7,7 @@ import {
   getUniversalApprovalRecord,
   updateUniversalApprovalStatus,
 } from '@/helpers/universal-approval';
-import { getUserByOrgAndId } from '@/helpers/user';
+import { getUserByOrgAndId, getUserDisplayName } from '@/helpers/user';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
 import { writeAuditLog } from '@/helpers/audit-log';
 import { getHmacSecret } from '@/helpers/secret';
@@ -21,6 +21,7 @@ import {
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
+import { buildEntityReviewLink } from '@/helpers/approval-links';
 
 const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   const orgId = getOrgId(event);
@@ -52,8 +53,8 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     getUserByOrgAndId(orgId, approval.requestedBy).catch(() => null),
   ]);
 
-  const reviewerName = reviewer?.displayName ?? reviewer?.firstName ?? reviewer?.email ?? reviewerId;
-  const requesterName = requester?.displayName ?? requester?.firstName ?? requester?.email ?? approval.requestedBy;
+  const reviewerName = getUserDisplayName(reviewer, reviewerId);
+  const requesterName = getUserDisplayName(requester, approval.requestedBy);
 
   // ── Update approval status ──
   const updatedApproval = await updateUniversalApprovalStatus(
@@ -72,21 +73,31 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
   const entityDisplayName = getEntityDisplayName(data.entityType);
   const entityIcon = getEntityIcon(data.entityType);
   const isApproved = data.decision === 'APPROVED';
-  
+
+  const reviewLink = buildEntityReviewLink(
+    orgId,
+    approval.projectId,
+    data.entityType,
+    approval.entityId,
+    approval.opportunityId,
+    approval.documentId,
+  );
+
   sendNotification(
     buildNotification(
       'DOCUMENT_APPROVAL_REQUESTED', // Using existing notification type for compatibility
       `${entityIcon} ${entityDisplayName} ${isApproved ? 'Approved' : 'Rejected'}`,
-      isApproved 
+      isApproved
         ? `${reviewerName} has approved "${approval.entityName ?? `your ${entityDisplayName.toLowerCase()}`}"`
         : `${reviewerName} has rejected "${approval.entityName ?? `your ${entityDisplayName.toLowerCase()}`}"${data.reviewNote ? `: ${data.reviewNote}` : ''}`,
       {
         orgId,
-        projectId: data.projectId ?? '',
-        entityId: data.entityId,
+        projectId: approval.projectId,
+        entityId: approval.entityId,
         recipientUserIds: [approval.requestedBy],
         recipientEmails: requester?.email ? [requester.email] : [],
         actorDisplayName: reviewerName,
+        link: reviewLink,
       },
     ),
   ).catch((err) => console.warn('[submit-universal-review] Notification failed:', (err as Error).message));

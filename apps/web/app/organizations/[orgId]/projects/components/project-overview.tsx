@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useProject, useQuestionsCount } from '@/lib/hooks/use-api';
-import { useProjectOutcomes } from '@/lib/hooks/use-project-outcome';
 import { useGetExecutiveBriefByProject } from '@/lib/hooks/use-executive-brief';
 import {
   NoRfpDocumentAvailable,
@@ -45,8 +44,6 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
   const { currentOrganization } = useCurrentOrganization();
   const orgId = project?.orgId ?? currentOrganization?.id ?? '';
 
-  // Fetch all outcomes across opportunities
-  const { outcomes, isError: outcomesError, isLoading: outcomesLoading } = useProjectOutcomes(orgId || null, projectId);
   const getBriefByProject = useGetExecutiveBriefByProject();
 
   const [briefs, setBriefs] = useState<any[]>([]);
@@ -133,27 +130,24 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
     return counts;
   }, [rfpDocsData]);
 
-  // Outcome statistics across all opportunities
-  // Only calculate stats when we have valid data (not error and not loading)
+  // Outcome statistics derived from the opportunities' status (the outcome now
+  // lives on the opportunity). SUBMITTED is the "pending decision" bucket.
   const outcomeStats = useMemo(() => {
-    // If there's an error or we're loading, return empty stats
-    if (outcomesError || outcomesLoading) {
-      return { won: 0, lost: 0, pending: 0, noBid: 0, withdrawn: 0, total: 0, totalContractValue: 0, winRate: 0, hasError: outcomesError };
-    }
-
-    const stats = { won: 0, lost: 0, pending: 0, noBid: 0, withdrawn: 0, total: outcomes.length };
+    const stats = { won: 0, lost: 0, pending: 0, noBid: 0, withdrawn: 0, total: 0 };
     let totalContractValue = 0;
 
-    for (const o of outcomes) {
-      switch (o.status) {
+    for (const o of opportunities ?? []) {
+      const status = (o as { status?: string }).status;
+      const winData = (o as { winData?: { contractValue?: number } }).winData;
+      switch (status) {
         case 'WON':
-          stats.won++;
-          if (o.winData?.contractValue) totalContractValue += o.winData.contractValue;
+          stats.won++; stats.total++;
+          if (winData?.contractValue) totalContractValue += winData.contractValue;
           break;
-        case 'LOST': stats.lost++; break;
-        case 'PENDING': stats.pending++; break;
-        case 'NO_BID': stats.noBid++; break;
-        case 'WITHDRAWN': stats.withdrawn++; break;
+        case 'LOST': stats.lost++; stats.total++; break;
+        case 'SUBMITTED': stats.pending++; stats.total++; break;
+        case 'NO_BID': stats.noBid++; stats.total++; break;
+        case 'WITHDRAWN': stats.withdrawn++; stats.total++; break;
       }
     }
 
@@ -162,7 +156,7 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
       : 0;
 
     return { ...stats, totalContractValue, winRate, hasError: false };
-  }, [outcomes, outcomesError, outcomesLoading]);
+  }, [opportunities]);
 
   if (isLoading) {
     return (
@@ -313,20 +307,7 @@ export function ProjectOverview({ projectId }: ProjectOverviewProps) {
             <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {outcomesLoading ? (
-              <div className="space-y-2">
-                <Skeleton className="h-8 w-16" />
-                <Skeleton className="h-4 w-24" />
-              </div>
-            ) : outcomesError ? (
-              <>
-                <div className="text-2xl font-bold text-muted-foreground">—</div>
-                <p className="text-xs text-muted-foreground">Unable to load outcomes</p>
-                <div className="mt-3">
-                  <Badge variant="outline" className="text-xs">Error loading data</Badge>
-                </div>
-              </>
-            ) : outcomeStats.total > 0 ? (
+            {outcomeStats.total > 0 ? (
               <div className="space-y-3">
                 {/* Win rate */}
                 <div>

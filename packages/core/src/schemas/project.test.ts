@@ -1,26 +1,26 @@
 import { describe, it, expect } from 'vitest';
 import {
-  CreateProjectSchema,
-  UpdateProjectSchema,
-  type CreateProjectDTO,
+  ProjectCreateRequestSchema,
+  ProjectUpdateRequestSchema,
+  type ProjectCreateRequest,
   type ProjectItem,
 } from './project';
 
-describe('CreateProjectSchema', () => {
+describe('ProjectCreateRequestSchema', () => {
   it('should accept valid project data', () => {
-    const data: CreateProjectDTO = {
+    const data: ProjectCreateRequest = {
       orgId: 'org-123',
       name: 'Test Project',
       description: 'A test project description',
     };
-    const result = CreateProjectSchema.parse(data);
+    const result = ProjectCreateRequestSchema.parse(data);
     expect(result.name).toBe('Test Project');
     expect(result.description).toBe('A test project description');
   });
 
   it('should require orgId', () => {
     expect(() =>
-      CreateProjectSchema.parse({
+      ProjectCreateRequestSchema.parse({
         name: 'Test Project',
       })
     ).toThrow();
@@ -28,7 +28,7 @@ describe('CreateProjectSchema', () => {
 
   it('should require name', () => {
     expect(() =>
-      CreateProjectSchema.parse({
+      ProjectCreateRequestSchema.parse({
         orgId: 'org-123',
       })
     ).toThrow();
@@ -36,7 +36,7 @@ describe('CreateProjectSchema', () => {
 
   it('should reject empty name', () => {
     expect(() =>
-      CreateProjectSchema.parse({
+      ProjectCreateRequestSchema.parse({
         orgId: 'org-123',
         name: '',
       })
@@ -45,7 +45,7 @@ describe('CreateProjectSchema', () => {
 
   it('should reject empty orgId', () => {
     expect(() =>
-      CreateProjectSchema.parse({
+      ProjectCreateRequestSchema.parse({
         orgId: '',
         name: 'Test',
       })
@@ -57,7 +57,7 @@ describe('CreateProjectSchema', () => {
       orgId: 'org-123',
       name: 'Test Project',
     };
-    const result = CreateProjectSchema.parse(data);
+    const result = ProjectCreateRequestSchema.parse(data);
     expect(result.description).toBeUndefined();
   });
 
@@ -67,17 +67,17 @@ describe('CreateProjectSchema', () => {
       name: 'Test Project',
       description: '',
     };
-    const result = CreateProjectSchema.parse(data);
+    const result = ProjectCreateRequestSchema.parse(data);
     expect(result.description).toBe('');
   });
 });
 
-describe('UpdateProjectSchema', () => {
+describe('ProjectUpdateRequestSchema', () => {
   it('should accept partial updates with name only', () => {
     const data = {
       name: 'Updated Name',
     };
-    const result = UpdateProjectSchema.parse(data);
+    const result = ProjectUpdateRequestSchema.parse(data);
     expect(result.name).toBe('Updated Name');
     expect(result.description).toBeUndefined();
   });
@@ -86,7 +86,7 @@ describe('UpdateProjectSchema', () => {
     const data = {
       description: 'Updated description',
     };
-    const result = UpdateProjectSchema.parse(data);
+    const result = ProjectUpdateRequestSchema.parse(data);
     expect(result.description).toBe('Updated description');
     expect(result.name).toBeUndefined();
   });
@@ -96,27 +96,27 @@ describe('UpdateProjectSchema', () => {
       name: 'Updated Name',
       description: 'Updated description',
     };
-    const result = UpdateProjectSchema.parse(data);
+    const result = ProjectUpdateRequestSchema.parse(data);
     expect(result.name).toBe('Updated Name');
     expect(result.description).toBe('Updated description');
   });
 
   it('should accept empty object (no updates)', () => {
-    const result = UpdateProjectSchema.parse({});
+    const result = ProjectUpdateRequestSchema.parse({});
     expect(result.name).toBeUndefined();
     expect(result.description).toBeUndefined();
   });
 
   it('should reject empty name when provided', () => {
     expect(() =>
-      UpdateProjectSchema.parse({
+      ProjectUpdateRequestSchema.parse({
         name: '',
       })
     ).toThrow(/Project name cannot be empty/);
   });
 
   it('should allow empty description when provided', () => {
-    const result = UpdateProjectSchema.parse({
+    const result = ProjectUpdateRequestSchema.parse({
       description: '',
     });
     expect(result.description).toBe('');
@@ -124,7 +124,7 @@ describe('UpdateProjectSchema', () => {
 });
 
 describe('ProjectItem type', () => {
-  it('should extend CreateProjectDTO with id', () => {
+  it('should extend ProjectCreateRequest with id', () => {
     const project: ProjectItem = {
       id: 'proj-123',
       orgId: 'org-123',

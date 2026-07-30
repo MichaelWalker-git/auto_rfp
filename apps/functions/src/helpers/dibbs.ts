@@ -5,7 +5,7 @@ import { requireEnv } from '@/helpers/env';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { DIBBS_SAVED_SEARCH_PK } from '@/constants/dibbs';
 import type {
-  DibbsOpportunitySlim,
+  DibbsOpportunitySearchResult,
   DibbsSavedSearch,
   SearchDibbsOpportunitiesRequest,
   SearchDibbsOpportunitiesResponse,
@@ -52,9 +52,9 @@ const httpsGetJson = async (url: URL, agent?: https.Agent): Promise<unknown> => 
   return JSON.parse(bodyStr);
 };
 
-// ─── Normalise raw DIBBS record to DibbsOpportunitySlim ──────────────────────
+// ─── Normalise raw DIBBS record to DibbsOpportunitySearchResult ──────────────────────
 
-const toSlim = (o: Record<string, unknown>): DibbsOpportunitySlim => ({
+const toSlim = (o: Record<string, unknown>): DibbsOpportunitySearchResult => ({
   solicitationNumber:     (o.solicitationNumber ?? o.solNum) as string | undefined,
   title:                  (o.title ?? o.description_title) as string | undefined,
   type:                   (o.type ?? o.solicitationType) as string | undefined,

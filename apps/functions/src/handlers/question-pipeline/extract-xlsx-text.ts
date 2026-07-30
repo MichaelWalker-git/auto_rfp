@@ -53,7 +53,14 @@ function workbookToText(workbook: XLSX.WorkBook): string {
         parts.push('\n[Truncated — file too large]');
         break;
       }
-      const line = row.map((cell) => String(cell ?? '').trim()).join('\t');
+      // Trim trailing empty cells so a single value on a wide sheet doesn't
+      // become "value\t\t\t…" (dozens of tabs). Interior empties are kept, so
+      // column positions up to the last filled cell are preserved. This also
+      // avoids feeding huge whitespace runs into the downstream chunker.
+      const cells = row.map((cell) => String(cell ?? '').trim());
+      let lastFilled = cells.length - 1;
+      while (lastFilled >= 0 && cells[lastFilled] === '') lastFilled--;
+      const line = cells.slice(0, lastFilled + 1).join('\t');
       if (line.trim()) {
         parts.push(line);
         totalChars += line.length + 1;

@@ -21,20 +21,14 @@
 
 - **Every entity MUST be defined in `packages/core/` using Zod schemas.**
 - TypeScript types are always inferred from Zod schemas using `z.infer<>` — never define types manually.
-- Each entity gets its own file in `packages/core/src/schemas/`.
-- Schemas must be re-exported from `packages/core/src/index.ts`.
-- Use `CreateXxxSchema` (omit id + timestamps) and `UpdateXxxSchema` (partial) patterns for CRUD.
-- **DynamoDB Item Types**: If an entity schema does not include `partition_key` and `sort_key` properties, define a separate `EntityNameDBItem` type in `apps/functions/src/types/` that extends the base entity type with DynamoDB keys:
-  ```typescript
-  import { PK_NAME, SK_NAME } from '@/constants/common';
-  import { EntityItem } from '@auto-rfp/core';
-  
-  export type EntityDBItem = EntityItem & {
-    [PK_NAME]: string;
-    [SK_NAME]: string;
-  };
-  ```
-  This allows type-safe access to DynamoDB keys without polluting the core schema with infrastructure concerns.
+- Each entity gets its own file in `packages/core/src/schemas/<entity>.ts`, exported via the `export *` barrel in `index.ts`.
+- **Every stored entity exposes the 5-type pattern** (see `.claude/rules/03-entity-definitions.md` for the full spec + skeleton):
+  1. `<Entity>CreateRequestSchema` / `<Entity>CreateRequest` — POST body (server-managed fields omitted)
+  2. `<Entity>UpdateRequestSchema` / `<Entity>UpdateRequest` — PATCH body (`.partial()`, identifiers omitted)
+  3. `<Entity>ItemSchema` / `<Entity>Item` — pure domain entity, NO `partition_key`/`sort_key`
+  4. `<Entity>DBItemSchema` / `<Entity>DBItem` — Item extended with `[PK_NAME]`/`[SK_NAME]`, defined in **core**
+  5. `<Entity>ListItemSchema` / `<Entity>ListItem` — lightweight shape for list/card views
+- **Do NOT** use the legacy `CreateXxxDTO` / `UpdateXxxDTO` / `CreateXxxSchema` / `UpdateXxxSchema` names, and **do NOT** define `EntityDBItem` aliases in `apps/functions/src/types/` — the `DBItem` now lives in core. `PK_NAME`/`SK_NAME` come from `packages/core/src/constants.ts` (re-exported by `@/constants/common`); always use the computed `[PK_NAME]`/`[SK_NAME]` keys, never the raw `partition_key`/`sort_key` literals.
 
 ---
 

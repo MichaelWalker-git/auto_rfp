@@ -11,7 +11,7 @@ import { ProjectCardSkeleton } from '@/components/projects/ProjectCardSkeleton';
 import { Button } from '@/components/ui/button';
 import { useProjects } from '@/lib/hooks/use-api';
 import { useCurrentOrganization } from '@/context/organization-context';
-import type { Project } from '@/types/project';
+import type { ProjectItem as Project } from '@auto-rfp/core';
 import { PermissionButton } from '@/components/ui/permission-button';
 import { PageHeader } from '@/components/layout/page-header';
 import { PageSearch } from '@/components/layout/page-search';

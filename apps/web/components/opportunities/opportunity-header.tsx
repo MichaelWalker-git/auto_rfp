@@ -25,7 +25,7 @@ import {
 import { useEmitOpportunityEvent } from '@/lib/hooks/use-emit-opportunity-event';
 import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { PermissionButton } from '@/components/ui/permission-button';
-import { RequestOpportunityApprovalButton } from '@/features/opportunity-approval';
+import { RequestOpportunityApprovalButton, OpportunityReviewStatusSection } from '@/features/opportunity-approval';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -122,10 +122,6 @@ export const OpportunityHeader = () => {
               ) : (
                 <OpportunityHeaderView
                   opportunity={opportunity}
-                  orgId={orgId}
-                  projectId={projectId}
-                  oppId={oppId}
-                  onStageChanged={refetch}
                 />
               )}
             </div>
@@ -225,6 +221,13 @@ export const OpportunityHeader = () => {
             ) : (
               <span className="text-sm text-muted-foreground">No description available.</span>
             )}
+
+            {/* Review Status */}
+            <OpportunityReviewStatusSection
+              orgId={orgId}
+              projectId={projectId}
+              opportunityId={oppId}
+            />
           </CardContent>
         )}
       </Card>

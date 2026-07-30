@@ -51,6 +51,7 @@ import { useOpportunityContext } from './opportunity-context';
 import { formatDateTime } from './opportunity-helpers';
 import Link from 'next/link';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { isXlsxQuestionnaire, isHtmlQuestionnaire } from '@/lib/utils/document-format';
 
 const getDocIcon = (doc: RFPDocumentItem) => {
   if (doc.documentType === 'QUESTIONNAIRE' || doc.mimeType?.includes('spreadsheet') || doc.mimeType?.includes('excel')) {
@@ -423,7 +424,7 @@ export function OpportunityRFPDocuments() {
                 const isDeleting = deletingId === doc.documentId;
                 const isDownloading = downloadingId === doc.documentId;
 
-                const canEdit = (doc.content || doc.documentType === 'QUESTIONNAIRE') && doc.status !== 'GENERATING' && doc.status !== 'FAILED' && navOrgId;
+                const canEdit = (doc.content || isXlsxQuestionnaire(doc) || isHtmlQuestionnaire(doc)) && doc.status !== 'GENERATING' && doc.status !== 'FAILED' && navOrgId;
                 const canConvert = !doc.content && doc.fileKey && (doc.mimeType?.includes('word') || doc.mimeType?.includes('text') || doc.mimeType?.includes('pdf') || doc.fileKey?.endsWith('.docx') || doc.fileKey?.endsWith('.pdf') || doc.fileKey?.endsWith('.txt') || doc.fileKey?.endsWith('.md'));
                 
                 const cardClassName = cn(
@@ -487,10 +488,10 @@ export function OpportunityRFPDocuments() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {(doc.content || doc.documentType === 'QUESTIONNAIRE') && doc.status !== 'FAILED' && navOrgId && (
+                          {(doc.content || isXlsxQuestionnaire(doc) || isHtmlQuestionnaire(doc)) && doc.status !== 'FAILED' && navOrgId && (
                             <DropdownMenuItem asChild>
                               <Link href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${oppId}/rfp-documents/${doc.documentId}/edit`} className="flex items-center">
-                                <Pencil className="h-4 w-4 mr-2" /> {doc.documentType === 'QUESTIONNAIRE' ? 'Edit Spreadsheet' : 'Edit Content'}
+                                <Pencil className="h-4 w-4 mr-2" /> {isXlsxQuestionnaire(doc) ? 'Edit Spreadsheet' : 'Edit Content'}
                               </Link>
                             </DropdownMenuItem>
                           )}

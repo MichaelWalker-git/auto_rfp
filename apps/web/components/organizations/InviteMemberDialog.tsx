@@ -86,6 +86,7 @@ export function InviteMemberDialog({ orgId, onMemberAdded }: InviteMemberDialogP
       toast({ title: 'User created' });
       resetForm();
       setOpen(false);
+      // Cache invalidation happens automatically in createUserApi
     } catch (e: any) {
       toast({
         title: 'Error',

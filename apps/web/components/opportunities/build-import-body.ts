@@ -1,10 +1,10 @@
-import type { SearchOpportunitySlim, OpportunitySource } from '@auto-rfp/core';
+import type { SearchOpportunity, OpportunitySource } from '@auto-rfp/core';
 
 const formatMMDDYYYY = (d: Date): string =>
   `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
 
 type ImportBodyBuilder = (ctx: {
-  opp: SearchOpportunitySlim;
+  opp: SearchOpportunity;
   orgId: string;
   projectId: string;
 }) => Record<string, unknown>;
@@ -41,7 +41,7 @@ const builders: Record<OpportunitySource, ImportBodyBuilder> = {
 };
 
 export const buildImportBody = (
-  opp: SearchOpportunitySlim,
+  opp: SearchOpportunity,
   orgId: string,
   projectId: string,
 ): Record<string, unknown> => {

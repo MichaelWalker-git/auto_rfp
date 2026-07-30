@@ -611,13 +611,43 @@ const EditSectionResponseSchema = z.object({
 export type EditSectionResponse = z.infer<typeof EditSectionResponseSchema>;
 
 /**
+ * AI-powered section editing with extended timeout.
+ * Large questionnaires can take up to 180s to process on the backend.
+ */
+const postJsonWithTimeout = async <T>(url: string, body: unknown, timeoutMs: number): Promise<T> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await authFetcher(url, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const raw = await res.text().catch(() => '');
+      throw new ApiError(raw || 'Request failed', res.status);
+    }
+    const raw = await res.text().catch(() => '');
+    if (!raw) return { ok: true } as T;
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      return { ok: true } as T;
+    }
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
+/**
  * AI-powered section editing. Sends a section's HTML and user instructions
  * to the AI, which returns updated section HTML.
  */
 export function useEditSection(orgId?: string) {
   return useSWRMutation<EditSectionResponse, Error, string, EditSectionRequest>(
     `${BASE}/edit-section${orgId ? `?orgId=${orgId}` : ''}`,
-    (url, { arg }) => postJson<EditSectionResponse>(url, arg),
+    (url, { arg }) => postJsonWithTimeout<EditSectionResponse>(url, arg, 200_000), // 200s timeout (exceeds backend 180s)
   );
 }
 

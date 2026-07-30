@@ -3,7 +3,7 @@ import { UpdateCommand, } from '@aws-sdk/lib-dynamodb';
 import { ORG_PK } from '@/constants/organization';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { apiResponse, getUserId } from '@/helpers/api';
-import { OrganizationItem, UpdateOrganizationDTO, UpdateOrganizationSchema, } from '@auto-rfp/core';
+import { OrganizationItem, OrganizationUpdateRequest, OrganizationUpdateRequestSchema, } from '@auto-rfp/core';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
@@ -35,10 +35,10 @@ export const baseHandler = async (
   try {
     const rawBody = JSON.parse(event.body);
 
-    const validationResult = UpdateOrganizationSchema.safeParse(rawBody);
+    const { success, data: validatedOrgData, error } = OrganizationUpdateRequestSchema.safeParse(rawBody);
 
-    if (!validationResult.success) {
-      const errorDetails = validationResult.error.issues.map((issue: any) => ({
+    if (!success) {
+      const errorDetails = error.issues.map((issue) => ({
         path: issue.path.join('.'),
         message: issue.message,
       }));
@@ -47,8 +47,6 @@ export const baseHandler = async (
         errors: errorDetails,
       });
     }
-
-    const validatedOrgData: UpdateOrganizationDTO = validationResult.data;
 
     const userId = getUserId(event) ?? 'system';
     const updatedOrganization = await editOrganization(orgId, validatedOrgData, userId);
@@ -81,7 +79,7 @@ export const baseHandler = async (
 
 export async function editOrganization(
   orgId: string,
-  orgData: UpdateOrganizationDTO,
+  orgData: OrganizationUpdateRequest,
   userId: string = 'system',
 ): Promise<OrganizationItem> {
   const now = new Date().toISOString();

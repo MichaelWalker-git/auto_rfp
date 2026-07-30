@@ -18,7 +18,7 @@ import { Separator } from '@/components/ui/separator';
 import { Calendar, Check, ChevronsUpDown, Loader2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-import type { SamOpportunitySlim } from '@auto-rfp/core';
+import type { SamOpportunitySearchResult } from '@auto-rfp/core';
 import { fmtDate } from '@/components/opportunities/samgov-utils';
 import { CreateProjectDialog } from '../organization-badge';
 
@@ -29,7 +29,7 @@ type Props = {
   onOpenChange: (v: boolean) => void;
 
   orgId: string;
-  opportunity: SamOpportunitySlim | null;
+  opportunity: SamOpportunitySearchResult | null;
 
   projects: ProjectOption[];
   isImporting: boolean;

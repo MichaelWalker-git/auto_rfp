@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
-import type { SearchOpportunitySlim } from '@auto-rfp/core';
+import type { SearchOpportunity } from '@auto-rfp/core';
 
 // ─── Criteria type ────────────────────────────────────────────────────────────
 
@@ -32,7 +32,7 @@ export interface SearchOpportunityCriteria {
 export type UnifiedSearchCriteria = SearchOpportunityCriteria;
 
 export interface SearchOpportunityResult {
-  opportunities: SearchOpportunitySlim[];
+  opportunities: SearchOpportunity[];
   totalSamGov: number;
   totalDibbs: number;
   totalHigherGov: number;
@@ -115,7 +115,7 @@ export const useSearchOpportunities = (orgId: string | undefined) => {
     }
 
     const json = await res.json() as {
-      opportunities: SearchOpportunitySlim[];
+      opportunities: SearchOpportunity[];
       totalSamGov: number;
       totalDibbs: number;
       totalHigherGov: number;

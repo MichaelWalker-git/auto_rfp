@@ -5,10 +5,10 @@ import { mutate as globalMutate } from 'swr';
 import { useToast } from '@/components/ui/use-toast';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
-import type { OrganizationItem, UpdateOrganizationDTO } from '@auto-rfp/core';
+import type { OrganizationItem, OrganizationUpdateRequest } from '@auto-rfp/core';
 
 interface UseUpdateOrganizationResult {
-  updateOrganization: (data: UpdateOrganizationDTO) => Promise<OrganizationItem | null>;
+  updateOrganization: (data: OrganizationUpdateRequest) => Promise<OrganizationItem | null>;
   isSaving: boolean;
 }
 
@@ -20,7 +20,7 @@ export const useUpdateOrganization = (
   const { toast } = useToast();
 
   const updateOrganization = useCallback(
-    async (data: UpdateOrganizationDTO): Promise<OrganizationItem | null> => {
+    async (data: OrganizationUpdateRequest): Promise<OrganizationItem | null> => {
       try {
         setIsSaving(true);
 

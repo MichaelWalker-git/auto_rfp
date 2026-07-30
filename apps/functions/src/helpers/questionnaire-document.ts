@@ -10,18 +10,12 @@ import { RFP_DOCUMENT_PK } from '@/constants/rfp-document';
 import { queryAllBySkPrefix, updateItem } from '@/helpers/db';
 import { uploadToS3 } from '@/helpers/s3';
 import { buildRFPDocumentS3Key, buildRFPDocumentSK } from '@/helpers/rfp-document';
+import { columnLetterToIndex } from '@/helpers/excel';
 
 const getDocumentsBucket = () => requireEnv('DOCUMENTS_BUCKET');
 
 const s3Client = new S3Client({});
 
-const columnLetterToIndex = (col: string): number => {
-  let index = 0;
-  for (let i = 0; i < col.length; i++) {
-    index = index * 26 + (col.toUpperCase().charCodeAt(i) - 64);
-  }
-  return index;
-};
 
 interface GenerateQuestionnaireDocumentArgs {
   orgId: string;

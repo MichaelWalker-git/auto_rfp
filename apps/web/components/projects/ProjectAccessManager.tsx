@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useProjectAccessUsers, useAssignProjectAccess, useRevokeProjectAccess, useGrantAdminAccess, canManageProjectAccess } from '@/lib/hooks/use-project-access';
 import { useUsersList } from '@/lib/hooks/use-user';
+import { useUserLookupBatch } from '@/lib/hooks/use-user-lookup';
 import { useAuth } from '@/components/AuthProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,14 +39,20 @@ export const ProjectAccessManager = ({ orgId, projectId, projectCreatorId }: Pro
     ? canManageProjectAccess(accessUsers, currentUserId, projectCreatorId, isOrgAdmin)
     : false;
 
+  // Batch lookup all access users (handles deleted users)
+  const userLookupMap = useUserLookupBatch(
+    accessUsers.map(a => a.userId),
+    orgUsers
+  );
+
   // Users who don't have access yet
   const assignedUserIds = new Set(accessUsers.map((u) => u.userId));
-  const availableUsers = orgUsers.filter((u) => 
+  const availableUsers = orgUsers.filter((u) =>
     !assignedUserIds.has(u.userId) && u.userId !== currentUserId
   );
 
   // Check if there are admins without access (for showing/hiding "Grant to All Admins" button)
-  const adminsWithoutAccess = orgUsers.filter((u) => 
+  const adminsWithoutAccess = orgUsers.filter((u) =>
     u.role === 'ADMIN' && !assignedUserIds.has(u.userId)
   );
   const hasAdminsToGrant = adminsWithoutAccess.length > 0;
@@ -196,19 +203,23 @@ export const ProjectAccessManager = ({ orgId, projectId, projectCreatorId }: Pro
           ) : (
             <div className="divide-y divide-border rounded-lg border">
               {accessUsers.map((access) => {
-                const user = orgUsers.find((u) => u.userId === access.userId);
+                const lookupResult = userLookupMap.get(access.userId);
+                if (!lookupResult) return null;
+
                 const isCreator = access.userId === projectCreatorId;
                 const isCurrentUser = access.userId === currentUserId;
 
                 return (
                   <div key={access.userId} className="flex items-center justify-between p-3 hover:bg-accent/50">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium">
-                        {(user?.displayName || user?.email || 'U').charAt(0).toUpperCase()}
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-medium ${lookupResult.isDeleted ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary'}`}>
+                        {lookupResult.avatarInitials}
                       </div>
                       <div>
                         <div className="font-medium text-sm flex items-center gap-2">
-                          {user?.displayName || user?.email || access.userId}
+                          <span className={lookupResult.isDeleted ? 'text-muted-foreground' : ''}>
+                            {lookupResult.displayName}
+                          </span>
                           {isCreator && (
                             <Badge variant="outline" className="text-xs">
                               Creator
@@ -219,25 +230,27 @@ export const ProjectAccessManager = ({ orgId, projectId, projectCreatorId }: Pro
                               You
                             </Badge>
                           )}
-                          {user?.role === 'ADMIN' && (
+                          {lookupResult.role === 'ADMIN' && (
                             <Badge className="text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400">
                               Org Admin
                             </Badge>
                           )}
                         </div>
-                        <div className="text-xs text-muted-foreground">{user?.email}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {lookupResult.isDeleted ? `ID: ${access.userId}` : lookupResult.email}
+                        </div>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3">
-                      {canManage && !isCurrentUser && (
+                      {canManage && !isCurrentUser && !isCreator && (
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => handleRevoke(access.userId, user?.displayName || user?.email || 'User')}
+                          onClick={() => handleRevoke(access.userId, lookupResult.displayName)}
                           disabled={revokingUserId === access.userId}
-                          aria-label={`Remove ${user?.displayName || user?.email || 'user'} from project`}
+                          aria-label={`Remove ${lookupResult.displayName} from project`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

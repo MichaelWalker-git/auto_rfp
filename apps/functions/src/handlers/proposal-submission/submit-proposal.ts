@@ -8,7 +8,7 @@ import { withSentryLambda } from '@/sentry-lambda';
 import { checkSubmissionReadiness, createSubmissionRecord } from '@/helpers/proposal-submission';
 import { listRFPDocumentsByProject, getRFPDocument } from '@/helpers/rfp-document';
 import { getOpportunity } from '@/helpers/opportunity';
-import { onProjectOutcomeSet } from '@/helpers/opportunity-stage';
+import { transitionOpportunityStatus } from '@/helpers/opportunity-status';
 import { getOrgMembers } from '@/helpers/user';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
 import { writeAuditLog } from '@/helpers/audit-log';
@@ -49,7 +49,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
   const opp = await getOpportunity({ orgId: data.orgId, projectId: data.projectId, oppId: data.oppId });
   if (!opp) return apiResponse(404, { message: 'Opportunity not found' });
   const deadlineIso = (opp.item?.responseDeadlineIso as string | undefined) ?? null;
-  const currentStage = (opp.item?.stage as string | undefined) ?? null;
+  const currentStatus = (opp.item?.status as string | undefined) ?? null;
   const ignoredCheckIds = (opp.item?.ignoredComplianceCheckIds as string[] | undefined) ?? [];
 
   // ── 2. Server-side readiness re-validation ──
@@ -58,7 +58,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     projectId: data.projectId,
     oppId: data.oppId,
     deadlineIso,
-    currentStage,
+    currentStatus,
     ignoredCheckIds,
   });
   if (!readiness.ready && !data.forceSubmit) {
@@ -84,20 +84,24 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
   // ── 4. Create submission record ──
   const submission = await createSubmissionRecord(data, userId, userName, documentIds, deadlineIso);
 
-  // ── 5. Trigger stage → SUBMITTED + APN registration (non-blocking) ──
-  // NOTE: We call onProjectOutcomeSet directly — we do NOT create a ProjectOutcome record.
-  // ProjectOutcome is only set when the award decision is known (WON/LOST/NO_BID/WITHDRAWN).
-  onProjectOutcomeSet({
+  // ── 5. Trigger status → SUBMITTED + APN registration (non-blocking) ──
+  // Submitting a proposal advances the opportunity to SUBMITTED; the terminal
+  // outcome (WON/LOST/NO_BID/WITHDRAWN) is recorded later via the edit form.
+  transitionOpportunityStatus({
     orgId: data.orgId,
     projectId: data.projectId,
     oppId: data.oppId,
-    outcomeStatus: 'PENDING',
+    toStatus: 'SUBMITTED',
     changedBy: userId,
+    reason: 'Proposal submitted',
+    source: 'SYSTEM',
   }).catch((err) =>
-    console.warn('[submit-proposal] Stage transition failed (non-blocking):', (err as Error).message),
+    console.warn('[submit-proposal] Status transition failed (non-blocking):', (err as Error).message),
   );
 
   // ── 6. Notify all org members (non-blocking) ──
+  const submissionLink = `/organizations/${data.orgId}/projects/${data.projectId}/opportunities/${data.oppId}`;
+
   getOrgMembers(data.orgId)
     .then((members) => {
       if (!members.length) return;
@@ -113,6 +117,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
             recipientUserIds: members.map((m) => m.userId),
             recipientEmails: members.map((m) => m.email),
             actorDisplayName: userName,
+            link: submissionLink,
           },
         ),
       );

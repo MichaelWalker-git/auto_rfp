@@ -24,6 +24,7 @@ import {
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
+import { buildRfpDocumentReviewLink } from '@/helpers/approval-links';
 
 const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   const orgId = getOrgId(event);
@@ -114,6 +115,8 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     .catch((err) => console.warn('[request-approval] Linear ticket creation failed:', (err as Error).message));
 
   // ── Notify reviewer (non-blocking) ──
+  const reviewLink = buildRfpDocumentReviewLink(orgId, data.projectId, data.opportunityId, data.documentId);
+
   sendNotification(
     buildNotification(
       'DOCUMENT_APPROVAL_REQUESTED',
@@ -126,6 +129,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
         recipientUserIds: [data.reviewerId],
         recipientEmails: reviewer.email ? [reviewer.email] : [],
         actorDisplayName: requestedByName,
+        link: reviewLink,
       },
     ),
   ).catch((err) => console.warn('[request-approval] Notification failed:', (err as Error).message));

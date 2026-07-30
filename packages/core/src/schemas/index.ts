@@ -10,8 +10,10 @@ export * from './project-kb';
 export * from './user-kb';
 export * from './user-project';
 export * from './opportunity'
+export * from './rfp-tracking';
 export * from './search-opportunity';
 export * from './prompt'
+export * from './outcome-detail'
 export * from './project-outcome'
 export * from './debriefing'
 export * from './foia'
@@ -41,3 +43,5 @@ export * from './extraction-job';
 export * from './opportunity-assistant';
 export * from './required-form';
 export * from './company-profile';
+export * from './member-detection';
+export * from './rfp-digest';

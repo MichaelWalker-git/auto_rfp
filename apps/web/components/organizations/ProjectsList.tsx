@@ -1,14 +1,14 @@
 'use client';
 
 import React from 'react';
-import { Project } from '@/types/project';
-import { Organization } from '@/types/organization';
+import type { ProjectListItem as Project } from '@auto-rfp/core';
+import type { OrganizationItem } from '@auto-rfp/core';
 import { ProjectCard } from './ProjectCard';
 import { EmptyProjectsState } from './EmptyProjectsState';
 
 interface ProjectsListProps {
   projects: Project[];
-  organization: Organization | null;
+  organization: OrganizationItem | null;
   orgId: string;
   isLoading: boolean;
   onCreateProject: () => void;

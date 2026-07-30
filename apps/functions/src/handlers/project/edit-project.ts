@@ -15,7 +15,7 @@ import {
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
 import { requireEnv } from '@/helpers/env';
-import { UpdateProjectDTO, UpdateProjectSchema } from '@auto-rfp/core';
+import { ProjectUpdateRequest, ProjectUpdateRequestSchema } from '@auto-rfp/core';
 import { docClient } from '@/helpers/db';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -40,10 +40,10 @@ export const baseHandler = async (
     const rawBody = JSON.parse(event.body);
 
     // 1. Validate body (partial)
-    const validationResult = UpdateProjectSchema.safeParse(rawBody);
+    const { success, data: dto, error } = ProjectUpdateRequestSchema.safeParse(rawBody);
 
-    if (!validationResult.success) {
-      const errorDetails = validationResult.error.issues.map((issue) => ({
+    if (!success) {
+      const errorDetails = error.issues.map((issue) => ({
         path: issue.path.join('.'),
         message: issue.message,
       }));
@@ -53,8 +53,6 @@ export const baseHandler = async (
         errors: errorDetails,
       });
     }
-
-    const dto: UpdateProjectDTO = validationResult.data;
 
     // If nothing to update (empty body), you can either no-op or return 400
     if (!dto.name && dto.description === undefined && dto.contactInfo === undefined) {
@@ -96,7 +94,7 @@ export const baseHandler = async (
 export async function updateProject(
   orgId: string,
   projectId: string,
-  dto: UpdateProjectDTO,
+  dto: ProjectUpdateRequest,
 ) {
   const now = new Date().toISOString();
 

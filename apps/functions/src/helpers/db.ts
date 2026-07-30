@@ -23,6 +23,79 @@ export const docClient = DynamoDBDocumentClient.from(ddbClient, {
   },
 });
 
+/** Default number of retry attempts for transient DynamoDB errors. */
+export const DEFAULT_MAX_RETRIES = 3;
+
+/**
+ * DynamoDB error names that are safe to retry — throttling, hot-partition
+ * pressure, and transient server faults. ConditionalCheckFailedException is
+ * deliberately excluded: it signals a business-rule failure (e.g. item already
+ * exists / does not exist), not a transient fault, so retrying never helps.
+ */
+const RETRYABLE_ERROR_NAMES = new Set([
+  'ProvisionedThroughputExceededException', // hot partition / throughput
+  'ThrottlingException',
+  'RequestLimitExceeded',
+  'TransactionConflictException', // hot item contention
+  'InternalServerError',
+  'ServiceUnavailable',
+]);
+
+const isRetryableError = (err: unknown): boolean => {
+  if (typeof err !== 'object' || err === null) return false;
+  const e = err as {
+    name?: string;
+    message?: string;
+    $retryable?: unknown;
+    $metadata?: { httpStatusCode?: number };
+  };
+  if (e.name && RETRYABLE_ERROR_NAMES.has(e.name)) return true;
+  if (e.$retryable) return true; // AWS SDK marks transient faults as retryable
+  const status = e.$metadata?.httpStatusCode;
+  if (status === 429 || status === 500 || status === 503) return true;
+  if (e.message?.includes('Throughput exceeds')) return true;
+  return false;
+};
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Run a DynamoDB operation with exponential backoff (+ jitter) on transient
+ * errors. Retries up to `maxRetries` times (default 3) before rethrowing the
+ * last error. Non-retryable errors (e.g. ConditionalCheckFailedException) are
+ * rethrown immediately.
+ */
+export const withRetry = async <T>(
+  operation: () => Promise<T>,
+  options?: {
+    maxRetries?: number;
+    baseDelayMs?: number;
+    maxDelayMs?: number;
+    label?: string;
+  },
+): Promise<T> => {
+  const maxRetries = options?.maxRetries ?? DEFAULT_MAX_RETRIES;
+  const baseDelayMs = options?.baseDelayMs ?? 100;
+  const maxDelayMs = options?.maxDelayMs ?? 2000;
+
+  let attempt = 0;
+  for (;;) {
+    try {
+      return await operation();
+    } catch (err) {
+      if (!isRetryableError(err) || attempt >= maxRetries) throw err;
+      const backoff = Math.min(baseDelayMs * 2 ** attempt, maxDelayMs);
+      const delay = backoff + Math.random() * backoff * 0.2; // 20% jitter
+      const name = (err as { name?: string })?.name ?? 'unknown';
+      console.warn(
+        `[db] retryable error${options?.label ? ` (${options.label})` : ''} on attempt ${attempt + 1}/${maxRetries}, retrying in ${Math.round(delay)}ms: ${name}`,
+      );
+      await sleep(delay);
+      attempt++;
+    }
+  }
+};
+
 export type DBItem = {
   [PK_NAME]: string;
   [SK_NAME]: string;
@@ -78,7 +151,7 @@ export const createItem = async <T extends Record<string, any>>(
     command.ExpressionAttributeNames = { '#pk': PK_NAME, '#sk': SK_NAME };
   }
 
-  await docClient.send(new PutCommand(command));
+  await withRetry(() => docClient.send(new PutCommand(command)), { label: 'createItem' });
 
   return fullItem;
 };
@@ -144,7 +217,7 @@ export const updateItem = async <T extends Record<string, any>>(
     command.ConditionExpression = 'attribute_exists(#pk) AND attribute_exists(#sk)';
   }
 
-  const res = await docClient.send(new UpdateCommand(command));
+  const res = await withRetry(() => docClient.send(new UpdateCommand(command)), { label: 'updateItem' });
   return res.Attributes as T & DBItem;
 };
 
@@ -172,25 +245,50 @@ export const putItem = async <T extends Record<string, any>>(
     fullItem.createdAt = now;
   }
 
-  await docClient.send(new PutCommand({
-    TableName: DB_TABLE_NAME,
-    Item: fullItem,
-  }));
+  await withRetry(
+    () => docClient.send(new PutCommand({
+      TableName: DB_TABLE_NAME,
+      Item: fullItem,
+    })),
+    { label: 'putItem' },
+  );
 
   return fullItem as T & DBItem;
 };
 
 
+/**
+ * Overwrite an item with a fully-formed record whose PK/SK are already embedded.
+ *
+ * Unlike `putItem`, this does NOT inject/overwrite `createdAt`/`updatedAt` — the
+ * caller supplies the complete record (timestamps included). Use it when the
+ * caller has already merged the desired state (e.g. an incremental sync that
+ * preserves existing history/createdAt) and needs an idempotent full overwrite
+ * keyed on the record's own PK/SK.
+ */
+export const putFullItem = async <T extends { [PK_NAME]: string; [SK_NAME]: string }>(
+  item: T,
+): Promise<T> => {
+  await withRetry(
+    () => docClient.send(new PutCommand({ TableName: DB_TABLE_NAME, Item: item })),
+    { label: 'putFullItem' },
+  );
+  return item;
+};
+
 export const deleteItem = async (pk: string, sk: string) => {
   console.log('Deleting record from DynamoDB', DB_TABLE_NAME, pk, sk);
-  return await docClient.send(
-    new DeleteCommand({
-      TableName: DB_TABLE_NAME,
-      Key: {
-        [PK_NAME]: pk,
-        [SK_NAME]: sk,
-      },
-    }),
+  return await withRetry(
+    () => docClient.send(
+      new DeleteCommand({
+        TableName: DB_TABLE_NAME,
+        Key: {
+          [PK_NAME]: pk,
+          [SK_NAME]: sk,
+        },
+      }),
+    ),
+    { label: 'deleteItem' },
   );
 };
 
@@ -198,50 +296,59 @@ export const getItem = async <T>(
   pk: string,
   sk: string,
 ): Promise<T | null> => {
-  const res = await docClient.send(
-    new GetCommand({
-      TableName: DB_TABLE_NAME,
-      Key: {
-        [PK_NAME]: pk,
-        [SK_NAME]: sk,
-      },
-    }),
+  const res = await withRetry(
+    () => docClient.send(
+      new GetCommand({
+        TableName: DB_TABLE_NAME,
+        Key: {
+          [PK_NAME]: pk,
+          [SK_NAME]: sk,
+        },
+      }),
+    ),
+    { label: 'getItem' },
   );
 
   return (res.Item as T) ?? null;
 };
 
 export const queryByPk = async <T>(pk: string): Promise<T[]> => {
-  const res = await docClient.send(
-    new QueryCommand({
-      TableName: DB_TABLE_NAME,
-      KeyConditionExpression: '#pk = :pk',
-      ExpressionAttributeNames: {
-        '#pk': PK_NAME,
-      },
-      ExpressionAttributeValues: {
-        ':pk': pk,
-      },
-    }),
+  const res = await withRetry(
+    () => docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        KeyConditionExpression: '#pk = :pk',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+        },
+        ExpressionAttributeValues: {
+          ':pk': pk,
+        },
+      }),
+    ),
+    { label: 'queryByPk' },
   );
 
   return (res.Items as T[]) ?? [];
 };
 
 export const queryBySkPrefix = async <T>(pk: string, skPrefix: string): Promise<T[]> => {
-  const res = await docClient.send(
-    new QueryCommand({
-      TableName: DB_TABLE_NAME,
-      KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
-      ExpressionAttributeNames: {
-        '#pk': PK_NAME,
-        '#sk': SK_NAME,
-      },
-      ExpressionAttributeValues: {
-        ':pk': pk,
-        ':skPrefix': skPrefix,
-      },
-    }),
+  const res = await withRetry(
+    () => docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#sk': SK_NAME,
+        },
+        ExpressionAttributeValues: {
+          ':pk': pk,
+          ':skPrefix': skPrefix,
+        },
+      }),
+    ),
+    { label: 'queryBySkPrefix' },
   );
 
   return (res.Items as T[]) ?? [];
@@ -251,17 +358,20 @@ export const queryByPkAndSkContains = async <T>(
   pk: string,
   skSubstring: string,
 ): Promise<T[]> => {
-  const res = await docClient.send(
-    new QueryCommand({
-      TableName: DB_TABLE_NAME,
-      KeyConditionExpression: '#pk = :pk',
-      ExpressionAttributeNames: {
-        '#pk': PK_NAME,
-      },
-      ExpressionAttributeValues: {
-        ':pk': pk,
-      },
-    }),
+  const res = await withRetry(
+    () => docClient.send(
+      new QueryCommand({
+        TableName: DB_TABLE_NAME,
+        KeyConditionExpression: '#pk = :pk',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+        },
+        ExpressionAttributeValues: {
+          ':pk': pk,
+        },
+      }),
+    ),
+    { label: 'queryByPkAndSkContains' },
   );
 
   return ((res.Items as T[]) ?? []).filter((item: any) =>
@@ -283,22 +393,71 @@ export const queryAllBySkPrefix = async <T>(
   let ExclusiveStartKey: Record<string, any> | undefined;
 
   do {
-    const res = await docClient.send(
-      new QueryCommand({
-        TableName: DB_TABLE_NAME,
-        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
-        ExpressionAttributeNames: {
-          '#pk': PK_NAME,
-          '#sk': SK_NAME,
-          ...expressionAttributeNames,
-        },
-        ExpressionAttributeValues: {
-          ':pk': pk,
-          ':skPrefix': skPrefix,
-        },
-        ProjectionExpression: projectionExpression,
-        ExclusiveStartKey,
-      }),
+    const res = await withRetry(
+      () => docClient.send(
+        new QueryCommand({
+          TableName: DB_TABLE_NAME,
+          KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+          ExpressionAttributeNames: {
+            '#pk': PK_NAME,
+            '#sk': SK_NAME,
+            ...expressionAttributeNames,
+          },
+          ExpressionAttributeValues: {
+            ':pk': pk,
+            ':skPrefix': skPrefix,
+          },
+          ProjectionExpression: projectionExpression,
+          ExclusiveStartKey,
+        }),
+      ),
+      { label: 'queryAllBySkPrefix' },
+    );
+
+    items.push(...((res.Items as T[]) ?? []));
+    ExclusiveStartKey = res.LastEvaluatedKey as any;
+  } while (ExclusiveStartKey);
+
+  return items;
+};
+
+/**
+ * Query a GSI by its partition key (and optional sort key), with pagination.
+ * Generic so any feature can query an index without a raw QueryCommand.
+ */
+export const queryByIndex = async <T>(
+  indexName: string,
+  partitionKeyName: string,
+  partitionKeyValue: string,
+  sortKey?: { name: string; value: string },
+  projectionExpression?: string,
+): Promise<T[]> => {
+  const items: T[] = [];
+  let ExclusiveStartKey: Record<string, any> | undefined;
+
+  const names: Record<string, string> = { '#pk': partitionKeyName };
+  const values: Record<string, any> = { ':pk': partitionKeyValue };
+  let keyCondition = '#pk = :pk';
+  if (sortKey) {
+    names['#sk'] = sortKey.name;
+    values[':sk'] = sortKey.value;
+    keyCondition += ' AND #sk = :sk';
+  }
+
+  do {
+    const res = await withRetry(
+      () => docClient.send(
+        new QueryCommand({
+          TableName: DB_TABLE_NAME,
+          IndexName: indexName,
+          KeyConditionExpression: keyCondition,
+          ExpressionAttributeNames: names,
+          ExpressionAttributeValues: values,
+          ProjectionExpression: projectionExpression,
+          ExclusiveStartKey,
+        }),
+      ),
+      { label: 'queryByIndex' },
     );
 
     items.push(...((res.Items as T[]) ?? []));
@@ -320,20 +479,23 @@ export const scanByPkWithFilter = async <T>(
   let ExclusiveStartKey: Record<string, any> | undefined;
 
   do {
-    const res = await docClient.send(
-      new ScanCommand({
-        TableName: DB_TABLE_NAME,
-        FilterExpression: '#pk = :pk AND #filterAttr = :filterVal',
-        ExpressionAttributeNames: {
-          '#pk': PK_NAME,
-          '#filterAttr': filterAttribute,
-        },
-        ExpressionAttributeValues: {
-          ':pk': pk,
-          ':filterVal': filterValue,
-        },
-        ExclusiveStartKey,
-      }),
+    const res = await withRetry(
+      () => docClient.send(
+        new ScanCommand({
+          TableName: DB_TABLE_NAME,
+          FilterExpression: '#pk = :pk AND #filterAttr = :filterVal',
+          ExpressionAttributeNames: {
+            '#pk': PK_NAME,
+            '#filterAttr': filterAttribute,
+          },
+          ExpressionAttributeValues: {
+            ':pk': pk,
+            ':filterVal': filterValue,
+          },
+          ExclusiveStartKey,
+        }),
+      ),
+      { label: 'scanByPkWithFilter' },
     );
 
     items.push(...((res.Items as T[]) ?? []));
@@ -392,12 +554,11 @@ export const batchDeleteItems = async (
           await new Promise((resolve) => setTimeout(resolve, delay));
           retries++;
         }
-      } catch (err: any) {
-        if (err.name === 'ProvisionedThroughputExceededException' ||
-          err.message?.includes('Throughput exceeds')) {
-          // Exponential backoff for throughput errors
+      } catch (err: unknown) {
+        if (isRetryableError(err)) {
+          // Exponential backoff for throughput / transient errors
           const delay = Math.min(200 * Math.pow(2, retries), 5000);
-          console.warn(`Throughput exceeded, retrying in ${delay}ms...`);
+          console.warn(`Retryable batch-delete error, retrying in ${delay}ms...`);
           await new Promise((resolve) => setTimeout(resolve, delay));
           retries++;
         } else {
@@ -438,28 +599,31 @@ export const deleteAllBySkPrefix = async (
 };
 
 /**
- * Delete a single item with retry logic for throughput errors
+ * Delete a single item, returning a boolean instead of throwing.
+ * `deleteItem` already retries transient errors via withRetry; this wrapper
+ * just converts a surviving failure into `false` for callers that prefer a
+ * non-throwing API (e.g. best-effort cleanup).
+ *
+ * @param maxRetries Override the retry count (defaults to DEFAULT_MAX_RETRIES).
  */
 export const deleteItemWithRetry = async (
   pk: string,
   sk: string,
-  maxRetries = 3,
+  maxRetries = DEFAULT_MAX_RETRIES,
 ): Promise<boolean> => {
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      await deleteItem(pk, sk);
-      return true;
-    } catch (err: any) {
-      if (err.name === 'ProvisionedThroughputExceededException' ||
-        err.message?.includes('Throughput exceeds')) {
-        const delay = Math.min(100 * Math.pow(2, attempt), 2000);
-        console.warn(`Throughput exceeded for delete, retrying in ${delay}ms...`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
-      } else {
-        console.error('Delete item error:', err);
-        return false;
-      }
-    }
+  try {
+    await withRetry(
+      () => docClient.send(
+        new DeleteCommand({
+          TableName: DB_TABLE_NAME,
+          Key: { [PK_NAME]: pk, [SK_NAME]: sk },
+        }),
+      ),
+      { maxRetries, label: 'deleteItemWithRetry' },
+    );
+    return true;
+  } catch (err) {
+    console.error('Delete item error after retries:', err);
+    return false;
   }
-  return false;
 };

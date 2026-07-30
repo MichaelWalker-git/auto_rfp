@@ -1,7 +1,7 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
 import { ORG_PK } from '@/constants/organization';
 import { apiResponse } from '@/helpers/api';
-import type { OrganizationItem } from '@auto-rfp/core';
+import type { OrganizationDBItem } from '@auto-rfp/core';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
@@ -43,10 +43,10 @@ export const baseHandler = async (
 };
 
 export async function getOrganizationById(orgId: string,) {
-  return getItem<OrganizationItem>(ORG_PK, `ORG#${orgId}`);
+  return getItem<OrganizationDBItem>(ORG_PK, `ORG#${orgId}`);
 }
 
-const enrichUsersCount = (org: OrganizationItem) => {
+const enrichUsersCount = (org: OrganizationDBItem) => {
   const count = {
     organizationUsers: 0,
     projects: 0,

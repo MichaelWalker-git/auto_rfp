@@ -18,6 +18,7 @@ export const FormTypeSchema = z.enum([
   'PDF_SCANNED',
   'XLSX_MATRIX',
   'XLSX_FORM',
+  'DOCX_FORM',
   'CONTRACT_TEMPLATE',
 ]);
 
@@ -70,6 +71,12 @@ export const DetectedFormFieldSchema = z.object({
   manualReason: z.string().nullable().default(null),
   pageNumber: z.number().nullable().default(null),
   cellReference: z.string().nullable().default(null),
+  // Which XLSX worksheet this field lives on. `cellReference` is sheet-relative,
+  // so multi-sheet workbooks need this to route reads (editor grid) and writes
+  // (export filler) to the correct sheet. Null on legacy/single-sheet fields,
+  // which every consumer treats as sheet index 0.
+  sheetName: z.string().nullable().default(null),
+  sheetIndex: z.number().nullable().default(null),
   boundingBox: z.object({
     top: z.number(),
     left: z.number(),

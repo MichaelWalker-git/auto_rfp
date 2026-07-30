@@ -131,15 +131,15 @@ export const checkSubmissionReadiness = async (args: {
   projectId: string;
   oppId: string;
   deadlineIso?: string | null;
-  currentStage?: string | null;
+  currentStatus?: string | null;
   ignoredCheckIds?: string[];
 }): Promise<SubmissionReadinessResponse> => {
-  const { orgId, projectId, oppId, deadlineIso, currentStage, ignoredCheckIds } = args;
+  const { orgId, projectId, oppId, deadlineIso, currentStatus, ignoredCheckIds } = args;
   const ignoredSet = new Set(ignoredCheckIds ?? []);
   const checks: ReadinessCheckItem[] = [];
 
   // ── BLOCKING 1: Opportunity must be in PURSUING stage ──
-  const isPursuing = currentStage === 'PURSUING';
+  const isPursuing = currentStatus === 'PURSUING';
   checks.push({
     id: 'opportunity_stage',
     label: 'Opportunity approved for pursuit',
@@ -147,11 +147,11 @@ export const checkSubmissionReadiness = async (args: {
     passed: isPursuing,
     detail: isPursuing
       ? 'Opportunity is in PURSUING stage — ready to submit'
-      : currentStage === 'IDENTIFIED' || currentStage === 'QUALIFYING'
-        ? `Opportunity is in ${currentStage} stage. Complete the Executive Brief and make a GO decision first.`
-        : currentStage === 'SUBMITTED'
+      : currentStatus === 'IDENTIFIED' || currentStatus === 'QUALIFYING'
+        ? `Opportunity is in ${currentStatus} stage. Complete the Executive Brief and make a GO decision first.`
+        : currentStatus === 'SUBMITTED'
           ? 'Proposal already submitted — use re-submission if needed'
-          : `Current stage: ${currentStage ?? 'unknown'}`,
+          : `Current stage: ${currentStatus ?? 'unknown'}`,
     blocking: true,
   });
 
@@ -836,14 +836,14 @@ export const generateComplianceReport = async (args: {
   projectId: string;
   oppId: string;
   deadlineIso?: string | null;
-  currentStage?: string | null;
+  currentStatus?: string | null;
   ignoredCheckIds?: string[];
 }): Promise<ComplianceReport> => {
-  const { orgId, projectId, oppId, deadlineIso, currentStage, ignoredCheckIds } = args;
+  const { orgId, projectId, oppId, deadlineIso, currentStatus, ignoredCheckIds } = args;
   const ignoredSet = new Set(ignoredCheckIds ?? []);
 
   // ── 1. Run existing readiness checks (tagged as submission_readiness) ──
-  const readiness = await checkSubmissionReadiness({ orgId, projectId, oppId, deadlineIso, currentStage, ignoredCheckIds });
+  const readiness = await checkSubmissionReadiness({ orgId, projectId, oppId, deadlineIso, currentStatus, ignoredCheckIds });
   const readinessChecks: ReadinessCheckItem[] = readiness.checks.map((c) => ({
     ...c,
     category: 'submission_readiness' as const,

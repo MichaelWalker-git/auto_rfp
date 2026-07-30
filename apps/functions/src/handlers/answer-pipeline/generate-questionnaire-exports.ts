@@ -15,6 +15,8 @@ import { uploadToS3 } from '@/helpers/s3';
 import { buildRFPDocumentSK, buildRFPDocumentS3Key, putRFPDocument, listRFPDocumentsByProject } from '@/helpers/rfp-document';
 import { nowIso } from '@/helpers/date';
 import { updateQuestionFile } from '@/helpers/questionFile';
+import { generateHtmlQuestionnaireDocument } from '@/helpers/html-questionnaire-document';
+import { columnLetterToIndex } from '@/helpers/excel';
 
 const getTableName = () => requireEnv('DB_TABLE_NAME');
 const getDocumentsBucket = () => requireEnv('DOCUMENTS_BUCKET');
@@ -32,13 +34,6 @@ interface GenerateQuestionnaireExportsResult {
   skipped: number;
 }
 
-const columnLetterToIndex = (col: string): number => {
-  let index = 0;
-  for (let i = 0; i < col.length; i++) {
-    index = index * 26 + (col.toUpperCase().charCodeAt(i) - 64);
-  }
-  return index;
-};
 
 export const baseHandler = async (
   event: GenerateQuestionnaireExportsEvent,
@@ -66,11 +61,28 @@ export const baseHandler = async (
     orgId?: string;
   }>(QUESTION_FILE_PK, skPrefix);
 
-  const questionnaireFiles = allFiles.filter(
-    (f) => f.docType === 'QUESTIONNAIRE' && f.answerColumn && f.firstDataRow && f.fileKey,
-  );
+  const questionnaireFiles = allFiles.filter((f) => {
+    if (f.docType !== 'QUESTIONNAIRE' || !f.answerColumn || !f.firstDataRow || !f.fileKey) {
+      return false;
+    }
+    // Only process XLSX files — DOCX questionnaires are text-based, not spreadsheets
+    const fileName = (f.originalFileName ?? f.fileKey ?? '').toLowerCase();
+    const isXlsx = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+    if (!isXlsx) {
+      console.log(`Skipping non-XLSX questionnaire file: ${f.originalFileName ?? f.questionFileId} (DOCX/other formats not supported for auto-fill)`);
+    }
+    return isXlsx;
+  });
 
-  if (questionnaireFiles.length === 0) {
+  // Count both XLSX and non-XLSX questionnaires
+  const nonXlsxQuestionnaires = allFiles.filter((f) => {
+    if (f.docType !== 'QUESTIONNAIRE') return false;
+    const fileName = (f.originalFileName ?? f.fileKey ?? '').toLowerCase();
+    const isXlsx = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+    return !isXlsx;
+  });
+
+  if (questionnaireFiles.length === 0 && nonXlsxQuestionnaires.length === 0) {
     console.log('No QUESTIONNAIRE files found for this opportunity');
     return { generated: 0, skipped: 0 };
   }
@@ -140,8 +152,14 @@ export const baseHandler = async (
       await workbook.xlsx.load(fileBuffer as unknown as ArrayBuffer);
 
       const worksheet = qf.sheetName
-        ? workbook.getWorksheet(qf.sheetName) ?? workbook.worksheets[0]!
-        : workbook.worksheets[0]!;
+        ? workbook.getWorksheet(qf.sheetName) ?? workbook.worksheets[0]
+        : workbook.worksheets[0];
+
+      if (!worksheet) {
+        console.warn(`No worksheet found in file ${qf.questionFileId} (${qf.originalFileName}), skipping`);
+        skipped++;
+        continue;
+      }
 
       const answerColIndex = columnLetterToIndex(qf.answerColumn!);
       const questionColIndex = qf.questionColumn ? columnLetterToIndex(qf.questionColumn) : answerColIndex - 1;
@@ -264,6 +282,36 @@ export const baseHandler = async (
     } catch (err) {
       console.error(`Failed to generate questionnaire export for file ${qf.questionFileId}:`, err);
       skipped++;
+    }
+  }
+
+  // ─── Generate HTML documents for non-XLSX questionnaires (DOCX, PDF) ───
+  if (nonXlsxQuestionnaires.length > 0) {
+    console.log(`Found ${nonXlsxQuestionnaires.length} non-XLSX questionnaire file(s), generating HTML documents`);
+
+    for (const qf of nonXlsxQuestionnaires) {
+      try {
+        const resolvedOrgId = orgId ?? qf.orgId;
+        if (!resolvedOrgId) {
+          console.warn(`No orgId for non-XLSX file ${qf.questionFileId}, skipping`);
+          skipped++;
+          continue;
+        }
+
+        await generateHtmlQuestionnaireDocument({
+          orgId: resolvedOrgId,
+          projectId,
+          opportunityId,
+          questionFileId: qf.questionFileId,
+          originalFileName: qf.originalFileName,
+        });
+
+        console.log(`Generated HTML questionnaire document for file ${qf.questionFileId} (${qf.originalFileName})`);
+        generated++;
+      } catch (err) {
+        console.error(`Failed to generate HTML questionnaire for file ${qf.questionFileId}:`, err);
+        skipped++;
+      }
     }
   }
 

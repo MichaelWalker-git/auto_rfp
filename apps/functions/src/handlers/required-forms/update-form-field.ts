@@ -54,6 +54,8 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
         manualReason: null,
         pageNumber: 1,
         cellReference: null,
+        sheetName: null,
+        sheetIndex: null,
         boundingBox: boundingBox ?? null,
         markType: markType ?? 'TEXT',
         markChar: markChar ?? null,

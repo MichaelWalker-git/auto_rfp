@@ -6,167 +6,20 @@
  * no AI generation — formats existing Q&A data into styled HTML.
  */
 
-import { QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { docClient } from './db';
-import { PK_NAME, SK_NAME } from '@/constants/common';
-import { QUESTION_PK } from '@/constants/question';
-import { ANSWER_PK } from '@/constants/answer';
-import { requireEnv } from './env';
 import { updateDocumentStatus } from './document-generation';
-import { replaceMacros } from './template';
 import { getOpportunity } from './opportunity';
-import type { QuestionItem, AnswerItem, GroupedSection } from '@auto-rfp/core';
-
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
-
-// ─── Data Loading ─────────────────────────────────────────────────────────────
-
-const loadQuestions = async (projectId: string, opportunityId: string): Promise<QuestionItem[]> => {
-  const items: QuestionItem[] = [];
-  let lastKey: Record<string, unknown> | undefined;
-
-  do {
-    const res = await docClient.send(
-      new QueryCommand({
-        TableName: DB_TABLE_NAME,
-        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
-        FilterExpression: '#oppId = :oppId',
-        ExpressionAttributeNames: {
-          '#pk': PK_NAME,
-          '#sk': SK_NAME,
-          '#oppId': 'opportunityId',
-        },
-        ExpressionAttributeValues: {
-          ':pk': QUESTION_PK,
-          ':prefix': `${projectId}#`,
-          ':oppId': opportunityId,
-        },
-        ExclusiveStartKey: lastKey,
-      }),
-    );
-
-    if (res.Items) items.push(...(res.Items as QuestionItem[]));
-    lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
-  } while (lastKey);
-
-  return items;
-};
-
-const loadAnswers = async (projectId: string): Promise<Record<string, AnswerItem>> => {
-  const grouped: Record<string, AnswerItem> = {};
-  let lastKey: Record<string, unknown> | undefined;
-
-  do {
-    const res = await docClient.send(
-      new QueryCommand({
-        TableName: DB_TABLE_NAME,
-        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :prefix)',
-        ExpressionAttributeNames: { '#pk': PK_NAME, '#sk': SK_NAME },
-        ExpressionAttributeValues: { ':pk': ANSWER_PK, ':prefix': `${projectId}#` },
-        ExclusiveStartKey: lastKey,
-      }),
-    );
-
-    if (res.Items) {
-      for (const item of res.Items as AnswerItem[]) {
-        const qId = item.questionId;
-        if (!qId) continue;
-        const current = grouped[qId];
-        if (!current || new Date(item.updatedAt || item.createdAt || '0').getTime() >
-            new Date(current.updatedAt || current.createdAt || '0').getTime()) {
-          grouped[qId] = item;
-        }
-      }
-    }
-
-    lastKey = res.LastEvaluatedKey as Record<string, unknown> | undefined;
-  } while (lastKey);
-
-  return grouped;
-};
-
-// ─── HTML Builder ─────────────────────────────────────────────────────────────
-
-const escapeHtml = (str: string): string =>
-  str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-const extractAnswerText = (answer: AnswerItem): string => {
-  const raw = answer.text ?? '';
-  // Handle JSON-formatted answers (some answers store { answer: "..." })
-  if (raw.startsWith('{')) {
-    try {
-      const parsed = JSON.parse(raw);
-      if (typeof parsed.answer === 'string') return parsed.answer;
-    } catch { /* not JSON */ }
-  }
-  return raw;
-};
-
-const buildSectionsHtml = (sections: GroupedSection[]): string => {
-  const parts: string[] = [];
-
-  for (const section of sections) {
-    parts.push(`<h2 style="color:#1e3a5f; border-bottom:2px solid #e5e7eb; padding-bottom:8px; margin-top:24px;">${escapeHtml(section.title || 'Untitled Section')}</h2>`);
-
-    if (section.description) {
-      parts.push(`<p style="color:#6b7280; font-style:italic; margin-bottom:12px;">${escapeHtml(section.description)}</p>`);
-    }
-
-    for (let i = 0; i < section.questions.length; i++) {
-      const q = section.questions[i];
-      const answerText = q.answer || '';
-
-      parts.push(`<div style="margin-bottom:16px; padding:12px; border:1px solid #e5e7eb; border-radius:8px; background:#fafafa;">`);
-      parts.push(`<p style="font-weight:600; color:#111827; margin-bottom:6px;">Q${i + 1}: ${escapeHtml(q.question)}</p>`);
-
-      if (answerText) {
-        // If the answer contains HTML tags, use it as-is; otherwise wrap in <p>
-        const isHtml = /<[a-z][\s\S]*>/i.test(answerText);
-        if (isHtml) {
-          parts.push(`<div style="color:#374151; padding-left:12px; border-left:3px solid #6366f1;">${answerText}</div>`);
-        } else {
-          parts.push(`<p style="color:#374151; padding-left:12px; border-left:3px solid #6366f1;">${escapeHtml(answerText)}</p>`);
-        }
-      } else {
-        parts.push(`<p style="color:#9ca3af; font-style:italic; padding-left:12px;">(No answer)</p>`);
-      }
-
-      parts.push(`</div>`);
-    }
-  }
-
-  return parts.join('\n');
-};
-
-const groupQuestions = (
-  questions: QuestionItem[],
-  answersMap: Record<string, AnswerItem>,
-): GroupedSection[] => {
-  const sectionsMap = new Map<string, GroupedSection>();
-
-  for (const item of questions) {
-    const secId = item.sectionId;
-    if (!sectionsMap.has(secId)) {
-      sectionsMap.set(secId, {
-        id: secId,
-        title: item.sectionTitle ?? '',
-        description: item.sectionDescription ?? null,
-        questions: [],
-      });
-    }
-
-    const answer = answersMap[item.questionId];
-    sectionsMap.get(secId)!.questions.push({
-      id: item.questionId,
-      question: item.question ?? '',
-      answer: answer ? extractAnswerText(answer) : null,
-    });
-  }
-
-  return Array.from(sectionsMap.values());
-};
+import {
+  loadQuestions,
+  loadAnswers,
+  groupQuestions,
+  buildSectionsHtml,
+  escapeHtml,
+} from './qa-shared';
+import type { AnswerItem } from '@auto-rfp/core';
 
 // ─── Main Generator ───────────────────────────────────────────────────────────
+// All shared functions (loadQuestions, loadAnswers, groupQuestions, buildSectionsHtml, escapeHtml)
+// are now imported from qa-shared.ts to avoid duplication.
 
 export interface GenerateQaDocumentParams {
   orgId: string;

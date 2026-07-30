@@ -1,13 +1,13 @@
 import { GetCommand, QueryCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
 
-import { createItem, DBItem, docClient, UserContext } from './db';
+import { createItem, docClient, queryAllBySkPrefix, UserContext } from './db';
 import { requireEnv } from './env';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { OPPORTUNITY_PK } from '../constants/opportunity';
 import { safeSplit } from './safe-string';
 
-import type { OpportunityItem } from '@auto-rfp/core';
+import type { OpportunityItem, OpportunityDBItem } from '@auto-rfp/core';
 import { nowIso, toIsoDatetime } from './date';
 import { enrichWithUserNames } from './resolve-users';
 
@@ -23,8 +23,6 @@ export const parseOpportunitySk = (sk: string) => {
     oppId: parts[2] ?? '',
   };
 };
-
-export type OpportunityDBItem = OpportunityItem & DBItem;
 
 /**
  * CREATE
@@ -46,6 +44,9 @@ export const createOpportunity = async (args: {
     {
       ...args.opportunity,
       oppId,
+      // New opportunities enter gate 1 of the RFP-tracking approval workflow.
+      // Existing records without approvalStatus default to INITIAL_APPROVAL on read.
+      approvalStatus: args.opportunity.approvalStatus ?? 'INITIAL_APPROVAL',
       // Normalize date fields to full ISO datetime (handles date-only and offset formats)
       postedDateIso: toIsoDatetime(args.opportunity.postedDateIso),
       responseDeadlineIso: toIsoDatetime(args.opportunity.responseDeadlineIso),
@@ -116,6 +117,25 @@ export const listOpportunitiesByProject = async (args: {
     items: enriched,
     nextToken: res.LastEvaluatedKey ?? null,
   };
+};
+
+/**
+ * LIST (by org — optionally scoped to a single project)
+ * PK = OPPORTUNITY_PK
+ * SK begins_with `${orgId}#` (org-wide) or `${orgId}#${projectId}#` (scoped).
+ * Paginates through the full result set. When `projectId` is supplied the query
+ * is scoped to that project — the RFP-tracking board passes the Linear-sync
+ * project id so it mirrors the Linear board instead of every org opportunity.
+ * Enriches items with createdByName / updatedByName from the user table.
+ */
+export const listOpportunitiesByOrg = async (args: { orgId: string; projectId?: string }) => {
+  const skPrefix = args.projectId ? `${args.orgId}#${args.projectId}#` : `${args.orgId}#`;
+
+  const items = await queryAllBySkPrefix<OpportunityDBItem>(OPPORTUNITY_PK, skPrefix);
+
+  const enriched = await enrichWithUserNames(args.orgId, items);
+
+  return { items: enriched };
 };
 
 /**

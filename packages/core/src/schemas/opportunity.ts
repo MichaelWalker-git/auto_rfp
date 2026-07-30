@@ -9,6 +9,9 @@
  */
 
 import { z } from 'zod';
+import { PK_NAME, SK_NAME } from '../constants';
+import { JurisdictionSchema } from './foia';
+import { WinDataSchema, LossDataSchema } from './outcome-detail';
 
 const flexibleDateSchema = z
   .string()
@@ -42,7 +45,7 @@ export type OpportunitySource = z.infer<typeof OpportunitySourceSchema>;
  *
  * Manual transitions: any stage can be moved to any other stage by an org admin.
  */
-export const OpportunityStageSchema = z.enum([
+export const OpportunityStatusSchema = z.enum([
   'IDENTIFIED',   // Opportunity found/imported, not yet analyzed
   'QUALIFYING',   // Brief generation in progress, evaluating bid/no-bid
   'PURSUING',     // GO decision made, actively working on proposal
@@ -53,10 +56,10 @@ export const OpportunityStageSchema = z.enum([
   'WITHDRAWN',    // Withdrew from competition
 ]);
 
-export type OpportunityStage = z.infer<typeof OpportunityStageSchema>;
+export type OpportunityStatus = z.infer<typeof OpportunityStatusSchema>;
 
 /** Human-readable labels for each pipeline stage */
-export const OPPORTUNITY_STAGE_LABELS: Record<OpportunityStage, string> = {
+export const OPPORTUNITY_STATUS_LABELS: Record<OpportunityStatus, string> = {
   IDENTIFIED:  'Identified',
   QUALIFYING:  'Qualifying',
   PURSUING:    'Pursuing',
@@ -68,7 +71,7 @@ export const OPPORTUNITY_STAGE_LABELS: Record<OpportunityStage, string> = {
 };
 
 /** Tailwind color classes for each stage badge */
-export const OPPORTUNITY_STAGE_COLORS: Record<OpportunityStage, string> = {
+export const OPPORTUNITY_STATUS_COLORS: Record<OpportunityStatus, string> = {
   IDENTIFIED:  'bg-slate-100 text-slate-700 border-slate-200',
   QUALIFYING:  'bg-blue-100 text-blue-700 border-blue-200',
   PURSUING:    'bg-indigo-100 text-indigo-700 border-indigo-200',
@@ -80,7 +83,7 @@ export const OPPORTUNITY_STAGE_COLORS: Record<OpportunityStage, string> = {
 };
 
 /** Stages that represent active pursuit (not terminal) */
-export const ACTIVE_OPPORTUNITY_STAGES: OpportunityStage[] = [
+export const ACTIVE_OPPORTUNITY_STATUSES: OpportunityStatus[] = [
   'IDENTIFIED',
   'QUALIFYING',
   'PURSUING',
@@ -88,7 +91,7 @@ export const ACTIVE_OPPORTUNITY_STAGES: OpportunityStage[] = [
 ];
 
 /** Terminal stages — no further action expected */
-export const TERMINAL_OPPORTUNITY_STAGES: OpportunityStage[] = [
+export const TERMINAL_OPPORTUNITY_STATUSES: OpportunityStatus[] = [
   'WON',
   'LOST',
   'NO_BID',
@@ -96,16 +99,117 @@ export const TERMINAL_OPPORTUNITY_STAGES: OpportunityStage[] = [
 ];
 
 /** Stage transition history entry */
-export const OpportunityStageTransitionSchema = z.object({
-  from:      OpportunityStageSchema.nullable(),
-  to:        OpportunityStageSchema,
+export const OpportunityStatusTransitionSchema = z.object({
+  from:      OpportunityStatusSchema.nullable(),
+  to:        OpportunityStatusSchema,
   changedAt: z.string().datetime(),
   changedBy: z.string().min(1),  // userId or 'system'
   reason:    z.string().optional(),
-  source:    z.enum(['MANUAL', 'BRIEF_SCORING', 'PROJECT_OUTCOME', 'SYSTEM']),
+  source:    z.enum(['MANUAL', 'BRIEF_SCORING', 'SYSTEM']),
 });
 
-export type OpportunityStageTransition = z.infer<typeof OpportunityStageTransitionSchema>;
+export type OpportunityStatusTransition = z.infer<typeof OpportunityStatusTransitionSchema>;
+
+// ─── Approval status (RFP-tracking two-gate workflow) ───────────────────────────
+
+/**
+ * Approval status — a second axis layered on top of the pipeline `status`,
+ * mirroring how the team's Linear board tracks approval as labels on top of the
+ * stage. This governs only the pre-submission approval flow through SUBMITTED;
+ * it does NOT touch `status` (which drives brief scoring, APN sync, WON/LOST
+ * notifications, and the Slack digest).
+ *
+ * Two approval gates:
+ *   INITIAL_APPROVAL → I_APPROVED       gate 1 (Brennen): RFP sourced, awaiting review
+ *   I_APPROVED       → PRE_SUB_APPROVAL send for pre-submission review
+ *   PRE_SUB_APPROVAL → II_APPROVED      gate 2 (Michael): proposal ready, sign-off
+ *   II_APPROVED      → SUBMITTED        e-signed PDF sent
+ *   INITIAL_APPROVAL → NOT_APPROVED     gate-1 rejection (terminal dead-end)
+ */
+export const OpportunityApprovalStatusSchema = z.enum([
+  'INITIAL_APPROVAL',  // Pending gate 1 — RFP sourced, awaiting review
+  'I_APPROVED',        // Gate 1 passed — reviewed & cleared
+  'PRE_SUB_APPROVAL',  // Pending gate 2 — proposal ready, awaiting sign-off
+  'II_APPROVED',       // Gate 2 passed — post-signature, cleared to submit
+  'SUBMITTED',         // E-signed PDF sent
+  'NOT_APPROVED',      // Gate-1 rejection (terminal)
+]);
+
+export type OpportunityApprovalStatus = z.infer<typeof OpportunityApprovalStatusSchema>;
+
+/** Human-readable labels — exact Linear label text. */
+export const OPPORTUNITY_APPROVAL_LABELS: Record<OpportunityApprovalStatus, string> = {
+  INITIAL_APPROVAL: 'Initial Approval',
+  I_APPROVED:       'I Approved',
+  PRE_SUB_APPROVAL: 'Pre Sub Approval',
+  II_APPROVED:      'II Approved',
+  SUBMITTED:        'Submitted',
+  NOT_APPROVED:     'Not Approved',
+};
+
+/** Tailwind badge classes, borrowing the Linear label colors. */
+export const OPPORTUNITY_APPROVAL_COLORS: Record<OpportunityApprovalStatus, string> = {
+  INITIAL_APPROVAL: 'bg-amber-100 text-amber-700 border-amber-200',
+  I_APPROVED:       'bg-emerald-100 text-emerald-700 border-emerald-200',
+  PRE_SUB_APPROVAL: 'bg-orange-100 text-orange-700 border-orange-200',
+  II_APPROVED:      'bg-cyan-100 text-cyan-700 border-cyan-200',
+  SUBMITTED:        'bg-slate-100 text-slate-700 border-slate-200',
+  NOT_APPROVED:     'bg-red-100 text-red-700 border-red-200',
+};
+
+/** The six approval values in board order — column layout + forward-move checks. */
+export const APPROVAL_ORDER: OpportunityApprovalStatus[] = [
+  'INITIAL_APPROVAL',
+  'I_APPROVED',
+  'PRE_SUB_APPROVAL',
+  'II_APPROVED',
+  'SUBMITTED',
+  'NOT_APPROVED',
+];
+
+/** Approval transition history entry (parallels OpportunityStatusTransition). */
+export const OpportunityApprovalTransitionSchema = z.object({
+  from:      OpportunityApprovalStatusSchema.nullable(),
+  to:        OpportunityApprovalStatusSchema,
+  changedAt: z.string().datetime(),
+  changedBy: z.string().min(1),  // userId or 'system'
+  reason:    z.string().optional(),
+  gate:      z.enum(['INITIAL', 'FINAL', 'STAGE']),
+});
+
+export type OpportunityApprovalTransition = z.infer<typeof OpportunityApprovalTransitionSchema>;
+
+// ─── RFP-tracking board stage (Linear-mirroring, 11-stage model) ───────────────
+
+/**
+ * The RFP-tracking board stages — a faithful mirror of the team's Linear
+ * "Government Contracting" board, derived from Linear workflow status + gate
+ * labels (first-match-wins; see resolveRfpStage in rfp-tracking.ts). This is a
+ * presentation axis for the board and is independent of both `status` (brief
+ * scoring / outcome) and `approvalStatus` (the two-gate approval queue).
+ *
+ * Open stages (counted all-time):
+ *   found → execSummaryToReview → firstApproved → inProgress
+ *         → preSubmissionReview → secondApproved
+ * Terminal stages (counted over a rolling window):
+ *   submitted · notApproved · awarded · lost
+ * Standing stage (counted until cleaned up):
+ *   expired
+ */
+export const RfpPipelineStageSchema = z.enum([
+  'found',
+  'execSummaryToReview',
+  'firstApproved',
+  'inProgress',
+  'preSubmissionReview',
+  'secondApproved',
+  'submitted',
+  'notApproved',
+  'awarded',
+  'lost',
+  'expired',
+]);
+export type RfpPipelineStage = z.infer<typeof RfpPipelineStageSchema>;
 
 // ─── Stored opportunity item ──────────────────────────────────────────────────
 
@@ -130,23 +234,58 @@ export const OpportunityItemSchema = z.object({
   setAside:            z.string().nullable(),
   description:         z.string().nullable(),
   /**
-   * Pipeline stage — replaces the binary `active` flag.
-   * Defaults to IDENTIFIED for new opportunities.
-   * `active` is kept for backward compatibility but derived from stage.
-   * Optional so existing code that creates OpportunityItem without stage still compiles.
-   * The default 'IDENTIFIED' is applied at the DB/helper layer, not enforced here.
+   * Opportunity status — the unified pipeline + outcome state.
+   * Pipeline: IDENTIFIED → QUALIFYING → PURSUING → SUBMITTED.
+   * Terminal (the outcome): WON | LOST | NO_BID | WITHDRAWN.
+   * Defaults to IDENTIFIED for new opportunities (applied at the DB/helper layer).
    */
-  stage:               OpportunityStageSchema.optional(),
+  status:              OpportunityStatusSchema.optional(),
   /**
    * Kept for backward compatibility with existing DB records.
-   * Derived from stage: active = stage is in ACTIVE_OPPORTUNITY_STAGES.
-   * Do not set this directly — use stage instead.
-   * @deprecated Use `stage` instead.
+   * Derived from status: active = status is in ACTIVE_OPPORTUNITY_STATUSES.
+   * Do not set this directly — use status instead.
+   * @deprecated Use `status` instead.
    */
   active:              z.boolean().optional(),
-  /** History of stage transitions */
-  stageHistory:        z.array(OpportunityStageTransitionSchema).optional(),
+  /** History of status transitions */
+  statusHistory:       z.array(OpportunityStatusTransitionSchema).optional(),
+  /**
+   * Approval status — the RFP-tracking two-gate axis, independent of `status`.
+   * Defaults to INITIAL_APPROVAL for new opportunities (applied at the create
+   * helper); existing records without it default on read.
+   */
+  approvalStatus:      OpportunityApprovalStatusSchema.optional(),
+  /** History of approval transitions */
+  approvalHistory:     z.array(OpportunityApprovalTransitionSchema).optional(),
+  /**
+   * RFP-tracking board stage — the 11-stage model that mirrors the Linear
+   * "Government Contracting" board (status + gate labels, first-match-wins).
+   * Set by the Linear sync; the board groups columns by this. See
+   * RfpPipelineStageSchema in rfp-tracking.ts.
+   */
+  pipelineStage:       RfpPipelineStageSchema.optional(),
+  /**
+   * ISO datetime the record reached a terminal stage (submitted/awarded/lost).
+   * Set by the Linear sync from the issue's completedAt; the board uses it for
+   * the closed-window cutoff so terminal columns show only recent throughput.
+   */
+  completedAt:         z.string().datetime().nullish(),
   baseAndAllOptionsValue: z.number().nonnegative().nullable(),
+  // ── Outcome detail (formerly the standalone ProjectOutcome record) ──────────
+  /** Free-form outcome reason / comment (e.g. why a no-bid). */
+  outcomeComment: z.string().nullish(),
+  /** Structured win detail — meaningful when status === 'WON'. */
+  winData: WinDataSchema.optional(),
+  /** Structured loss detail — meaningful when status === 'LOST'. */
+  lossData: LossDataSchema.optional(),
+  /** Contract jurisdiction (gates debrief vs. state records request). */
+  jurisdiction: JurisdictionSchema.optional(),
+  /** Full state name — required when jurisdiction === 'STATE'. */
+  state: z.string().nullish(),
+  /** ISO datetime the terminal outcome was recorded. */
+  outcomeDate: z.string().datetime().nullish(),
+  /** User who recorded the outcome. */
+  outcomeSetBy: z.string().nullish(),
   // Audit fields
   createdAt:     z.string().datetime().optional(),
   updatedAt:     z.string().datetime().optional(),
@@ -196,16 +335,85 @@ export const OpportunityItemSchema = z.object({
 
 export type OpportunityItem = z.infer<typeof OpportunityItemSchema>;
 
-// ─── Stage update DTO ─────────────────────────────────────────────────────────
+// ─── DB record (domain entity + single-table keys) ──────────────────────────────
 
-export const UpdateOpportunityStageSchema = z.object({
-  projectId: z.string().min(1),
-  oppId:     z.string().min(1),
-  stage:     OpportunityStageSchema,
-  reason:    z.string().optional(),
+export const OpportunityDBItemSchema = OpportunityItemSchema.extend({
+  [PK_NAME]: z.string(), // Partition Key (OPPORTUNITY_PK)
+  [SK_NAME]: z.string(), // Sort Key (`${orgId}#${projectId}#${oppId}`)
 });
 
-export type UpdateOpportunityStageDTO = z.infer<typeof UpdateOpportunityStageSchema>;
+export type OpportunityDBItem = z.infer<typeof OpportunityDBItemSchema>;
+
+// ─── Create request ─────────────────────────────────────────────────────────────
+
+/**
+ * Incoming request body for creating an opportunity.
+ * Server-managed fields (oppId, audit, sync/assignment markers) are omitted —
+ * they're generated by the create helper or set by later workflows.
+ * orgId/projectId/status remain optional, exactly as on the item.
+ */
+export const OpportunityCreateRequestSchema = OpportunityItemSchema.omit({
+  oppId: true,
+  createdAt: true,
+  updatedAt: true,
+  createdBy: true,
+  updatedBy: true,
+  createdByName: true,
+  updatedByName: true,
+  eventBridgeEmittedAt: true,
+  apnOpportunityId: true,
+  apnSyncError: true,
+  pocUrl: true,
+  pocDeployedAt: true,
+  assigneeId: true,
+  assigneeName: true,
+  assignedByUserId: true,
+  assignedByName: true,
+});
+
+export type OpportunityCreateRequest = z.infer<typeof OpportunityCreateRequestSchema>;
+
+// ─── Update request ─────────────────────────────────────────────────────────────
+
+/**
+ * Partial patch for updating an opportunity. Identifiers are not patchable.
+ */
+export const OpportunityUpdateRequestSchema = OpportunityItemSchema
+  .partial()
+  .omit({ orgId: true, projectId: true, oppId: true });
+
+export type OpportunityUpdateRequest = z.infer<typeof OpportunityUpdateRequestSchema>;
+
+// ─── Lightweight list/card shape ────────────────────────────────────────────────
+
+export const OpportunityListItemSchema = z.object({
+  id:        z.string(),
+  oppId:     z.string().optional(),
+  orgId:     z.string().optional(),
+  projectId: z.string().optional(),
+  source:    OpportunitySourceSchema,
+  title:     z.string(),
+  status:    OpportunityStatusSchema.optional(),
+  approvalStatus: OpportunityApprovalStatusSchema.optional(),
+  pipelineStage: RfpPipelineStageSchema.optional(),
+  active:    z.boolean().optional(),
+  organizationName:     z.string().nullish(),
+  noticeId:             z.string().nullish(),
+  solicitationNumber:   z.string().nullish(),
+  type:                 z.string().nullish(),
+  naicsCode:            z.string().nullish(),
+  setAside:             z.string().nullish(),
+  description:          z.string().nullish(),
+  responseDeadlineIso:  z.string().nullish(),
+  postedDateIso:        z.string().nullish(),
+  decisionDateIso:      z.string().nullish(),
+  contractStartDateIso: z.string().nullish(),
+  createdAt:            z.string().nullish(),
+  assigneeId:           z.string().nullish(),
+  assigneeName:         z.string().nullish(),
+});
+
+export type OpportunityListItem = z.infer<typeof OpportunityListItemSchema>;
 
 // ─── Query DTO ────────────────────────────────────────────────────────────────
 

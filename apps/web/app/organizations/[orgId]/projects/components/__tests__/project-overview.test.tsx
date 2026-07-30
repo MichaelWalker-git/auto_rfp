@@ -63,18 +63,6 @@ jest.mock('@/lib/hooks/use-api', () => ({
   })),
 }));
 
-jest.mock('@/lib/hooks/use-project-outcome', () => ({
-  useProjectOutcome: jest.fn(() => ({
-    outcome: { status: 'pending' },
-    isLoading: false,
-  })),
-  useProjectOutcomes: jest.fn(() => ({
-    outcomes: [],
-    isLoading: false,
-    isError: null,
-  })),
-}));
-
 jest.mock('@/lib/hooks/use-executive-brief', () => ({
   useGetExecutiveBriefByProject: jest.fn(() => ({
     trigger: jest.fn().mockResolvedValue({ ok: true, brief: { sections: {} } }),

@@ -33,7 +33,8 @@ import { CherryPickConfirmDialog } from './dialogs/CherryPickConfirmDialog';
 import { AIChatPanel } from './ai-chat';
 import { TemplateSelector } from './template-selector';
 import type { RFPDocumentVersion } from '@auto-rfp/core';
-import { QuestionnaireEditorPage } from './questionnaire-editor-page';
+import { XlsxQuestionnaireEditorPage } from './xlsx-questionnaire-editor-page';
+import { isHtmlQuestionnaire, isXlsxQuestionnaire } from '@/lib/utils/document-format';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -115,8 +116,10 @@ export const OpportunityDocumentEditorPage = ({
   // Only fetch HTML when doc is loaded AND not generating/regenerating.
   // During generation, the HTML endpoint returns 202/404 — no point fetching.
   // Content will be fetched once generation completes (status transitions away from GENERATING).
-  // QUESTIONNAIRE docs are file-based (no HTML content) — skip fetching entirely.
-  const htmlFetchEnabled = !!doc && !isDocumentGenerating(doc?.status) && !isRegenerateStarting && doc?.documentType !== 'QUESTIONNAIRE';
+  // XLSX QUESTIONNAIRE docs are file-based (no HTML content) — skip fetching.
+  // HTML questionnaires (from DOCX/PDF) DO need HTML content.
+  const htmlFetchEnabled = !!doc && !isDocumentGenerating(doc?.status) && !isRegenerateStarting &&
+    !(doc && isXlsxQuestionnaire(doc));
   const {
     html: serverHtml,
     isLoading: isHtmlLoading,
@@ -188,7 +191,7 @@ export const OpportunityDocumentEditorPage = ({
 
   useEffect(() => {
     if (!doc) return;
-    if (doc.documentType === 'QUESTIONNAIRE') return;
+    if (isXlsxQuestionnaire(doc)) return; // XLSX questionnaires use spreadsheet editor, not HTML editor
     // Don't initialize during generation — the "Generating…" overlay handles this state.
     // Content will be initialized after generation completes and HTML is fetched.
     if (isDocumentGenerating(doc.status) || isRegenerateStarting) return;
@@ -565,20 +568,25 @@ export const OpportunityDocumentEditorPage = ({
     );
   }
 
-  if (doc.documentType === 'QUESTIONNAIRE' && doc.fileKey) {
-    return (
-      <QuestionnaireEditorPage
-        doc={doc}
-        orgId={orgId}
-        projectId={projectId}
-        opportunityId={opportunityId}
-        backUrl={backUrl}
-      />
-    );
+  // Route questionnaires based on format: XLSX → spreadsheet editor, HTML → standard editor
+  if (doc.documentType === 'QUESTIONNAIRE') {
+    if (isXlsxQuestionnaire(doc) && doc.fileKey) {
+      // XLSX questionnaire - use spreadsheet editor
+      return (
+        <XlsxQuestionnaireEditorPage
+          doc={doc}
+          orgId={orgId}
+          projectId={projectId}
+          opportunityId={opportunityId}
+          backUrl={backUrl}
+        />
+      );
+    }
+    // HTML questionnaire (from DOCX/PDF) - fall through to standard editor below
   }
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 56px)' }}>
+    <div className="flex flex-col overflow-x-hidden" style={{ height: 'calc(100vh - 56px)' }}>
 
       {/* ── Toolbar ── */}
       <div className="flex items-center gap-2 px-4 py-2 border-b bg-background shrink-0">
@@ -671,30 +679,33 @@ export const OpportunityDocumentEditorPage = ({
           </>
         )}
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRegenerate}
-          disabled={isEditingDisabled}
-          title={isApproved ? 'Cannot regenerate an approved document' : isGenerating ? 'Document is currently generating' : 'Regenerate document with AI'}
-        >
-          {isRegenerateStarting || isRegenerating ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Starting…
-            </>
-          ) : isGenerating ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Generating…
-            </>
-          ) : (
-            <>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Regenerate
-            </>
-          )}
-        </Button>
+        {/* Hide Regenerate for HTML questionnaires - they're auto-generated from answer pipeline */}
+        {!isHtmlQuestionnaire(doc) && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRegenerate}
+            disabled={isEditingDisabled}
+            title={isApproved ? 'Cannot regenerate an approved document' : isGenerating ? 'Document is currently generating' : 'Regenerate document with AI'}
+          >
+            {isRegenerateStarting || isRegenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Starting…
+              </>
+            ) : isGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Generating…
+              </>
+            ) : (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Regenerate
+              </>
+            )}
+          </Button>
+        )}
 
         <Button
           size="sm"
@@ -726,7 +737,7 @@ export const OpportunityDocumentEditorPage = ({
       </div>{/* end toolbar */}
 
       {/* ── Editor with permanent right sidebar ── */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-x-hidden overflow-y-hidden">
         {/* Main editor area */}
         <div className="flex-1 min-h-0 overflow-hidden">
           {/* Priority 1: Generation state — checked first, always wins */}

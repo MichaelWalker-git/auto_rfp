@@ -4,7 +4,7 @@ import { ProjectCardSkeleton } from './ProjectCardSkeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Project } from '@/types/project';
+import type { ProjectListItem as Project } from '@auto-rfp/core';
 
 interface ProjectGridProps {
   projects: Project[];

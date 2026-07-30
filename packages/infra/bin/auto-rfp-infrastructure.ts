@@ -14,6 +14,9 @@ import { ApiOrchestratorStack } from '../api/api-orchestrator-stack';
 import { CollaborationWebSocketStack } from '../collaboration-websocket-stack';
 import { AuditStack } from '../audit-stack';
 import { OpportunityEventsStack } from '../opportunity-events-stack';
+import { RfpLinearSyncStack } from '../rfp-linear-sync-stack';
+import { RfpDigestStack } from '../rfp-digest-stack';
+import { RFP_SYNC_PROJECT_ID } from '@auto-rfp/core';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import {
   addAllSuppressions,
@@ -35,6 +38,15 @@ const env = {
 
 const stage = process.env.STAGE || app.node.tryGetContext('stage') || 'Dev';
 console.log(`=🚀 Deploying with stage: ${stage}`);
+
+// RFP Tracking is a single-org (Horus Tech) feature. Its org id differs per
+// environment because each stage has its own DynamoDB table / org records.
+// This drives the frontend feature gate (NEXT_PUBLIC_RFP_TRACKING_ORG_ID).
+const RFP_TRACKING_ORG_ID_BY_STAGE: Record<string, string> = {
+  Dev: '9c0a5757-e2da-4e71-9490-01c558f7ffc3', // Horus Tech (dev) — gov-contracting RFP org
+  Test: '0e832bda-3489-4932-a9d5-9fa82a86a97a', // Horus Tech (test) — owns RFP-table-Test opportunities
+};
+const rfpTrackingOrgId = RFP_TRACKING_ORG_ID_BY_STAGE[stage] ?? '';
 
 const awsMarketplaceProductCode = process.env.AWS_MARKETPLACE_PRODUCT_CODE || '';
 if (awsMarketplaceProductCode) {
@@ -79,16 +91,26 @@ const feURL = `https://${branch}.${amplifyDomain}`;
 
 console.log(`=🌐 Frontend URL pattern: ${feURL}`);
 
-// Portal URL for invitation emails. Set PORTAL_URL env var to override.
-// Defaults to rfp.horustech.dev for all environments since the Amplify domain
-// is not known at Auth stack creation time (Auth is created before Amplify).
-const portalUrl = process.env.PORTAL_URL || 'https://rfp.horustech.dev';
+// Frontend URL for email links and other integrations.
+// Can be overridden via FRONTEND_URL environment variable.
+// Default strategy:
+//   - Use AMPLIFY_APP_ID env var if set (for dynamic construction)
+//   - Otherwise use hardcoded app ID (d1vua4yzm2hpyn) as fallback
+//   - Main/Prod always use custom domain regardless
+const amplifyAppId = process.env.AMPLIFY_APP_ID || 'd1vua4yzm2hpyn';
+const defaultFrontendUrl = stage.toLowerCase() === 'dev'
+  ? `https://${branch}.${amplifyAppId}.amplifyapp.com`
+  : 'https://rfp.horustech.dev';  // Main/Prod use custom domain
+
+const frontendUrl = process.env.FRONTEND_URL || defaultFrontendUrl;
+
+console.log(`=📧 Frontend URL for integrations: ${frontendUrl}`);
 
 const auth = new AuthStack(app, `AutoRfp-Auth-${stage}`, {
   env,
   stage: stage,
   domainPrefixBase: 'auto-rfp',
-  portalUrl,
+  portalUrl: frontendUrl,
   callbackUrls: [
     'http://localhost:3000',
     `https://${branch}.d*.amplifyapp.com`,
@@ -163,6 +185,9 @@ const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {
   textractFormsRoleArn: questionsPipelineStack.textractFormsRoleArn,
   sentryDNS,
   pineconeApiKey,
+  // Server-side allowlist for the RFP-tracking dashboard (get-rfp-pipeline).
+  // Same per-stage value as the frontend gate — enforced in the Lambda too.
+  rfpTrackingOrgId,
 });
 
 // Ensure API depends on required stacks
@@ -183,6 +208,7 @@ const collaborationWsStack = new CollaborationWebSocketStack(app, `AutoRfp-${sta
   userPool: auth.userPool,
   commonLambdaRoleArn: api.commonLambdaRoleArn,
   notificationQueueName,
+  frontendUrl,
   commonEnv: {
     STAGE: stage,
     DB_TABLE_NAME: db.tableName.tableName,
@@ -216,6 +242,47 @@ const auditStack = new AuditStack(app, `AutoRfp-Audit-${stage}`, {
 auditStack.addDependency(db);
 auditStack.addDependency(api);
 
+// Scheduled sync: mirror the Linear "Government Contracting" board into the
+// RFP-tracking pipeline every 15 minutes (Horustech org, dev only for now).
+const rfpLinearSyncStack = new RfpLinearSyncStack(app, `AutoRfp-RfpLinearSync-${stage}`, {
+  env,
+  stage,
+  mainTable: db.tableName,
+  rfpOrgId: '9c0a5757-e2da-4e71-9490-01c558f7ffc3',
+  rfpProjectId: RFP_SYNC_PROJECT_ID,
+  linearOrgId: '6fbf749f-7173-489c-be0a-564f97ebf8b0',
+  linearProjectName: 'Government Contracting',
+  windowDays: 14,
+  commonEnv: {
+    STAGE: stage,
+    DB_TABLE_NAME: db.tableName.tableName,
+    REGION: env.region ?? 'us-east-1',
+    SENTRY_DSN: sentryDNS,
+    SENTRY_ENVIRONMENT: stage,
+    NODE_ENV: 'production',
+  },
+});
+
+rfpLinearSyncStack.addDependency(db);
+
+// Only deployed where a Linear key and Slack webhook are configured for the org.
+const rfpDigestOrgId = process.env.RFP_DIGEST_ORG_ID || '';
+if (rfpDigestOrgId) {
+  new RfpDigestStack(app, `AutoRfp-RfpDigest-${stage}`, {
+    env,
+    stage,
+    digestOrgId: rfpDigestOrgId,
+    linearProjectId: '823d8281-c41e-4e00-b541-f31a5c91af46',
+    commonEnv: {
+      STAGE: stage,
+      REGION: env.region ?? 'us-east-1',
+      SENTRY_DSN: sentryDNS,
+      SENTRY_ENVIRONMENT: stage,
+      NODE_ENV: 'production',
+    },
+  });
+}
+
 new cdk.CfnOutput(collaborationWsStack, 'CollaborationWsApiUrl', {
   value: collaborationWsStack.wsApiUrl,
   description: 'WebSocket API URL for real-time collaboration',
@@ -237,6 +304,8 @@ const amplifyStack = new AmplifyFeStack(app, `AmplifyFeStack-${stage}`, {
   region: env.region!,
   sentryDNS,
   sentryAuthToken,
+  // Restrict the RFP Tracking dashboard to the Horus Tech org for this stage.
+  rfpTrackingOrgId,
   // Attach rfp.horustech.dev to the main branch only
   ...(branch === 'main' ? { customDomain: 'rfp.horustech.dev' } : {}),
 });
@@ -314,6 +383,9 @@ addAllSuppressions(auditStack, isProduction);
 addSQSSuppressions(auditStack, isProduction);
 addS3Suppressions(auditStack, isProduction);
 addLambdaSuppressions(auditStack, isProduction);
+
+addLambdaSuppressions(rfpLinearSyncStack, isProduction);
+addDynamoDBSuppressions(rfpLinearSyncStack, isProduction);
 
 console.log(`\n=📝 Note: After deployment, update Cognito callback URLs with the actual Amplify domain from the FrontendURL output if needed.`);
 console.log('=🔒 CDK NAG AWS Solutions Checks enabled for security compliance');

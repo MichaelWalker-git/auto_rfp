@@ -15,19 +15,18 @@ import {
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
 import { updateOpportunity, getOpportunity } from '@/helpers/opportunity';
-import { OpportunityItemSchema } from '@auto-rfp/core';
+import { transitionOpportunityStatus } from '@/helpers/opportunity-status';
+import { OpportunityUpdateRequestSchema, TERMINAL_OPPORTUNITY_STATUSES } from '@auto-rfp/core';
+import type { OpportunityStatus } from '@auto-rfp/core';
 import { resolveUserNames } from '@/helpers/resolve-users';
-import { STAGE_TO_APN_STATUS_MAP } from '@/constants/apn';
+import { getOrgMembers } from '@/helpers/user';
+import { sendNotification, buildNotification } from '@/helpers/send-notification';
 
 // Schema for update request - all fields optional except identifiers
 const UpdateOpportunityRequestSchema = z.object({
   projectId: z.string().min(1),
   oppId: z.string().min(1),
-  patch: OpportunityItemSchema.partial().omit({
-    orgId: true,
-    projectId: true,
-    oppId: true,
-  }),
+  patch: OpportunityUpdateRequestSchema,
 });
 
 /**
@@ -46,7 +45,15 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     }
 
     const body = JSON.parse(event.body || '{}');
-    const { projectId, oppId, patch } = UpdateOpportunityRequestSchema.parse(body);
+    const { success, data, error } = UpdateOpportunityRequestSchema.safeParse(body);
+    if (!success) {
+      return apiResponse(400, {
+        ok: false,
+        error: 'Validation error',
+        details: error.errors,
+      });
+    }
+    const { projectId, oppId, patch } = data;
 
     // Verify opportunity exists
     const existing = await getOpportunity({ orgId, projectId, oppId });
@@ -55,6 +62,22 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
         ok: false,
         error: 'Opportunity not found',
       });
+    }
+
+    // Cross-field validation for a terminal outcome (the partial patch schema can't
+    // carry the old superRefine): WON needs winData, LOST needs lossData, and a
+    // STATE jurisdiction needs a state.
+    const nextStatus = patch.status as OpportunityStatus | undefined;
+    if (nextStatus === 'WON' && !patch.winData && !existing.item.winData) {
+      return apiResponse(400, { ok: false, error: 'winData is required when status is WON' });
+    }
+    if (nextStatus === 'LOST' && !patch.lossData && !existing.item.lossData) {
+      return apiResponse(400, { ok: false, error: 'lossData is required when status is LOST' });
+    }
+    const effectiveJurisdiction = patch.jurisdiction ?? existing.item.jurisdiction;
+    const effectiveState = patch.state ?? existing.item.state;
+    if (effectiveJurisdiction === 'STATE' && !effectiveState) {
+      return apiResponse(400, { ok: false, error: 'state is required when jurisdiction is STATE' });
     }
 
     const userId = getUserId(event);
@@ -66,36 +89,57 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
       userName = nameMap[userId];
     }
 
-    // Update the opportunity
-    const { item } = await updateOpportunity({
-      orgId,
-      projectId,
-      oppId,
-      patch,
-      userContext: { userId, userName },
-    });
+    const prevStatus = (existing.item.status as OpportunityStatus | undefined) ?? 'IDENTIFIED';
+    const statusChanged = nextStatus !== undefined && nextStatus !== prevStatus;
 
-    // Sync to APN if the opportunity is in a stage that should be synced
-    const apnSyncStages = ['SUBMITTED', 'WON', 'LOST', 'NO_BID', 'WITHDRAWN'];
-    const currentStage = item.stage ?? 'IDENTIFIED';
-
-    if (apnSyncStages.includes(currentStage)) {
-      const proposalStatus = STAGE_TO_APN_STATUS_MAP[currentStage] ?? 'PROSPECT';
-
-      // APN sync (awaited to prevent Lambda termination before completion)
-      const { syncOpportunityToApn } = await import('@/helpers/apn-db');
-      await syncOpportunityToApn({
+    let item;
+    if (statusChanged) {
+      // Status change → go through the transition helper (records statusHistory,
+      // persists outcome detail, stamps outcomeDate/outcomeSetBy, syncs APN), then
+      // apply any remaining non-status fields.
+      const { status: _status, winData, lossData, jurisdiction, state, outcomeComment, ...rest } = patch;
+      item = await transitionOpportunityStatus({
         orgId,
         projectId,
         oppId,
-        customerName:      item.organizationName ?? item.title ?? 'Unknown Customer',
-        opportunityTitle:  item.title ?? 'Untitled Opportunity',
-        opportunityValue:  item.baseAndAllOptionsValue ?? 0,
-        expectedCloseDate: item.responseDeadlineIso ?? new Date().toISOString(),
-        proposalStatus,
-        description:       item?.description?.substring(0, 500),
-        existingApnId:     item.apnOpportunityId ?? null,
+        toStatus: nextStatus,
+        changedBy: userId ?? 'system',
+        reason: outcomeComment ?? undefined,
+        source: 'MANUAL',
+        outcome: { winData, lossData, jurisdiction, state, outcomeComment },
       });
+      if (Object.keys(rest).length > 0) {
+        ({ item } = await updateOpportunity({ orgId, projectId, oppId, patch: rest, userContext: { userId, userName } }));
+      }
+
+      // Notify org members when transitioning into a terminal WON/LOST outcome.
+      if ((nextStatus === 'WON' || nextStatus === 'LOST') && TERMINAL_OPPORTUNITY_STATUSES.includes(nextStatus)) {
+        const notifType = nextStatus === 'WON' ? 'WIN_RECORDED' : 'LOSS_RECORDED';
+        const title = nextStatus === 'WON' ? '🎉 Proposal Won!' : 'Proposal Result Recorded';
+        const message = nextStatus === 'WON'
+          ? `Your team won "${item.title ?? oppId}".`
+          : `The proposal for "${item.title ?? oppId}" was not selected.`;
+        const outcomeLink = `/organizations/${orgId}/projects/${projectId}/opportunities/${oppId}`;
+
+        getOrgMembers(orgId)
+          .then((members) => {
+            if (members.length === 0) return;
+            return sendNotification(
+              buildNotification(notifType, title, message, {
+                orgId,
+                projectId,
+                entityId: oppId,
+                recipientUserIds: members.map((m) => m.userId),
+                recipientEmails: members.map((m) => m.email),
+                link: outcomeLink,
+              }),
+            );
+          })
+          .catch((err) => console.error('Failed to send outcome notification:', err));
+      }
+    } else {
+      // No status change → plain field update.
+      ({ item } = await updateOpportunity({ orgId, projectId, oppId, patch, userContext: { userId, userName } }));
     }
 
     setAuditContext(event, {

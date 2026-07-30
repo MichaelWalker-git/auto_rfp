@@ -7,7 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-import type { LoadSearchOpportunitiesRequest, SamOpportunitySlim } from '@auto-rfp/core';
+import type { LoadSearchOpportunitiesRequest, SamOpportunitySearchResult } from '@auto-rfp/core';
 import { useSearchOpportunities } from '@/lib/hooks/use-opportunities';
 
 import {
@@ -172,7 +172,7 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
 
   // -------- Import dialog state ----------
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [pendingOpp, setPendingOpp] = useState<SamOpportunitySlim | null>(null);
+  const [pendingOpp, setPendingOpp] = useState<SamOpportunitySearchResult | null>(null);
   const { trigger: importSolicitation, isMutating: isImporting } = useImportSolicitation();
 
   // Duplicate confirmation state
@@ -180,7 +180,7 @@ export default function SamGovOpportunitySearchPage({ orgId }: Props) {
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
   const [pendingImportArgs, setPendingImportArgs] = useState<{ orgId: string; projectId: string; noticeId: string } | null>(null);
 
-  const onImportSolicitation = (opportunity: SamOpportunitySlim) => {
+  const onImportSolicitation = (opportunity: SamOpportunitySearchResult) => {
     setPendingOpp(opportunity);
     setDialogOpen(true);
   };

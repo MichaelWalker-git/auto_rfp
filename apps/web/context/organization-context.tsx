@@ -6,22 +6,14 @@ import { useOrganizations, useMyOrganizations, setLastOrg } from '@/lib/hooks/us
 import { readStoredOrgId, writeStoredOrgId } from '@/lib/org-selection';
 import { setOrganizationContext } from '@/lib/sentry';
 import { mutate as globalMutate } from 'swr';
-
-interface Organization {
-  id: string;
-  name: string;
-  slug?: string;
-  description?: string;
-  iconKey?: string;
-  enablePOCGeneration?: boolean;
-}
+import type { OrganizationListItem } from '@auto-rfp/core';
 
 interface OrganizationContextType {
-  currentOrganization: Organization | null;
-  organizations: Organization[];
+  currentOrganization: OrganizationListItem | null;
+  organizations: OrganizationListItem[];
   loading: boolean;
   refreshData: () => Promise<void>;
-  setCurrentOrganization: (org: Organization | null) => void;
+  setCurrentOrganization: (org: OrganizationListItem | null) => void;
   isOrgLocked: boolean;
 }
 
@@ -137,7 +129,7 @@ export function OrganizationProvider({ children }: Props) {
 
   const currentOrganization = useMemo(() => {
     if (!organizations.length || !selectedOrgId) return null;
-    return organizations.find((o: Organization) => o.id === selectedOrgId) ?? null;
+    return organizations.find((o: OrganizationListItem) => o.id === selectedOrgId) ?? null;
   }, [organizations, selectedOrgId]);
 
   // Set Sentry context when organization changes
@@ -174,7 +166,7 @@ export function OrganizationProvider({ children }: Props) {
   };
 
   const setCurrentOrganization = useCallback(
-    (org: Organization | null) => {
+    (org: OrganizationListItem | null) => {
       if (!org?.id) return;
       if (isOrgLocked) return;
 
