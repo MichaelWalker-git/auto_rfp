@@ -27,15 +27,25 @@ export async function createProject(dto: ProjectCreateRequest, createdBy?: strin
   );
 }
 
-export async function getProjectById(projectId: string, orgId?: string): Promise<ProjectDBItem | null> {
+export async function getProjectById(
+  projectId: string,
+  orgId?: string,
+  options?: { consistentRead?: boolean },
+): Promise<ProjectDBItem | null> {
   // Fast path: when the caller knows the orgId we can build the exact SK
   // (`${orgId}#${projectId}`, matching createProject) and fetch the project with a
   // single GetItem instead of paginating a full-table Scan (see Sentry AUTO-RFP-E8).
+  //
+  // `consistentRead` forces a strongly-consistent read for callers that run right
+  // after a project write (e.g. document generation reading freshly-saved POC
+  // contact info) — an eventually-consistent read can otherwise return a stale
+  // item and silently resolve `{{PROJECT_POC_*}}` macros to empty strings.
   if (orgId) {
     const projectRes = await docClient.send(
       new GetCommand({
         TableName: DB_TABLE_NAME,
         Key: { [PK_NAME]: PROJECT_PK, [SK_NAME]: `${orgId}#${projectId}` },
+        ConsistentRead: options?.consistentRead,
       }),
     );
 

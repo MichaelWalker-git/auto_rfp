@@ -84,6 +84,31 @@ describe('getProjectById', () => {
       expect(result).toBeNull();
       expect(mockSend).toHaveBeenCalledTimes(1); // short-circuits, no org lookup
     });
+
+    it('does not force a consistent read by default', async () => {
+      mockSend
+        .mockResolvedValueOnce({ Item: projectItem })
+        .mockResolvedValueOnce({ Item: orgItem });
+
+      await getProjectById(PROJECT_ID, ORG_ID);
+
+      const [projectCmd] = mockSend.mock.calls[0] as [{ params: { ConsistentRead?: boolean } }];
+      expect(projectCmd.params.ConsistentRead).toBeUndefined();
+    });
+
+    it('forces a consistent read on the project GetItem when consistentRead is set', async () => {
+      // Regression: document generation runs moments after a POC save; an
+      // eventually-consistent read can return a stale project whose contactInfo
+      // is empty, silently blanking {{PROJECT_POC_EMAIL}} in the output.
+      mockSend
+        .mockResolvedValueOnce({ Item: projectItem })
+        .mockResolvedValueOnce({ Item: orgItem });
+
+      await getProjectById(PROJECT_ID, ORG_ID, { consistentRead: true });
+
+      const [projectCmd] = mockSend.mock.calls[0] as [{ params: { ConsistentRead?: boolean } }];
+      expect(projectCmd.params.ConsistentRead).toBe(true);
+    });
   });
 
   describe('fallback path (orgId omitted)', () => {
