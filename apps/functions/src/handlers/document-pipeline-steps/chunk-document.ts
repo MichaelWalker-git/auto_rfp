@@ -61,6 +61,12 @@ export function chunkText(text: string, opts: { maxChars: number; overlapChars: 
     const end = Math.min(cleaned.length, start + maxChars);
     let chunk = cleaned.slice(start, end);
 
+    // Number of raw characters consumed from `cleaned` by this window. Advancing
+    // by this (pre-trim) amount — never by the trimmed length — is what guarantees
+    // forward progress. Using the trimmed length against a raw index can go
+    // negative for whitespace-heavy windows and loop forever (OOM).
+    let consumed = end - start;
+
     // Prefer to cut on a nicer boundary if possible
     if (end < cleaned.length) {
       const lastBreak = Math.max(
@@ -70,16 +76,18 @@ export function chunkText(text: string, opts: { maxChars: number; overlapChars: 
       );
       if (lastBreak > Math.floor(maxChars * 0.6)) {
         chunk = chunk.slice(0, lastBreak + 1);
+        consumed = lastBreak + 1;
       }
     }
 
-    chunk = chunk.trim();
-    if (chunk.length >= minChars) out.push(chunk);
+    const trimmed = chunk.trim();
+    if (trimmed.length >= minChars) out.push(trimmed);
 
     if (end >= cleaned.length) break;
 
-    start = start + (chunk.length || maxChars) - overlap;
-    if (start < 0) start = 0;
+    // Always move forward by at least 1 char, even after overlap subtraction, so
+    // the loop can never revisit the same region.
+    start += Math.max(1, consumed - overlap);
   }
 
   return out;

@@ -15,6 +15,7 @@ import { CollaborationWebSocketStack } from '../collaboration-websocket-stack';
 import { AuditStack } from '../audit-stack';
 import { OpportunityEventsStack } from '../opportunity-events-stack';
 import { RfpLinearSyncStack } from '../rfp-linear-sync-stack';
+import { RfpDigestStack } from '../rfp-digest-stack';
 import { RFP_SYNC_PROJECT_ID } from '@auto-rfp/core';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import {
@@ -260,6 +261,24 @@ const rfpLinearSyncStack = new RfpLinearSyncStack(app, `AutoRfp-RfpLinearSync-${
 });
 
 rfpLinearSyncStack.addDependency(db);
+
+// Only deployed where a Linear key and Slack webhook are configured for the org.
+const rfpDigestOrgId = process.env.RFP_DIGEST_ORG_ID || '';
+if (rfpDigestOrgId) {
+  new RfpDigestStack(app, `AutoRfp-RfpDigest-${stage}`, {
+    env,
+    stage,
+    digestOrgId: rfpDigestOrgId,
+    linearProjectId: '823d8281-c41e-4e00-b541-f31a5c91af46',
+    commonEnv: {
+      STAGE: stage,
+      REGION: env.region ?? 'us-east-1',
+      SENTRY_DSN: sentryDNS,
+      SENTRY_ENVIRONMENT: stage,
+      NODE_ENV: 'production',
+    },
+  });
+}
 
 new cdk.CfnOutput(collaborationWsStack, 'CollaborationWsApiUrl', {
   value: collaborationWsStack.wsApiUrl,
