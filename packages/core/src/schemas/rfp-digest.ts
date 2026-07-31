@@ -52,6 +52,17 @@ export const RfpDigestIssueRefSchema = z.object({
 export type RfpDigestIssueRef = z.infer<typeof RfpDigestIssueRefSchema>;
 
 /**
+ * Everything a person currently holds in the In Progress stage — a live board
+ * snapshot, not a windowed movement log. Work started before the digest window
+ * but still being actively worked shows here even when it never "moved".
+ */
+export const RfpInProgressGroupSchema = z.object({
+  name: z.string(),
+  items: z.array(RfpDigestIssueRefSchema),
+});
+export type RfpInProgressGroup = z.infer<typeof RfpInProgressGroupSchema>;
+
+/**
  * Per-person movement since the previous digest. `noGo` is derived from
  * `updatedAt` because the board records no completion timestamp for
  * `Reviewed / Not Approved`; the other three come from real transition stamps.
@@ -81,6 +92,7 @@ export const RfpDigestSchema = z.object({
   windowDays: z.number().int().positive(),
   stageCounts: RfpStageCountsSchema,
   people: z.array(RfpPersonProgressSchema),
+  inProgress: z.array(RfpInProgressGroupSchema),
   awaitingApproval: z.array(RfpDigestRowSchema),
   awaitingApprovalTotal: z.number().int().nonnegative(),
 });

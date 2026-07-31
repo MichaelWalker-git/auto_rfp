@@ -5,6 +5,7 @@ import {
   type RfpDigestIssue,
   type RfpDigestIssueRef,
   type RfpDigestRow,
+  type RfpInProgressGroup,
   type RfpPersonProgress,
   type RfpPipelineStage,
   type RfpStageCounts,
@@ -173,6 +174,28 @@ export const collectPeople = (issues: RfpDigestIssue[], since: Date): RfpPersonP
     .sort((a, b) => movementCount(b) - movementCount(a));
 };
 
+/**
+ * A live snapshot of what each person is actively working: every issue currently
+ * in the In Progress stage, grouped by assignee. Unlike the per-person movement
+ * section, this is not windowed — work started weeks ago still shows if it is
+ * still In Progress. Unassigned In Progress issues are dropped (no one to list
+ * them under). Groups are ordered by size, then name, for a stable render.
+ */
+export const buildInProgress = (issues: RfpDigestIssue[]): RfpInProgressGroup[] => {
+  const byName = new Map<string, RfpDigestIssueRef[]>();
+
+  for (const issue of issues) {
+    if (resolveStage(issue) !== 'inProgress' || !issue.assigneeName) continue;
+    const items = byName.get(issue.assigneeName) ?? [];
+    items.push(toRef(issue));
+    byName.set(issue.assigneeName, items);
+  }
+
+  return [...byName.entries()]
+    .map(([name, items]) => ({ name, items }))
+    .sort((a, b) => b.items.length - a.items.length || a.name.localeCompare(b.name));
+};
+
 const ageInDays = (issue: RfpDigestIssue, now: Date): number | undefined => {
   const updated = parseDate(issue.updatedAt);
   if (!updated) return undefined;
@@ -211,6 +234,7 @@ export const buildDigest = (
     windowDays,
     stageCounts: buildStageCounts(issues, now),
     people: collectPeople(issues, since),
+    inProgress: buildInProgress(issues),
     awaitingApproval: awaitingApproval.slice(0, RFP_DIGEST_MAX_ROWS),
     awaitingApprovalTotal: awaitingApproval.length,
   };
@@ -255,6 +279,10 @@ const INDENT = '\u00A0'.repeat(4);
 
 const formatRefs = (refs: RfpDigestIssueRef[]): string[] =>
   refs.map((ref) => `${INDENT}${INDENT}• ${formatIssueLink(ref.identifier)} ${ref.title}`);
+
+/** Single-indent bullet list — one level shallower than {@link formatRefs}. */
+const formatTopLevelRefs = (refs: RfpDigestIssueRef[]): string[] =>
+  refs.map((ref) => `${INDENT}• ${formatIssueLink(ref.identifier)} ${ref.title}`);
 
 /** Aggregate open-work summary, e.g. "6 first approved · 2 in progress". */
 const formatOpenQueue = (openByStage: RfpStageCounts): string => {
@@ -364,6 +392,16 @@ export const formatSlackMessage = (digest: RfpDigest, now: Date): string => {
   lines.push('', `*Closed in the last ${RFP_TERMINAL_WINDOW_DAYS} days*`);
   for (const stage of CLOSED_FUNNEL_ORDER) {
     lines.push(`${STAGE_LABELS[stage]} · ${count(stage)}`);
+  }
+
+  // Live board snapshot of active work, so bids started before the window but
+  // still being worked are named — not just collapsed into an "in progress" count.
+  // Plain bold names, not @-mentions: these people are usually pinged just below.
+  if (digest.inProgress.length) {
+    lines.push('', '*In progress right now*');
+    for (const group of digest.inProgress) {
+      lines.push(`*${group.name}*`, ...formatTopLevelRefs(group.items));
+    }
   }
 
   lines.push('', `*What each person moved since ${formatSinceDay(now, digest.windowDays)}*`);

@@ -2,6 +2,7 @@ import type { RfpDigestIssue } from '@auto-rfp/core';
 import {
   buildAwaitingApproval,
   buildDigest,
+  buildInProgress,
   buildPersonProgress,
   buildStageCounts,
   collectPeople,
@@ -271,6 +272,59 @@ describe('collectPeople', () => {
   });
 });
 
+describe('buildInProgress', () => {
+  it('groups current In Progress issues by assignee, ignoring other stages', () => {
+    const issues = [
+      issue({ identifier: 'HOR-70', status: 'In Progress', assigneeName: 'Jhoan Santamaria' }),
+      issue({ identifier: 'HOR-71', status: 'In Progress', assigneeName: 'Jhoan Santamaria' }),
+      issue({ identifier: 'HOR-72', status: 'In Progress', assigneeName: 'Brennen Stones' }),
+      // Not In Progress — excluded even though assigned.
+      issue({ identifier: 'HOR-73', status: 'Reviewed - Approved', assigneeName: 'Brennen Stones' }),
+      issue({ identifier: 'HOR-74', status: 'Submitted', assigneeName: 'Jhoan Santamaria' }),
+    ];
+    const groups = buildInProgress(issues);
+    expect(groups).toEqual([
+      { name: 'Jhoan Santamaria', items: [{ identifier: 'HOR-70', title: 'Website Redesign' }, { identifier: 'HOR-71', title: 'Website Redesign' }] },
+      { name: 'Brennen Stones', items: [{ identifier: 'HOR-72', title: 'Website Redesign' }] },
+    ]);
+  });
+
+  it('lists items regardless of when they were started', () => {
+    // The whole point: work started long before any digest window still shows.
+    const stale = issue({
+      identifier: 'HOR-75',
+      status: 'In Progress',
+      assigneeName: 'Jhoan Santamaria',
+      startedAt: '2026-01-01T00:00:00.000Z',
+    });
+    expect(buildInProgress([stale])[0].items.map((r) => r.identifier)).toEqual(['HOR-75']);
+  });
+
+  it('drops unassigned In Progress issues', () => {
+    expect(buildInProgress([issue({ status: 'In Progress' })])).toEqual([]);
+  });
+
+  it('sorts the busiest person first, then by name', () => {
+    const issues = [
+      issue({ identifier: 'HOR-76', status: 'In Progress', assigneeName: 'Ana' }),
+      issue({ identifier: 'HOR-77', status: 'In Progress', assigneeName: 'Zed' }),
+      issue({ identifier: 'HOR-78', status: 'In Progress', assigneeName: 'Zed' }),
+    ];
+    expect(buildInProgress(issues).map((g) => g.name)).toEqual(['Zed', 'Ana']);
+  });
+
+  it('truncates long titles', () => {
+    const longTitle =
+      'Website Design, Development, Hosting Solution, and Content Management System for the County';
+    const groups = buildInProgress([
+      issue({ identifier: 'HOR-79', status: 'In Progress', assigneeName: 'Jhoan Santamaria', title: longTitle }),
+    ]);
+    const { title } = groups[0].items[0];
+    expect(title.length).toBeLessThanOrEqual(60);
+    expect(title.endsWith('…')).toBe(true);
+  });
+});
+
 describe('buildAwaitingApproval', () => {
   it('lists both approval gates, oldest first', () => {
     const issues = [
@@ -302,6 +356,17 @@ describe('buildDigest', () => {
     const digest = buildDigest([issue({ status: 'Reviewed - Approved', labels: ['skip'] })], NOW, 4);
     expect(digest.stageCounts).toEqual({});
   });
+
+  it('populates the in-progress snapshot from current In Progress issues', () => {
+    const digest = buildDigest(
+      [issue({ identifier: 'HOR-90', status: 'In Progress', assigneeName: 'Brennen Stones' })],
+      NOW,
+      4,
+    );
+    expect(digest.inProgress).toEqual([
+      { name: 'Brennen Stones', items: [{ identifier: 'HOR-90', title: 'Website Redesign' }] },
+    ]);
+  });
 });
 
 describe('formatSlackMessage', () => {
@@ -319,6 +384,14 @@ describe('formatSlackMessage', () => {
         issue({ identifier: 'HOR-82', status: 'To be Reviewed', updatedAt: '2026-07-25T00:00:00.000Z' }),
         issue({ identifier: 'HOR-83', status: 'In Progress', labels: ['Pre Sub Approval'], updatedAt: '2026-07-25T00:00:00.000Z' }),
         issue({ identifier: 'HOR-84', status: 'Reviewed - Approved', assigneeName: 'Jhoan Santamaria' }),
+        // Active work started long before the window — surfaces via "In progress right now".
+        issue({
+          identifier: 'HOR-85',
+          title: 'RFP Website Design',
+          status: 'In Progress',
+          assigneeName: 'Jhoan Santamaria',
+          startedAt: '2026-07-01T00:00:00.000Z',
+        }),
       ],
       NOW,
       4,
@@ -331,6 +404,19 @@ describe('formatSlackMessage', () => {
     expect(message).toContain('Student Information System');
     expect(message).toContain('Lost · 1');
     expect(message).toContain('dnw');
+  });
+
+  it('names active work in an In-progress-right-now section, without pinging', () => {
+    const message = formatSlackMessage(digest(), NOW);
+    expect(message).toContain('*In progress right now*');
+    // HOR-85 was started weeks before the window but is still In Progress.
+    expect(message).toContain('<https://linear.app/horustech/issue/HOR-85|HOR-85> RFP Website Design');
+    // The section names Jhoan in bold plain text, not as an @-mention.
+    const section = message.slice(message.indexOf('*In progress right now*'));
+    const nextSection = section.indexOf('*What each person moved');
+    const inProgressBlock = section.slice(0, nextSection);
+    expect(inProgressBlock).toContain('*Jhoan Santamaria*');
+    expect(inProgressBlock).not.toContain('<@');
   });
 
   it('separates live inventory from windowed throughput', () => {
