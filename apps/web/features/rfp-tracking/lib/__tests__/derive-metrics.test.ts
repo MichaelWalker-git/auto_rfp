@@ -9,7 +9,6 @@ import {
   throughputByWeek,
   funnel,
   cycleTime,
-  winRate,
   outcomeBreakdown,
   aging,
   ownerOptions,
@@ -17,7 +16,7 @@ import {
   funnelCohortRange,
   FUNNEL_STAGE_ORDER,
 } from '../derive-metrics';
-import { makeItem, approvalTransition } from '../../__tests__/fixtures';
+import { makeItem, approvalTransition, transition } from '../../__tests__/fixtures';
 
 // A fixed "now" — a Monday, so week math is predictable.
 const NOW = '2026-07-27T12:00:00.000Z'; // 2026-07-27 is a Monday
@@ -434,38 +433,6 @@ describe('cycleTime', () => {
   });
 });
 
-describe('winRate', () => {
-  const { startIso, endIso } = lastNWeeksRange(NOW, 8);
-
-  it('is null when nothing was submitted in the window', () => {
-    expect(winRate([makeItem()], startIso, endIso)).toEqual({ awarded: 0, submitted: 0, rate: null });
-  });
-
-  it('computes awarded / submitted with raw counts', () => {
-    const items = [
-      makeItem({
-        id: 'won',
-        status: 'WON',
-        pipelineStage: 'awarded',
-        approvalHistory: [approvalTransition('SUBMITTED', '2026-07-20T00:00:00.000Z')],
-      }),
-      makeItem({
-        id: 'sub1',
-        approvalHistory: [approvalTransition('SUBMITTED', '2026-07-21T00:00:00.000Z')],
-      }),
-      makeItem({
-        id: 'sub2',
-        approvalHistory: [approvalTransition('SUBMITTED', '2026-07-22T00:00:00.000Z')],
-      }),
-    ];
-    expect(winRate(items, startIso, endIso)).toEqual({
-      awarded: 1,
-      submitted: 3,
-      rate: (1 / 3) * 100,
-    });
-  });
-});
-
 describe('outcomeBreakdown', () => {
   const { startIso, endIso } = lastNWeeksRange(NOW, 8);
 
@@ -475,7 +442,7 @@ describe('outcomeBreakdown', () => {
       makeItem({ id: 'lost', status: 'LOST', pipelineStage: 'lost', completedAt: '2026-07-20T00:00:00.000Z' }),
       makeItem({ id: 'na', pipelineStage: 'notApproved', completedAt: '2026-07-20T00:00:00.000Z' }),
       makeItem({ id: 'wd', status: 'WITHDRAWN', pipelineStage: 'expired', completedAt: '2026-07-20T00:00:00.000Z' }),
-      makeItem({ id: 'open', pipelineStage: 'inProgress' }),
+      makeItem({ id: 'open', pipelineStage: 'inProgress', createdAt: '2026-07-10T00:00:00.000Z' }),
     ];
     const slices = outcomeBreakdown(items, startIso, endIso);
     const byKey = Object.fromEntries(slices.map((s) => [s.key, s.count]));
@@ -494,14 +461,59 @@ describe('outcomeBreakdown', () => {
     expect(slices.every((s) => s.count === 0)).toBe(true);
   });
 
-  it('excludes terminal items that closed before the window; keeps open backlog', () => {
+  it('excludes terminal items that closed before the window; keeps in-window open backlog', () => {
     const items = [
       makeItem({ id: 'oldWin', status: 'WON', pipelineStage: 'awarded', completedAt: '2026-01-01T00:00:00.000Z' }),
-      makeItem({ id: 'open', pipelineStage: 'inProgress' }),
+      makeItem({ id: 'open', pipelineStage: 'inProgress', createdAt: '2026-07-10T00:00:00.000Z' }),
     ];
     const byKey = Object.fromEntries(outcomeBreakdown(items, startIso, endIso).map((s) => [s.key, s.count]));
     expect(byKey.awarded).toBe(0);
     expect(byKey.pending).toBe(1);
+  });
+
+  it('excludes open items whose intake predates the window (donut tracks the window)', () => {
+    const items = [
+      makeItem({ id: 'oldOpen', pipelineStage: 'inProgress', createdAt: '2026-01-01T00:00:00.000Z' }),
+      makeItem({ id: 'newOpen', pipelineStage: 'inProgress', createdAt: '2026-07-10T00:00:00.000Z' }),
+    ];
+    const byKey = Object.fromEntries(outcomeBreakdown(items, startIso, endIso).map((s) => [s.key, s.count]));
+    expect(byKey.pending).toBe(1);
+  });
+
+  it('excludes open items with no derivable intake date', () => {
+    const items = [
+      makeItem({ id: 'noIntake', pipelineStage: 'inProgress', createdAt: undefined, approvalHistory: [] }),
+    ];
+    const byKey = Object.fromEntries(outcomeBreakdown(items, startIso, endIso).map((s) => [s.key, s.count]));
+    expect(byKey.pending).toBe(0);
+  });
+
+  it('does not count a notApproved item back into the window via a fresh updatedAt', () => {
+    // The sync bumps updatedAt every poll; the real rejection happened long ago.
+    // Gating must ignore updatedAt so this item stays OUT of a recent window.
+    const items = [
+      makeItem({
+        id: 'oldReject',
+        pipelineStage: 'notApproved',
+        statusHistory: [transition('NO_BID', '2026-01-05T00:00:00.000Z')],
+        updatedAt: NOW,
+      }),
+    ];
+    const byKey = Object.fromEntries(outcomeBreakdown(items, startIso, endIso).map((s) => [s.key, s.count]));
+    expect(byKey.notApproved).toBe(0);
+  });
+
+  it('counts a notApproved item whose rejection landed within the window', () => {
+    const items = [
+      makeItem({
+        id: 'recentReject',
+        pipelineStage: 'notApproved',
+        statusHistory: [transition('NO_BID', '2026-07-10T00:00:00.000Z')],
+        updatedAt: NOW,
+      }),
+    ];
+    const byKey = Object.fromEntries(outcomeBreakdown(items, startIso, endIso).map((s) => [s.key, s.count]));
+    expect(byKey.notApproved).toBe(1);
   });
 });
 
