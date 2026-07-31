@@ -68,7 +68,25 @@ const issueNode = (overrides: Record<string, unknown> = {}) => ({
   assignee: { name: 'Jane' },
   creator: { name: 'John' },
   labels: { nodes: [] },
+  history: { nodes: [] },
   ...overrides,
+});
+
+/**
+ * Build a `history` connection payload from a compact list of events. Each event
+ * is { at, from?, to?, add?, remove? } → the raw GraphQL shape fetchLinearRows
+ * expects (fromState/toState objects, addedLabels/removedLabels objects).
+ */
+const historyNodes = (
+  events: Array<{ at: string; from?: string; to?: string; add?: string[]; remove?: string[] }>,
+) => ({
+  nodes: events.map((e) => ({
+    createdAt: e.at,
+    fromState: e.from ? { name: e.from } : null,
+    toState: e.to ? { name: e.to } : null,
+    addedLabels: (e.add ?? []).map((name) => ({ name })),
+    removedLabels: (e.remove ?? []).map((name) => ({ name })),
+  })),
 });
 
 /** Wrap issue nodes in the single-page projects→issues envelope fetchLinearRows expects. */
@@ -256,19 +274,20 @@ describe('syncLinearPipeline — incremental history merge', () => {
     expect(rec?.statusHistory).toHaveLength(1);
   });
 
-  it('appends exactly one entry with from=previous on a real status change', async () => {
-    // Existing at INITIAL_APPROVAL/QUALIFYING; the issue now resolves inProgress
-    // → I_APPROVED / PURSUING, a genuine transition.
+  it('appends exactly one entry with from=previous on a real status change (human-authored record)', async () => {
+    // Existing at INITIAL_APPROVAL/QUALIFYING with a HUMAN-authored entry, so the
+    // safe append-on-change path runs (not reconstruction). The issue now resolves
+    // inProgress → I_APPROVED / PURSUING, a genuine transition.
     mockRawRequest.mockResolvedValue(linearPage([issueNode({ identifier: 'HOR-100' })]));
     mockQueryAllBySkPrefix.mockResolvedValue([
       existingRecord('linear-hor-100', {
         status: 'QUALIFYING',
         approvalStatus: 'INITIAL_APPROVAL',
         statusHistory: [
-          { from: null, to: 'QUALIFYING', changedAt: '2026-07-01T00:00:00.000Z', changedBy: 'system', source: 'SYSTEM' },
+          { from: null, to: 'QUALIFYING', changedAt: '2026-07-01T00:00:00.000Z', changedBy: 'user-brennen', source: 'MANUAL' },
         ],
         approvalHistory: [
-          { from: null, to: 'INITIAL_APPROVAL', changedAt: '2026-07-01T00:00:00.000Z', changedBy: 'system', gate: 'STAGE' },
+          { from: null, to: 'INITIAL_APPROVAL', changedAt: '2026-07-01T00:00:00.000Z', changedBy: 'user-brennen', gate: 'STAGE' },
         ],
       }),
     ]);
@@ -285,14 +304,15 @@ describe('syncLinearPipeline — incremental history merge', () => {
     expect(statusHistory[1]).toMatchObject({ from: 'QUALIFYING', to: 'PURSUING' });
   });
 
-  it('seeds a single honest from:null entry for a brand-new record', async () => {
+  it('seeds a single honest from:null entry for a brand-new record with no Linear history', async () => {
     mockRawRequest.mockResolvedValue(linearPage([issueNode({ identifier: 'HOR-100' })]));
-    mockQueryAllBySkPrefix.mockResolvedValue([]); // no existing item
+    mockQueryAllBySkPrefix.mockResolvedValue([]); // no existing item, no history events
 
     await syncLinearPipeline();
 
     const rec = putRecordFor('linear-hor-100');
     const approvalHistory = rec?.approvalHistory as Array<Record<string, unknown>>;
+    // With no history the timeline collapses to the current stage only.
     expect(approvalHistory).toHaveLength(1);
     expect(approvalHistory[0]).toMatchObject({ from: null, to: 'I_APPROVED' });
   });
@@ -334,5 +354,157 @@ describe('syncLinearPipeline — incremental history merge', () => {
     expect(rec?.completedAt).toBe(completedAt);
     const approvalHistory = rec?.approvalHistory as Array<Record<string, unknown>>;
     expect(approvalHistory[0]?.changedAt).toBe(completedAt);
+  });
+});
+
+describe('syncLinearPipeline — history reconstruction (backfill)', () => {
+  it('reconstructs a full, correctly-dated approvalHistory from Linear issue history', async () => {
+    // A submitted issue whose Linear history records the real gate progression:
+    // To be Reviewed (intake) → Reviewed - Approved (gate 1) → +Pre Sub Approval
+    // → +II Approved → Submitted. Each event carries its real createdAt.
+    const completedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+    mockRawRequest.mockResolvedValue(
+      linearPage([
+        issueNode({
+          identifier: 'HOR-100',
+          state: { name: 'Submitted' },
+          createdAt: '2026-07-01T00:00:00.000Z',
+          completedAt,
+          labels: { nodes: [{ name: 'I Approved' }, { name: 'II Approved' }, { name: 'Pre Sub Approval' }] },
+          history: historyNodes([
+            { at: '2026-07-01T00:00:00.000Z', to: 'To be Reviewed' },
+            { at: '2026-07-04T10:00:00.000Z', from: 'To be Reviewed', to: 'Reviewed - Approved', add: ['I Approved'] },
+            { at: '2026-07-08T09:00:00.000Z', add: ['Pre Sub Approval'] },
+            { at: '2026-07-11T15:00:00.000Z', add: ['II Approved'] },
+            { at: '2026-07-14T12:00:00.000Z', from: 'Reviewed - Approved', to: 'Submitted' },
+          ]),
+        }),
+      ]),
+    );
+    mockQueryAllBySkPrefix.mockResolvedValue([]); // brand-new → reconstruct
+
+    await syncLinearPipeline();
+
+    const rec = putRecordFor('linear-hor-100');
+    const approvalHistory = rec?.approvalHistory as Array<Record<string, unknown>>;
+
+    // One entry per gate actually crossed, in order, with the REAL dates.
+    expect(approvalHistory.map((e) => e.to)).toEqual([
+      'INITIAL_APPROVAL',
+      'I_APPROVED',
+      'PRE_SUB_APPROVAL',
+      'II_APPROVED',
+      'SUBMITTED',
+    ]);
+    expect(approvalHistory[0]).toMatchObject({ from: null, changedAt: '2026-07-01T00:00:00.000Z' });
+    expect(approvalHistory[1]).toMatchObject({ from: 'INITIAL_APPROVAL', changedAt: '2026-07-04T10:00:00.000Z' });
+    expect(approvalHistory[2]).toMatchObject({ from: 'I_APPROVED', changedAt: '2026-07-08T09:00:00.000Z' });
+    expect(approvalHistory[3]).toMatchObject({ from: 'PRE_SUB_APPROVAL', changedAt: '2026-07-11T15:00:00.000Z' });
+    expect(approvalHistory[4]).toMatchObject({ from: 'II_APPROVED', to: 'SUBMITTED' });
+    // Every reconstructed entry is system-attributed (no human data to preserve).
+    expect(approvalHistory.every((e) => e.changedBy === 'system')).toBe(true);
+  });
+
+  it('collapses consecutive same-approval stages (firstApproved → inProgress) into one entry', async () => {
+    // Reviewed - Approved (firstApproved) then In Progress (inProgress) BOTH map to
+    // I_APPROVED — the timeline records two stages but the approval axis moved once.
+    mockRawRequest.mockResolvedValue(
+      linearPage([
+        issueNode({
+          identifier: 'HOR-100',
+          state: { name: 'In Progress' },
+          createdAt: '2026-07-01T00:00:00.000Z',
+          labels: { nodes: [{ name: 'I Approved' }] },
+          history: historyNodes([
+            { at: '2026-07-01T00:00:00.000Z', to: 'To be Reviewed' },
+            { at: '2026-07-04T10:00:00.000Z', from: 'To be Reviewed', to: 'Reviewed - Approved', add: ['I Approved'] },
+            { at: '2026-07-06T10:00:00.000Z', from: 'Reviewed - Approved', to: 'In Progress' },
+          ]),
+        }),
+      ]),
+    );
+    mockQueryAllBySkPrefix.mockResolvedValue([]);
+
+    await syncLinearPipeline();
+
+    const rec = putRecordFor('linear-hor-100');
+    const approvalHistory = rec?.approvalHistory as Array<Record<string, unknown>>;
+    // INITIAL_APPROVAL then a single I_APPROVED (the firstApproved/inProgress run),
+    // stamped at the FIRST stage in that run (2026-07-04), not re-emitted at 07-06.
+    expect(approvalHistory.map((e) => e.to)).toEqual(['INITIAL_APPROVAL', 'I_APPROVED']);
+    expect(approvalHistory[1]).toMatchObject({ to: 'I_APPROVED', changedAt: '2026-07-04T10:00:00.000Z' });
+  });
+
+  it('preserves human-authored history instead of reconstructing (attribution kept)', async () => {
+    // The existing record carries a real user's gate approval. Even though Linear
+    // history is present, we must NOT rebuild — the human changedBy is preserved.
+    const humanApprovalHistory = [
+      { from: null, to: 'INITIAL_APPROVAL', changedAt: '2026-07-01T00:00:00.000Z', changedBy: 'system', gate: 'STAGE' },
+      { from: 'INITIAL_APPROVAL', to: 'I_APPROVED', changedAt: '2026-07-05T10:00:00.000Z', changedBy: 'user-brennen', gate: 'INITIAL', reason: 'Looks strong' },
+    ];
+    mockRawRequest.mockResolvedValue(
+      linearPage([
+        issueNode({
+          identifier: 'HOR-100',
+          state: { name: 'In Progress' },
+          labels: { nodes: [{ name: 'I Approved' }] },
+          history: historyNodes([
+            { at: '2026-07-01T00:00:00.000Z', to: 'To be Reviewed' },
+            { at: '2026-07-05T10:00:00.000Z', from: 'To be Reviewed', to: 'Reviewed - Approved', add: ['I Approved'] },
+          ]),
+        }),
+      ]),
+    );
+    mockQueryAllBySkPrefix.mockResolvedValue([
+      existingRecord('linear-hor-100', {
+        status: 'PURSUING',
+        approvalStatus: 'I_APPROVED',
+        approvalHistory: humanApprovalHistory,
+      }),
+    ]);
+
+    await syncLinearPipeline();
+
+    const rec = putRecordFor('linear-hor-100');
+    // Unchanged approval status + human-authored → preserved verbatim.
+    expect(rec?.approvalHistory).toEqual(humanApprovalHistory);
+  });
+
+  it('backfills a system-only existing record by reconstructing from Linear history', async () => {
+    // A previously-synced record with only a sparse system seed (the pre-history
+    // behaviour) gets rebuilt into the full dated timeline on the next sync.
+    mockRawRequest.mockResolvedValue(
+      linearPage([
+        issueNode({
+          identifier: 'HOR-100',
+          state: { name: 'In Progress' },
+          createdAt: '2026-07-01T00:00:00.000Z',
+          labels: { nodes: [{ name: 'I Approved' }] },
+          history: historyNodes([
+            { at: '2026-07-01T00:00:00.000Z', to: 'To be Reviewed' },
+            { at: '2026-07-04T10:00:00.000Z', from: 'To be Reviewed', to: 'Reviewed - Approved', add: ['I Approved'] },
+          ]),
+        }),
+      ]),
+    );
+    mockQueryAllBySkPrefix.mockResolvedValue([
+      existingRecord('linear-hor-100', {
+        status: 'PURSUING',
+        approvalStatus: 'I_APPROVED',
+        // Sparse system-only seed — the exact shape the old sync produced.
+        approvalHistory: [
+          { from: null, to: 'I_APPROVED', changedAt: '2026-07-20T00:00:00.000Z', changedBy: 'system', gate: 'STAGE' },
+        ],
+      }),
+    ]);
+
+    await syncLinearPipeline();
+
+    const rec = putRecordFor('linear-hor-100');
+    const approvalHistory = rec?.approvalHistory as Array<Record<string, unknown>>;
+    // Rebuilt: intake at creation + gate 1 at its real date (not the sparse seed).
+    expect(approvalHistory.map((e) => e.to)).toEqual(['INITIAL_APPROVAL', 'I_APPROVED']);
+    expect(approvalHistory[0]).toMatchObject({ changedAt: '2026-07-01T00:00:00.000Z' });
+    expect(approvalHistory[1]).toMatchObject({ changedAt: '2026-07-04T10:00:00.000Z' });
   });
 });
