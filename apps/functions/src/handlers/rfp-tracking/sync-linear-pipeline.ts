@@ -307,20 +307,28 @@ const hasHumanAuthoredHistory = (existing: ExistingRecord | null): boolean => {
 };
 
 /**
- * How many issue-history events to pull per issue. The Government Contracting
- * board's oldest issues have well under 100 status/label events; 100 covers the
- * full audit trail without paginating the nested connection (which would cost an
- * extra round-trip per issue). If an issue ever exceeds this, we still get its
- * most recent 100 events — the reconstruction degrades gracefully to the same
- * current-state fallback the sync used before history was available.
+ * How many issue-history events to pull per issue. Linear enforces a per-query
+ * complexity budget (max 10000), and a nested connection multiplies cost:
+ * `issues(first: N) × history(first: M)` dominates the query. We keep
+ * `ISSUES_PER_PAGE × HISTORY_EVENTS_PER_ISSUE` well under that budget
+ * (50 × 25 = 1250 node-products ≈ 7k complexity with the other nested fields).
+ *
+ * A two-gate RFP flow produces well under 25 status/label transitions, so this
+ * covers the full audit trail for the Government Contracting board. If an issue
+ * ever exceeds it we still get its most recent 25 events and the reconstruction
+ * degrades gracefully to the current-state fallback the sync used before history
+ * was available. The board holds ~43 issues, so a 50-issue page also fetches
+ * everything in a single request (pagination still kicks in above 50).
  */
-const HISTORY_EVENTS_PER_ISSUE = 100;
+const HISTORY_EVENTS_PER_ISSUE = 25;
+const ISSUES_PER_PAGE = 50;
 
 /**
  * A single raw GraphQL query per page, with every nested field inlined. The
  * SDK's lazy relations (issue.state / .assignee / .creator / .labels()) would
- * otherwise cost one round-trip per issue per relation — ~4×250 = 1000 requests
- * — which Linear rate-limits/resets. This is one request per 250-issue page.
+ * otherwise cost one round-trip per issue per relation — ~4×N = hundreds of
+ * requests — which Linear rate-limits/resets. This is one request per page of
+ * ISSUES_PER_PAGE issues.
  *
  * `history` is fetched inline here for the same reason: it is the audited,
  * per-transition log (workflow-state changes + label add/remove events, each
@@ -334,7 +342,7 @@ const PROJECT_ISSUES_QUERY = `
     projects(filter: { name: { eq: $name } }, first: 1) {
       nodes {
         id
-        issues(first: 250, after: $after) {
+        issues(first: ${ISSUES_PER_PAGE}, after: $after) {
           pageInfo { hasNextPage endCursor }
           nodes {
             identifier
