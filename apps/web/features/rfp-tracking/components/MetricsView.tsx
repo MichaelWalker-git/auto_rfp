@@ -66,7 +66,7 @@ export const MetricsView = ({
     [scoped, range],
   );
   const funnelRows = useMemo(() => funnel(scoped), [scoped]);
-  const cycle = useMemo(() => cycleTime(scoped), [scoped]);
+  const cycle = useMemo(() => cycleTime(scoped, range.startIso, range.endIso), [scoped, range]);
   const win = useMemo(() => winRate(scoped, range.startIso, range.endIso), [scoped, range]);
   const outcomes = useMemo(
     () => outcomeBreakdown(scoped, range.startIso, range.endIso),
@@ -91,7 +91,7 @@ export const MetricsView = ({
         <ThroughputChart data={throughput} onExport={() => exportThroughputCsv(throughput, orgName)} />
         <OutcomeDonut slices={outcomes} onExport={() => exportOutcomeCsv(outcomes, orgName)} />
         <FunnelTable rows={funnelRows} onExport={() => exportFunnelCsv(funnelRows, orgName)} />
-        <CycleTimeTable summary={cycle} onExport={() => exportCycleTimeCsv(cycle, orgName)} />
+        <CycleTimeTable summary={cycle} weeks={weeks} onExport={() => exportCycleTimeCsv(cycle, orgName)} />
         <WinRateCard result={win} />
         <div className="lg:col-span-2">
           <AgingTable

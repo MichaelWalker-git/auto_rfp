@@ -24,9 +24,10 @@ import { entryIntoCurrentStageIso, resolveStage } from './derive-board';
  *     OR still-open snapshot). Documented in `outcomeBreakdown`.
  *   - aging               : a snapshot at `nowIso`, NOT windowed — it answers
  *     "what is stuck right now".
- *   - cycle time          : computed over ALL supplied items (already filtered by
- *     the caller for owner); each stage stat only counts items for which a valid
- *     entry→exit pair can be derived from the histories.
+ *   - cycle time          : windowed by SUBMISSION date — an item contributes
+ *     only if it was SUBMITTED within [startIso, endIso] (same denominator as
+ *     win rate). Within that cohort, each stage stat only counts items for which
+ *     a valid entry→exit pair can be derived from the histories.
  */
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -331,16 +332,28 @@ const firstReachedIso = (
 
 /**
  * Average AND median days spent in each stage, plus the total found-to-submitted
- * duration. Durations derive from the approvalHistory event log: the days
- * between reaching milestone N and milestone N+1. Items with sparse/empty
+ * duration — windowed by SUBMISSION date. Only items SUBMITTED within
+ * [startIso, endIso] contribute (same denominator as win rate); items not
+ * submitted, or submitted outside the window, contribute nothing.
+ *
+ * Within that cohort, durations derive from the approvalHistory event log: the
+ * days between reaching milestone N and milestone N+1. Items with sparse/empty
  * history simply don't contribute to a stage's sample (n reflects the count of
  * items that had a derivable entry→exit pair) — they are never guessed.
  */
-export const cycleTime = (items: RfpPipelineItem[]): CycleTimeSummary => {
+export const cycleTime = (
+  items: RfpPipelineItem[],
+  startIso: string,
+  endIso: string,
+): CycleTimeSummary => {
   const perStageDurations = new Map<RfpPipelineStage, number[]>();
   const foundToSubmitted: number[] = [];
 
   for (const item of items) {
+    // Window gate: only items submitted within [startIso, endIso] contribute.
+    const submittedIso = submittedAtIso(item);
+    if (!submittedIso || !inWindow(submittedIso, startIso, endIso)) continue;
+
     // Consecutive-milestone durations → the stage the earlier milestone sat in.
     for (let i = 0; i < CYCLE_APPROVAL_ORDER.length - 1; i++) {
       const fromMilestone = CYCLE_APPROVAL_ORDER[i]!;
@@ -358,7 +371,7 @@ export const cycleTime = (items: RfpPipelineItem[]): CycleTimeSummary => {
       firstReachedIso(item, 'INITIAL_APPROVAL') ??
       item.createdAt ??
       entryIntoCurrentStageIso(item);
-    const total = daysBetween(firstIso, submittedAtIso(item));
+    const total = daysBetween(firstIso, submittedIso);
     if (total !== null && total >= 0) foundToSubmitted.push(total);
   }
 

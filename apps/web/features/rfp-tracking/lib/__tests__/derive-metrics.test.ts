@@ -243,6 +243,10 @@ describe('funnel', () => {
 });
 
 describe('cycleTime', () => {
+  // A wide window that comfortably includes every July-2026 fixture submission.
+  const WINDOW_START = '2026-06-01T00:00:00.000Z';
+  const WINDOW_END = '2026-08-01T00:00:00.000Z';
+
   it('computes avg and median per stage from consecutive milestones', () => {
     const items = [
       makeItem({
@@ -250,7 +254,7 @@ describe('cycleTime', () => {
         approvalHistory: [
           approvalTransition('INITIAL_APPROVAL', '2026-07-01T00:00:00.000Z'),
           approvalTransition('I_APPROVED', '2026-07-05T00:00:00.000Z'), // 4d in execSummaryToReview
-          approvalTransition('SUBMITTED', '2026-07-10T00:00:00.000Z'),
+          approvalTransition('SUBMITTED', '2026-07-10T00:00:00.000Z'), // submitted-in-window
         ],
         createdAt: '2026-07-01T00:00:00.000Z',
       }),
@@ -259,24 +263,83 @@ describe('cycleTime', () => {
         approvalHistory: [
           approvalTransition('INITIAL_APPROVAL', '2026-07-01T00:00:00.000Z'),
           approvalTransition('I_APPROVED', '2026-07-03T00:00:00.000Z'), // 2d in execSummaryToReview
+          approvalTransition('SUBMITTED', '2026-07-03T00:00:00.000Z'), // submitted-in-window (2d found→submitted)
         ],
       }),
     ];
-    const { perStage, foundToSubmitted } = cycleTime(items);
+    const { perStage, foundToSubmitted } = cycleTime(items, WINDOW_START, WINDOW_END);
     const initial = perStage.find((r) => r.stage === 'execSummaryToReview')!;
     expect(initial.n).toBe(2);
     expect(initial.avgDays).toBe(3); // (4 + 2) / 2
     expect(initial.medianDays).toBe(3);
-    // found-to-submitted only has item a (9 days from initial → submitted)
-    expect(foundToSubmitted.n).toBe(1);
-    expect(foundToSubmitted.avgDays).toBe(9);
+    // found-to-submitted: item a (9d) + item b (2d)
+    expect(foundToSubmitted.n).toBe(2);
+    expect(foundToSubmitted.avgDays).toBe(5.5); // (9 + 2) / 2
   });
 
   it('does not throw on empty/sparse history and reports n=0', () => {
-    const { perStage, foundToSubmitted } = cycleTime([makeItem(), makeItem({ approvalHistory: undefined })]);
+    const { perStage, foundToSubmitted } = cycleTime(
+      [makeItem(), makeItem({ approvalHistory: undefined })],
+      WINDOW_START,
+      WINDOW_END,
+    );
     expect(perStage.every((r) => r.n === 0 && r.avgDays === null && r.medianDays === null)).toBe(true);
     expect(foundToSubmitted.n).toBe(0);
     expect(foundToSubmitted.avgDays).toBeNull();
+  });
+
+  it('excludes an item SUBMITTED before the window from both perStage and foundToSubmitted', () => {
+    const items = [
+      // Submitted 2026-01-10 — well before the window → excluded entirely.
+      makeItem({
+        id: 'pre-window',
+        approvalHistory: [
+          approvalTransition('INITIAL_APPROVAL', '2026-01-01T00:00:00.000Z'),
+          approvalTransition('I_APPROVED', '2026-01-05T00:00:00.000Z'),
+          approvalTransition('SUBMITTED', '2026-01-10T00:00:00.000Z'),
+        ],
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }),
+    ];
+    const { perStage, foundToSubmitted } = cycleTime(items, WINDOW_START, WINDOW_END);
+    expect(perStage.every((r) => r.n === 0)).toBe(true);
+    expect(foundToSubmitted.n).toBe(0);
+  });
+
+  it('excludes an item that was never submitted', () => {
+    const items = [
+      makeItem({
+        id: 'never-submitted',
+        approvalHistory: [
+          approvalTransition('INITIAL_APPROVAL', '2026-07-01T00:00:00.000Z'),
+          approvalTransition('I_APPROVED', '2026-07-05T00:00:00.000Z'),
+        ],
+        createdAt: '2026-07-01T00:00:00.000Z',
+      }),
+    ];
+    const { perStage, foundToSubmitted } = cycleTime(items, WINDOW_START, WINDOW_END);
+    expect(perStage.every((r) => r.n === 0)).toBe(true);
+    expect(foundToSubmitted.n).toBe(0);
+  });
+
+  it('includes an item SUBMITTED within the window', () => {
+    const items = [
+      makeItem({
+        id: 'in-window',
+        approvalHistory: [
+          approvalTransition('INITIAL_APPROVAL', '2026-07-01T00:00:00.000Z'),
+          approvalTransition('I_APPROVED', '2026-07-05T00:00:00.000Z'), // 4d
+          approvalTransition('SUBMITTED', '2026-07-10T00:00:00.000Z'), // 9d found→submitted
+        ],
+        createdAt: '2026-07-01T00:00:00.000Z',
+      }),
+    ];
+    const { perStage, foundToSubmitted } = cycleTime(items, WINDOW_START, WINDOW_END);
+    const initial = perStage.find((r) => r.stage === 'execSummaryToReview')!;
+    expect(initial.n).toBe(1);
+    expect(initial.avgDays).toBe(4);
+    expect(foundToSubmitted.n).toBe(1);
+    expect(foundToSubmitted.avgDays).toBe(9);
   });
 });
 
