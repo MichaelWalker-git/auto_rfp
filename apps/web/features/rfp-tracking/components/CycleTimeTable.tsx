@@ -9,22 +9,20 @@ import type { CycleTimeSummary } from '../lib/derive-metrics';
 interface CycleTimeTableProps {
   summary: CycleTimeSummary;
   onExport: () => void;
-  /** The trailing window (in weeks) the summary was computed over, for the badge. */
-  weeks: number;
 }
 
 const days = (value: number | null): string => (value === null ? '—' : `${value.toFixed(1)}d`);
 
 /** Average AND median days per stage, plus total found-to-submitted. */
-export const CycleTimeTable = ({ summary, onExport, weeks }: CycleTimeTableProps) => (
+export const CycleTimeTable = ({ summary, onExport }: CycleTimeTableProps) => (
   <Card>
     <CardHeader className="flex flex-row items-start justify-between gap-2">
       <div>
         <div className="flex items-center gap-2">
           <CardTitle className="text-base">Cycle Time</CardTitle>
-          <Badge variant="secondary" className="text-[10px] font-normal">{`Last ${weeks} weeks`}</Badge>
+          <Badge variant="secondary" className="text-[10px] font-normal">Last 60 days</Badge>
         </div>
-        <CardDescription>Average and median days for RFPs submitted in the window</CardDescription>
+        <CardDescription>Average and median days for RFPs submitted in the last 60 days</CardDescription>
       </div>
       <ExportCsvButton onExport={onExport} />
     </CardHeader>
