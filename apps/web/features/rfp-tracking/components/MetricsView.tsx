@@ -5,6 +5,7 @@ import type { RfpPipelineItem } from '@auto-rfp/core';
 import {
   filterItems,
   lastNWeeksRange,
+  funnelCohortRange,
   ownerOptions,
   throughputByWeek,
   funnel,
@@ -57,6 +58,9 @@ export const MetricsView = ({
 
   const owners = useMemo(() => ownerOptions(items), [items]);
   const range = useMemo(() => lastNWeeksRange(now, weeks), [now, weeks]);
+  // The funnel uses its own fixed 60-day cohort window, independent of the
+  // date-range selector, so its `submitted` row is never censored.
+  const funnelRange = useMemo(() => funnelCohortRange(now), [now]);
 
   // Owner-filtered working set; date scoping is applied per metric.
   const scoped = useMemo(() => filterItems(items, { assigneeName }), [items, assigneeName]);
@@ -65,7 +69,10 @@ export const MetricsView = ({
     () => throughputByWeek(scoped, range.startIso, range.endIso),
     [scoped, range],
   );
-  const funnelRows = useMemo(() => funnel(scoped), [scoped]);
+  const funnelRows = useMemo(
+    () => funnel(scoped, funnelRange.startIso, funnelRange.endIso),
+    [scoped, funnelRange],
+  );
   const cycle = useMemo(() => cycleTime(scoped), [scoped]);
   const win = useMemo(() => winRate(scoped, range.startIso, range.endIso), [scoped, range]);
   const outcomes = useMemo(
