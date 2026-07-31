@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { AlertTriangle, ChevronsDownUp, ChevronsUpDown, Loader2, MessageSquare, Play, Send, Sparkles } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, ChevronDown, ChevronsDownUp, ChevronsUpDown, ChevronUp, Loader2, MessageSquare, Play, Send, Sparkles } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { useReviewRun } from '../hooks/useReviewRun';
 import { useComplianceChat } from '../hooks/useComplianceChat';
 import { useFindingDecisions } from '../hooks/useFindingDecisions';
 import { FindingsList } from './FindingsList';
+import { FindingsStats } from './FindingsStats';
 import { FindingsFilterBar, applyFilter, emptyFilter, isFilterActive, type FindingsFilter } from './FindingsFilterBar';
 
 interface ComplianceReviewPanelProps {
@@ -47,6 +48,10 @@ export const ComplianceReviewPanel = ({ orgId, projectId, oppId }: ComplianceRev
     setExpandSignal((n) => n + 1);
   };
 
+  // Collapse the findings area down to a stats summary (cards hidden). Everything
+  // above the cards (run button, banners, filter) stays visible when collapsed.
+  const [findingsCollapsed, setFindingsCollapsed] = useState(false);
+
   const hasFindings =
     activeFindings.length + dismissedFindings.length + resolvedFindings.length > 0;
 
@@ -75,8 +80,23 @@ export const ComplianceReviewPanel = ({ orgId, projectId, oppId }: ComplianceRev
     }
   };
 
+  // Keep the chat scrolled to the latest message: on tab switch to chat, on
+  // open (history load), and whenever a message arrives (user echo or AI reply).
+  const [activeTab, setActiveTab] = useState('full-review');
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (activeTab !== 'chat') return;
+    // Wait a frame so the just-shown chat panel has laid out (scrollHeight is 0
+    // while hidden). rAF covers the tab-switch mount; the deps cover new messages.
+    const id = requestAnimationFrame(() => {
+      const el = chatScrollRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    });
+    return () => cancelAnimationFrame(id);
+  }, [activeTab, messages, pendingMessage, isSending, isLoadingHistory]);
+
   return (
-    <Tabs defaultValue="full-review" className="w-full">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
       <TabsList>
         <TabsTrigger value="full-review">
           <Sparkles className="mr-1.5 h-3.5 w-3.5" />
@@ -134,43 +154,69 @@ export const ComplianceReviewPanel = ({ orgId, projectId, oppId }: ComplianceRev
           <>
             {hasFindings && (
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <FindingsFilterBar allFindings={allFindings} filter={filter} onChange={setFilter} />
-                <Button variant="ghost" size="sm" onClick={toggleAllDetails}>
-                  {detailsExpanded ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFindingsCollapsed((v) => !v)}
+                  aria-expanded={!findingsCollapsed}
+                >
+                  {findingsCollapsed ? (
                     <>
-                      <ChevronsDownUp className="mr-1.5 h-3.5 w-3.5" />
-                      Minimize all
+                      <ChevronDown className="mr-1.5 h-3.5 w-3.5" />
+                      Show findings
                     </>
                   ) : (
                     <>
-                      <ChevronsUpDown className="mr-1.5 h-3.5 w-3.5" />
-                      Show details
+                      <ChevronUp className="mr-1.5 h-3.5 w-3.5" />
+                      Collapse findings
                     </>
                   )}
                 </Button>
+                {!findingsCollapsed && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <FindingsFilterBar allFindings={allFindings} filter={filter} onChange={setFilter} />
+                    <Button variant="ghost" size="sm" onClick={toggleAllDetails}>
+                      {detailsExpanded ? (
+                        <>
+                          <ChevronsDownUp className="mr-1.5 h-3.5 w-3.5" />
+                          Minimize all
+                        </>
+                      ) : (
+                        <>
+                          <ChevronsUpDown className="mr-1.5 h-3.5 w-3.5" />
+                          Show details
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
-            <FindingsList
-              activeFindings={filteredActive}
-              dismissedFindings={filteredDismissed}
-              resolvedFindings={filteredResolved}
-              orgId={orgId}
-              projectId={projectId}
-              oppId={oppId}
-              onDismiss={(fp) => setDecision(fp, 'dismissed')}
-              onResolve={(fp) => setDecision(fp, 'resolved')}
-              onReopen={(fp) => setDecision(fp, null)}
-              defaultExpanded={detailsExpanded}
-              expandSignal={expandSignal}
-              filtered={isFilterActive(filter)}
-            />
+            {findingsCollapsed ? (
+              <FindingsStats findings={activeFindings} />
+            ) : (
+              <FindingsList
+                activeFindings={filteredActive}
+                dismissedFindings={filteredDismissed}
+                resolvedFindings={filteredResolved}
+                orgId={orgId}
+                projectId={projectId}
+                oppId={oppId}
+                onDismiss={(fp) => setDecision(fp, 'dismissed')}
+                onResolve={(fp) => setDecision(fp, 'resolved')}
+                onReopen={(fp) => setDecision(fp, null)}
+                defaultExpanded={detailsExpanded}
+                expandSignal={expandSignal}
+                filtered={isFilterActive(filter)}
+              />
+            )}
           </>
         )}
       </TabsContent>
 
       {/* ── Conversational review ────────────────────────────────────────── */}
       <TabsContent value="chat" className="space-y-4">
-        <div className="space-y-3 max-h-[480px] overflow-y-auto">
+        <div ref={chatScrollRef} className="space-y-3 max-h-[480px] overflow-y-auto">
           {isLoadingHistory ? (
             <>
               <Skeleton className="h-16 w-3/4" />

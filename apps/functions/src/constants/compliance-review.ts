@@ -40,6 +40,17 @@ export const MAX_TOKENS_FULL = 24000;
 /** Max characters of a single document section returned to the model. */
 export const MAX_SECTION_CHARS = 6000;
 /**
+ * Max fields returned by a single get_form_fields call. A wide XLSX compliance
+ * matrix can carry thousands of fields (see the OOM fix in #299); dumping them
+ * all unbounded blew the Bedrock 200k-token prompt limit ("prompt is too long:
+ * 213494 tokens") on broad questions that made the model read every form. The
+ * model can narrow with the tool's labelFilter arg when it needs a specific
+ * field (e.g. a phone number).
+ */
+export const MAX_FORM_FIELDS_RETURNED = 150;
+/** Max characters of a single form field's value returned to the model. */
+export const MAX_FORM_FIELD_VALUE_CHARS = 200;
+/**
  * A run left in RUNNING longer than this is treated as FAILED by the read path
  * (crash recovery — the SQS worker died without writing a terminal state).
  * Set above the worker Lambda timeout + SQS retry margin.

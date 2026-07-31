@@ -19,7 +19,11 @@ import { truncateText } from '@/helpers/executive-opportunity-brief';
 import { listRFPDocumentsByProject, loadRFPDocumentHtml } from '@/helpers/rfp-document';
 import { listRequiredFormsByOpportunity } from '@/helpers/required-form';
 import { extractHeadings, getSectionText } from '@/helpers/compliance-review-html';
-import { MAX_SECTION_CHARS } from '@/constants/compliance-review';
+import {
+  MAX_SECTION_CHARS,
+  MAX_FORM_FIELDS_RETURNED,
+  MAX_FORM_FIELD_VALUE_CHARS,
+} from '@/constants/compliance-review';
 import type { ToolDefinition, ToolResult } from '@/types/tool';
 import type { ChatSourceCitation, ComplianceTargetKind } from '@auto-rfp/core';
 
@@ -139,11 +143,19 @@ export const COMPLIANCE_REVIEW_TOOLS: ReadonlyArray<ToolDefinition> = [
     name: 'get_form_fields',
     description:
       'Get the fields (fieldId, label, current value) of one required form, addressed by formId. ' +
-      'Use this to check form values and to reference a specific field (by fieldId) in a finding.',
+      'Use this to check form values and to reference a specific field (by fieldId) in a finding. ' +
+      'Large forms (e.g. wide XLSX matrices) are capped; when you are looking for a specific kind of ' +
+      'field (e.g. a phone number, a price, a date), pass labelFilter to return only fields whose ' +
+      'label or value contains that text — this is both faster and avoids the cap.',
     input_schema: {
       type: 'object',
       properties: {
         formId: { type: 'string', description: 'The required-form id from list_package_documents.' },
+        labelFilter: {
+          type: 'string',
+          description:
+            'Optional case-insensitive substring; only fields whose label or value contains it are returned.',
+        },
       },
       required: ['formId'],
     },
@@ -218,12 +230,42 @@ export const makeComplianceToolExecutor = (ctx: {
           const formId = String(toolInput.formId ?? '');
           const form = inventory.forms.find((f) => f.formId === formId);
           if (!form) return { tool_use_id: toolUseId, content: `No required form with id ${formId}.` };
-          const lines = form.fields.map(
-            (f) => `- fieldId=${f.fieldId} | "${f.label}" | value: ${f.value ?? '(empty)'}`,
+
+          // Optional label/value substring filter — lets the model ask for just
+          // the phone/price/date fields instead of pulling the whole matrix.
+          const rawFilter = typeof toolInput.labelFilter === 'string' ? toolInput.labelFilter.trim() : '';
+          const filter = rawFilter.toLowerCase();
+          const matched = filter
+            ? form.fields.filter(
+                (f) =>
+                  f.label.toLowerCase().includes(filter) ||
+                  (f.value ?? '').toLowerCase().includes(filter),
+              )
+            : form.fields;
+
+          // Cap the number of fields returned. A wide XLSX matrix can carry
+          // thousands of fields; dumping them all overflowed Bedrock's 200k-token
+          // prompt limit. The model can re-query with a narrower labelFilter.
+          const shown = matched.slice(0, MAX_FORM_FIELDS_RETURNED);
+          const lines = shown.map(
+            (f) =>
+              `- fieldId=${f.fieldId} | "${f.label}" | value: ${
+                f.value ? truncateText(f.value, MAX_FORM_FIELD_VALUE_CHARS) : '(empty)'
+              }`,
           );
+
+          const header = filter
+            ? `Form "${form.name}" fields matching "${rawFilter}" (${matched.length} of ${form.fields.length}):`
+            : `Form "${form.name}" fields (${form.fields.length}):`;
+          const omitted = matched.length - shown.length;
+          const footer =
+            omitted > 0
+              ? `\n… ${omitted} more field(s) not shown — narrow with labelFilter to see specific fields.`
+              : '';
+
           return {
             tool_use_id: toolUseId,
-            content: `Form "${form.name}" fields:\n${lines.join('\n') || '(no fields)'}`,
+            content: `${header}\n${lines.join('\n') || '(no matching fields)'}${footer}`,
           };
         }
 

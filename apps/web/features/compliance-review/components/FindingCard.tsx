@@ -130,17 +130,27 @@ export const FindingCard = ({
         {!readOnly && (
           <div className="flex items-center gap-2">
             {isDecided ? (
-              <Button variant="ghost" size="sm" onClick={() => onReopen?.(finding.fingerprint)}>
+              <Button variant="outline" size="sm" onClick={() => onReopen?.(finding.fingerprint)}>
                 <Undo2 className="mr-1 h-3.5 w-3.5" />
                 Reopen
               </Button>
             ) : (
               <>
-                <Button variant="ghost" size="sm" onClick={() => onResolve?.(finding.fingerprint)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950"
+                  onClick={() => onResolve?.(finding.fingerprint)}
+                >
                   <Check className="mr-1 h-3.5 w-3.5" />
                   Resolve
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => onDismiss?.(finding.fingerprint)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
+                  onClick={() => onDismiss?.(finding.fingerprint)}
+                >
                   <X className="mr-1 h-3.5 w-3.5" />
                   Dismiss
                 </Button>

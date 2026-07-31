@@ -92,6 +92,43 @@ describe('validateAndTagFindings', () => {
     expect(results).toHaveLength(2);
   });
 
+  it('recovers a missing documentId from a field anchor (form ownership)', async () => {
+    // The model pinned the exact fieldId but omitted the formId → the finding
+    // would have no "Go to spot" link. Recovery back-fills it from the anchor.
+    const [f] = await validateAndTagFindings(
+      [raw({ targetKind: 'PDF_FORM', documentId: undefined, anchor: { kind: 'field', fieldId: 'field-9' } })],
+      inventory,
+    );
+    expect(f.documentId).toBe('form-1');
+    expect(f.documentTitle).toBe('SF-1449');
+    expect(f.anchorValid).toBe(true);
+  });
+
+  it('recovers a missing documentId from a uniquely-owned heading anchor', async () => {
+    const [f] = await validateAndTagFindings(
+      [raw({ documentId: undefined, anchor: { kind: 'heading', text: 'Section L' }, snippet: 'the offeror shall provide' })],
+      inventory,
+    );
+    expect(f.documentId).toBe('doc-1');
+    expect(f.anchorValid).toBe(true);
+  });
+
+  it('recovers a missing documentId by matching an exact documentTitle', async () => {
+    const [f] = await validateAndTagFindings(
+      [raw({ documentId: undefined, documentTitle: 'Technical Volume' })],
+      inventory,
+    );
+    expect(f.documentId).toBe('doc-1');
+  });
+
+  it('leaves documentId undefined when there is no anchor or title to recover from', async () => {
+    const [f] = await validateAndTagFindings(
+      [raw({ documentId: undefined, documentTitle: undefined, title: 'General observation' })],
+      inventory,
+    );
+    expect(f.documentId).toBeUndefined();
+  });
+
   it('keeps two distinct anchorless MISSING_FORM findings (regression: F-001 vs F-002)', async () => {
     const offerForm = raw({
       targetKind: 'FORM_MISSING',

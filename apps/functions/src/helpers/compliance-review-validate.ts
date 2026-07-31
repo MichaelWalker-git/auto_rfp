@@ -44,6 +44,57 @@ const anchorExists = (
 };
 
 /**
+ * Recover a missing `documentId`/`documentTitle` from the finding's anchor or
+ * title. The model often pins a finding to an exact fieldId/heading but forgets
+ * to also emit the owning documentId — which would leave the finding with no
+ * "Go to spot" link in the UI (buildFindingHref needs documentId). Since the
+ * anchor already identifies the target unambiguously against the inventory, we
+ * back-fill the id here rather than trust the model to have populated it.
+ * Returns the id/title to use (possibly the originals unchanged).
+ */
+const recoverDocumentRef = (
+  raw: RawFinding,
+  inventory: PackageInventory,
+): { documentId?: string; documentTitle?: string } => {
+  let documentId = raw.documentId;
+  let documentTitle = raw.documentTitle;
+
+  if (!documentId && raw.anchor) {
+    if (raw.anchor.kind === 'field') {
+      const fieldId = raw.anchor.fieldId;
+      const form = inventory.forms.find((f) => f.fields.some((fl) => fl.fieldId === fieldId));
+      if (form) {
+        documentId = form.formId;
+        documentTitle = documentTitle ?? form.name;
+      }
+    } else if (raw.anchor.kind === 'heading') {
+      const target = raw.anchor.text.trim().toLowerCase();
+      const matches = inventory.documents.filter((d) =>
+        d.headings.some((h) => h.trim().toLowerCase() === target),
+      );
+      // Only recover when a single document owns the heading — an ambiguous
+      // heading shared across docs can't be resolved from the anchor alone.
+      if (matches.length === 1) {
+        documentId = matches[0].documentId;
+        documentTitle = documentTitle ?? matches[0].title;
+      }
+    }
+  }
+
+  // Last resort: the model gave a documentTitle but no id — match it to the
+  // inventory by exact (normalized) title/name so the finding still links.
+  if (!documentId && documentTitle) {
+    const target = documentTitle.trim().toLowerCase();
+    const doc = inventory.documents.find((d) => d.title.trim().toLowerCase() === target);
+    const form = inventory.forms.find((f) => f.name.trim().toLowerCase() === target);
+    if (doc) documentId = doc.documentId;
+    else if (form) documentId = form.formId;
+  }
+
+  return { documentId, documentTitle };
+};
+
+/**
  * Validate + fingerprint a batch of raw findings against the package.
  * `docTextCache` avoids re-loading the same document HTML for snippet checks.
  */
@@ -74,20 +125,24 @@ export const validateAndTagFindings = async (
   // drop later duplicates so storage/UI never carry — or re-key — the same item.
   const seenFingerprints = new Set<string>();
   for (const raw of rawFindings) {
+    // Back-fill a missing documentId/title from the anchor so the finding keeps
+    // its "Go to spot" link even when the model omitted the id.
+    const { documentId, documentTitle } = recoverDocumentRef(raw, inventory);
+
     // Verify the snippet is a genuine substring of the target document (RFP docs only).
     let snippetValid = false;
-    if (raw.snippet && raw.documentId && raw.targetKind === 'RFP_DOCUMENT') {
+    if (raw.snippet && documentId && raw.targetKind === 'RFP_DOCUMENT') {
       const normalizedSnippet = normalizeSnippet(raw.snippet);
       if (normalizedSnippet) {
-        const docText = await loadDocText(raw.documentId);
+        const docText = await loadDocText(documentId);
         // stripHtml already collapses whitespace; normalize the haystack the same way.
         snippetValid = docText.replace(/\s+/g, ' ').includes(normalizedSnippet);
       }
     }
 
-    const anchorOk = anchorExists(raw.anchor, raw.documentId, inventory);
+    const anchorOk = anchorExists(raw.anchor, documentId, inventory);
     const fingerprint = computeFingerprint({
-      documentId: raw.documentId,
+      documentId,
       anchor: raw.anchor,
       issueType: raw.issueType,
       snippet: raw.snippet,
@@ -99,6 +154,8 @@ export const validateAndTagFindings = async (
 
     results.push({
       ...raw,
+      documentId,
+      documentTitle,
       fingerprint,
       // Anchor is "valid" (jump directly) only if the addressable target exists.
       // For RFP docs we additionally require the snippet to check out so the

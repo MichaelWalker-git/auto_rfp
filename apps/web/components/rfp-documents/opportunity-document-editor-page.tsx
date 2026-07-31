@@ -516,10 +516,10 @@ export const OpportunityDocumentEditorPage = ({
     if (!isEditorReady || hasHighlightedRef.current) return;
     if (!highlightSection && !findSnippet) return;
     hasHighlightedRef.current = true;
-    // Wait for editor remount/render + image resolution, matching the existing
-    // post-edit scroll delay.
-    const t = setTimeout(() => highlightFromParams({ highlightSection, findSnippet }), 800);
-    return () => clearTimeout(t);
+    // highlightFromParams polls until the TipTap DOM settles (the editor keeps
+    // re-rendering — detaching heading nodes — for a short window after mount),
+    // so it flashes a node that actually stays on screen.
+    highlightFromParams({ highlightSection, findSnippet });
   }, [isEditorReady, highlightSection, findSnippet]);
 
   // Auto-switch to review tab when there are pending actions

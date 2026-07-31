@@ -5,6 +5,17 @@ import type { RequiredFormItem } from '@auto-rfp/core';
 
 // ─── Mocks ───
 
+// jest.setup mocks next/navigation with an empty useSearchParams. Override it
+// here with a mutable param map so the compliance-review deep-link tests can
+// drive ?highlightField / ?highlightCell.
+let searchParamString = '';
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  usePathname: () => '/',
+  useParams: () => ({}),
+  useSearchParams: () => new URLSearchParams(searchParamString),
+}));
+
 const mockApiMutate = jest.fn();
 const mockApiFetcher = jest.fn();
 jest.mock('@/lib/hooks/api-helpers', () => ({
@@ -47,6 +58,10 @@ jest.mock('xlsx', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  searchParamString = '';
+  // jsdom lacks scroll APIs the highlighter calls.
+  Element.prototype.scrollIntoView = jest.fn();
+  Element.prototype.scrollTo = jest.fn() as unknown as typeof Element.prototype.scrollTo;
   mockApiMutate.mockResolvedValue({ url: 'https://s3.example/file.xlsx' });
   global.fetch = jest.fn().mockResolvedValue({
     arrayBuffer: async () => new ArrayBuffer(8),
@@ -191,6 +206,56 @@ describe('XlsxFormEditor — multipage support', () => {
 
     await waitFor(() => {
       expect(screen.getByText('MFA support — Fully Meets')).toBeTruthy();
+    });
+  });
+});
+
+describe('XlsxFormEditor — compliance-review deep-link highlight', () => {
+  it('tags grid cells + the sidebar row with the field locator attribute', async () => {
+    const { container } = render(<XlsxFormEditor doc={buildDoc()} orgId="org-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('MFA support — Fully Meets')).toBeTruthy();
+    });
+
+    // The editable B2 cell (row 1, col 1 in the zero-indexed grid) and the
+    // sidebar row both carry data-highlight-field="field-1" so the highlighter
+    // can locate the field from the URL.
+    const tagged = container.querySelectorAll('[data-highlight-field="field-1"]');
+    expect(tagged.length).toBeGreaterThan(0);
+    // Every cell carries a row,col locator.
+    expect(container.querySelector('[data-highlight-cell="1,1"]')).toBeTruthy();
+  });
+
+  it('activates the field-owning sheet when opened with ?highlightField', async () => {
+    // Two data sheets; the target field lives on the second (Pricing) which is
+    // NOT the default active tab — the deep-link must switch to it.
+    workbookState.SheetNames = ['Compliance', 'Pricing'];
+    workbookState.Sheets = {
+      Compliance: { __rows: [['Feature', 'Fully Meets'], ['MFA support', '']] },
+      Pricing: { __rows: [['Item', 'Cost'], ['License', '']] },
+    };
+    const doc = buildDoc();
+    doc.fields = [
+      { ...doc.fields[0], sheetName: 'Compliance', sheetIndex: 0 },
+      {
+        ...doc.fields[0],
+        fieldId: 'field-2',
+        label: 'License — Cost',
+        cellReference: 'B2',
+        sheetName: 'Pricing',
+        sheetIndex: 1,
+        matrixFeature: 'License',
+      },
+    ];
+    searchParamString = 'highlightField=field-2';
+
+    render(<XlsxFormEditor doc={doc} orgId="org-1" />);
+
+    // The Pricing sheet becomes active (its field shows in the sidebar) without
+    // the user clicking the tab, because the deep-link resolved field-2 → Pricing.
+    await waitFor(() => {
+      expect(screen.getByText('License — Cost')).toBeTruthy();
     });
   });
 });
