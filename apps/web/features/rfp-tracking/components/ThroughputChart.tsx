@@ -1,6 +1,6 @@
 'use client';
 
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LabelList, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ExportCsvButton } from './ExportCsvButton';
 import type { ThroughputBucket } from '../lib/derive-metrics';
@@ -34,17 +34,6 @@ export const ThroughputChart = ({ data, onExport }: ThroughputChartProps) => {
               <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
               <XAxis dataKey="label" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-              <Tooltip
-                cursor={{ fill: 'hsl(var(--muted))', opacity: 0.35 }}
-                labelFormatter={() => ''}
-                formatter={(value: number) => [value, '']}
-                contentStyle={{
-                  fontSize: 12,
-                  borderRadius: 8,
-                  border: '1px solid hsl(var(--border))',
-                  background: 'hsl(var(--background))',
-                }}
-              />
               <Bar dataKey="count" name="Submitted" fill="#6366f1" radius={[3, 3, 0, 0]}>
                 <LabelList
                   dataKey="count"
