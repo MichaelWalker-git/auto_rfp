@@ -197,7 +197,7 @@ export const throughputByWeek = (
     }));
 };
 
-// ─── 2. Funnel — items entering each canonical stage + conversion ────────────
+// ─── 2. Funnel — intake cohort followed through to submitted + conversion ────
 
 export interface FunnelRow {
   stage: RfpPipelineStage;
@@ -208,18 +208,20 @@ export interface FunnelRow {
 }
 
 /**
- * Canonical funnel order chosen to answer "does it take 100 leads to get 1
- * deal?" — the lead-to-deal path: sourced/intake → first approval →
- * pre-submission → submitted → awarded. We deliberately use this linear subset
- * of the board rather than the full 11-stage order (which includes terminal
- * dead-ends like notApproved/lost that would break a monotonic funnel).
+ * Canonical funnel order — the lead-to-deal path from intake to a submitted bid:
+ * intake → first approval → pre-submission → submitted. We deliberately use this
+ * linear subset of the board (not the full 11-stage order, which includes
+ * terminal dead-ends like notApproved/lost that would break a monotonic funnel),
+ * and we stop at `submitted` rather than `awarded`: awards land months after
+ * submission and are pruned from the board after RFP_TERMINAL_WINDOW_DAYS, so an
+ * `awarded` row inside any reasonable cohort window would be structurally empty
+ * and misleading. Win rate (awarded/submitted) is reported separately.
  */
 export const FUNNEL_STAGE_ORDER: readonly RfpPipelineStage[] = [
   'execSummaryToReview',
   'firstApproved',
   'preSubmissionReview',
   'submitted',
-  'awarded',
 ];
 
 /** Rank of an approval milestone along the lead-to-deal path (higher = further). */
@@ -237,7 +239,8 @@ const APPROVAL_RANK: Record<OpportunityApprovalStatus, number> = {
  * ever reached. Because the Linear sync stores only an item's CURRENT state
  * (not its full transition path), we infer the furthest point from the highest
  * approval milestone seen (current status + any approvalHistory `to`), plus the
- * submitted/awarded signals. Every item has at least reached intake (rank 0).
+ * submitted signal (awarded is also treated as submitted, since a WON item was
+ * necessarily submitted first). Every item has at least reached intake (rank 0).
  */
 const furthestFunnelRank = (item: RfpPipelineItem): number => {
   const seen: OpportunityApprovalStatus[] = [
@@ -247,22 +250,47 @@ const furthestFunnelRank = (item: RfpPipelineItem): number => {
   const maxApprovalRank = seen.reduce((max, s) => Math.max(max, APPROVAL_RANK[s] ?? 0), 0);
 
   let rank = Math.min(maxApprovalRank, 2); // approval milestones cover ranks 0–2 of the funnel
-  if (hasSubmitted(item) || maxApprovalRank >= 3) rank = Math.max(rank, 3); // submitted
-  if (isAwarded(item)) rank = Math.max(rank, 4); // awarded
+  // Submitted (rank 3, the last row) — reached directly, via a rank-3 milestone,
+  // or implied by an awarded outcome (WON ⇒ was submitted).
+  if (hasSubmitted(item) || maxApprovalRank >= 3 || isAwarded(item)) rank = Math.max(rank, 3);
   return rank;
 };
 
 /**
- * Cumulative funnel: each row counts every item that has reached that stage OR
- * BEYOND, so counts are monotonically non-increasing and each conversion is the
- * share of the previous stage that advanced (always 0–100%).
+ * The ISO timestamp an item entered intake (the top of the funnel), or null if
+ * indeterminable. Prefer the first approvalHistory `to === 'INITIAL_APPROVAL'`
+ * entry (the true intake event), then `createdAt` (the Linear sync always sets
+ * this to the issue's creation date, so it's a sound intake proxy).
  *
- * This is a CURRENT-STATE snapshot, not a windowed transition count — the sync
- * only persists an item's latest state, so a true per-window transition funnel
- * isn't derivable. The `scoped` items are already owner-filtered by the caller.
+ * We deliberately DON'T fall back to `entryIntoCurrentStageIso` here (unlike the
+ * cycleTime `found` anchor): that returns entry into the item's *current* stage,
+ * which for a late-stage item is dated ~now and would wrongly pull a
+ * long-ago-sourced item into a recent cohort window. An item with no derivable
+ * intake date is instead excluded from the cohort (null → outside every window).
  */
-export const funnel = (items: RfpPipelineItem[]): FunnelRow[] => {
-  const ranks = items.map(furthestFunnelRank);
+export const intakeEntryIso = (item: RfpPipelineItem): string | null =>
+  firstReachedIso(item, 'INITIAL_APPROVAL') ?? item.createdAt ?? null;
+
+/**
+ * Cohort funnel over [startIso, endIso]: the cohort is every item whose INTAKE
+ * entry falls inside the window; each row then counts how many of that same
+ * fixed cohort ever reached that stage OR BEYOND. Because every row scores the
+ * one cohort, counts are monotonically non-increasing and each conversion is the
+ * share of the previous stage that advanced (always a clean 0–100%).
+ *
+ * This is a true cohort funnel, NOT a current-state snapshot: an item is placed
+ * by WHEN it entered, and followed through regardless of where it sits now. The
+ * dev data (median intake→submitted 13d, max 29d) confirms a window this size
+ * captures a cohort's full journey without censoring the `submitted` row. The
+ * `items` are already owner-filtered by the caller.
+ */
+export const funnel = (
+  items: RfpPipelineItem[],
+  startIso: string,
+  endIso: string,
+): FunnelRow[] => {
+  const cohort = items.filter((item) => inWindow(intakeEntryIso(item), startIso, endIso));
+  const ranks = cohort.map(furthestFunnelRank);
   const counts = FUNNEL_STAGE_ORDER.map(
     (_stage, i) => ranks.filter((r) => r >= i).length,
   );
@@ -568,6 +596,21 @@ export interface MetricsDateRange {
 export const lastNWeeksRange = (nowIso: string, weeks: number): MetricsDateRange => {
   const end = new Date(nowIso);
   const start = new Date(end.getTime() - weeks * 7 * MS_PER_DAY);
+  return { startIso: start.toISOString(), endIso: end.toISOString() };
+};
+
+/**
+ * Fixed cohort window for the funnel: 60 days. Chosen against real data — the
+ * dev board's intake→submitted cycle maxes out at 29 days, so 60 days captures
+ * every cohort member's full journey (no `submitted`-row censoring) while being
+ * wide enough to keep cohort sizes meaningful. A window ending at `nowIso`.
+ */
+export const FUNNEL_COHORT_DAYS = 60;
+
+/** The funnel's fixed 60-day cohort window ending at `nowIso`. */
+export const funnelCohortRange = (nowIso: string): MetricsDateRange => {
+  const end = new Date(nowIso);
+  const start = new Date(end.getTime() - FUNNEL_COHORT_DAYS * MS_PER_DAY);
   return { startIso: start.toISOString(), endIso: end.toISOString() };
 };
 

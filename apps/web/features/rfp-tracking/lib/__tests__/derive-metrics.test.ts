@@ -14,6 +14,7 @@ import {
   aging,
   ownerOptions,
   lastNWeeksRange,
+  funnelCohortRange,
   FUNNEL_STAGE_ORDER,
 } from '../derive-metrics';
 import { makeItem, approvalTransition } from '../../__tests__/fixtures';
@@ -157,24 +158,28 @@ describe('throughputByWeek', () => {
 });
 
 describe('funnel', () => {
-  it('follows the canonical lead-to-deal stage order', () => {
-    const rows = funnel([]);
+  // A 60-day window ending at NOW; intake events at `AT` (a week before) fall inside.
+  const { startIso: FUNNEL_START, endIso: FUNNEL_END } = funnelCohortRange(NOW);
+  const AT = '2026-07-20T00:00:00.000Z'; // inside the window
+
+  it('follows the canonical intake→submitted stage order (no awarded row)', () => {
+    const rows = funnel([], FUNNEL_START, FUNNEL_END);
     expect(rows.map((r) => r.stage)).toEqual([...FUNNEL_STAGE_ORDER]);
+    expect(rows.map((r) => r.stage)).not.toContain('awarded');
     expect(rows.every((r) => r.entered === 0)).toBe(true);
     expect(rows[0]!.conversionFromPrev).toBeNull();
   });
 
-  it('counts each item cumulatively at its furthest stage + conversion between stages', () => {
-    const at = '2026-07-20T00:00:00.000Z';
+  it('counts each cohort item cumulatively at its furthest stage + conversion between stages', () => {
     const items = [
       // Furthest = submitted (rank 3).
       makeItem({
         id: 'a',
         approvalStatus: 'SUBMITTED',
         approvalHistory: [
-          approvalTransition('INITIAL_APPROVAL', at),
-          approvalTransition('I_APPROVED', at),
-          approvalTransition('SUBMITTED', at),
+          approvalTransition('INITIAL_APPROVAL', AT),
+          approvalTransition('I_APPROVED', AT),
+          approvalTransition('SUBMITTED', AT),
         ],
       }),
       // Furthest = first approval (rank 1).
@@ -182,45 +187,125 @@ describe('funnel', () => {
         id: 'b',
         approvalStatus: 'I_APPROVED',
         approvalHistory: [
-          approvalTransition('INITIAL_APPROVAL', at),
-          approvalTransition('I_APPROVED', at),
+          approvalTransition('INITIAL_APPROVAL', AT),
+          approvalTransition('I_APPROVED', AT),
         ],
       }),
       // Furthest = initial (rank 0).
       makeItem({
         id: 'c',
         approvalStatus: 'INITIAL_APPROVAL',
-        approvalHistory: [approvalTransition('INITIAL_APPROVAL', at)],
+        approvalHistory: [approvalTransition('INITIAL_APPROVAL', AT)],
       }),
     ];
-    const rows = funnel(items);
+    const rows = funnel(items, FUNNEL_START, FUNNEL_END);
     const byStage = Object.fromEntries(rows.map((r) => [r.stage, r]));
     // Cumulative: reached this stage OR beyond → monotonically non-increasing.
     expect(byStage.execSummaryToReview!.entered).toBe(3);
     expect(byStage.firstApproved!.entered).toBe(2);
     expect(byStage.preSubmissionReview!.entered).toBe(1);
     expect(byStage.submitted!.entered).toBe(1);
-    expect(byStage.awarded!.entered).toBe(0);
     // 2 of 3 reached first approval → 66.7%
     expect(byStage.firstApproved!.conversionFromPrev).toBeCloseTo(66.67, 1);
     // 1 of 2 advanced to pre-submission → 50%
     expect(byStage.preSubmissionReview!.conversionFromPrev).toBe(50);
     // 1 of 1 advanced to submitted → 100% (never exceeds 100)
     expect(byStage.submitted!.conversionFromPrev).toBe(100);
-    // 0 of 1 reached awarded → 0%
-    expect(byStage.awarded!.conversionFromPrev).toBe(0);
+  });
+
+  it('excludes items whose intake entry falls outside the cohort window', () => {
+    const items = [
+      // Intake 6 months ago → outside the 60-day window → excluded entirely.
+      makeItem({
+        id: 'old',
+        approvalStatus: 'I_APPROVED',
+        approvalHistory: [
+          approvalTransition('INITIAL_APPROVAL', '2026-01-15T00:00:00.000Z'),
+          approvalTransition('I_APPROVED', '2026-01-20T00:00:00.000Z'),
+        ],
+      }),
+      // Intake inside the window → counted.
+      makeItem({
+        id: 'recent',
+        approvalStatus: 'I_APPROVED',
+        approvalHistory: [
+          approvalTransition('INITIAL_APPROVAL', AT),
+          approvalTransition('I_APPROVED', AT),
+        ],
+      }),
+    ];
+    const rows = funnel(items, FUNNEL_START, FUNNEL_END);
+    const byStage = Object.fromEntries(rows.map((r) => [r.stage, r]));
+    expect(byStage.execSummaryToReview!.entered).toBe(1);
+    expect(byStage.firstApproved!.entered).toBe(1);
+  });
+
+  it('falls back to createdAt for the intake anchor when approvalHistory has no INITIAL_APPROVAL', () => {
+    const items = [
+      makeItem({ id: 'a', createdAt: AT, approvalStatus: 'INITIAL_APPROVAL', approvalHistory: [] }),
+    ];
+    const rows = funnel(items, FUNNEL_START, FUNNEL_END);
+    expect(rows.find((r) => r.stage === 'execSummaryToReview')!.entered).toBe(1);
+  });
+
+  it('excludes an item with no derivable intake date rather than mis-dating it into the cohort', () => {
+    // No INITIAL_APPROVAL milestone and no createdAt: the intake anchor is
+    // indeterminable, so the item must be dropped from the cohort — NOT dated to
+    // its current (late) stage and pulled in. A SUBMITTED-only history at NOW
+    // would otherwise sneak a long-ago-sourced item into a recent window.
+    const items = [
+      makeItem({
+        id: 'no-intake',
+        createdAt: undefined,
+        approvalStatus: 'SUBMITTED',
+        approvalHistory: [approvalTransition('SUBMITTED', NOW)],
+      }),
+    ];
+    const rows = funnel(items, FUNNEL_START, FUNNEL_END);
+    expect(rows.every((r) => r.entered === 0)).toBe(true);
+  });
+
+  it('excludes an out-of-window item that is already terminal', () => {
+    const items = [
+      makeItem({
+        id: 'old-submitted',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        approvalStatus: 'SUBMITTED',
+        approvalHistory: [
+          approvalTransition('INITIAL_APPROVAL', '2026-01-01T00:00:00.000Z'),
+          approvalTransition('SUBMITTED', '2026-01-20T00:00:00.000Z'),
+        ],
+      }),
+    ];
+    const rows = funnel(items, FUNNEL_START, FUNNEL_END);
+    expect(rows.every((r) => r.entered === 0)).toBe(true);
   });
 
   it('never produces a conversion above 100% even when later stages look fuller', () => {
-    // A pathological input: many items currently at first-approved, few at intake.
+    // A pathological input: many items at first-approved, few showing only intake.
     const items = [
       ...Array.from({ length: 20 }, (_v, i) =>
-        makeItem({ id: `fa-${i}`, approvalStatus: 'I_APPROVED' }),
+        makeItem({
+          id: `fa-${i}`,
+          approvalStatus: 'I_APPROVED',
+          approvalHistory: [
+            approvalTransition('INITIAL_APPROVAL', AT),
+            approvalTransition('I_APPROVED', AT),
+          ],
+        }),
       ),
-      makeItem({ id: 'init-1', approvalStatus: 'INITIAL_APPROVAL' }),
-      makeItem({ id: 'init-2', approvalStatus: 'INITIAL_APPROVAL' }),
+      makeItem({
+        id: 'init-1',
+        approvalStatus: 'INITIAL_APPROVAL',
+        approvalHistory: [approvalTransition('INITIAL_APPROVAL', AT)],
+      }),
+      makeItem({
+        id: 'init-2',
+        approvalStatus: 'INITIAL_APPROVAL',
+        approvalHistory: [approvalTransition('INITIAL_APPROVAL', AT)],
+      }),
     ];
-    const rows = funnel(items);
+    const rows = funnel(items, FUNNEL_START, FUNNEL_END);
     const byStage = Object.fromEntries(rows.map((r) => [r.stage, r]));
     // All 22 reached intake; 20 reached first approval → 90.9%, not 1000%.
     expect(byStage.execSummaryToReview!.entered).toBe(22);
@@ -231,13 +316,19 @@ describe('funnel', () => {
     });
   });
 
-  it('counts awarded via current stage', () => {
+  it('counts an awarded cohort item as submitted (WON ⇒ was submitted)', () => {
     const items = [
-      makeItem({ id: 'a', status: 'WON', pipelineStage: 'awarded', completedAt: '2026-07-20T00:00:00.000Z' }),
+      makeItem({
+        id: 'a',
+        status: 'WON',
+        pipelineStage: 'awarded',
+        completedAt: NOW,
+        approvalHistory: [approvalTransition('INITIAL_APPROVAL', AT)],
+      }),
     ];
-    const rows = funnel(items);
-    expect(rows.find((r) => r.stage === 'awarded')!.entered).toBe(1);
-    // Awarded item counts at every earlier stage too.
+    const rows = funnel(items, FUNNEL_START, FUNNEL_END);
+    // Reaches the terminal `submitted` row and every earlier stage.
+    expect(rows.find((r) => r.stage === 'submitted')!.entered).toBe(1);
     expect(rows.find((r) => r.stage === 'execSummaryToReview')!.entered).toBe(1);
   });
 });
