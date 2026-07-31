@@ -217,14 +217,25 @@ describe('ROLE_PERMISSIONS', () => {
     expect(ROLE_PERMISSIONS.ADMIN.length).toBe(ALL_PERMISSIONS.length);
   });
 
-  it('should give VIEWER only read permissions', () => {
+  it('should give VIEWER read permissions plus viewer-safe exceptions', () => {
     expect(ROLE_PERMISSIONS.VIEWER).toEqual(expect.arrayContaining([...VIEWER_PERMISSIONS]));
+    // Permissions granted to VIEWER that are intentionally not `:read`:
+    //  - collaboration:* (presence/activity)
+    //  - notification:read / apn:read are :read
+    //  - rfp:approve_initial / rfp:approve_final — RFP approval is open to all org members
+    const viewerSafeNonRead = new Set(['rfp:approve_initial', 'rfp:approve_final']);
     ROLE_PERMISSIONS.VIEWER.forEach((perm) => {
-      // collaboration permissions use non-:read suffixes but are still viewer-safe
       const isCollaborationPerm = perm.startsWith('collaboration:');
-      if (!isCollaborationPerm) {
+      if (!isCollaborationPerm && !viewerSafeNonRead.has(perm)) {
         expect(perm).toMatch(/:read$/);
       }
+    });
+  });
+
+  it('grants RFP approval (both gates) to every role', () => {
+    (['ADMIN', 'EDITOR', 'VIEWER', 'MEMBER', 'BILLING'] as const).forEach((role) => {
+      expect(ROLE_PERMISSIONS[role]).toContain('rfp:approve_initial');
+      expect(ROLE_PERMISSIONS[role]).toContain('rfp:approve_final');
     });
   });
 

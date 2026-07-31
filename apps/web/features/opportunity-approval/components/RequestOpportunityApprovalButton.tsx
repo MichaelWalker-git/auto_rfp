@@ -49,7 +49,7 @@ export const RequestOpportunityApprovalButton = ({
   const { toast } = useToast();
   const { userSub } = useAuth();
 
-  const { eligibleReviewers, isLoading: isLoadingUsers } = useEligibleReviewers(orgId, projectId, userSub);
+  const { eligibleReviewers, isLoading: isLoadingUsers } = useEligibleReviewers(orgId, projectId, userSub ?? undefined);
 
   // One request at a time — hide the button entirely while a PENDING approval
   // is outstanding. The assigned reviewer sees the Approve/Reject panel instead.

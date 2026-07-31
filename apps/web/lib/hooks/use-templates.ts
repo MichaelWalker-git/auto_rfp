@@ -4,8 +4,6 @@ import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
 import type {
   MacroDefinition,
-  TemplateSection,
-  StylingConfig,
   TemplateVersionMeta,
   TemplateItem,
   TemplateListResponse,
@@ -13,7 +11,7 @@ import type {
 } from '@auto-rfp/core';
 
 // Re-export types from shared for convenience
-export type { MacroDefinition, TemplateSection, StylingConfig, TemplateVersionMeta, TemplateItem, TemplateListResponse, TemplateCategory };
+export type { MacroDefinition, TemplateVersionMeta, TemplateItem, TemplateListResponse, TemplateCategory };
 
 export type TemplateCategoryInfo = {
   name: string;
