@@ -431,6 +431,33 @@ describe('cycleTime', () => {
     expect(foundToSubmitted.n).toBe(1);
     expect(foundToSubmitted.avgDays).toBe(9);
   });
+
+  it('has no secondApproved row and measures preSubmissionReview as PRE_SUB_APPROVAL → SUBMITTED', () => {
+    // II_APPROVED is dropped from the milestone chain, so the tail collapses:
+    // the preSubmissionReview row is measured directly from PRE_SUB_APPROVAL to
+    // SUBMITTED, and secondApproved is no longer a row at all. An intervening
+    // II_APPROVED entry (present on some real records) is simply ignored.
+    const items = [
+      makeItem({
+        id: 'pre-sub',
+        approvalHistory: [
+          approvalTransition('INITIAL_APPROVAL', '2026-07-01T00:00:00.000Z'),
+          approvalTransition('I_APPROVED', '2026-07-03T00:00:00.000Z'),
+          approvalTransition('PRE_SUB_APPROVAL', '2026-07-08T00:00:00.000Z'),
+          approvalTransition('II_APPROVED', '2026-07-09T00:00:00.000Z'), // ignored
+          approvalTransition('SUBMITTED', '2026-07-11T00:00:00.000Z'), // 3d PRE_SUB → SUBMITTED
+        ],
+        createdAt: '2026-07-01T00:00:00.000Z',
+      }),
+    ];
+    const { perStage } = cycleTime(items, WINDOW_START, WINDOW_END);
+
+    expect(perStage.some((r) => r.stage === 'secondApproved')).toBe(false);
+
+    const preSub = perStage.find((r) => r.stage === 'preSubmissionReview')!;
+    expect(preSub.n).toBe(1);
+    expect(preSub.avgDays).toBe(3); // 07-08 → 07-11
+  });
 });
 
 describe('outcomeBreakdown', () => {

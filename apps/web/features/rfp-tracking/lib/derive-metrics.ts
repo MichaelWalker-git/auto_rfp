@@ -352,12 +352,20 @@ export interface CycleTimeSummary {
   foundToSubmitted: { avgDays: number | null; medianDays: number | null; n: number };
 }
 
-/** The approval milestones, in order, whose consecutive gaps are stage durations. */
+/**
+ * The approval milestones, in order, whose consecutive gaps are stage durations.
+ *
+ * `II_APPROVED` is intentionally omitted: on the real board it is almost never
+ * recorded as a distinct dated state (submissions overwhelmingly jump straight
+ * from an earlier gate to SUBMITTED), so a `secondApproved` row was structurally
+ * empty. Dropping it collapses the tail into a single `preSubmissionReview` row
+ * measured directly as PRE_SUB_APPROVAL → SUBMITTED. The total found→submitted
+ * span is unaffected (it is an independent end-to-end measurement, not a sum).
+ */
 const CYCLE_APPROVAL_ORDER: readonly OpportunityApprovalStatus[] = [
   'INITIAL_APPROVAL',
   'I_APPROVED',
   'PRE_SUB_APPROVAL',
-  'II_APPROVED',
   'SUBMITTED',
 ];
 
