@@ -2,6 +2,7 @@ import type {
   RfpPipelineItem,
   RfpPipelineStage,
   OpportunityApprovalStatus,
+  OpportunityStatus,
 } from '@auto-rfp/core';
 import { RFP_STAGE_LABELS } from '@auto-rfp/core';
 import { entryIntoCurrentStageIso, resolveStage } from './derive-board';
@@ -17,16 +18,15 @@ import { entryIntoCurrentStageIso, resolveStage } from './derive-board';
  *   - throughput / funnel : count TRANSITION EVENTS whose timestamp falls inside
  *     [startIso, endIso]. An item can contribute to several buckets if it moved
  *     through several stages during the window.
- *   - win rate            : denominator = items SUBMITTED within the window;
- *     numerator = of those, the ones that reached an awarded outcome.
  *   - outcome breakdown   : classify each item by its CURRENT resolved state,
  *     restricted to items active/closed within the window (submitted-in-window
  *     OR still-open snapshot). Documented in `outcomeBreakdown`.
  *   - aging               : a snapshot at `nowIso`, NOT windowed — it answers
  *     "what is stuck right now".
- *   - cycle time          : computed over ALL supplied items (already filtered by
- *     the caller for owner); each stage stat only counts items for which a valid
- *     entry→exit pair can be derived from the histories.
+ *   - cycle time          : windowed by SUBMISSION date — an item contributes
+ *     only if it was SUBMITTED within [startIso, endIso]. Within that cohort,
+ *     each stage stat only counts items for which a valid entry→exit pair can be
+ *     derived from the histories.
  */
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
@@ -123,6 +123,35 @@ const hasSubmitted = (item: RfpPipelineItem): boolean => submittedAtIso(item) !=
 /** Is the item's current resolved board stage an awarded outcome? */
 const isAwarded = (item: RfpPipelineItem): boolean =>
   item.status === 'WON' || AWARDED_STAGES.includes(resolveStage(item));
+
+/** The terminal statuses that mark a closed outcome, and the stage they map to. */
+const TERMINAL_STATUSES: readonly OpportunityStatus[] = ['WON', 'LOST', 'NO_BID', 'WITHDRAWN'];
+
+/**
+ * The ISO timestamp a terminal (closed) item actually reached its outcome, or
+ * null if indeterminable. Prefer the real transition event — the submitted date,
+ * then the latest statusHistory move into a terminal status, then `completedAt`.
+ *
+ * Deliberately does NOT fall back to `updatedAt`: the Linear sync rewrites
+ * `updatedAt` on every poll, so anchoring on it made every terminal item (esp.
+ * `notApproved`, which has no submit/complete date) look freshly-closed and thus
+ * always inside the window. An item with no derivable close date is excluded
+ * from the window instead of always counted.
+ */
+const terminalClosedIso = (item: RfpPipelineItem): string | null => {
+  const submitted = submittedAtIso(item);
+  if (submitted) return submitted;
+
+  const sh = item.statusHistory ?? [];
+  let latest: string | null = null;
+  for (const t of sh) {
+    if (!TERMINAL_STATUSES.includes(t.to)) continue;
+    if (latest === null || Date.parse(t.changedAt) > Date.parse(latest)) latest = t.changedAt;
+  }
+  if (latest) return latest;
+
+  return item.completedAt ?? null;
+};
 
 // ─── Filtering ───────────────────────────────────────────────────────────────
 
@@ -323,12 +352,20 @@ export interface CycleTimeSummary {
   foundToSubmitted: { avgDays: number | null; medianDays: number | null; n: number };
 }
 
-/** The approval milestones, in order, whose consecutive gaps are stage durations. */
+/**
+ * The approval milestones, in order, whose consecutive gaps are stage durations.
+ *
+ * `II_APPROVED` is intentionally omitted: on the real board it is almost never
+ * recorded as a distinct dated state (submissions overwhelmingly jump straight
+ * from an earlier gate to SUBMITTED), so a `secondApproved` row was structurally
+ * empty. Dropping it collapses the tail into a single `preSubmissionReview` row
+ * measured directly as PRE_SUB_APPROVAL → SUBMITTED. The total found→submitted
+ * span is unaffected (it is an independent end-to-end measurement, not a sum).
+ */
 const CYCLE_APPROVAL_ORDER: readonly OpportunityApprovalStatus[] = [
   'INITIAL_APPROVAL',
   'I_APPROVED',
   'PRE_SUB_APPROVAL',
-  'II_APPROVED',
   'SUBMITTED',
 ];
 
@@ -359,16 +396,28 @@ const firstReachedIso = (
 
 /**
  * Average AND median days spent in each stage, plus the total found-to-submitted
- * duration. Durations derive from the approvalHistory event log: the days
- * between reaching milestone N and milestone N+1. Items with sparse/empty
+ * duration — windowed by SUBMISSION date. Only items SUBMITTED within
+ * [startIso, endIso] contribute; items not submitted, or submitted outside the
+ * window, contribute nothing.
+ *
+ * Within that cohort, durations derive from the approvalHistory event log: the
+ * days between reaching milestone N and milestone N+1. Items with sparse/empty
  * history simply don't contribute to a stage's sample (n reflects the count of
  * items that had a derivable entry→exit pair) — they are never guessed.
  */
-export const cycleTime = (items: RfpPipelineItem[]): CycleTimeSummary => {
+export const cycleTime = (
+  items: RfpPipelineItem[],
+  startIso: string,
+  endIso: string,
+): CycleTimeSummary => {
   const perStageDurations = new Map<RfpPipelineStage, number[]>();
   const foundToSubmitted: number[] = [];
 
   for (const item of items) {
+    // Window gate: only items submitted within [startIso, endIso] contribute.
+    const submittedIso = submittedAtIso(item);
+    if (!submittedIso || !inWindow(submittedIso, startIso, endIso)) continue;
+
     // Consecutive-milestone durations → the stage the earlier milestone sat in.
     for (let i = 0; i < CYCLE_APPROVAL_ORDER.length - 1; i++) {
       const fromMilestone = CYCLE_APPROVAL_ORDER[i]!;
@@ -386,7 +435,7 @@ export const cycleTime = (items: RfpPipelineItem[]): CycleTimeSummary => {
       firstReachedIso(item, 'INITIAL_APPROVAL') ??
       item.createdAt ??
       entryIntoCurrentStageIso(item);
-    const total = daysBetween(firstIso, submittedAtIso(item));
+    const total = daysBetween(firstIso, submittedIso);
     if (total !== null && total >= 0) foundToSubmitted.push(total);
   }
 
@@ -412,33 +461,7 @@ export const cycleTime = (items: RfpPipelineItem[]): CycleTimeSummary => {
   };
 };
 
-// ─── 4. Win rate — awarded / submitted ───────────────────────────────────────
-
-export interface WinRateResult {
-  awarded: number;
-  submitted: number;
-  /** Awarded / submitted as a 0–100 percentage, or null when nothing submitted. */
-  rate: number | null;
-}
-
-/**
- * Win rate over the window. Denominator = items whose submission event fell in
- * the window; numerator = of those, the ones that reached an awarded outcome.
- */
-export const winRate = (
-  items: RfpPipelineItem[],
-  startIso: string,
-  endIso: string,
-): WinRateResult => {
-  const submittedInWindow = items.filter((item) =>
-    inWindow(submittedAtIso(item), startIso, endIso),
-  );
-  const submitted = submittedInWindow.length;
-  const awarded = submittedInWindow.filter(isAwarded).length;
-  return { awarded, submitted, rate: submitted === 0 ? null : (awarded / submitted) * 100 };
-};
-
-// ─── 5. Outcome breakdown — donut buckets ────────────────────────────────────
+// ─── 4. Outcome breakdown — donut buckets ────────────────────────────────────
 
 export type OutcomeKey = 'awarded' | 'lost' | 'noResponse' | 'pending' | 'notApproved';
 
@@ -467,11 +490,13 @@ const OUTCOME_META: Record<OutcomeKey, { label: string; color: string }> = {
  *     status in the model, so this is the closest derivable equivalent.)
  *   - Pending     : anything still open / in-flight (everything else).
  *
- * In-period rule: only items that are either (a) submitted within the window, or
- * (b) still open at `now` (no terminal outcome) are counted — this keeps the
- * donut aligned with the throughput/win-rate window while still showing the
- * current open backlog. Terminal items whose outcome landed before the window
- * are excluded so an old award doesn't distort the current period.
+ * In-period rule: an item counts only if it falls in the window on the anchor
+ * appropriate to its state — (a) terminal items by their close/submit date, or
+ * (b) still-open items by their INTAKE date (same cohort anchor as the funnel).
+ * This keeps the entire donut, Pending included, responsive to the window
+ * selector. Terminal items whose outcome landed before the window are excluded
+ * so an old award doesn't distort the current period; open items sourced before
+ * the window likewise drop out. Items with no derivable intake date are excluded.
  */
 export const outcomeBreakdown = (
   items: RfpPipelineItem[],
@@ -488,7 +513,6 @@ export const outcomeBreakdown = (
 
   for (const item of items) {
     const stage = resolveStage(item);
-    const submittedIso = submittedAtIso(item);
     const isTerminal =
       AWARDED_STAGES.includes(stage) ||
       LOST_STAGES.includes(stage) ||
@@ -499,11 +523,15 @@ export const outcomeBreakdown = (
       item.status === 'NO_BID' ||
       stage === 'expired';
 
-    // Window gate: closed items must have closed (submitted) in the window;
-    // open items are always shown as the current backlog snapshot.
+    // Window gate: every item must fall in the window on a REAL date — terminal
+    // items by the date they actually closed (never `updatedAt`, which the sync
+    // bumps every poll and made notApproved perpetually in-window), open items by
+    // their intake date (same cohort anchor as the funnel). Items with no
+    // derivable anchor drop out rather than always counting.
     if (isTerminal) {
-      const closedIso = submittedIso ?? item.completedAt ?? item.updatedAt ?? null;
-      if (!inWindow(closedIso, startIso, endIso)) continue;
+      if (!inWindow(terminalClosedIso(item), startIso, endIso)) continue;
+    } else if (!inWindow(intakeEntryIso(item), startIso, endIso)) {
+      continue;
     }
 
     if (item.status === 'WON' || AWARDED_STAGES.includes(stage)) counts.awarded += 1;
@@ -611,6 +639,20 @@ export const FUNNEL_COHORT_DAYS = 60;
 export const funnelCohortRange = (nowIso: string): MetricsDateRange => {
   const end = new Date(nowIso);
   const start = new Date(end.getTime() - FUNNEL_COHORT_DAYS * MS_PER_DAY);
+  return { startIso: start.toISOString(), endIso: end.toISOString() };
+};
+
+/**
+ * Fixed window for cycle time: 60 days, matching the funnel cohort. Cycle time
+ * answers "how fast are the RFPs we submitted recently moving", so it is pinned
+ * to a fixed recent period rather than riding the tab's week-range selector.
+ */
+export const CYCLE_TIME_WINDOW_DAYS = 60;
+
+/** Cycle time's fixed 60-day window (by submission date) ending at `nowIso`. */
+export const cycleTimeRange = (nowIso: string): MetricsDateRange => {
+  const end = new Date(nowIso);
+  const start = new Date(end.getTime() - CYCLE_TIME_WINDOW_DAYS * MS_PER_DAY);
   return { startIso: start.toISOString(), endIso: end.toISOString() };
 };
 
