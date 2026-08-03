@@ -13,6 +13,11 @@ jest.mock('@/middleware/rbac-middleware', () => ({
 const mockGetOpportunity = jest.fn();
 jest.mock('@/helpers/opportunity', () => ({ getOpportunity: (...a: unknown[]) => mockGetOpportunity(...a) }));
 
+const mockIsComplianceReviewEnabled = jest.fn();
+jest.mock('@/helpers/compliance-review-access', () => ({
+  isComplianceReviewEnabled: (...a: unknown[]) => mockIsComplianceReviewEnabled(...a),
+}));
+
 const mockGetLatestRun = jest.fn();
 const mockIsRunStale = jest.fn();
 const mockMarkFailed = jest.fn();
@@ -44,11 +49,19 @@ const readyRun = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetOpportunity.mockResolvedValue({ oppId: 'opp' });
+  mockIsComplianceReviewEnabled.mockResolvedValue(true);
   mockListDecisions.mockResolvedValue([]);
   mockIsRunStale.mockReturnValue(false);
 });
 
 describe('get-review handler', () => {
+  it('returns 403 when compliance review is not enabled for the org', async () => {
+    mockIsComplianceReviewEnabled.mockResolvedValue(false);
+    const res = await baseHandler(event);
+    expect((res as { statusCode: number }).statusCode).toBe(403);
+    expect(mockGetOpportunity).not.toHaveBeenCalled();
+  });
+
   it('returns 404 when the opportunity is missing', async () => {
     mockGetOpportunity.mockResolvedValue(null);
     const res = await baseHandler(event);

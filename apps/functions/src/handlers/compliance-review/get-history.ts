@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { withSentryLambda } from '@/sentry-lambda';
 import { apiResponse } from '@/helpers/api';
 import { getOpportunity } from '@/helpers/opportunity';
+import { isComplianceReviewEnabled } from '@/helpers/compliance-review-access';
 import { listComplianceReviewHistory } from '@/helpers/compliance-review';
 import {
   authContextMiddleware,
@@ -33,6 +34,11 @@ export const baseHandler = async (
     return apiResponse(400, { message: 'Invalid query parameters', issues: error.issues });
   }
   const { orgId, projectId, opportunityId: oppId } = data;
+
+  // Org-level feature gate (single-org feature, mirrors enablePOCGeneration).
+  if (!(await isComplianceReviewEnabled(orgId))) {
+    return apiResponse(403, { message: 'AI compliance review is not enabled for this organization' });
+  }
 
   const opportunity = await getOpportunity({ orgId, projectId, oppId });
   if (!opportunity) return apiResponse(404, { message: 'Opportunity not found' });

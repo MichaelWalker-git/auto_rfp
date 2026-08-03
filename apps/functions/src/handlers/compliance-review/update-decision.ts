@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { withSentryLambda } from '@/sentry-lambda';
 import { apiResponse, getUserId } from '@/helpers/api';
 import { getOpportunity } from '@/helpers/opportunity';
+import { isComplianceReviewEnabled } from '@/helpers/compliance-review-access';
 import { clearFindingDecision, upsertFindingDecision } from '@/helpers/compliance-review';
 import { writeComplianceAuditLog } from '@/helpers/compliance-review-audit';
 import {
@@ -37,6 +38,11 @@ export const baseHandler = async (
     return apiResponse(400, { message: 'Invalid query parameters', issues: qErr.issues });
   }
   const { orgId, projectId, opportunityId: oppId } = query;
+
+  // Org-level feature gate (single-org feature, mirrors enablePOCGeneration).
+  if (!(await isComplianceReviewEnabled(orgId))) {
+    return apiResponse(403, { message: 'AI compliance review is not enabled for this organization' });
+  }
 
   const { success, data, error } = UpdateDecisionRequestSchema.safeParse(JSON.parse(event.body || '{}'));
   if (!success) {

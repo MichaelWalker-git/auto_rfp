@@ -13,6 +13,11 @@ jest.mock('@/middleware/rbac-middleware', () => ({
 const mockGetOpportunity = jest.fn();
 jest.mock('@/helpers/opportunity', () => ({ getOpportunity: (...a: unknown[]) => mockGetOpportunity(...a) }));
 
+const mockIsComplianceReviewEnabled = jest.fn();
+jest.mock('@/helpers/compliance-review-access', () => ({
+  isComplianceReviewEnabled: (...a: unknown[]) => mockIsComplianceReviewEnabled(...a),
+}));
+
 const mockListHistory = jest.fn();
 jest.mock('@/helpers/compliance-review', () => ({
   listComplianceReviewHistory: (...a: unknown[]) => mockListHistory(...a),
@@ -34,6 +39,7 @@ const message = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetOpportunity.mockResolvedValue({ oppId: 'opp-1' });
+  mockIsComplianceReviewEnabled.mockResolvedValue(true);
   mockListHistory.mockResolvedValue([message]);
 });
 
@@ -41,6 +47,13 @@ describe('get-history handler', () => {
   it('returns 400 when query params are missing', async () => {
     const res = await baseHandler({ queryStringParameters: {} } as never);
     expect((res as { statusCode: number }).statusCode).toBe(400);
+    expect(mockListHistory).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when compliance review is not enabled for the org', async () => {
+    mockIsComplianceReviewEnabled.mockResolvedValue(false);
+    const res = await baseHandler(event);
+    expect((res as { statusCode: number }).statusCode).toBe(403);
     expect(mockListHistory).not.toHaveBeenCalled();
   });
 

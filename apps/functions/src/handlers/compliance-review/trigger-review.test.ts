@@ -13,6 +13,11 @@ jest.mock('@/middleware/rbac-middleware', () => ({
 const mockGetOpportunity = jest.fn();
 jest.mock('@/helpers/opportunity', () => ({ getOpportunity: (...a: unknown[]) => mockGetOpportunity(...a) }));
 
+const mockIsComplianceReviewEnabled = jest.fn();
+jest.mock('@/helpers/compliance-review-access', () => ({
+  isComplianceReviewEnabled: (...a: unknown[]) => mockIsComplianceReviewEnabled(...a),
+}));
+
 const mockCreateReviewRun = jest.fn();
 jest.mock('@/helpers/compliance-review', () => ({
   createReviewRun: (...a: unknown[]) => mockCreateReviewRun(...a),
@@ -45,6 +50,7 @@ const event = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockIsComplianceReviewEnabled.mockResolvedValue(true);
   mockBuildSnapshot.mockResolvedValue({ 'doc:1': 'v1' });
   mockAudit.mockResolvedValue(undefined);
 });
@@ -53,6 +59,14 @@ describe('trigger-review handler', () => {
   it('returns 400 when query params are missing', async () => {
     const res = await baseHandler({ queryStringParameters: {} } as never);
     expect((res as { statusCode: number }).statusCode).toBe(400);
+  });
+
+  it('returns 403 when compliance review is not enabled for the org', async () => {
+    mockIsComplianceReviewEnabled.mockResolvedValue(false);
+    const res = await baseHandler(event);
+    expect((res as { statusCode: number }).statusCode).toBe(403);
+    expect(mockGetOpportunity).not.toHaveBeenCalled();
+    expect(mockCreateReviewRun).not.toHaveBeenCalled();
   });
 
   it('returns 404 when the opportunity is missing', async () => {

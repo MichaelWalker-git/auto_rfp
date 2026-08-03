@@ -14,6 +14,11 @@ jest.mock('@/helpers/env', () => ({ requireEnv: (_k: string, d?: string) => d ??
 const mockGetOpportunity = jest.fn();
 jest.mock('@/helpers/opportunity', () => ({ getOpportunity: (...a: unknown[]) => mockGetOpportunity(...a) }));
 
+const mockIsComplianceReviewEnabled = jest.fn();
+jest.mock('@/helpers/compliance-review-access', () => ({
+  isComplianceReviewEnabled: (...a: unknown[]) => mockIsComplianceReviewEnabled(...a),
+}));
+
 const mockRunChatReview = jest.fn();
 jest.mock('@/helpers/compliance-review-engine', () => ({
   runChatReview: (...a: unknown[]) => mockRunChatReview(...a),
@@ -45,6 +50,7 @@ const ASSISTANT_MSG_ID = '11111111-1111-1111-1111-111111111111';
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetOpportunity.mockResolvedValue({ oppId: 'opp-1' });
+  mockIsComplianceReviewEnabled.mockResolvedValue(true);
   mockRunChatReview.mockResolvedValue({ answer: 'Here is what I found.', findings: [] });
   mockSavePair.mockResolvedValue({ assistantMsg: { messageId: ASSISTANT_MSG_ID } });
   mockWriteAuditLog.mockResolvedValue(undefined);
@@ -54,6 +60,13 @@ describe('chat handler', () => {
   it('returns 400 when query params are missing', async () => {
     const res = await baseHandler({ queryStringParameters: {}, body: '{}' } as never);
     expect((res as { statusCode: number }).statusCode).toBe(400);
+  });
+
+  it('returns 403 when compliance review is not enabled for the org', async () => {
+    mockIsComplianceReviewEnabled.mockResolvedValue(false);
+    const res = await baseHandler(makeEvent({ message: 'hi' }));
+    expect((res as { statusCode: number }).statusCode).toBe(403);
+    expect(mockRunChatReview).not.toHaveBeenCalled();
   });
 
   it('returns 400 when the message body is invalid', async () => {

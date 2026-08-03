@@ -13,6 +13,11 @@ jest.mock('@/middleware/rbac-middleware', () => ({
 const mockGetOpportunity = jest.fn();
 jest.mock('@/helpers/opportunity', () => ({ getOpportunity: (...a: unknown[]) => mockGetOpportunity(...a) }));
 
+const mockIsComplianceReviewEnabled = jest.fn();
+jest.mock('@/helpers/compliance-review-access', () => ({
+  isComplianceReviewEnabled: (...a: unknown[]) => mockIsComplianceReviewEnabled(...a),
+}));
+
 const mockUpsert = jest.fn();
 const mockClear = jest.fn();
 jest.mock('@/helpers/compliance-review', () => ({
@@ -40,6 +45,7 @@ const makeEvent = (body: unknown) =>
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetOpportunity.mockResolvedValue({ oppId: 'opp-1' });
+  mockIsComplianceReviewEnabled.mockResolvedValue(true);
   mockUpsert.mockResolvedValue({ fingerprint: 'fp-1', state: 'dismissed' });
   mockClear.mockResolvedValue(undefined);
   mockAudit.mockResolvedValue(undefined);
@@ -49,6 +55,13 @@ describe('update-decision handler', () => {
   it('returns 400 when query params are missing', async () => {
     const res = await baseHandler({ queryStringParameters: {}, body: '{}' } as never);
     expect((res as { statusCode: number }).statusCode).toBe(400);
+  });
+
+  it('returns 403 when compliance review is not enabled for the org', async () => {
+    mockIsComplianceReviewEnabled.mockResolvedValue(false);
+    const res = await baseHandler(makeEvent({ fingerprint: 'fp-1', state: 'dismissed' }));
+    expect((res as { statusCode: number }).statusCode).toBe(403);
+    expect(mockUpsert).not.toHaveBeenCalled();
   });
 
   it('returns 400 when the body is invalid', async () => {

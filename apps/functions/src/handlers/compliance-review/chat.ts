@@ -14,6 +14,7 @@ import { withSentryLambda } from '@/sentry-lambda';
 import { apiResponse } from '@/helpers/api';
 import { requireEnv } from '@/helpers/env';
 import { getOpportunity } from '@/helpers/opportunity';
+import { isComplianceReviewEnabled } from '@/helpers/compliance-review-access';
 import { runChatReview } from '@/helpers/compliance-review-engine';
 import { saveComplianceMessagePair } from '@/helpers/compliance-review';
 import { writeAuditLog } from '@/helpers/audit-log';
@@ -50,6 +51,11 @@ export const baseHandler = async (
     return apiResponse(400, { message: 'Invalid query parameters', issues: qErr.issues });
   }
   const { orgId, projectId, opportunityId: oppId } = query;
+
+  // Org-level feature gate (single-org feature, mirrors enablePOCGeneration).
+  if (!(await isComplianceReviewEnabled(orgId))) {
+    return apiResponse(403, { message: 'AI compliance review is not enabled for this organization' });
+  }
 
   const { success, data, error } = ComplianceReviewChatRequestSchema.safeParse(
     JSON.parse(event.body || '{}'),
