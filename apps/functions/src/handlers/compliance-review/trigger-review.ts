@@ -5,7 +5,7 @@
  * (guarded so only one is active per opportunity → 409 otherwise), snapshots
  * the current package versions, and enqueues the SQS worker.
  */
-import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import type { APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
 import { z } from 'zod';
 
@@ -15,8 +15,10 @@ import { getOpportunity } from '@/helpers/opportunity';
 import { createReviewRun } from '@/helpers/compliance-review';
 import { buildPackageSnapshot } from '@/helpers/compliance-review-snapshot';
 import { enqueueComplianceReview } from '@/helpers/compliance-review-queue';
+import { writeComplianceAuditLog } from '@/helpers/compliance-review-audit';
 import {
   authContextMiddleware,
+  type AuthedEvent,
   httpErrorMiddleware,
   orgMembershipMiddleware,
   requirePermission,
@@ -30,7 +32,7 @@ const QueryParamsSchema = z.object({
 });
 
 export const baseHandler = async (
-  event: APIGatewayProxyEventV2,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   const { success, data, error } = QueryParamsSchema.safeParse(event.queryStringParameters);
   if (!success) {
@@ -50,6 +52,23 @@ export const baseHandler = async (
 
   await enqueueComplianceReview({ orgId, projectId, oppId, reviewId: run.reviewId });
 
+  // Audit: a user kicked off a full AI review (mutating — creates a run).
+  // Fire-and-forget: the write (getHmacSecret + DynamoDB) is non-blocking and
+  // must not add latency to the user-facing response.
+  void writeComplianceAuditLog({
+    action: 'COMPLIANCE_REVIEW_STARTED',
+    resource: 'compliance_review_run',
+    resourceId: run.reviewId,
+    orgId,
+    userId: event.auth?.userId,
+    userName:
+      (event.auth?.claims?.name as string | undefined) ??
+      (event.auth?.claims?.email as string | undefined),
+    after: { oppId, projectId, trigger: 'FULL' },
+    ipAddress: event.requestContext?.http?.sourceIp,
+    userAgent: event.headers?.['user-agent'],
+  });
+
   return apiResponse(
     202,
     TriggerReviewResponseSchema.parse({ reviewId: run.reviewId, status: run.status }),
@@ -61,5 +80,8 @@ export const handler = withSentryLambda(
     .use(httpErrorMiddleware())
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
-    .use(requirePermission('opportunity:read')),
+    // Mutating (creates a review run) → gate on proposal:create, matching the
+    // roles that actively prepare a submission (ADMIN/EDITOR/MEMBER). GET
+    // endpoints stay on opportunity:read.
+    .use(requirePermission('proposal:create')),
 );

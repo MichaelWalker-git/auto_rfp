@@ -13,6 +13,7 @@ import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { runFullReview } from '@/helpers/compliance-review-engine';
 import { getReviewRunById, markRunFailed, markRunReady } from '@/helpers/compliance-review';
+import { writeComplianceAuditLog } from '@/helpers/compliance-review-audit';
 
 const WORKER_MODEL_ID = requireEnv(
   'COMPLIANCE_REVIEW_WORKER_MODEL_ID',
@@ -53,12 +54,34 @@ const processRecord = async (body: string): Promise<void> => {
     });
     await markRunReady(run, findings);
     console.log(`[compliance-review-worker] run ${reviewId} READY with ${findings.length} finding(s)`);
+
+    // Audit: a full AI review completed. System-actor (async worker).
+    await writeComplianceAuditLog({
+      action: 'COMPLIANCE_REVIEW_COMPLETED',
+      resource: 'compliance_review_run',
+      resourceId: reviewId,
+      orgId,
+      after: { oppId, projectId, trigger: run.trigger, findingsCount: findings.length },
+    });
   } catch (err) {
     const message = (err as Error)?.message ?? 'Unknown error';
     console.error(`[compliance-review-worker] run ${reviewId} failed:`, message);
     await markRunFailed(run, message).catch((e) =>
       console.error('[compliance-review-worker] failed to mark run FAILED:', (e as Error)?.message),
     );
+
+    // Audit: the review failed. Recorded before re-throwing so the failure is
+    // logged even though the message goes back to the queue / DLQ.
+    await writeComplianceAuditLog({
+      action: 'COMPLIANCE_REVIEW_FAILED',
+      resource: 'compliance_review_run',
+      resourceId: reviewId,
+      orgId,
+      result: 'failure',
+      errorMessage: message,
+      after: { oppId, projectId, trigger: run.trigger },
+    });
+
     // Re-throw so the message returns to the queue / DLQ for visibility.
     throw err;
   }

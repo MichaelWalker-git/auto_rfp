@@ -48,14 +48,29 @@ describe('buildFindingHref', () => {
     expect(params.get('highlightField')).toBe('field-9');
   });
 
-  it('routes an XLSX questionnaire cell anchor to the form editor with a cell param', () => {
+  it('routes an XLSX questionnaire to the RFP document editor (NOT /forms) with a cell param', () => {
     const href = buildFindingHref('o', 'p', 'opp', {
       ...base,
       targetKind: 'XLSX_QUESTIONNAIRE',
+      documentId: 'q-1',
       anchor: { kind: 'cell', sheet: 'Pricing', row: 4, col: 2 },
     });
-    const { params } = parse(href!);
+    const { path, params } = parse(href!);
+    // A questionnaire is an RFP document (spreadsheet grid), not a required form.
+    expect(path).toBe('/organizations/o/projects/p/opportunities/opp/rfp-documents/q-1/edit');
     expect(params.get('highlightCell')).toBe('Pricing,4,2');
+  });
+
+  it('routes an XLSX FORM cell anchor to the form editor', () => {
+    const href = buildFindingHref('o', 'p', 'opp', {
+      ...base,
+      targetKind: 'XLSX_FORM',
+      documentId: 'form-2',
+      anchor: { kind: 'cell', sheet: 'Sheet1', row: 1, col: 0 },
+    });
+    const { path, params } = parse(href!);
+    expect(path).toBe('/organizations/o/projects/p/opportunities/opp/forms/form-2');
+    expect(params.get('highlightCell')).toBe('Sheet1,1,0');
   });
 
   it('omits anchor params when there is no anchor but keeps the snippet', () => {

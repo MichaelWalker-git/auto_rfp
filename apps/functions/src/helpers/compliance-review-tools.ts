@@ -20,9 +20,14 @@ import { listRFPDocumentsByProject, loadRFPDocumentHtml } from '@/helpers/rfp-do
 import { listRequiredFormsByOpportunity } from '@/helpers/required-form';
 import { extractHeadings, getSectionText } from '@/helpers/compliance-review-html';
 import {
+  readQuestionnaireCellInventory,
+  type QuestionnaireCellInventory,
+} from '@/helpers/compliance-review-xlsx';
+import {
   MAX_SECTION_CHARS,
   MAX_FORM_FIELDS_RETURNED,
   MAX_FORM_FIELD_VALUE_CHARS,
+  MAX_QUESTIONNAIRE_CELLS_RETURNED,
 } from '@/constants/compliance-review';
 import type { ToolDefinition, ToolResult } from '@/types/tool';
 import type { ChatSourceCitation, ComplianceTargetKind } from '@auto-rfp/core';
@@ -39,6 +44,8 @@ export interface DocumentInventory {
   targetKind: ComplianceTargetKind;
   headings: string[];
   htmlContentKey?: string;
+  /** First-sheet cells of an XLSX questionnaire (documentType QUESTIONNAIRE, file-based). */
+  questionnaireCells?: QuestionnaireCellInventory;
 }
 
 export interface FormFieldInventory {
@@ -66,6 +73,19 @@ const formTargetKind = (formType: string): ComplianceTargetKind => {
 };
 
 /**
+ * Whether an RFP document is a file-based XLSX questionnaire (documentType
+ * QUESTIONNAIRE with an .xlsx/.xls file and no HTML). Mirrors the frontend
+ * `isXlsxQuestionnaire`. HTML questionnaires (from DOCX/PDF) carry an
+ * htmlContentKey and are reviewed as normal RFP documents.
+ */
+const isXlsxQuestionnaireDoc = (doc: Record<string, unknown>): boolean => {
+  if (doc.documentType !== 'QUESTIONNAIRE') return false;
+  if (doc.htmlContentKey) return false;
+  const name = String((doc.originalFileName as string) ?? (doc.fileKey as string) ?? '').toLowerCase();
+  return !!doc.fileKey && (name.endsWith('.xlsx') || name.endsWith('.xls'));
+};
+
+/**
  * Build the full package inventory once per review. Loads document HTML to
  * extract headings so anchors are validatable. Bounded by the number of docs
  * in a package (small).
@@ -84,6 +104,22 @@ export const buildPackageInventory = async (args: {
 
   const documents: DocumentInventory[] = await Promise.all(
     docsRes.items.map(async (doc): Promise<DocumentInventory> => {
+      const title = (doc.title as string) ?? (doc.name as string) ?? 'Untitled';
+
+      // XLSX questionnaire: no HTML/headings — read the first sheet's cells so
+      // the model can review the answers and cell anchors can be validated.
+      if (isXlsxQuestionnaireDoc(doc)) {
+        const questionnaireCells =
+          (await readQuestionnaireCellInventory(doc.fileKey as string)) ?? undefined;
+        return {
+          documentId: doc.documentId as string,
+          title,
+          targetKind: 'XLSX_QUESTIONNAIRE',
+          headings: [],
+          questionnaireCells,
+        };
+      }
+
       const htmlContentKey = doc.htmlContentKey as string | undefined;
       let headings: string[] = [];
       if (htmlContentKey) {
@@ -96,7 +132,7 @@ export const buildPackageInventory = async (args: {
       }
       return {
         documentId: doc.documentId as string,
-        title: (doc.title as string) ?? (doc.name as string) ?? 'Untitled',
+        title,
         targetKind: 'RFP_DOCUMENT',
         headings,
         htmlContentKey,
@@ -161,6 +197,27 @@ export const COMPLIANCE_REVIEW_TOOLS: ReadonlyArray<ToolDefinition> = [
     },
   },
   {
+    name: 'get_questionnaire_cells',
+    description:
+      'Get the filled-in cells of an XLSX QUESTIONNAIRE (targetKind XLSX_QUESTIONNAIRE), addressed ' +
+      'by its documentId. Returns non-empty cells with their sheet name, 0-based row/col, A1 ref, ' +
+      'and value. Use this to read a questionnaire\'s answers. To point a finding at a specific cell, ' +
+      'use an anchor { "kind": "cell", "sheet": "<sheet name>", "row": <row>, "col": <col> } with the ' +
+      'EXACT row/col returned here. Large questionnaires are capped; pass valueFilter to narrow.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        documentId: { type: 'string', description: 'The XLSX questionnaire documentId from list_package_documents.' },
+        valueFilter: {
+          type: 'string',
+          description:
+            'Optional case-insensitive substring; only cells whose value contains it are returned.',
+        },
+      },
+      required: ['documentId'],
+    },
+  },
+  {
     name: 'search_solicitation',
     description:
       'Semantic search over the solicitation/RFP documents. Use this to find the requirements, ' +
@@ -198,10 +255,16 @@ export const makeComplianceToolExecutor = (ctx: {
     try {
       switch (toolName) {
         case 'list_package_documents': {
-          const docLines = inventory.documents.map(
-            (d) =>
-              `- documentId=${d.documentId} | "${d.title}" | headings: ${d.headings.length ? d.headings.map((h) => `"${h}"`).join(', ') : '(none)'}`,
-          );
+          const docLines = inventory.documents.map((d) => {
+            if (d.targetKind === 'XLSX_QUESTIONNAIRE') {
+              const cellCount = d.questionnaireCells?.cells.length ?? 0;
+              return (
+                `- documentId=${d.documentId} | "${d.title}" | XLSX QUESTIONNAIRE | ` +
+                `${cellCount} filled cell(s) — read with get_questionnaire_cells`
+              );
+            }
+            return `- documentId=${d.documentId} | "${d.title}" | headings: ${d.headings.length ? d.headings.map((h) => `"${h}"`).join(', ') : '(none)'}`;
+          });
           const formLines = inventory.forms.map(
             (f) => `- formId=${f.formId} | "${f.name}" | ${f.fields.length} field(s)`,
           );
@@ -266,6 +329,50 @@ export const makeComplianceToolExecutor = (ctx: {
           return {
             tool_use_id: toolUseId,
             content: `${header}\n${lines.join('\n') || '(no matching fields)'}${footer}`,
+          };
+        }
+
+        case 'get_questionnaire_cells': {
+          const documentId = String(toolInput.documentId ?? '');
+          const doc = inventory.documents.find((d) => d.documentId === documentId);
+          if (!doc || doc.targetKind !== 'XLSX_QUESTIONNAIRE') {
+            return { tool_use_id: toolUseId, content: `No XLSX questionnaire with id ${documentId}.` };
+          }
+          const inv = doc.questionnaireCells;
+          if (!inv) {
+            return {
+              tool_use_id: toolUseId,
+              content: `Questionnaire "${doc.title}" could not be read (file missing or unreadable).`,
+            };
+          }
+
+          const rawFilter = typeof toolInput.valueFilter === 'string' ? toolInput.valueFilter.trim() : '';
+          const filter = rawFilter.toLowerCase();
+          const matched = filter
+            ? inv.cells.filter((c) => c.value.toLowerCase().includes(filter))
+            : inv.cells;
+
+          const shown = matched.slice(0, MAX_QUESTIONNAIRE_CELLS_RETURNED);
+          const lines = shown.map(
+            (c) => `- sheet="${inv.sheetName}" row=${c.row} col=${c.col} (${c.ref}) | value: ${c.value}`,
+          );
+
+          const header = filter
+            ? `Questionnaire "${doc.title}" [sheet "${inv.sheetName}"] cells matching "${rawFilter}" (${matched.length} of ${inv.cells.length}):`
+            : `Questionnaire "${doc.title}" [sheet "${inv.sheetName}"] filled cells (${inv.cells.length}):`;
+          const omitted = matched.length - shown.length;
+          const footerParts: string[] = [];
+          if (omitted > 0) {
+            footerParts.push(`… ${omitted} more cell(s) not shown — narrow with valueFilter to see specific cells.`);
+          }
+          if (inv.truncated) {
+            footerParts.push('(The questionnaire is large; some cells beyond the scan window are not included.)');
+          }
+          const footer = footerParts.length ? `\n${footerParts.join('\n')}` : '';
+
+          return {
+            tool_use_id: toolUseId,
+            content: `${header}\n${lines.join('\n') || '(no matching cells)'}${footer}`,
           };
         }
 

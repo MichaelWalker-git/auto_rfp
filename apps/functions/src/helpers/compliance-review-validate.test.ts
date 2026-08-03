@@ -21,6 +21,28 @@ const inventory: PackageInventory = {
   ],
 };
 
+const inventoryWithQuestionnaire: PackageInventory = {
+  documents: [
+    {
+      documentId: 'q-1',
+      title: 'Vendor Questionnaire',
+      targetKind: 'XLSX_QUESTIONNAIRE',
+      headings: [],
+      questionnaireCells: {
+        sheetName: 'Sheet1',
+        totalRows: 3,
+        totalCols: 2,
+        truncated: false,
+        cells: [
+          { row: 1, col: 1, ref: 'B2', value: 'Acme Corp' },
+          { row: 2, col: 1, ref: 'B3', value: 'yes' },
+        ],
+      },
+    },
+  ],
+  forms: [],
+};
+
 const raw = (over: Partial<RawFinding> = {}): RawFinding => ({
   findingId: 'x',
   targetKind: 'RFP_DOCUMENT',
@@ -77,6 +99,62 @@ describe('validateAndTagFindings', () => {
       inventory,
     );
     expect(f.anchorValid).toBe(false);
+  });
+
+  it('validates a cell anchor against the questionnaire inventory (no snippet needed)', async () => {
+    const [f] = await validateAndTagFindings(
+      [
+        raw({
+          targetKind: 'XLSX_QUESTIONNAIRE',
+          documentId: 'q-1',
+          anchor: { kind: 'cell', sheet: 'Sheet1', row: 1, col: 1 },
+        }),
+      ],
+      inventoryWithQuestionnaire,
+    );
+    expect(f.anchorValid).toBe(true);
+  });
+
+  it('marks a cell anchor invalid when the coords are not a filled cell', async () => {
+    const [f] = await validateAndTagFindings(
+      [
+        raw({
+          targetKind: 'XLSX_QUESTIONNAIRE',
+          documentId: 'q-1',
+          anchor: { kind: 'cell', sheet: 'Sheet1', row: 9, col: 9 },
+        }),
+      ],
+      inventoryWithQuestionnaire,
+    );
+    expect(f.anchorValid).toBe(false);
+  });
+
+  it('marks a cell anchor invalid when the sheet name does not match', async () => {
+    const [f] = await validateAndTagFindings(
+      [
+        raw({
+          targetKind: 'XLSX_QUESTIONNAIRE',
+          documentId: 'q-1',
+          anchor: { kind: 'cell', sheet: 'Other Sheet', row: 1, col: 1 },
+        }),
+      ],
+      inventoryWithQuestionnaire,
+    );
+    expect(f.anchorValid).toBe(false);
+  });
+
+  it('matches a cell anchor sheet name case-insensitively', async () => {
+    const [f] = await validateAndTagFindings(
+      [
+        raw({
+          targetKind: 'XLSX_QUESTIONNAIRE',
+          documentId: 'q-1',
+          anchor: { kind: 'cell', sheet: 'SHEET1', row: 2, col: 1 },
+        }),
+      ],
+      inventoryWithQuestionnaire,
+    );
+    expect(f.anchorValid).toBe(true);
   });
 
   it('dedups findings that collapse to the same fingerprint', async () => {

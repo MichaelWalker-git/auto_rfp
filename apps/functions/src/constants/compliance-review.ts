@@ -50,12 +50,52 @@ export const MAX_SECTION_CHARS = 6000;
 export const MAX_FORM_FIELDS_RETURNED = 150;
 /** Max characters of a single form field's value returned to the model. */
 export const MAX_FORM_FIELD_VALUE_CHARS = 200;
+
+// ─── XLSX questionnaire cell inventory ──────────────────────────────────────
+//
+// XLSX questionnaires (documentType QUESTIONNAIRE, file-based, no htmlContentKey)
+// have no persisted grid — their cells are read from the .xlsx in S3 at review
+// time so the model can review the answers AND cell anchors can be validated.
+// The questionnaire editor renders only the FIRST sheet, so we inventory only
+// the first sheet — keeping a validated ("jump works") anchor aligned with what
+// the editor can actually navigate to. All limits mirror the form-field caps so
+// a large questionnaire can't blow Bedrock's prompt limit.
+
+/** Max rows of the first sheet scanned into the cell inventory. */
+export const MAX_QUESTIONNAIRE_ROWS = 500;
+/** Max columns of the first sheet scanned into the cell inventory. */
+export const MAX_QUESTIONNAIRE_COLS = 50;
+/** Max non-empty cells stored per questionnaire (build-time bound). */
+export const MAX_QUESTIONNAIRE_CELLS_STORED = 2000;
+/** Max non-empty cells returned by a single get_questionnaire_cells call. */
+export const MAX_QUESTIONNAIRE_CELLS_RETURNED = 200;
+/** Max characters of a single questionnaire cell value returned to the model. */
+export const MAX_QUESTIONNAIRE_CELL_VALUE_CHARS = 300;
 /**
  * A run left in RUNNING longer than this is treated as FAILED by the read path
  * (crash recovery — the SQS worker died without writing a terminal state).
  * Set above the worker Lambda timeout + SQS retry margin.
  */
 export const RUN_STALE_TIMEOUT_MS = 25 * 60 * 1000;
+
+// ─── Missing-forms cross-check (full review only) ───────────────────────────
+
+/**
+ * Max characters of merged solicitation text fed to the fresh "expected forms"
+ * extraction. The whole solicitation can be hundreds of pages; the required
+ * forms/attachments list is almost always named in Section L / the attachments
+ * index near the front, so a bounded slice keeps the single extraction call
+ * well under Bedrock's prompt limit. Mirrors the detection scan window.
+ */
+export const MAX_SOLICITATION_CHARS_FOR_FORMS = 150_000;
+/** Max output tokens for the "expected forms" extraction (a short name list). */
+export const MAX_TOKENS_EXPECTED_FORMS = 2000;
+/**
+ * Minimum normalized-name length for a substring "already present" match in the
+ * missing-forms diff. Below this, containment matches would be trivially true
+ * (e.g. "a" in everything) and could mask a genuinely missing form.
+ */
+export const MISSING_FORM_MIN_MATCH_LEN = 4;
 
 /**
  * Run retention (Option B — TTL + keep-N). Runs accumulate on every re-run, and

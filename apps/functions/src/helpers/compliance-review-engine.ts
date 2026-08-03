@@ -17,6 +17,7 @@ import {
   type PackageInventory,
 } from '@/helpers/compliance-review-tools';
 import { validateAndTagFindings, type RawFinding } from '@/helpers/compliance-review-validate';
+import { computeMissingFormFindings } from '@/helpers/compliance-review-missing-forms';
 import { MAX_TOKENS, MAX_TOKENS_FULL, MAX_TOOL_ROUNDS, MAX_TOOL_ROUNDS_FULL } from '@/constants/compliance-review';
 import type { ComplianceFinding } from '@auto-rfp/core';
 
@@ -77,9 +78,9 @@ You review a SUBMISSION PACKAGE (RFP response documents + required forms) agains
 - Inconsistencies (values that disagree across documents — cost, dates, quantities)
 
 HOW TO WORK:
-1. Call list_package_documents FIRST to see the documents (with their heading list) and forms.
+1. Call list_package_documents FIRST to see the documents (with their heading list), XLSX questionnaires, and forms.
 2. Call search_solicitation to find the relevant requirements/instructions.
-3. Call get_document_section / get_form_fields to read what the package actually says.
+3. Call get_document_section (RFP docs) / get_form_fields (forms) / get_questionnaire_cells (XLSX questionnaires) to read what the package actually says.
 4. Only then judge compliance.
 
 OUTPUT FORMAT — return ONLY a JSON object, no markdown fences, no prose outside it:
@@ -93,6 +94,7 @@ OUTPUT FORMAT — return ONLY a JSON object, no markdown fences, no prose outsid
       "documentTitle": "<title/name for display>",
       "anchor": { "kind": "heading", "text": "<EXACT heading string from list_package_documents>" }
                  // or { "kind": "field", "fieldId": "<EXACT fieldId from get_form_fields>" },
+                 // or { "kind": "cell", "sheet": "<sheet name>", "row": <0-based row>, "col": <0-based col> } from get_questionnaire_cells,
       "snippet": "<a SHORT VERBATIM excerpt copied EXACTLY from the document/form text you read via a tool — do not paraphrase>",
       "issueType": "MISSING_REQUIREMENT | MISSING_FORM | INCORRECT_ANSWER | POOR_ANSWER | FORMAT_ISSUE | INCONSISTENCY | OTHER",
       "severity": "critical | major | minor | info",
@@ -104,7 +106,7 @@ OUTPUT FORMAT — return ONLY a JSON object, no markdown fences, no prose outsid
 }
 
 CRITICAL RULES:
-- anchor.text MUST be one of the exact heading strings returned by list_package_documents. anchor.fieldId MUST be an exact fieldId from get_form_fields. Never invent an anchor.
+- anchor.text MUST be one of the exact heading strings returned by list_package_documents. anchor.fieldId MUST be an exact fieldId from get_form_fields. A cell anchor's sheet/row/col MUST be the exact values from get_questionnaire_cells. Never invent an anchor.
 - snippet MUST be copied verbatim from tool output so it can be located in the document. Always include a snippet when you point at document content.
 - If you cannot localize a finding to a specific spot, omit anchor but still include a snippet if you have one.
 - Base every finding on text you actually retrieved via tools. Do not speculate.
@@ -133,6 +135,16 @@ export interface ReviewResult {
   inventory: PackageInventory;
 }
 
+/**
+ * Optional post-loop step that produces additional raw findings (before
+ * validation) from the model output + inventory. Used by the full review to add
+ * the deterministic missing-forms cross-check; chat passes none.
+ */
+type FindingAugmenter = (
+  rawFindings: RawFinding[],
+  inventory: PackageInventory,
+) => Promise<RawFinding[]>;
+
 const runReview = async (args: {
   orgId: string;
   projectId: string;
@@ -142,8 +154,9 @@ const runReview = async (args: {
   maxToolRounds: number;
   maxTokens: number;
   inventory?: PackageInventory;
+  augmentFindings?: FindingAugmenter;
 }): Promise<ReviewResult> => {
-  const { orgId, projectId, oppId, modelId, userPrompt, maxToolRounds, maxTokens } = args;
+  const { orgId, projectId, oppId, modelId, userPrompt, maxToolRounds, maxTokens, augmentFindings } = args;
 
   const inventory = args.inventory ?? (await buildPackageInventory({ orgId, projectId, oppId }));
   const executor = makeComplianceToolExecutor({ orgId, oppId, inventory });
@@ -159,7 +172,11 @@ const runReview = async (args: {
     maxToolRounds,
   });
 
-  const findings = await validateAndTagFindings(output.findings as RawFinding[], inventory);
+  const rawFindings = output.findings as RawFinding[];
+  // Merge in any deterministic findings (e.g. missing-forms cross-check) before
+  // validation so they flow through the same fingerprint/dedup path.
+  const extraFindings = augmentFindings ? await augmentFindings(rawFindings, inventory) : [];
+  const findings = await validateAndTagFindings([...rawFindings, ...extraFindings], inventory);
   return { answer: output.answer, findings, inventory };
 };
 
@@ -176,6 +193,19 @@ export const runFullReview = async (args: {
     userPrompt: buildFullReviewUserPrompt(),
     maxToolRounds: MAX_TOOL_ROUNDS_FULL,
     maxTokens: MAX_TOKENS_FULL,
+    // Deterministic ground-truth diff: solicitation-required forms vs the forms
+    // actually in the package. Runs only in the full review (needs solicitation
+    // text ± one extra model call — too heavy for the 29s sync chat). Best-effort:
+    // computeMissingFormFindings swallows failures and returns [] so the review
+    // never fails because the cross-check couldn't build its expected list.
+    augmentFindings: (rawFindings, inventory) =>
+      computeMissingFormFindings({
+        projectId: args.projectId,
+        oppId: args.oppId,
+        modelId: args.modelId,
+        inventory,
+        existingFindings: rawFindings,
+      }),
   });
 
 /** Conversational per-turn review (sync chat). */

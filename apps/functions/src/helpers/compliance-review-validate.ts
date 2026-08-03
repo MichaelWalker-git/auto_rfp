@@ -36,10 +36,16 @@ const anchorExists = (
       const form = inventory.forms.find((f) => f.formId === documentId);
       return !!form && form.fields.some((f) => f.fieldId === anchor.fieldId);
     }
-    case 'cell':
-      // Cell anchors (XLSX questionnaires) aren't in the inventory yet; treat as
-      // unvalidated → the snippet fallback covers navigation. Phase 2 adds cell inventory.
-      return false;
+    case 'cell': {
+      // XLSX questionnaire cell: valid when the owning document has a cell
+      // inventory whose (sheet name, 0-based row, col) matches a real filled
+      // cell — the same coordinates the editor navigates to.
+      const doc = inventory.documents.find((d) => d.documentId === documentId);
+      const cells = doc?.questionnaireCells;
+      if (!cells) return false;
+      if (cells.sheetName.trim().toLowerCase() !== anchor.sheet.trim().toLowerCase()) return false;
+      return cells.cells.some((c) => c.row === anchor.row && c.col === anchor.col);
+    }
   }
 };
 
@@ -158,10 +164,12 @@ export const validateAndTagFindings = async (
       documentTitle,
       fingerprint,
       // Anchor is "valid" (jump directly) only if the addressable target exists.
-      // For RFP docs we additionally require the snippet to check out so the
-      // outline lands on real content; forms rely on the fieldId alone.
+      // Field (form) and cell (XLSX questionnaire) anchors resolve to a discrete
+      // grid target, so existence in the inventory is sufficient. Heading anchors
+      // (RFP-doc HTML) additionally require the snippet to check out so the
+      // outline lands on real content.
       anchorValid:
-        raw.anchor?.kind === 'field'
+        raw.anchor?.kind === 'field' || raw.anchor?.kind === 'cell'
           ? anchorOk
           : anchorOk && (raw.snippet ? snippetValid : true),
     });

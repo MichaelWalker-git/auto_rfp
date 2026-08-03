@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useReviewRun } from '../hooks/useReviewRun';
 import { useComplianceChat } from '../hooks/useComplianceChat';
 import { useFindingDecisions } from '../hooks/useFindingDecisions';
@@ -102,10 +103,18 @@ export const ComplianceReviewPanel = ({ orgId, projectId, oppId }: ComplianceRev
           <Sparkles className="mr-1.5 h-3.5 w-3.5" />
           Full Review
         </TabsTrigger>
-        <TabsTrigger value="chat">
-          <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
-          Chat
-        </TabsTrigger>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <TabsTrigger value="chat">
+              <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
+              Chat
+            </TabsTrigger>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            Chat is for small, targeted questions — e.g. reviewing a single document or checking one
+            requirement. For a complete audit of the whole package, use Full Review.
+          </TooltipContent>
+        </Tooltip>
       </TabsList>
 
       {/* ── Full package review ──────────────────────────────────────────── */}
@@ -216,6 +225,10 @@ export const ComplianceReviewPanel = ({ orgId, projectId, oppId }: ComplianceRev
 
       {/* ── Conversational review ────────────────────────────────────────── */}
       <TabsContent value="chat" className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Chat is for small, targeted questions — e.g. reviewing a single document or checking one
+          requirement. For a complete audit of the whole package, run a Full Review.
+        </p>
         <div ref={chatScrollRef} className="space-y-3 max-h-[480px] overflow-y-auto">
           {isLoadingHistory ? (
             <>

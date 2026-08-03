@@ -28,14 +28,25 @@ jest.mock('@/helpers/compliance-review-queue', () => ({
   enqueueComplianceReview: (...a: unknown[]) => mockEnqueue(...a),
 }));
 
+const mockAudit = jest.fn();
+jest.mock('@/helpers/compliance-review-audit', () => ({
+  writeComplianceAuditLog: (...a: unknown[]) => mockAudit(...a),
+}));
+
 import { baseHandler } from './trigger-review';
 
 const query = { orgId: 'org-1', projectId: 'proj-1', opportunityId: 'opp-1' };
-const event = { queryStringParameters: query } as never;
+const event = {
+  queryStringParameters: query,
+  auth: { userId: 'user-9', claims: { name: 'Jane' } },
+  requestContext: { http: { sourceIp: '1.2.3.4' } },
+  headers: { 'user-agent': 'jest' },
+} as never;
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockBuildSnapshot.mockResolvedValue({ 'doc:1': 'v1' });
+  mockAudit.mockResolvedValue(undefined);
 });
 
 describe('trigger-review handler', () => {
@@ -81,5 +92,27 @@ describe('trigger-review handler', () => {
     expect(mockCreateReviewRun).toHaveBeenCalledWith(
       expect.objectContaining({ trigger: 'FULL', snapshotVersionIds: { 'doc:1': 'v1' } }),
     );
+  });
+
+  it('writes a COMPLIANCE_REVIEW_STARTED audit log on the happy path', async () => {
+    mockGetOpportunity.mockResolvedValue({ oppId: 'opp-1' });
+    mockCreateReviewRun.mockResolvedValue({ reviewId: '22222222-2222-2222-2222-222222222222', status: 'RUNNING' });
+    await baseHandler(event);
+    expect(mockAudit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'COMPLIANCE_REVIEW_STARTED',
+        resource: 'compliance_review_run',
+        resourceId: '22222222-2222-2222-2222-222222222222',
+        orgId: 'org-1',
+        userId: 'user-9',
+      }),
+    );
+  });
+
+  it('does NOT audit when a run is already in progress (409)', async () => {
+    mockGetOpportunity.mockResolvedValue({ oppId: 'opp-1' });
+    mockCreateReviewRun.mockResolvedValue(null);
+    await baseHandler(event);
+    expect(mockAudit).not.toHaveBeenCalled();
   });
 });

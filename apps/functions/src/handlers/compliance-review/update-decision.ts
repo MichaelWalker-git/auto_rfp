@@ -13,6 +13,7 @@ import { withSentryLambda } from '@/sentry-lambda';
 import { apiResponse, getUserId } from '@/helpers/api';
 import { getOpportunity } from '@/helpers/opportunity';
 import { clearFindingDecision, upsertFindingDecision } from '@/helpers/compliance-review';
+import { writeComplianceAuditLog } from '@/helpers/compliance-review-audit';
 import {
   authContextMiddleware,
   type AuthedEvent,
@@ -45,8 +46,30 @@ export const baseHandler = async (
   const opportunity = await getOpportunity({ orgId, projectId, oppId });
   if (!opportunity) return apiResponse(404, { message: 'Opportunity not found' });
 
+  const userId = getUserId(event);
+  const userName =
+    (event.auth?.claims?.name as string | undefined) ??
+    (event.auth?.claims?.email as string | undefined);
+  const ipAddress = event.requestContext?.http?.sourceIp;
+  const userAgent = event.headers?.['user-agent'];
+
   if (data.state === null) {
     await clearFindingDecision({ orgId, projectId, oppId, fingerprint: data.fingerprint });
+
+    // Audit: a triage decision was cleared (un-dismiss / un-resolve).
+    // Fire-and-forget — non-blocking, keep it off the response path.
+    void writeComplianceAuditLog({
+      action: 'COMPLIANCE_FINDING_DECISION_CLEARED',
+      resource: 'compliance_review_finding',
+      resourceId: data.fingerprint,
+      orgId,
+      userId,
+      userName,
+      after: { oppId, projectId },
+      ipAddress,
+      userAgent,
+    });
+
     return apiResponse(200, { ok: true, decision: null });
   }
 
@@ -56,11 +79,23 @@ export const baseHandler = async (
     oppId,
     fingerprint: data.fingerprint,
     state: data.state,
-    decidedBy: getUserId(event),
-    decidedByName:
-      (event.auth?.claims?.name as string | undefined) ??
-      (event.auth?.claims?.email as string | undefined),
+    decidedBy: userId,
+    decidedByName: userName,
     note: data.note,
+  });
+
+  // Audit: a finding was dismissed or resolved (mutating triage decision).
+  // Fire-and-forget — non-blocking, keep it off the response path.
+  void writeComplianceAuditLog({
+    action: data.state === 'dismissed' ? 'COMPLIANCE_FINDING_DISMISSED' : 'COMPLIANCE_FINDING_RESOLVED',
+    resource: 'compliance_review_finding',
+    resourceId: data.fingerprint,
+    orgId,
+    userId,
+    userName,
+    after: { oppId, projectId, state: data.state, hasNote: !!data.note },
+    ipAddress,
+    userAgent,
   });
 
   return apiResponse(200, { ok: true, decision });
@@ -71,5 +106,7 @@ export const handler = withSentryLambda(
     .use(httpErrorMiddleware())
     .use(authContextMiddleware())
     .use(orgMembershipMiddleware())
-    .use(requirePermission('opportunity:read')),
+    // Mutating (upserts/clears a triage decision) → gate on proposal:create,
+    // matching trigger-review and the roles that prepare a submission.
+    .use(requirePermission('proposal:create')),
 );

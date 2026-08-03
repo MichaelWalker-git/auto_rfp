@@ -5,6 +5,9 @@ import type { ComplianceFinding } from '@auto-rfp/core';
  * target editor can jump/highlight (or fall back to snippet-search).
  *
  * - RFP documents → the rich-text editor with ?highlightSection / ?findSnippet
+ * - XLSX questionnaires → the RFP document editor (spreadsheet grid) with
+ *   ?highlightCell / ?findSnippet — a questionnaire is an RFP document, not a
+ *   required form, so it lives under /rfp-documents, NOT /forms
  * - Forms (PDF/XLSX) → the form editor with ?highlightField / ?findSnippet
  * - FORM_MISSING → no target (returns null; the card shows guidance instead)
  */
@@ -25,7 +28,16 @@ export const buildFindingHref = (
     return `${base}/rfp-documents/${finding.documentId}/edit?${params.toString()}`;
   }
 
-  // XLSX_FORM / PDF_FORM / XLSX_QUESTIONNAIRE → form editor.
+  if (finding.targetKind === 'XLSX_QUESTIONNAIRE') {
+    // The XLSX questionnaire renders in the RFP document editor's spreadsheet
+    // grid (QuestionnaireViewer), reached via the /rfp-documents/{id}/edit route.
+    if (finding.anchor?.kind === 'cell') {
+      params.set('highlightCell', `${finding.anchor.sheet},${finding.anchor.row},${finding.anchor.col}`);
+    }
+    return `${base}/rfp-documents/${finding.documentId}/edit?${params.toString()}`;
+  }
+
+  // XLSX_FORM / PDF_FORM → form editor.
   if (finding.anchor?.kind === 'field') params.set('highlightField', finding.anchor.fieldId);
   if (finding.anchor?.kind === 'cell') {
     params.set('highlightCell', `${finding.anchor.sheet},${finding.anchor.row},${finding.anchor.col}`);
