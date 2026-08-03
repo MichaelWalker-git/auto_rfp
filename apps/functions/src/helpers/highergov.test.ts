@@ -114,6 +114,35 @@ describe('searchHigherGovOpportunities', () => {
     await expect(searchHigherGovOpportunities(cfg, {})).rejects.toThrow('HigherGov API 403');
   });
 
+  it('filters by NAICS on naics_code.naics_code', async () => {
+    // The one true behaviour change in this fix. The previous predicate read
+    // `naics_code.code`, which does not exist on the API's Naics object (its only key is
+    // `naics_code`), so it was always undefined and the filter removed EVERY result —
+    // the HigherGov NAICS filter returned zero matches whenever it was used.
+    const apiResp = {
+      results: [
+        { opp_key: 'MATCH',    title: 'Wanted',   naics_code: { naics_code: '541511' } },
+        { opp_key: 'NO-MATCH', title: 'Unwanted', naics_code: { naics_code: '236220' } },
+        { opp_key: 'NO-NAICS', title: 'Missing' },
+      ],
+      meta: { pagination: { page: 1, pages: 1, count: 3 } },
+    };
+
+    mockGet.mockImplementation((_url, _opts, cb) => {
+      const callback = typeof _opts === 'function' ? _opts : cb;
+      (callback as (res: IncomingMessage) => void)(fakeResponse(200, apiResp));
+      return { on: jest.fn(), end: jest.fn() } as unknown as ReturnType<typeof https.get>;
+    });
+
+    const result = await searchHigherGovOpportunities(cfg, { naics: ['541511'], pageSize: 25 });
+
+    expect(result.results).toHaveLength(1);
+    expect(result.results[0]!.opp_key).toBe('MATCH');
+    // NAICS is not an API query param — it must be filtered client-side.
+    const calledUrl = mockGet.mock.calls[0]![0] as URL;
+    expect(calledUrl.searchParams.has('naics')).toBe(false);
+  });
+
   it('caps page_size at 100', async () => {
     mockGet.mockImplementation((url, _opts, cb) => {
       const callback = typeof _opts === 'function' ? _opts : cb;

@@ -101,14 +101,17 @@ export const searchHigherGovOpportunities = async (
   if (params.keywords) {
     const terms = params.keywords.toLowerCase().split(/\s+/).filter(Boolean);
     results = results.filter((opp) => {
+      // `agency.name`, `agency.abbreviation`, `naics_code.description` and
+      // `psc_code.description` were listed here but are not keys the API returns, so they
+      // always evaluated to undefined and were dropped by `.filter(Boolean)` — they never
+      // contributed a match. Removed rather than repointed at the real keys, which keeps
+      // keyword matching behaviour byte-identical to today: the API exposes only the bare
+      // `naics_code`/`psc_code` values (no descriptions), and matching a 6-digit code as
+      // free text would hit that digit string anywhere in the blob.
       const searchable = [
         opp.title,
         opp.description_text,
         opp.ai_summary,
-        opp.agency?.name,
-        opp.agency?.abbreviation,
-        opp.naics_code?.description,
-        opp.psc_code?.description,
         opp.product_service,
         opp.source_id,
       ]
@@ -121,7 +124,13 @@ export const searchHigherGovOpportunities = async (
 
   if (params.naics?.length) {
     const naicsSet = new Set(params.naics);
-    results = results.filter((opp) => opp.naics_code?.code && naicsSet.has(opp.naics_code.code));
+    // `naics_code.naics_code` — the previous `.code` read was always undefined, so this
+    // filter matched nothing and silently removed EVERY result whenever a NAICS filter
+    // was applied.
+    results = results.filter((opp) => {
+      const code = opp.naics_code?.naics_code;
+      return !!code && naicsSet.has(code);
+    });
   }
 
   if (params.setAsideCode) {
