@@ -1,6 +1,8 @@
 'use client';
 
 import { memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { highlightFieldById, highlightFormSnippet } from '@/features/compliance-review';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -382,6 +384,27 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     const inView = rect.top >= 0 && rect.bottom <= window.innerHeight;
     if (!inView) el.scrollIntoView({ block: 'center' });
   }, [activeField]);
+
+  // Compliance-review deep-link: when opened with ?highlightField / ?findSnippet,
+  // activate + flash the referenced field once the PDF pages have rendered.
+  // DOM-only (never persisted) so export is unaffected.
+  const searchParams = useSearchParams();
+  const highlightField = searchParams.get('highlightField');
+  const findSnippet = searchParams.get('findSnippet');
+  const hasHighlightedRef = useRef(false);
+  useEffect(() => {
+    if (pdfLoading || hasHighlightedRef.current) return;
+    if (!highlightField && !findSnippet) return;
+    hasHighlightedRef.current = true;
+    // Selecting the field activates its overlay + sidebar row; the flash and
+    // snippet fallback run after a short delay so overlays are laid out.
+    if (highlightField) setActiveField(highlightField);
+    const t = setTimeout(() => {
+      if (highlightField && highlightFieldById(highlightField)) return;
+      if (findSnippet) highlightFormSnippet(findSnippet);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [pdfLoading, highlightField, findSnippet]);
 
   // Save all fields in one request
   const handleSaveAll = useCallback(async () => {

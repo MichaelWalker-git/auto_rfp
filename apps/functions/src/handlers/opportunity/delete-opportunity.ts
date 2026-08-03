@@ -28,6 +28,11 @@ import { DEADLINE_PK } from '@/constants/deadline';
 import { RFP_DOCUMENT_PK } from '@/constants/rfp-document';
 import { REQUIRED_FORM_PK } from '@/constants/required-form';
 import { RFP_DOCUMENT_VERSION_PK } from '@/constants/rfp-document-version';
+import {
+  COMPLIANCE_REVIEW_CHAT_PK,
+  COMPLIANCE_REVIEW_RUN_PK,
+  COMPLIANCE_FINDING_DECISION_PK,
+} from '@/constants/compliance-review';
 import { PROPOSAL_SUBMISSION_PK } from '@/constants/proposal-submission';
 import { CLARIFYING_QUESTION_PK } from '@/constants/clarifying-question';
 import { ENGAGEMENT_LOG_PK } from '@/constants/engagement-log';
@@ -204,6 +209,18 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
       // Context may not exist — that's fine
       deletionResults.push({ entity: 'opportunityContext', count: 0 });
     }
+
+    // ── Step 5b: Delete AI compliance-review data ─────────────────────────────
+    // Chat, runs, and finding decisions all use SK: {orgId}#{projectId}#{oppId}#...
+    deletionResults.push(
+      await deleteByPrefix(COMPLIANCE_REVIEW_CHAT_PK, orgProjectOppPrefix, 'complianceReviewChat'),
+    );
+    deletionResults.push(
+      await deleteByPrefix(COMPLIANCE_REVIEW_RUN_PK, orgProjectOppPrefix, 'complianceReviewRuns'),
+    );
+    deletionResults.push(
+      await deleteByPrefix(COMPLIANCE_FINDING_DECISION_PK, orgProjectOppPrefix, 'complianceFindingDecisions'),
+    );
 
     // ── Step 6: Delete the opportunity itself ─────────────────────────────────
     await deleteOpportunity({ orgId, projectId, oppId });
