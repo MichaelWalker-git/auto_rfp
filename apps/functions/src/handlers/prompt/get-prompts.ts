@@ -9,7 +9,6 @@ import { apiResponse, getOrgId } from '@/helpers/api';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import {
   SYSTEM_PROMPT_PK, USER_PROMPT_PK,
-  PROPOSAL_SYSTEM_PROMPT, PROPOSAL_USER_PROMPT,
   SUMMARY_SYSTEM_PROMPT, SUMMARY_USER_PROMPT,
   CONTACTS_SYSTEM_PROMPT, CONTACTS_USER_PROMPT,
   REQUIREMENTS_SYSTEM_PROMPT, REQUIREMENTS_USER_PROMPT,
@@ -19,6 +18,22 @@ import {
   ANSWER_SYSTEM_PROMPT, ANSWER_USER_PROMPT,
   CLARIFYING_QUESTIONS_SYSTEM_PROMPT, CLARIFYING_QUESTIONS_USER_PROMPT,
 } from '@/constants/prompt';
+import {
+  type DocumentPromptItem,
+  DocumentPromptTypeSchema,
+  type PromptItem,
+  type PromptType,
+} from '@auto-rfp/core';
+import { getDefaultGuidance, getDefaultTask } from '@/helpers/document-prompts';
+
+/** A queried prompt row: legacy feature prompt or document-generation override. */
+type PromptRow = PromptItem | DocumentPromptItem;
+
+/** Response rows may be synthesized defaults, marked with isDefault. */
+type MergedPromptItem = PromptItem & { isDefault?: boolean };
+
+const isDocumentRow = (p: PromptRow): p is DocumentPromptItem =>
+  typeof (p as DocumentPromptItem).documentType === 'string';
 
 import { withSentryLambda } from '@/sentry-lambda';
 import {
@@ -69,7 +84,7 @@ export async function queryPromptsByPkForOrg(pkValue: string, orgId: string) {
   return items;
 }
 
-const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   const orgId = getOrgId(event);
   if (!orgId) {
     return apiResponse(400, { ok: false, error: 'Missing required orgId' });
@@ -81,8 +96,8 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
   ]);
 
   // Default prompts for each known type
-  const defaultSystemPrompts: Record<string, string> = {
-    PROPOSAL: PROPOSAL_SYSTEM_PROMPT,
+  // (PROPOSAL intentionally not synthesized — dead type, kept only for data compat)
+  const defaultSystemPrompts: Partial<Record<PromptType, string>> = {
     SUMMARY: SUMMARY_SYSTEM_PROMPT,
     CONTACTS: CONTACTS_SYSTEM_PROMPT,
     REQUIREMENTS: REQUIREMENTS_SYSTEM_PROMPT,
@@ -93,8 +108,7 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
     CLARIFYING_QUESTIONS: CLARIFYING_QUESTIONS_SYSTEM_PROMPT,
   };
 
-  const defaultUserPrompts: Record<string, string> = {
-    PROPOSAL: PROPOSAL_USER_PROMPT,
+  const defaultUserPrompts: Partial<Record<PromptType, string>> = {
     SUMMARY: SUMMARY_USER_PROMPT,
     CONTACTS: CONTACTS_USER_PROMPT,
     REQUIREMENTS: REQUIREMENTS_USER_PROMPT,
@@ -105,14 +119,26 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
     CLARIFYING_QUESTIONS: CLARIFYING_QUESTIONS_USER_PROMPT,
   };
 
+  // Split queried rows: document prompt overrides (3-segment SK, carry a
+  // documentType attribute) vs legacy feature prompts.
+  const systemRows = (systemFromDb ?? []) as PromptRow[];
+  const userRows = (userFromDb ?? []) as PromptRow[];
+
+  const systemFeatureRows = systemRows.filter((p): p is PromptItem => !isDocumentRow(p));
+  const userFeatureRows = userRows.filter((p): p is PromptItem => !isDocumentRow(p));
+  const documentRows: DocumentPromptItem[] = [
+    ...systemRows.filter(isDocumentRow),
+    ...userRows.filter(isDocumentRow),
+  ];
+
   // Merge: for each known type, if not in DB, add a default entry
-  const systemTypes = new Set((systemFromDb ?? []).map((p: any) => p.type));
-  const userTypes = new Set((userFromDb ?? []).map((p: any) => p.type));
+  const systemTypes = new Set(systemFeatureRows.map((p) => p.type));
+  const userTypes = new Set(userFeatureRows.map((p) => p.type));
 
-  const system = [...(systemFromDb ?? [])];
-  const user = [...(userFromDb ?? [])];
+  const system: MergedPromptItem[] = [...systemFeatureRows];
+  const user: MergedPromptItem[] = [...userFeatureRows];
 
-  for (const [type, prompt] of Object.entries(defaultSystemPrompts)) {
+  for (const [type, prompt] of Object.entries(defaultSystemPrompts) as [PromptType, string][]) {
     if (!systemTypes.has(type)) {
       system.push({
         type,
@@ -124,7 +150,7 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
     }
   }
 
-  for (const [type, prompt] of Object.entries(defaultUserPrompts)) {
+  for (const [type, prompt] of Object.entries(defaultUserPrompts) as [PromptType, string][]) {
     if (!userTypes.has(type)) {
       user.push({
         type,
@@ -136,9 +162,35 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
     }
   }
 
+  // Document prompts: synthesize defaults for every overridable type × scope
+  // not present in the DB (same isDefault pattern as feature prompts).
+  const overriddenDocKeys = new Set(
+    documentRows.map((p) => `${p.scope}#${p.documentType}`),
+  );
+
+  const document: DocumentPromptItem[] = [...documentRows];
+  for (const documentType of DocumentPromptTypeSchema.options) {
+    if (!overriddenDocKeys.has(`SYSTEM#${documentType}`)) {
+      document.push({
+        documentType,
+        scope: 'SYSTEM',
+        prompt: getDefaultGuidance(documentType),
+        isDefault: true,
+      });
+    }
+    if (!overriddenDocKeys.has(`USER#${documentType}`)) {
+      document.push({
+        documentType,
+        scope: 'USER',
+        prompt: getDefaultTask(documentType),
+        isDefault: true,
+      });
+    }
+  }
+
   return apiResponse(200, {
     ok: true,
-    items: { system, user },
+    items: { system, user, document },
   });
 };
 

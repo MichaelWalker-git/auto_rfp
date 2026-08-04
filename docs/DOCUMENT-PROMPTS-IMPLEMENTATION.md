@@ -307,7 +307,7 @@ follow the same custom guidance as generated ones.
 
 ---
 
-## 6. Backend — Handler Changes <!-- ⏳ PENDING -->
+## 6. Backend — Handler Changes <!-- ✅ IMPLEMENTED -->
 
 ### 6.1 `save-prompt.ts` (extend)
 
@@ -478,7 +478,7 @@ Standalone COST_PROPOSAL guidance in `DOC_TYPE_GUIDANCE`; export
 Fetch-once in `generate-document-worker.ts` Step 5 (both strategies);
 guidance injection in `edit-section.ts`; update both test files.
 
-### DP-6 · Handlers: save/get extend + delete new (M) <!-- ⏳ PENDING -->
+### DP-6 · Handlers: save/get extend + delete new (M) <!-- ✅ IMPLEMENTED -->
 Body discrimination in `save-prompt.ts`; 3-group response + document defaults +
 drop PROPOSAL synthesis in `get-prompts.ts`; new `delete-prompt.ts`; tests.
 
@@ -535,10 +535,10 @@ DP-3..5 (runtime) and DP-6..9 (management surface) can proceed in parallel after
 | `apps/functions/src/helpers/document-prompts.test.ts` | extend | ✅ |
 | `apps/functions/src/helpers/generate-document-worker.ts` | extend: fetch-once wiring | ✅ |
 | `apps/functions/src/handlers/rfp-document/edit-section.ts` | extend: guidance injection | ✅ |
-| `apps/functions/src/handlers/prompt/save-prompt.ts` | extend: body discrimination | ⏳ |
-| `apps/functions/src/handlers/prompt/get-prompts.ts` | extend: `document` group + defaults; drop PROPOSAL | ⏳ |
-| `apps/functions/src/handlers/prompt/delete-prompt.ts` | **new**: reset handler | ⏳ |
-| `apps/functions/src/handlers/prompt/*.test.ts` | new/extend | ⏳ |
+| `apps/functions/src/handlers/prompt/save-prompt.ts` | extend: body discrimination | ✅ |
+| `apps/functions/src/handlers/prompt/get-prompts.ts` | extend: `document` group + defaults; drop PROPOSAL | ✅ |
+| `apps/functions/src/handlers/prompt/delete-prompt.ts` | **new**: reset handler | ✅ |
+| `apps/functions/src/handlers/prompt/*.test.ts` | new/extend | ✅ |
 | `packages/infra/api/routes/prompt.routes.ts` | extend: DELETE route | ⏳ |
 | `apps/web/lib/hooks/use-prompt.ts` | extend: document group, delete hook | ⏳ |
 | `apps/web/lib/prompt/prompt-api.ts` | extend: delete URL | ⏳ |
