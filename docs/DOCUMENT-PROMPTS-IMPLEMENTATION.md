@@ -209,7 +209,7 @@ both; the handler splits them by presence of the `documentType` attribute.
 
 ---
 
-## 5. Backend — Runtime Resolution <!-- 🚧 IN PROGRESS --> <!-- 5.1–5.3 done (DP-3/DP-4); 5.4–5.5 pending (DP-5) -->
+## 5. Backend — Runtime Resolution <!-- ✅ IMPLEMENTED -->
 
 ### 5.1 New helper: `apps/functions/src/helpers/document-prompt-overrides.ts`
 
@@ -474,7 +474,7 @@ Standalone COST_PROPOSAL guidance in `DOC_TYPE_GUIDANCE`; export
 `guidanceOverride`/`taskOverride` params on the three builders;
 `document-prompt-overrides.ts` with silent-fallback resolver; tests.
 
-### DP-5 · Worker + edit-section wiring (M) <!-- ⏳ PENDING -->
+### DP-5 · Worker + edit-section wiring (M) <!-- ✅ IMPLEMENTED -->
 Fetch-once in `generate-document-worker.ts` Step 5 (both strategies);
 guidance injection in `edit-section.ts`; update both test files.
 
@@ -533,8 +533,8 @@ DP-3..5 (runtime) and DP-6..9 (management surface) can proceed in parallel after
 | `apps/functions/src/helpers/document-prompt-overrides.test.ts` | **new** | ✅ |
 | `apps/functions/src/helpers/document-prompts.ts` | extend: override params; fix COST_PROPOSAL; default accessors | ✅ |
 | `apps/functions/src/helpers/document-prompts.test.ts` | extend | ✅ |
-| `apps/functions/src/helpers/generate-document-worker.ts` | extend: fetch-once wiring | ⏳ |
-| `apps/functions/src/handlers/rfp-document/edit-section.ts` | extend: guidance injection | ⏳ |
+| `apps/functions/src/helpers/generate-document-worker.ts` | extend: fetch-once wiring | ✅ |
+| `apps/functions/src/handlers/rfp-document/edit-section.ts` | extend: guidance injection | ✅ |
 | `apps/functions/src/handlers/prompt/save-prompt.ts` | extend: body discrimination | ⏳ |
 | `apps/functions/src/handlers/prompt/get-prompts.ts` | extend: `document` group + defaults; drop PROPOSAL | ⏳ |
 | `apps/functions/src/handlers/prompt/delete-prompt.ts` | **new**: reset handler | ⏳ |

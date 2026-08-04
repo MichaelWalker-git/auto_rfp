@@ -20,6 +20,7 @@ import {
   buildSectionSystemPrompt,
   buildUserPromptForDocumentType,
 } from '@/helpers/document-prompts';
+import { resolveDocumentPromptFragments } from '@/helpers/document-prompt-overrides';
 import {
   extractBedrockText,
   loadQaPairs,
@@ -1020,12 +1021,16 @@ export const processJobInner = async (job: Job): Promise<void> => {
   }
 
   // ─── Step 5: Build prompts ───
-  const systemPrompt = buildSystemPromptForDocumentType(documentType, templateHtmlScaffold);
+  // Org-level fragment overrides are fetched once per job; null fields fall back
+  // to the hardcoded defaults inside the builders.
+  const fragments = await resolveDocumentPromptFragments(orgId, documentType);
+  const systemPrompt = buildSystemPromptForDocumentType(documentType, templateHtmlScaffold, fragments.guidance);
   const userPrompt = buildUserPromptForDocumentType(
     documentType,
     solicitation,
     JSON.stringify(qaPairs),
     enrichedKbText,
+    fragments.task,
   );
 
   console.log(`Prompt sizes: system=${systemPrompt.length}, user=${userPrompt.length}, solicitation=${solicitation.length}, qaPairs=${qaPairs.length}, enrichedKb=${enrichedKbText.length}`);
@@ -1048,7 +1053,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
   let finalDocument: RFPDocumentContent | null = null;
   // Strategy 1: Section-by-section generation (template with headings AND placeholders)
   if (templateHtmlScaffold) {
-    const sectionSystemPrompt = buildSectionSystemPrompt(documentType);
+    const sectionSystemPrompt = buildSectionSystemPrompt(documentType, fragments.guidance);
     console.log(`Section system prompt: ${sectionSystemPrompt.length} chars`);
 
     finalDocument = await generateWithTemplateSections({
@@ -1071,7 +1076,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
   if (!finalDocument) {
     const singleShotTemplate = templateHtmlScaffold || buildDefaultTemplate();
     // Pass the template scaffold to the system prompt so the AI sees the template structure
-    const singleShotSystemPrompt = buildSystemPromptForDocumentType(documentType, templateHtmlScaffold ?? null);
+    const singleShotSystemPrompt = buildSystemPromptForDocumentType(documentType, templateHtmlScaffold ?? null, fragments.guidance);
 
     console.log(`[worker] Using single-shot generation for documentId=${documentId} (template: ${templateHtmlScaffold ? 'yes' : 'default'})`);
     finalDocument = await generateSingleShot({
