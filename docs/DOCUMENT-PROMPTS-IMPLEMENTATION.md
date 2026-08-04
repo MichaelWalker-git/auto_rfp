@@ -163,7 +163,7 @@ Notes:
 
 ---
 
-## 4. DynamoDB Design <!-- ⏳ PENDING -->
+## 4. DynamoDB Design <!-- ✅ IMPLEMENTED -->
 
 No new PK constants. SK builders in `apps/functions/src/helpers/prompt.ts`:
 
@@ -462,7 +462,7 @@ middy + AWS SDK before imports per `.claude/rules/09-testing.md`.
 `DeleteDocumentPromptBodySchema`, `DOCUMENT_PROMPT_MAX_LENGTH` in
 `packages/core/src/schemas/prompt.ts` + vitest tests. Rebuild core.
 
-### DP-2 · DB helpers + SK builders (S) <!-- ⏳ PENDING -->
+### DP-2 · DB helpers + SK builders (S) <!-- ✅ IMPLEMENTED -->
 `buildDocumentPromptSk`, `saveDocumentPrompt`, `readDocumentPrompt`,
 `deleteDocumentPrompt` in `helpers/prompt.ts` + tests.
 
@@ -527,8 +527,8 @@ DP-3..5 (runtime) and DP-6..9 (management surface) can proceed in parallel after
 |---|---|---|
 | `packages/core/src/schemas/prompt.ts` | extend: document prompt schemas | ✅ |
 | `packages/core/src/schemas/prompt.test.ts` | new/extend vitest tests | ✅ |
-| `apps/functions/src/helpers/prompt.ts` | extend: document SK + CRUD helpers | ⏳ |
-| `apps/functions/src/helpers/prompt.test.ts` | extend | ⏳ |
+| `apps/functions/src/helpers/prompt.ts` | extend: document SK + CRUD helpers | ✅ |
+| `apps/functions/src/helpers/prompt.test.ts` | extend | ✅ |
 | `apps/functions/src/helpers/document-prompt-overrides.ts` | **new**: resolver | ⏳ |
 | `apps/functions/src/helpers/document-prompt-overrides.test.ts` | **new** | ⏳ |
 | `apps/functions/src/helpers/document-prompts.ts` | extend: override params; fix COST_PROPOSAL; default accessors | ⏳ |
