@@ -760,12 +760,13 @@ CONTENT GENERATION RULES:
 export const buildSystemPromptForDocumentType = (
   documentType: string,
   templateHtmlScaffold?: string | null,
+  guidanceOverride?: string | null,
 ): string => {
   const typeLabel =
     TEMPLATE_CATEGORY_LABELS[documentType as keyof typeof TEMPLATE_CATEGORY_LABELS] ??
     humanizeDocumentType(documentType);
 
-  const guidance = DOC_TYPE_GUIDANCE[documentType] ?? DEFAULT_GUIDANCE(typeLabel);
+  const guidance = guidanceOverride ?? DOC_TYPE_GUIDANCE[documentType] ?? DEFAULT_GUIDANCE(typeLabel);
 
   let prompt = `You are a senior proposal writer and capture manager with 20+ years of experience winning US federal government contracts. You specialize in writing compliant, compelling, and customer-focused proposals that score highly against evaluation criteria.
 
@@ -1092,12 +1093,13 @@ export const getDefaultTask = (documentType: string): string => {
  */
 export const buildSectionSystemPrompt = (
   documentType: string,
+  guidanceOverride?: string | null,
 ): string => {
   const typeLabel =
     TEMPLATE_CATEGORY_LABELS[documentType as keyof typeof TEMPLATE_CATEGORY_LABELS] ??
     humanizeDocumentType(documentType);
 
-  const guidance = DOC_TYPE_GUIDANCE[documentType] ?? DEFAULT_GUIDANCE(typeLabel);
+  const guidance = guidanceOverride ?? DOC_TYPE_GUIDANCE[documentType] ?? DEFAULT_GUIDANCE(typeLabel);
 
   // The AI sees the template section content directly in the user prompt (via templateContent),
   // so it can observe and replicate the exact inline styles from the template HTML.
@@ -1201,17 +1203,18 @@ ${stylingSection}`;
  * Each document type gets focused task instructions that direct the model
  * to use the most relevant context and produce the right content.
  */
-export function buildUserPromptForDocumentType(
+export const buildUserPromptForDocumentType = (
   documentType: string,
   solicitation: string,
   qaText: string,
   enrichedKbText: string,
-): string {
+  taskOverride?: string | null,
+): string => {
   const typeLabel =
     RFP_DOCUMENT_TYPES[documentType as keyof typeof RFP_DOCUMENT_TYPES] ??
     humanizeDocumentType(documentType);
 
-  const taskInstructions = DOC_TYPE_TASK[documentType] ?? DEFAULT_TASK(typeLabel);
+  const taskInstructions = taskOverride ?? DOC_TYPE_TASK[documentType] ?? DEFAULT_TASK(typeLabel);
 
   return `
 ═══════════════════════════════════════
@@ -1244,4 +1247,4 @@ ${enrichedKbText || 'No enrichment context available.'}
 ═══════════════════════════════════════
 ${taskInstructions.trim()}
 `.trim();
-}
+};

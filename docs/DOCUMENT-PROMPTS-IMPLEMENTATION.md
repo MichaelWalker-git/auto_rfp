@@ -209,7 +209,7 @@ both; the handler splits them by presence of the `documentType` attribute.
 
 ---
 
-## 5. Backend — Runtime Resolution <!-- ⏳ PENDING -->
+## 5. Backend — Runtime Resolution <!-- 🚧 IN PROGRESS --> <!-- 5.1–5.3 done (DP-3/DP-4); 5.4–5.5 pending (DP-5) -->
 
 ### 5.1 New helper: `apps/functions/src/helpers/document-prompt-overrides.ts`
 
@@ -470,7 +470,7 @@ middy + AWS SDK before imports per `.claude/rules/09-testing.md`.
 Standalone COST_PROPOSAL guidance in `DOC_TYPE_GUIDANCE`; export
 `getDefaultGuidance`/`getDefaultTask` accessors for get-prompts.
 
-### DP-4 · Builder override params + resolution helper (M) <!-- ⏳ PENDING -->
+### DP-4 · Builder override params + resolution helper (M) <!-- ✅ IMPLEMENTED -->
 `guidanceOverride`/`taskOverride` params on the three builders;
 `document-prompt-overrides.ts` with silent-fallback resolver; tests.
 
@@ -529,10 +529,10 @@ DP-3..5 (runtime) and DP-6..9 (management surface) can proceed in parallel after
 | `packages/core/src/schemas/prompt.test.ts` | new/extend vitest tests | ✅ |
 | `apps/functions/src/helpers/prompt.ts` | extend: document SK + CRUD helpers | ✅ |
 | `apps/functions/src/helpers/prompt.test.ts` | extend | ✅ |
-| `apps/functions/src/helpers/document-prompt-overrides.ts` | **new**: resolver | ⏳ |
-| `apps/functions/src/helpers/document-prompt-overrides.test.ts` | **new** | ⏳ |
-| `apps/functions/src/helpers/document-prompts.ts` | extend: override params; fix COST_PROPOSAL; default accessors | ⏳ |
-| `apps/functions/src/helpers/document-prompts.test.ts` | extend | ⏳ |
+| `apps/functions/src/helpers/document-prompt-overrides.ts` | **new**: resolver | ✅ |
+| `apps/functions/src/helpers/document-prompt-overrides.test.ts` | **new** | ✅ |
+| `apps/functions/src/helpers/document-prompts.ts` | extend: override params; fix COST_PROPOSAL; default accessors | ✅ |
+| `apps/functions/src/helpers/document-prompts.test.ts` | extend | ✅ |
 | `apps/functions/src/helpers/generate-document-worker.ts` | extend: fetch-once wiring | ⏳ |
 | `apps/functions/src/handlers/rfp-document/edit-section.ts` | extend: guidance injection | ⏳ |
 | `apps/functions/src/handlers/prompt/save-prompt.ts` | extend: body discrimination | ⏳ |
