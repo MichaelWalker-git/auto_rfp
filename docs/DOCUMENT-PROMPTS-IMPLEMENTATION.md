@@ -466,7 +466,7 @@ middy + AWS SDK before imports per `.claude/rules/09-testing.md`.
 `buildDocumentPromptSk`, `saveDocumentPrompt`, `readDocumentPrompt`,
 `deleteDocumentPrompt` in `helpers/prompt.ts` + tests.
 
-### DP-3 · Fix COST_PROPOSAL default + export defaults (S) <!-- ⏳ PENDING -->
+### DP-3 · Fix COST_PROPOSAL default + export defaults (S) <!-- ✅ IMPLEMENTED -->
 Standalone COST_PROPOSAL guidance in `DOC_TYPE_GUIDANCE`; export
 `getDefaultGuidance`/`getDefaultTask` accessors for get-prompts.
 
