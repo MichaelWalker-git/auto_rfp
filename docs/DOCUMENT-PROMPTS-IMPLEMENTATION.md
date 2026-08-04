@@ -352,7 +352,7 @@ audit as `CONFIG_CHANGED / config / prompt`. Wrapped in `withSentryLambda`.
 
 ---
 
-## 7. REST API Routes <!-- ⏳ PENDING -->
+## 7. REST API Routes <!-- ✅ IMPLEMENTED -->
 
 `packages/infra/api/routes/prompt.routes.ts`:
 
@@ -365,8 +365,9 @@ routes: [
 ```
 
 Domain already registered in `api-orchestrator-stack.ts` — no orchestrator change.
-New Lambda needs its explicit CloudWatch Log Group (2-week retention non-prod) —
-follow the existing pattern for the prompt domain's lambdas.
+The new Lambda's explicit CloudWatch Log Group is created automatically by the
+shared `ApiDomainLambdaStack` route loop (same pattern as the prompt domain's
+existing lambdas) — no extra CDK code needed.
 
 | Method | Path | Permission | Purpose |
 |---|---|---|---|
@@ -482,7 +483,7 @@ guidance injection in `edit-section.ts`; update both test files.
 Body discrimination in `save-prompt.ts`; 3-group response + document defaults +
 drop PROPOSAL synthesis in `get-prompts.ts`; new `delete-prompt.ts`; tests.
 
-### DP-7 · Route + log group (S) <!-- ⏳ PENDING -->
+### DP-7 · Route + log group (S) <!-- ✅ IMPLEMENTED -->
 DELETE route in `prompt.routes.ts`; CloudWatch Log Group for the new Lambda.
 
 ### DP-8 · Frontend hooks (S) <!-- ⏳ PENDING -->
@@ -539,7 +540,7 @@ DP-3..5 (runtime) and DP-6..9 (management surface) can proceed in parallel after
 | `apps/functions/src/handlers/prompt/get-prompts.ts` | extend: `document` group + defaults; drop PROPOSAL | ✅ |
 | `apps/functions/src/handlers/prompt/delete-prompt.ts` | **new**: reset handler | ✅ |
 | `apps/functions/src/handlers/prompt/*.test.ts` | new/extend | ✅ |
-| `packages/infra/api/routes/prompt.routes.ts` | extend: DELETE route | ⏳ |
+| `packages/infra/api/routes/prompt.routes.ts` | extend: DELETE route | ✅ |
 | `apps/web/lib/hooks/use-prompt.ts` | extend: document group, delete hook | ⏳ |
 | `apps/web/lib/prompt/prompt-api.ts` | extend: delete URL | ⏳ |
 | `apps/web/components/organizations/PromptManager.tsx` | refactor → tabs container | ⏳ |

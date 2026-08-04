@@ -8,6 +8,7 @@ export function promptDomain(): DomainRoutes {
     routes: [
       { method: 'POST', path: 'save-prompt/{scope}', entry: lambdaEntry('prompt/save-prompt.ts') },
       { method: 'GET', path: 'get-prompts', entry: lambdaEntry('prompt/get-prompts.ts') },
+      { method: 'DELETE', path: 'delete-prompt/{scope}', entry: lambdaEntry('prompt/delete-prompt.ts') },
     ],
   };
 }
