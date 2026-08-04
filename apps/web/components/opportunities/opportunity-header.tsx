@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { AlertCircle, Check, ChevronDown, ExternalLink, LayoutDashboard, Loader2, Pencil, Send, Target, X } from 'lucide-react';
+import { AlertCircle, Check, ChevronDown, ExternalLink, LayoutDashboard, Loader2, Pencil, RotateCw, Send, Target, X } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -62,14 +62,16 @@ export const OpportunityHeader = () => {
   const { emitEvent, isEmitting } = useEmitOpportunityEvent();
   const isAlreadyEmitted = !!opportunity?.eventBridgeEmittedAt;
   const pocUrl = opportunity?.pocUrl;
-  const isGenerating = isEmitting || (isAlreadyEmitted && !pocUrl);
+  const isFailed = opportunity?.pocGenState === 'failed';
+  const isGenerating = isEmitting || (isAlreadyEmitted && !pocUrl && !isFailed);
 
   const dashboardBase = process.env.NEXT_PUBLIC_POC_DASHBOARD_URL ?? 'https://poc.horustech.dev/dashboard';
   const pocDashboardUrl = `${dashboardBase.replace(/\/$/, '')}/${oppId}`;
 
-  const handleEmitEvent = async () => {
+  // force=true bypasses the emit idempotency guard so a failed run can be retried.
+  const handleEmitEvent = async (force = false) => {
     if (!orgId || !projectId || !oppId) return;
-    const result = await emitEvent(orgId, projectId, oppId);
+    const result = await emitEvent(orgId, projectId, oppId, force);
     if (result) refetch();
   };
 
@@ -184,8 +186,19 @@ export const OpportunityHeader = () => {
                         <Loader2 className="h-4 w-4 sm:mr-1 animate-spin" />
                         <span className="hidden sm:inline">Generating…</span>
                       </Button>
+                    ) : isFailed ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEmitEvent(true)}
+                        title={opportunity.pocFailureReason ?? 'POC generation failed'}
+                        className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                      >
+                        <RotateCw className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline">Retry POC</span>
+                      </Button>
                     ) : (
-                      <Button variant="outline" size="sm" onClick={handleEmitEvent}>
+                      <Button variant="outline" size="sm" onClick={() => handleEmitEvent()}>
                         <Send className="h-4 w-4 sm:mr-1" />
                         <span className="hidden sm:inline">Generate POC</span>
                       </Button>

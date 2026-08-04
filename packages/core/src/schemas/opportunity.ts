@@ -313,6 +313,17 @@ export const OpportunityItemSchema = z.object({
   pocUrl: z.string().url().nullish(),
   /** ISO datetime when the POC was deployed */
   pocDeployedAt: z.string().datetime().nullish(),
+  /**
+   * POC generation lifecycle state, driven by DevelopmentPlatform callbacks.
+   * 'generating' set on emit; 'succeeded' on POCDeploymentComplete;
+   * 'failed' on POCDeploymentFailed (unless a live pocUrl already exists —
+   * Complete wins). Absent on records created before POC generation existed.
+   */
+  pocGenState: z.enum(['generating', 'succeeded', 'failed']).nullish(),
+  /** Free-text failure reason from POCDeploymentFailed (display only — never parse) */
+  pocFailureReason: z.string().nullish(),
+  /** ISO datetime the POC generation failed */
+  pocFailedAt: z.string().datetime().nullish(),
   /** Compliance check IDs that admins have marked as ignored */
   ignoredComplianceCheckIds: z.array(z.string()).optional(),
   /** Place of performance (city, state, country) */
@@ -365,6 +376,9 @@ export const OpportunityCreateRequestSchema = OpportunityItemSchema.omit({
   apnSyncError: true,
   pocUrl: true,
   pocDeployedAt: true,
+  pocGenState: true,
+  pocFailureReason: true,
+  pocFailedAt: true,
   assigneeId: true,
   assigneeName: true,
   assignedByUserId: true,

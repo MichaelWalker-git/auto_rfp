@@ -114,12 +114,19 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     }],
   }));
 
-  // Mark as emitted (idempotency)
+  // Mark as emitted (idempotency) and enter the generating state. Clearing any
+  // prior failure fields lets a retry (force=true) after a failed run return the
+  // button to "Generating…" instead of staying stuck on the failed state.
   await updateOpportunity({
     orgId,
     projectId,
     oppId,
-    patch: { eventBridgeEmittedAt: nowIso() } as Record<string, unknown>,
+    patch: {
+      eventBridgeEmittedAt: nowIso(),
+      pocGenState: 'generating',
+      pocFailureReason: null,
+      pocFailedAt: null,
+    } as Record<string, unknown>,
   });
 
   setAuditContext(event, {
