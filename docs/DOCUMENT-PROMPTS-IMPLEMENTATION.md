@@ -486,9 +486,11 @@ drop PROPOSAL synthesis in `get-prompts.ts`; new `delete-prompt.ts`; tests.
 ### DP-7 · Route + log group (S) <!-- ✅ IMPLEMENTED -->
 DELETE route in `prompt.routes.ts`; CloudWatch Log Group for the new Lambda.
 
-### DP-8 · Frontend hooks (S) <!-- ⏳ PENDING -->
+### DP-8 · Frontend hooks (S) <!-- ✅ IMPLEMENTED -->
 `document` group in `usePrompts` (validTypes from schema options),
-`useSavePrompt` variant, `useDeletePrompt`, `deletePromptUrl`.
+`useSavePrompt` variant, `useDeletePrompt`, `promptApi.delete`
+(object-style URL builder per existing `promptApi.list`/`save` — supersedes
+the `deletePromptUrl` name).
 
 ### DP-9 · Frontend tabs UI (L) <!-- ⏳ PENDING -->
 Tabs container (`nuqs` tab state); `FeaturePromptsTab` (dead types filtered,
@@ -541,8 +543,8 @@ DP-3..5 (runtime) and DP-6..9 (management surface) can proceed in parallel after
 | `apps/functions/src/handlers/prompt/delete-prompt.ts` | **new**: reset handler | ✅ |
 | `apps/functions/src/handlers/prompt/*.test.ts` | new/extend | ✅ |
 | `packages/infra/api/routes/prompt.routes.ts` | extend: DELETE route | ✅ |
-| `apps/web/lib/hooks/use-prompt.ts` | extend: document group, delete hook | ⏳ |
-| `apps/web/lib/prompt/prompt-api.ts` | extend: delete URL | ⏳ |
+| `apps/web/lib/hooks/use-prompt.ts` | extend: document group, delete hook | ✅ |
+| `apps/web/lib/prompt/prompt-api.ts` | extend: delete URL | ✅ |
 | `apps/web/components/organizations/PromptManager.tsx` | refactor → tabs container | ⏳ |
 | `apps/web/components/organizations/FeaturePromptsTab.tsx` | **new** (extracted; dead types filtered; permission fix) | ⏳ |
 | `apps/web/components/organizations/DocumentPromptsTab.tsx` | **new** | ⏳ |
