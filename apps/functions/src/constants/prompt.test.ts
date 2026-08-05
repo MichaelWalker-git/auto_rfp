@@ -84,6 +84,15 @@ describe('SCORING_SYSTEM_PROMPT content', () => {
     expect(SCORING_SYSTEM_PROMPT).toContain('an expired deadline forces NO_GO');
   });
 
+  it('forces NO_GO via the final consistency check when an expired-deadline blocker exists', () => {
+    expect(SCORING_SYSTEM_PROMPT).toContain('FINAL CONSISTENCY CHECK');
+    expect(SCORING_SYSTEM_PROMPT).toContain('the decision field MUST be NO_GO');
+    expect(SCORING_SYSTEM_PROMPT).toContain('is invalid output');
+    expect(SCORING_SYSTEM_PROMPT).toContain('do not reason back and forth');
+    expect(SCORING_USER_PROMPT).toContain('FINAL CONSISTENCY CHECK');
+    expect(SCORING_USER_PROMPT).toContain('never CONDITIONAL_GO or GO');
+  });
+
   it('restricts blockers[] to hard blockers for buildable software', () => {
     expect(SCORING_SYSTEM_PROMPT).toContain('BLOCKERS[] COMPOSITION');
     expect(SCORING_SYSTEM_PROMPT).toContain('ONLY the hard blockers listed above');
