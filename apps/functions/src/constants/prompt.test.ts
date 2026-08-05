@@ -32,6 +32,20 @@ describe('SCORING_SYSTEM_PROMPT content', () => {
     expect(SCORING_SYSTEM_PROMPT).toContain('to BUILD the system');
   });
 
+  it('classifies COTS software procurements as BUILDABLE_SOFTWARE with no borderline category', () => {
+    expect(SCORING_SYSTEM_PROMPT).toContain('SOFTWARE procurements');
+    expect(SCORING_SYSTEM_PROMPT).toContain('STILL');
+    expect(SCORING_SYSTEM_PROMPT).toContain('Classify by what the system DOES');
+    expect(SCORING_SYSTEM_PROMPT).toContain('NEVER');
+    expect(SCORING_SYSTEM_PROMPT).toContain('"borderline"');
+  });
+
+  it('lists product-gate items that are never TECHNICAL_FIT deductions', () => {
+    expect(SCORING_SYSTEM_PROMPT).toContain('NEVER TECHNICAL_FIT deductions');
+    expect(SCORING_SYSTEM_PROMPT).toContain('capability matrix');
+    expect(SCORING_SYSTEM_PROMPT).toContain('a working POC demo answers these');
+  });
+
   it('declares COTS/product-ownership gates are never hard blockers', () => {
     expect(SCORING_SYSTEM_PROMPT).toContain(
       'PRODUCT-OWNERSHIP / COTS GATES ARE NEVER HARD BLOCKERS',
