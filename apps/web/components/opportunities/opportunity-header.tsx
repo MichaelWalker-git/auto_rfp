@@ -23,6 +23,7 @@ import {
   useOpportunityHeaderActions,
 } from './opportunity-header/';
 import { useEmitOpportunityEvent } from '@/lib/hooks/use-emit-opportunity-event';
+import { useToast } from '@/components/ui/use-toast';
 import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { PermissionButton } from '@/components/ui/permission-button';
 import { RequestOpportunityApprovalButton, OpportunityReviewStatusSection } from '@/features/opportunity-approval';
@@ -60,6 +61,7 @@ export const OpportunityHeader = () => {
   });
 
   const { emitEvent, isEmitting } = useEmitOpportunityEvent();
+  const { toast } = useToast();
   const isAlreadyEmitted = !!opportunity?.eventBridgeEmittedAt;
   const pocUrl = opportunity?.pocUrl;
   const isFailed = opportunity?.pocGenState === 'failed';
@@ -71,8 +73,16 @@ export const OpportunityHeader = () => {
   // force=true bypasses the emit idempotency guard so a failed run can be retried.
   const handleEmitEvent = async (force = false) => {
     if (!orgId || !projectId || !oppId) return;
-    const result = await emitEvent(orgId, projectId, oppId, force);
-    if (result) refetch();
+    try {
+      await emitEvent(orgId, projectId, oppId, force);
+      refetch();
+    } catch (err: unknown) {
+      toast({
+        title: 'POC generation failed to start',
+        description: err instanceof Error ? err.message : 'Failed to emit event',
+        variant: 'destructive',
+      });
+    }
   };
 
   // Show loading skeleton until orgId and opportunity are both loaded
