@@ -11,21 +11,27 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
-import { type PromptItem, PromptItemSchema, PromptScopeSchema, SavePromptBodySchema, } from '@auto-rfp/core';
-import { saveSystemPrompt, saveUserPrompt } from '@/helpers/prompt';
+import {
+  DocumentPromptItemSchema,
+  type PromptItem,
+  PromptItemSchema,
+  PromptScopeSchema,
+  SaveDocumentPromptBodySchema,
+  SavePromptBodySchema,
+} from '@auto-rfp/core';
+import { saveDocumentPrompt, saveSystemPrompt, saveUserPrompt } from '@/helpers/prompt';
 
-const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
+export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   const orgId = getOrgId(event);
   if (!orgId) {
     return apiResponse(400, { ok: false, error: 'Missing orgId' });
   }
 
   const scopeRaw = event.pathParameters?.scope;
-  const scopeParsed = PromptScopeSchema.safeParse(scopeRaw);
-  if (!scopeParsed.success) {
+  const { success: scopeOk, data: scope } = PromptScopeSchema.safeParse(scopeRaw);
+  if (!scopeOk) {
     return apiResponse(400, { ok: false, error: 'Invalid scope. Use SYSTEM or USER.' });
   }
-  const scope = scopeParsed.data;
 
   let bodyRaw: unknown = {};
   try {
@@ -34,35 +40,68 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
     return apiResponse(400, { ok: false, error: 'Invalid JSON body' });
   }
 
-  const bodyParsed = SavePromptBodySchema.safeParse(bodyRaw);
-  if (!bodyParsed.success) {
-    return apiResponse(400, { ok: false, error: bodyParsed.error.flatten() });
-  }
+  // Document-generation prompt override (discriminated by documentType presence)
+  const isDocumentPrompt =
+    typeof bodyRaw === 'object' &&
+    bodyRaw !== null &&
+    'documentType' in bodyRaw &&
+    typeof bodyRaw.documentType === 'string';
+  if (isDocumentPrompt) {
+    const { success, data, error } = SaveDocumentPromptBodySchema.safeParse(bodyRaw);
+    if (!success) {
+      return apiResponse(400, { ok: false, error: error.flatten() });
+    }
 
-  const { type, prompt, params } = bodyParsed.data;
+    const saved = await saveDocumentPrompt(orgId, scope, data.documentType, data.prompt);
 
-  const saved =
-    scope === 'SYSTEM'
-      ? await saveSystemPrompt(orgId, type, prompt, params)
-      : await saveUserPrompt(orgId, type, prompt, params);
+    const { success: savedOk, data: item, error: savedError } =
+      DocumentPromptItemSchema.safeParse({ ...saved, orgId: saved?.orgId ?? orgId });
+    if (!savedOk) {
+      return apiResponse(500, {
+        ok: false,
+        error: 'Saved item failed validation',
+        issues: savedError.flatten(),
+      });
+    }
 
-  const validated = PromptItemSchema.safeParse({ ...saved, orgId: saved?.orgId ?? orgId });
-  if (!validated.success) {
-    return apiResponse(500, {
-      ok: false,
-      error: 'Saved item failed validation',
-      issues: validated.error.flatten(),
-    });
-  }
-
-  
     setAuditContext(event, {
       action: 'CONFIG_CHANGED',
       resource: 'config',
       resourceId: 'prompt',
     });
 
-    return apiResponse(200, { ok: true, item: validated.data as PromptItem });
+    return apiResponse(200, { ok: true, item });
+  }
+
+  const { success: bodyOk, data: body, error: bodyError } = SavePromptBodySchema.safeParse(bodyRaw);
+  if (!bodyOk) {
+    return apiResponse(400, { ok: false, error: bodyError.flatten() });
+  }
+
+  const { type, prompt, params } = body;
+
+  const saved =
+    scope === 'SYSTEM'
+      ? await saveSystemPrompt(orgId, type, prompt, params)
+      : await saveUserPrompt(orgId, type, prompt, params);
+
+  const { success: savedOk, data: item, error: savedError } =
+    PromptItemSchema.safeParse({ ...saved, orgId: saved?.orgId ?? orgId });
+  if (!savedOk) {
+    return apiResponse(500, {
+      ok: false,
+      error: 'Saved item failed validation',
+      issues: savedError.flatten(),
+    });
+  }
+
+  setAuditContext(event, {
+    action: 'CONFIG_CHANGED',
+    resource: 'config',
+    resourceId: 'prompt',
+  });
+
+  return apiResponse(200, { ok: true, item: item as PromptItem });
 };
 
 export const handler = withSentryLambda(
