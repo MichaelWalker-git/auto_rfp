@@ -84,7 +84,18 @@ export const SavedSearchCard = ({
   if (s.criteria.keywords) parts.push(`"${s.criteria.keywords}"`);
   if (s.criteria.naics?.length) parts.push(`NAICS: ${s.criteria.naics.join(', ')}`);
   if (s.criteria.setAsideCode) parts.push(s.criteria.setAsideCode);
-  const subtitle = parts.length > 0 ? parts.join(' · ') : 'All opportunities';
+
+  /**
+   * HigherGov has no keyword parameter, so a HigherGov search with no ID and no
+   * other filters matches everything in its date range. Searches saved before the
+   * ID was persisted look exactly like working ones, so say so rather than
+   * describing them as "All opportunities" and letting them run silently.
+   */
+  const isUnfilteredHigherGov = s.source === 'HIGHER_GOV' && parts.length === 0;
+
+  const subtitle = isUnfilteredHigherGov
+    ? 'No HigherGov ID saved — re-save this search to set one'
+    : parts.length > 0 ? parts.join(' · ') : 'All opportunities';
 
   return (
     <div className={!s.isEnabled ? 'opacity-60' : ''}>
