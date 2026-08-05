@@ -32,14 +32,36 @@ describe('SCORING_SYSTEM_PROMPT content', () => {
     expect(SCORING_SYSTEM_PROMPT).toContain('to BUILD the system');
   });
 
-  it('narrows the COTS hard-blocker to explicit prohibitions or pass/fail product gates', () => {
-    expect(SCORING_SYSTEM_PROMPT).toContain('hard blocker ONLY when the');
-    expect(SCORING_SYSTEM_PROMPT).toContain('explicitly FORBIDS custom-built solutions');
+  it('declares COTS/product-ownership gates are never hard blockers', () => {
     expect(SCORING_SYSTEM_PROMPT).toContain(
-      'customers currently using the proposed product',
+      'PRODUCT-OWNERSHIP / COTS GATES ARE NEVER HARD BLOCKERS',
     );
+    expect(SCORING_SYSTEM_PROMPT).toContain('Do NOT use these gates to justify NO_GO');
+    // old narrower rule must be gone
+    expect(SCORING_SYSTEM_PROMPT).not.toContain('hard blocker ONLY when the');
+    expect(SCORING_SYSTEM_PROMPT).not.toContain('explicitly FORBIDS custom-built solutions');
+  });
+
+  it('limits hard blockers to deadline, set-aside, sole-source, and clearance', () => {
+    expect(SCORING_SYSTEM_PROMPT).toContain('HARD BLOCKERS for BUILDABLE_SOFTWARE are ONLY');
+    expect(SCORING_SYSTEM_PROMPT).toContain('expired submission deadline');
+    expect(SCORING_SYSTEM_PROMPT).toContain('ineligible set-aside');
+    expect(SCORING_SYSTEM_PROMPT).toContain('sole-source or otherwise closed competition');
+    expect(SCORING_SYSTEM_PROMPT).toContain('Nothing else is a hard blocker');
+  });
+
+  it('treats experience minimums as demonstration-solvable via POC, resumes, and past projects', () => {
+    expect(SCORING_SYSTEM_PROMPT).toContain('EXPERIENCE MINIMUMS ARE DEMONSTRATION-SOLVABLE');
+    expect(SCORING_SYSTEM_PROMPT).toContain('POC-DEMONSTRATION LENS');
+    expect(SCORING_SYSTEM_PROMPT).toContain('senior engineer resumes');
+    expect(SCORING_SYSTEM_PROMPT).toContain('proof-of-concept');
+  });
+
+  it('credits same-component-type experience in TECHNICAL_FIT and PAST_PERFORMANCE_RELEVANCE', () => {
+    expect(SCORING_SYSTEM_PROMPT).toContain('COMPONENT-TYPE CREDIT');
+    expect(SCORING_SYSTEM_PROMPT).toContain('SAME COMPONENT TYPE');
     expect(SCORING_SYSTEM_PROMPT).toContain(
-      '"seeks a commercially available solution" is NOT a hard',
+      'never inferred from the KB',
     );
   });
 
@@ -70,14 +92,28 @@ describe('SCORING_USER_PROMPT content', () => {
   });
 
   it('states that a COTS preference alone does not defeat the override', () => {
-    expect(SCORING_USER_PROMPT).toContain(
-      'A stated',
-    );
-    expect(SCORING_USER_PROMPT).toContain(
-      'preference for COTS alone does NOT defeat this override',
-    );
+    expect(SCORING_USER_PROMPT).toContain('A stated preference for COTS alone');
+    expect(SCORING_USER_PROMPT).toContain('does NOT defeat this override');
     expect(SCORING_USER_PROMPT).toContain(
       'Do NOT lower the score because the buyer',
+    );
+  });
+
+  it('excludes COTS gates and experience minimums from hard blockers in the override', () => {
+    expect(SCORING_USER_PROMPT).toContain(
+      'COTS/product-ownership gates and experience minimums are NOT hard blockers',
+    );
+    expect(SCORING_USER_PROMPT).toContain('working POC demo');
+    expect(SCORING_USER_PROMPT).toContain('senior engineer resumes');
+    expect(SCORING_USER_PROMPT).toContain('sole-source/closed competition');
+  });
+
+  it('adds component-type credit anchors to PAST_PERFORMANCE_RELEVANCE', () => {
+    expect(SCORING_USER_PROMPT).toContain('COMPONENT-TYPE CREDIT');
+    expect(SCORING_USER_PROMPT).toContain('same component type');
+    // honesty rule must survive
+    expect(SCORING_USER_PROMPT).toContain(
+      'if no past performance data exists, score 1',
     );
   });
 
@@ -126,6 +162,22 @@ describe('generateDataStatusFlags', () => {
 
     expect(flags).toContain('PAST_PERFORMANCE_STATUS: DATA_AVAILABLE');
     expect(flags).not.toContain('MUST be 1');
+  });
+
+  it('includes the component-type credit flag when past performance exists', () => {
+    const flags = generateDataStatusFlags({
+      pastPerformance: '3 matched projects: Transit portal build (2024), rated Excellent.',
+    });
+
+    expect(flags).toContain('COMPONENT-TYPE CREDIT');
+    expect(flags).toContain('2-3');
+  });
+
+  it('does not include the component-type credit flag when past performance is missing', () => {
+    const flags = generateDataStatusFlags({ pastPerformance: undefined });
+
+    expect(flags).not.toContain('COMPONENT-TYPE CREDIT');
+    expect(flags).toContain('MUST be 1');
   });
 
   it('replaces the unconditional dual-1 rule with STEP 0 classification when KB is available', () => {
