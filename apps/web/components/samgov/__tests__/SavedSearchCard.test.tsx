@@ -31,6 +31,20 @@ const renderCard = (savedSearch: SavedSearch) =>
     />,
   );
 
+describe('SavedSearchCard source label', () => {
+  it.each([
+    ['HIGHER_GOV' as const, 'HigherGov'],
+    ['SAM_GOV' as const, 'SAM.gov'],
+    ['DIBBS' as const, 'DIBBS'],
+  ])('labels a %s search as %s', (source, label) => {
+    // HIGHER_GOV was absent from SOURCE_LABEL, so every HigherGov saved search
+    // fell through to the SAM.gov default and was mislabelled.
+    renderCard(makeSavedSearch({ source, criteria: { keywords: 'x' } }));
+
+    expect(screen.getByText(label)).toBeInTheDocument();
+  });
+});
+
 describe('SavedSearchCard subtitle', () => {
   it('shows the HigherGov ID, since the ID is the whole search', () => {
     renderCard(makeSavedSearch({ criteria: { higherGovSearchId: SEARCH_ID } }));

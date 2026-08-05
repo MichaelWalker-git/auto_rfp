@@ -54,6 +54,9 @@ const FREQ_LABEL: Record<string, string> = {
 const SOURCE_LABEL: Record<string, string> = {
   SAM_GOV: 'SAM.gov',
   DIBBS: 'DIBBS',
+  // Was missing, so every HigherGov saved search was mislabelled "SAM.gov" by the
+  // fallback below.
+  HIGHER_GOV: 'HigherGov',
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
