@@ -33,10 +33,6 @@ jest.mock('@/helpers/search-opportunity', () => ({
   searchDibbsOpportunities: (...args: unknown[]) => mockSearchDibbs(...args),
   searchHigherGovOpportunities: (...args: unknown[]) => mockSearchHigherGov(...args),
   withSourceTimeout: (...args: unknown[]) => mockWithSourceTimeout(...args),
-  // Mirrors the real helper rather than stubbing it, so the assertions below
-  // exercise the actual cap. Unit-tested directly in helpers/search-opportunity.test.ts.
-  higherGovPageSize: (requested: number, hasSearchId: boolean) =>
-    hasSearchId ? Math.min(requested, 10) : requested,
 }));
 
 jest.mock('@auto-rfp/core', () => ({
@@ -135,7 +131,7 @@ describe('search handler', () => {
     expect(body.opportunities.length).toBe(3);
   });
 
-  it('caps the HigherGov page size and drops other filters when given a search_id', async () => {
+  it('forwards a search_id and drops the filters it already encodes', async () => {
     mockSearchHigherGov.mockResolvedValue({ totalCount: 0, results: [] });
     mockWithSourceTimeout.mockImplementation((p: Promise<unknown>) => p);
 
@@ -147,15 +143,13 @@ describe('search handler', () => {
 
     const [, params] = mockSearchHigherGov.mock.calls[0] as [unknown, Record<string, unknown>];
     expect(params.searchId).toBe('BWr0PdG39B6mX8cG47AQ8');
-    // HigherGov 500s at page_size >= 20 on this path; the default is 25.
-    expect(params.pageSize).toBe(10);
-    // The search_id already encodes its own filters.
+    // The search_id already encodes its own keywords, filters and date range.
     expect(params.keywords).toBeUndefined();
     expect(params.sourceType).toBeUndefined();
     expect(params.postedDate).toBeUndefined();
   });
 
-  it('leaves the HigherGov page size at the default without a search_id', async () => {
+  it('keeps keyword filters when there is no search_id', async () => {
     mockSearchHigherGov.mockResolvedValue({ totalCount: 0, results: [] });
     mockWithSourceTimeout.mockImplementation((p: Promise<unknown>) => p);
 

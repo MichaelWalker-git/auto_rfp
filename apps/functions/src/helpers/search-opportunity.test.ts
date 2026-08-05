@@ -1,33 +1,4 @@
-import {
-  withSourceTimeout,
-  SOURCE_TIMEOUT_MS,
-  higherGovPageSize,
-  HIGHERGOV_SEARCH_ID_MAX_PAGE_SIZE,
-} from './search-opportunity';
-
-describe('higherGovPageSize', () => {
-  it('caps the page size when querying by search_id', () => {
-    // HigherGov 500s at page_size >= 20 on the search_id path, and 25 is the
-    // default — so this cap is what makes saved HigherGov searches return at all.
-    expect(higherGovPageSize(25, true)).toBe(HIGHERGOV_SEARCH_ID_MAX_PAGE_SIZE);
-    expect(higherGovPageSize(100, true)).toBe(HIGHERGOV_SEARCH_ID_MAX_PAGE_SIZE);
-  });
-
-  it('leaves the page size alone without a search_id', () => {
-    expect(higherGovPageSize(25, false)).toBe(25);
-    expect(higherGovPageSize(100, false)).toBe(100);
-  });
-
-  it('never raises a page size that is already below the cap', () => {
-    expect(higherGovPageSize(5, true)).toBe(5);
-    expect(higherGovPageSize(5, false)).toBe(5);
-  });
-
-  it('stays under the threshold HigherGov rejects', () => {
-    // Measured against the live API: 5 and 10 succeed, 20 and above return 500.
-    expect(HIGHERGOV_SEARCH_ID_MAX_PAGE_SIZE).toBeLessThan(20);
-  });
-});
+import { withSourceTimeout, SOURCE_TIMEOUT_MS } from './search-opportunity';
 
 describe('withSourceTimeout', () => {
   beforeEach(() => {

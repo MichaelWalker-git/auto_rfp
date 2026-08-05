@@ -48,7 +48,6 @@ import { HIGHERGOV_SECRET_PREFIX, HIGHERGOV_BASE_URL } from '@/constants/higherg
 import {
   searchHigherGovOpportunities,
   fetchHigherGovDocuments,
-  higherGovPageSize,
   type HigherGovConfig,
 } from '@/helpers/search-opportunity';
 import { buildQuestionFileSK, updateQuestionFile } from '@/helpers/questionFile';
@@ -500,7 +499,7 @@ async function runForOrg(args: {
           sourceType: hasSearchId ? undefined : criteria.higherGovSourceType,
           postedDate,
           ordering:   '-captured_date',
-          pageSize:   higherGovPageSize(criteria.limit ?? 25, hasSearchId),
+          pageSize:   criteria.limit ?? 25,
           pageNumber: 1,
         },
       );

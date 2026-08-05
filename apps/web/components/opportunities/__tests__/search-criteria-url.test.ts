@@ -1,6 +1,28 @@
-import { criteriaToParams, paramsToCriteria, paramsToFormValues } from '../search-criteria-url';
+import type { SavedSearch } from '@auto-rfp/core';
+
+import {
+  criteriaToParams,
+  paramsToCriteria,
+  paramsToFormValues,
+  savedSearchToParams,
+} from '../search-criteria-url';
 
 const SEARCH_ID = 'BWr0PdG39B6mX8cG47AQ8';
+
+const makeSavedSearch = (criteria: SavedSearch['criteria']): SavedSearch => ({
+  savedSearchId: 'ss-1',
+  orgId: 'org-1',
+  source: 'HIGHER_GOV',
+  name: 'State and Local Contracts',
+  criteria,
+  frequency: 'DAILY',
+  autoImport: false,
+  notifyEmails: [],
+  isEnabled: true,
+  lastRunAt: null,
+  createdAt: '2026-08-05T00:00:00.000Z',
+  updatedAt: '2026-08-05T00:00:00.000Z',
+});
 
 describe('criteriaToParams', () => {
   it('serializes a HigherGov search id', () => {
@@ -62,6 +84,46 @@ describe('paramsToCriteria', () => {
       setAsideCode: 'SBA',
       postedFrom: '2026-07-06',
     });
+  });
+});
+
+describe('savedSearchToParams', () => {
+  it('produces a URL the search page can actually parse', () => {
+    // The run button used to push `?search=<json>`, which only the older
+    // samgov-opportunity-search page reads — so it landed on an empty form.
+    const params = savedSearchToParams(makeSavedSearch({ higherGovSearchId: SEARCH_ID }));
+
+    expect(params.get('hgId')).toBe(SEARCH_ID);
+    expect(params.has('search')).toBe(false);
+    expect(paramsToCriteria(params)).not.toBeNull();
+  });
+
+  it('carries the saved search source through', () => {
+    const params = savedSearchToParams(makeSavedSearch({ higherGovSearchId: SEARCH_ID }));
+
+    expect(params.get('source')).toBe('HIGHER_GOV');
+  });
+
+  it('converts stored MM/dd/yyyy dates to the ISO form the URL uses', () => {
+    const params = savedSearchToParams(makeSavedSearch({
+      keywords: 'document',
+      postedFrom: '07/06/2026',
+      postedTo: '08/05/2026',
+    }));
+
+    expect(params.get('from')).toBe('2026-07-06');
+    expect(params.get('to')).toBe('2026-08-05');
+  });
+
+  it('round-trips into criteria the search page can run', () => {
+    const criteria = paramsToCriteria(savedSearchToParams(makeSavedSearch({
+      higherGovSearchId: SEARCH_ID,
+      postedFrom: '07/06/2026',
+    })));
+
+    expect(criteria?.higherGovSearchId).toBe(SEARCH_ID);
+    expect(criteria?.postedFrom).toBe('2026-07-06');
+    expect(criteria?.sources).toEqual(['HIGHER_GOV']);
   });
 });
 

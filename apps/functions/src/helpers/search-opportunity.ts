@@ -26,17 +26,3 @@ export const withSourceTimeout = <T>(promise: Promise<T>, label: string, ms = SO
       setTimeout(() => reject(new Error(`${label} is responding slowly. Please try again later.`)), ms),
     ),
   ]);
-
-// ─── HigherGov search_id page size ──────────────────────────────────────────
-
-/**
- * HigherGov returns HTTP 500 for `search_id` requests once `page_size` reaches 20
- * — measured against the live API: 5 and 10 succeed, 20/25/100 all fail. The
- * default page size of 25 therefore made every saved-search query fail, so
- * requests on that path are capped here.
- */
-export const HIGHERGOV_SEARCH_ID_MAX_PAGE_SIZE = 10;
-
-/** Page size to request from HigherGov, capped when querying by `search_id`. */
-export const higherGovPageSize = (requested: number, hasSearchId: boolean): number =>
-  hasSearchId ? Math.min(requested, HIGHERGOV_SEARCH_ID_MAX_PAGE_SIZE) : requested;

@@ -7,11 +7,20 @@
  * how `higherGovSearchId` came to be handled in neither.
  */
 
+import type { SavedSearch } from '@auto-rfp/core';
+
 import type { SearchOpportunityCriteria } from '@/lib/hooks/use-search-opportunities';
 import type { FormValues } from './SearchOpportunityForm';
 
 /** Default page size; kept out of the URL so links stay readable. */
 const DEFAULT_LIMIT = 25;
+
+/** `MM/dd/yyyy` (how saved searches store dates) → `yyyy-MM-dd` (what the URL uses). */
+const mmDdYyyyToIso = (d?: string): string | undefined => {
+  if (!d) return undefined;
+  const [mm, dd, yyyy] = d.split('/');
+  return mm && dd && yyyy ? `${yyyy}-${mm}-${dd}` : undefined;
+};
 
 export const criteriaToParams = (c: SearchOpportunityCriteria): URLSearchParams => {
   const p = new URLSearchParams();
@@ -28,6 +37,29 @@ export const criteriaToParams = (c: SearchOpportunityCriteria): URLSearchParams 
   if (c.limit && c.limit !== DEFAULT_LIMIT) p.set('limit', String(c.limit));
   return p;
 };
+
+/**
+ * Query string that reopens a saved search on the search page.
+ *
+ * Saved searches used to navigate to `?search=<json>`, which no page on this route
+ * reads — only the older `samgov-opportunity-search` page does — so the run button
+ * landed on an empty form. Going through `criteriaToParams` produces the flat
+ * shape the search page actually parses.
+ */
+export const savedSearchToParams = (s: SavedSearch): URLSearchParams =>
+  criteriaToParams({
+    keywords:            s.criteria.keywords,
+    sources:             s.source ? [s.source] : undefined,
+    naics:               s.criteria.naics,
+    setAsideCode:        s.criteria.setAsideCode,
+    postedFrom:          mmDdYyyyToIso(s.criteria.postedFrom),
+    postedTo:            mmDdYyyyToIso(s.criteria.postedTo),
+    closingFrom:         mmDdYyyyToIso(s.criteria.closingFrom),
+    closingTo:           mmDdYyyyToIso(s.criteria.closingTo),
+    higherGovSourceType: s.criteria.higherGovSourceType,
+    higherGovSearchId:   s.criteria.higherGovSearchId,
+    limit:               s.criteria.limit,
+  });
 
 /**
  * Whether the URL describes a search at all, as opposed to a bare page visit.
