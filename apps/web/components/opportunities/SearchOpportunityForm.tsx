@@ -250,16 +250,18 @@ const HigherGovSearchIdSelector = ({
       <PopoverTrigger asChild>
         <Button type="button" variant="outline" size="sm"
           className={cn('h-8 gap-1.5 text-xs font-normal', !!value && 'border-primary bg-primary/5 text-primary font-medium')}>
-          {value ? `Search: ${value.slice(0, 12)}` : 'Saved Search'}
+          {/* Deliberately not "Saved Search" — this form also has our own Saved
+              Searches picker, and one label for two features read as a bug. */}
+          {value ? `ID: ${value.slice(0, 12)}` : 'HigherGov ID'}
           {value
-            ? <span role="button" tabIndex={0} aria-label="Clear saved search" onClick={e => { e.stopPropagation(); onChange(''); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onChange(''); } }} className="ml-0.5 hover:text-destructive cursor-pointer"><X className="h-3 w-3" /></span>
+            ? <span role="button" tabIndex={0} aria-label="Clear HigherGov ID" onClick={e => { e.stopPropagation(); onChange(''); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onChange(''); } }} className="ml-0.5 hover:text-destructive cursor-pointer"><X className="h-3 w-3" /></span>
             : <ChevronDown className="h-3 w-3 opacity-50" />}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-3 space-y-3" align="start">
         {/* Paste URL input */}
         <div>
-          <Label className="text-xs font-medium mb-1.5 block">HigherGov Saved Search URL</Label>
+          <Label className="text-xs font-medium mb-1.5 block">HigherGov search URL or ID</Label>
           <div className="flex gap-1.5">
             <Input
               ref={inputRef}
@@ -339,6 +341,7 @@ export const SearchOpportunityForm = ({ orgId, onSearch, isLoading, initialValue
       postedFrom: mmddToDate(c.postedFrom), postedTo: mmddToDate(c.postedTo),
       closingFrom: mmddToDate(c.closingFrom), closingTo: mmddToDate(c.closingTo),
       higherGovSourceType: (c.higherGovSourceType ?? '') as FormValues['higherGovSourceType'],
+      higherGovSearchId: c.higherGovSearchId ?? '',
     });
   };
 
@@ -353,7 +356,7 @@ export const SearchOpportunityForm = ({ orgId, onSearch, isLoading, initialValue
         body: JSON.stringify({
           source: w.source === 'DIBBS' ? 'DIBBS' : w.source === 'HIGHER_GOV' ? 'HIGHER_GOV' : 'SAM_GOV', orgId,
           name: saveName.trim() || 'My Search',
-          criteria: { postedFrom: fmt(c.postedFrom), postedTo: fmt(c.postedTo), keywords: c.keywords, naics: c.naics, setAsideCode: c.setAsideCode, closingFrom: c.closingFrom ? fmt(c.closingFrom) : undefined, closingTo: c.closingTo ? fmt(c.closingTo) : undefined },
+          criteria: { postedFrom: fmt(c.postedFrom), postedTo: fmt(c.postedTo), keywords: c.keywords, naics: c.naics, setAsideCode: c.setAsideCode, closingFrom: c.closingFrom ? fmt(c.closingFrom) : undefined, closingTo: c.closingTo ? fmt(c.closingTo) : undefined, higherGovSourceType: c.higherGovSourceType, higherGovSearchId: c.higherGovSearchId },
           frequency: 'DAILY', autoImport: false, notifyEmails: [], isEnabled: true,
         }),
       });

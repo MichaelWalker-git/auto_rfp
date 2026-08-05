@@ -24,7 +24,7 @@ import { SAM_GOV_SECRET_PREFIX } from '@/constants/samgov';
 import { DIBBS_SECRET_PREFIX } from '@/constants/dibbs';
 import { HIGHERGOV_SECRET_PREFIX, HIGHERGOV_BASE_URL } from '@/constants/highergov';
 import { requireEnv } from '@/helpers/env';
-import { searchSamOpportunities, searchDibbsOpportunities, searchHigherGovOpportunities, withSourceTimeout } from '@/helpers/search-opportunity';
+import { searchSamOpportunities, searchDibbsOpportunities, searchHigherGovOpportunities, withSourceTimeout, higherGovPageSize } from '@/helpers/search-opportunity';
 import {
   samSlimToSearchOpportunity,
   dibbsSlimToSearchOpportunity,
@@ -153,8 +153,8 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
       try {
         const apiKey = await getApiKey(orgId, HIGHERGOV_SECRET_PREFIX);
         if (apiKey) {
-          const pageSize = data.limit ?? 25;
           const hasSearchId = !!data.higherGovSearchId;
+          const pageSize = higherGovPageSize(data.limit ?? 25, hasSearchId);
 
           const postedDate = !hasSearchId && data.postedFrom
             ? `${data.postedFrom.slice(6)}-${data.postedFrom.slice(0, 2)}-${data.postedFrom.slice(3, 5)}`

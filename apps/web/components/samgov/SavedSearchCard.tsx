@@ -78,6 +78,9 @@ export const SavedSearchCard = ({
 
   // Build a short subtitle from key criteria
   const parts: string[] = [];
+  // A HigherGov ID carries its own filters, so it is the whole search — without
+  // it here the card would claim "All opportunities", which is not what runs.
+  if (s.criteria.higherGovSearchId) parts.push(`HigherGov ID: ${s.criteria.higherGovSearchId}`);
   if (s.criteria.keywords) parts.push(`"${s.criteria.keywords}"`);
   if (s.criteria.naics?.length) parts.push(`NAICS: ${s.criteria.naics.join(', ')}`);
   if (s.criteria.setAsideCode) parts.push(s.criteria.setAsideCode);
