@@ -824,6 +824,36 @@ export const SCORING_SYSTEM_PROMPT = [
   '- Consider: technical similarity, domain similarity, scale similarity, recency, and performance ratings',
   '',
   '═══════════════════════════════════════════════════════════════════════════════',
+  'STEP 0 — DELIVERABLE CLASSIFICATION (do this BEFORE scoring any criterion):',
+  '═══════════════════════════════════════════════════════════════════════════════',
+  'Classify the PRIMARY deliverable of this solicitation into exactly one category,',
+  'based ONLY on the solicitation text (SOW/PWS, NAICS, requirements):',
+  '',
+  'A) BUILDABLE_SOFTWARE — the primary deliverable is software, web, application,',
+  '   data, or IT work that a software development team could design and build:',
+  '   - Web applications, websites, portals, dashboards, intranets',
+  '   - Custom software systems (e.g., labor-management, scheduling, case management,',
+  '     inventory, permitting, ticketing) for ANY customer domain (transit, healthcare,',
+  '     agriculture, defense, education, etc.)',
+  '   - Data systems, ETL, reporting, analytics, APIs, system integrations',
+  '   - Mobile applications, software modernization, legacy migration',
+  '   - IT services whose core is building, maintaining, or hosting software',
+  '   The CUSTOMER\'S industry does NOT matter. A transit-system website or a',
+  '   labor-management application is BUILDABLE_SOFTWARE even if the company has',
+  '   never worked in transit or labor management.',
+  '',
+  'B) OUT_OF_DOMAIN — the primary deliverable is physical or non-software work:',
+  '   - Construction, HVAC, plumbing, electrical, roofing, janitorial, landscaping',
+  '   - Security guards, logistics/transport operations, food service, medical care',
+  '   - Hardware, equipment, or goods supply; manufacturing; staffing for non-IT roles',
+  '   - Solicitations where software is incidental (a small fraction of a mostly',
+  '     physical scope)',
+  '',
+  'This classification is a judgment about the TYPE OF WORK, not a claim about the',
+  'company\'s experience. It does not require past performance evidence.',
+  'State the classification explicitly in the TECHNICAL_FIT rationale.',
+  '',
+  '═══════════════════════════════════════════════════════════════════════════════',
   'CRITICAL ANTI-HALLUCINATION RULES (MUST FOLLOW - ZERO TOLERANCE):',
   '═══════════════════════════════════════════════════════════════════════════════',
   '',
@@ -834,18 +864,43 @@ export const SCORING_SYSTEM_PROMPT = [
   '     → Do NOT assume, infer, or hallucinate any past performance exists',
   '   - NEVER say "limited past performance" when there is NONE - say "no past performance"',
   '   - NEVER claim experience with project types not explicitly listed in the past performance data',
+  '   - IMPORTANT: PAST_PERFORMANCE_RELEVANCE = 1 caused by missing data is a DATA GAP,',
+  '     not a capability verdict. For BUILDABLE_SOFTWARE deliverables it MUST NOT by',
+  '     itself force decision = NO_GO. Record it as a blocker or requiredAction',
+  '     (e.g., "Develop past-performance narrative from key personnel or teaming partner")',
+  '     and score the other four criteria on their own evidence.',
   '',
   '2. TECHNICAL FIT SCORING - MANDATORY RULES:',
-  '   - If the company\'s KB capabilities do NOT match the solicitation\'s industry/domain:',
-  '     → TECHNICAL_FIT score MUST be 1 or 2',
+  '   - FIRST apply the STEP 0 deliverable classification.',
+  '   - If OUT_OF_DOMAIN (physical/non-software work such as plumbing, HVAC,',
+  '     construction, janitorial, hardware supply):',
+  '     → TECHNICAL_FIT score MUST be 1',
   '     → rationale MUST clearly state the industry/capability mismatch',
-  '   - If KB shows software/IT company and solicitation is for physical services (plumbing, HVAC, construction, etc.):',
-  '     → TECHNICAL_FIT MUST be 1',
-  '   - Do NOT assume transferable skills exist unless explicitly documented',
+  '     → Do NOT assume transferable skills exist unless explicitly documented',
+  '   - If BUILDABLE_SOFTWARE:',
+  '     → Score TECHNICAL_FIT on whether the KB documents the ENGINEERING capabilities',
+  '       required to BUILD the system (e.g., web development, application development,',
+  '       databases, cloud, integrations) — NOT on whether the KB shows the same',
+  '       customer domain as the solicitation.',
+  '     → Lack of same-domain experience is a gap to list in gaps[], not grounds to',
+  '       score 1 or 2. If the KB documents the relevant build skills, TECHNICAL_FIT',
+  '       should be 3 or 4 (4 when requirements map cleanly to documented skills;',
+  '       3 when there are notable technical unknowns).',
+  '     → Reserve 1-2 for genuine technical gaps: required technologies, scale,',
+  '       certifications, or clearances the KB does not support.',
+  '     → Do NOT lower TECHNICAL_FIT because the buyer requested a COTS or',
+  '       "commercially available" product — TECHNICAL_FIT measures the capability',
+  '       to BUILD the system. A COTS preference is a procurement-structure issue',
+  '       handled at the decision level (see rule 13), never a TECHNICAL_FIT deduction.',
+  '   - In all cases: capabilities cited in the rationale MUST come from the KB.',
+  '     Do NOT invent specific technologies or certifications not documented.',
   '',
   '3. INDUSTRY MISMATCH DETECTION:',
-  '   - Compare the solicitation NAICS code against the company\'s documented capabilities',
-  '   - If solicitation is for a completely different industry (e.g., water pumps vs software):',
+  '   - An INDUSTRY MISMATCH exists ONLY when the deliverable is OUT_OF_DOMAIN',
+  '     (see STEP 0). A different customer industry for BUILDABLE_SOFTWARE work',
+  '     (e.g., a software company bidding a transit-agency website or a',
+  '     labor-management application) is NOT an industry mismatch.',
+  '   - If OUT_OF_DOMAIN (e.g., water pumps, HVAC service vs a software company):',
   '     → TECHNICAL_FIT = 1',
   '     → PAST_PERFORMANCE_RELEVANCE = 1',
   '     → STRATEGIC_ALIGNMENT = 1 or 2 (unless strategic expansion is documented)',
@@ -859,8 +914,11 @@ export const SCORING_SYSTEM_PROMPT = [
   '',
   '5. CONFIDENCE PENALTY FOR MISSING DATA:',
   '   - If PAST_PERFORMANCE is "None": reduce confidence by at least 20 points',
-  '   - If KB shows industry mismatch: reduce confidence by at least 15 points',
+  '   - If deliverable is OUT_OF_DOMAIN: reduce confidence by at least 15 points',
   '   - Maximum confidence when key data is missing: 60',
+  '   - These penalties lower CONFIDENCE, not scores. Do not double-penalize',
+  '     BUILDABLE_SOFTWARE work by also reducing TECHNICAL_FIT for missing',
+  '     past performance.',
   '',
   '6. DECISION RATIONALE CONSISTENCY (CRITICAL):',
   '   - The decisionRationale and summaryJustification MUST be consistent with the actual scores above.',
@@ -912,8 +970,33 @@ export const SCORING_SYSTEM_PROMPT = [
   '   - Do NOT inflate individual scores to reach a desired composite threshold.',
   '   - If 3+ criteria have insufficient data (score based on absence), the decision MUST NOT be GO.',
   '   - A GO decision requires at least 3 criteria scored at 4+ WITH supporting evidence.',
+  '     For BUILDABLE_SOFTWARE, documented KB engineering capabilities count as',
+  '     supporting evidence for TECHNICAL_FIT; past performance is NOT required',
+  '     to evidence TECHNICAL_FIT.',
   '   - CONDITIONAL_GO requires at least 2 criteria scored at 3+ WITH supporting evidence.',
+  '   - PAST_PERFORMANCE_RELEVANCE = 1 caused solely by missing data does NOT count',
+  '     against these gates for BUILDABLE_SOFTWARE work; it belongs in blockers[] or',
+  '     requiredActions[] instead.',
   '   - If you cannot justify a score with specific evidence, use the lower score.',
+  '',
+  '13. BUILDABLE SOFTWARE DECISION FLOOR:',
+  '   - If the deliverable is BUILDABLE_SOFTWARE, TECHNICAL_FIT >= 3, and there are',
+  '     no hard blockers (expired deadline, ineligible set-aside, mandatory',
+  '     certification or clearance the company demonstrably lacks):',
+  '     → decision MUST NOT be NO_GO solely because past performance is missing',
+  '       or the customer domain is new.',
+  '     → Use CONDITIONAL_GO with requiredActions covering the past-performance gap',
+  '       (teaming partner, key-personnel resumes, relevant-experience narrative).',
+  '   - COTS/"commercially available" language is a hard blocker ONLY when the',
+  '     solicitation explicitly FORBIDS custom-built solutions, or makes an',
+  '     EXISTING product mandatory via pass/fail gates (e.g., references from',
+  '     customers currently using the proposed product, a mandatory live product',
+  '     demonstration of an existing offering). A mere preference or statement',
+  '     that the buyer "seeks a commercially available solution" is NOT a hard',
+  '     blocker — record it as a blocker/requiredAction (e.g., "Confirm the buyer',
+  '     will accept a custom-built solution") and apply the decision floor normally.',
+  '   - NO_GO for BUILDABLE_SOFTWARE is appropriate only when: TECHNICAL_FIT <= 2,',
+  '     a hard blocker exists, or compositeScore < 2.0.',
 ].join('\n');
 
 export const getScoringSystemPrompt = async (orgId: string) => {
@@ -961,12 +1044,22 @@ export const SCORING_USER_PROMPT = [
   '}',
   '',
   'SCORING GUIDANCE:',
+  '0. FIRST classify the deliverable per the system prompt: BUILDABLE_SOFTWARE',
+  '   (software/web/app/data/IT build work) or OUT_OF_DOMAIN (physical/non-software).',
+  '   State the classification in the TECHNICAL_FIT rationale.',
+  '',
   '1. TECHNICAL_FIT (1-5): Assess our capabilities against stated requirements.',
+  '   For BUILDABLE_SOFTWARE, score on documented ability to BUILD the system,',
+  '   not on same-domain experience. Do NOT lower the score because the buyer',
+  '   requested a COTS/"commercially available" product — that is a decision-level',
+  '   consideration, not a capability gap.',
   '   - 5: Perfect alignment, proven track record on identical work',
-  '   - 4: Strong fit, minor capability gaps',
-  '   - 3: Acceptable fit, several gaps but achievable',
-  '   - 2: Significant technical gaps, risky',
-  '   - 1: Fundamental misalignment, unlikely to succeed',
+  '   - 4: Strong fit — KB documents the engineering skills to build this system,',
+  '        even if the customer domain is new; minor capability gaps',
+  '   - 3: Acceptable fit — build skills documented but notable technical unknowns',
+  '        (unfamiliar required tech, scale, or compliance regime)',
+  '   - 2: Significant technical gaps — required technologies/certifications not in KB',
+  '   - 1: Fundamental misalignment — OUT_OF_DOMAIN work (physical/non-software)',
   '',
   '2. PAST_PERFORMANCE_RELEVANCE (1-5): Do we have relevant past performance? (CRITICAL - often 30-40% of evaluation)',
   '   - 5: Multiple highly relevant past projects (>90% match), excellent ratings, recent (within 3 years)',
@@ -975,6 +1068,9 @@ export const SCORING_USER_PROMPT = [
   '   - 2: Limited relevant past performance (<50% match), or older projects, significant gaps',
   '   - 1: No relevant past performance, or poor ratings, critical gaps in required areas',
   '   - Consider: technical similarity, domain similarity, scale similarity, recency, and performance ratings',
+  '   - HONESTY: if no past performance data exists, score 1 and say so plainly.',
+  '   - NOTE: a PPR of 1-2 from missing data is a proposal risk to record in blockers',
+  '     or requiredActions — for BUILDABLE_SOFTWARE it is NOT a NO_GO trigger (see DECISION LOGIC).',
   '',
   '3. PRICING_POSITION (1-5): Can we price competitively while maintaining margin?',
   '   - 5: Strong pricing position, competitive rates, healthy margin',
@@ -1002,6 +1098,17 @@ export const SCORING_USER_PROMPT = [
   '- 3.0-3.99 → decision = GO or CONDITIONAL_GO (if blockers exist → CONDITIONAL_GO)',
   '- 2.0-2.99 → decision = CONDITIONAL_GO (major concerns, list blockers)',
   '- <2.0 → decision = NO_GO',
+  '',
+  'BUILDABLE SOFTWARE OVERRIDE (apply after the bands above):',
+  '- If deliverable = BUILDABLE_SOFTWARE and TECHNICAL_FIT >= 3 and no hard blocker',
+  '  (expired deadline, ineligible set-aside, mandatory qualification we lack):',
+  '  → decision MUST be CONDITIONAL_GO or GO, even if PAST_PERFORMANCE_RELEVANCE = 1.',
+  '  → Add the past-performance gap to requiredActions, not as a NO_GO reason.',
+  '- COTS/"commercially available" wording is a hard blocker ONLY if the solicitation',
+  '  forbids custom builds or requires an existing product via pass/fail gates',
+  '  (existing-customer references, live demo of an existing product). A stated',
+  '  preference for COTS alone does NOT defeat this override.',
+  '- If deliverable = OUT_OF_DOMAIN → follow the bands strictly (typically NO_GO).',
   '',
   'BLOCKER vs REQUIRED ACTION:',
   '- blocker: something that prevents us from competing (e.g., "Facility location requirement cannot be met")',
@@ -1053,7 +1160,7 @@ export const getScoringUserPrompt = async (orgId: string) => {
  * These flags give Claude clear, unambiguous signals about what data is available,
  * preventing hallucination when data is missing.
  */
-const generateDataStatusFlags = (args: {
+export const generateDataStatusFlags = (args: {
   pastPerformance?: string;
   kbText?: string;
   pricing?: string;
@@ -1075,6 +1182,10 @@ const generateDataStatusFlags = (args: {
     flags.push('   → MANDATORY: PAST_PERFORMANCE_RELEVANCE score MUST be 1.');
     flags.push('   → MANDATORY: rationale MUST state "No past performance data available".');
     flags.push('   → Do NOT say "limited" - say "no" past performance.');
+    flags.push('   → This is a DATA GAP, not a capability verdict. If the deliverable is');
+    flags.push('     BUILDABLE_SOFTWARE (see STEP 0 in the system prompt), this flag MUST NOT');
+    flags.push('     force decision = NO_GO — record the gap in blockers/requiredActions and');
+    flags.push('     score TECHNICAL_FIT on documented build capability.');
   } else {
     flags.push('✓ PAST_PERFORMANCE_STATUS: DATA_AVAILABLE');
     flags.push('   → Past performance data is provided below. Score based on actual matches.');
@@ -1093,8 +1204,12 @@ const generateDataStatusFlags = (args: {
   } else {
     flags.push('✓ COMPANY_KB_STATUS: DATA_AVAILABLE');
     flags.push('   → Company capabilities data is provided below.');
-    flags.push('   → IMPORTANT: If KB shows the company is in a DIFFERENT INDUSTRY than the solicitation,');
-    flags.push('     TECHNICAL_FIT and PAST_PERFORMANCE_RELEVANCE MUST both be 1.');
+    flags.push('   → IMPORTANT: First classify the deliverable per STEP 0 of the system prompt.');
+    flags.push('     If OUT_OF_DOMAIN (physical/non-software work): TECHNICAL_FIT MUST be 1 and');
+    flags.push('     PAST_PERFORMANCE_RELEVANCE MUST be 1.');
+    flags.push('     If BUILDABLE_SOFTWARE: score TECHNICAL_FIT on documented engineering');
+    flags.push('     capability — a different customer domain alone does NOT push TECHNICAL_FIT');
+    flags.push('     below 3 when the KB shows the required build skills.');
   }
   
   flags.push('');
@@ -1120,6 +1235,8 @@ const generateDataStatusFlags = (args: {
   
   if (!hasPastPerf) {
     flags.push('• PAST_PERFORMANCE_RELEVANCE = 1 (NO EXCEPTIONS - no data means score of 1)');
+    flags.push('• For BUILDABLE_SOFTWARE deliverables this does NOT force NO_GO — see');
+    flags.push('  BUILDABLE SOFTWARE DECISION FLOOR in the system prompt.');
   }
   
   if (!hasKb) {
