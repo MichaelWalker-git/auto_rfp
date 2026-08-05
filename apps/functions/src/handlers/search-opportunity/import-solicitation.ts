@@ -22,6 +22,7 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { getApiKey } from '@/helpers/api-key-storage';
+import { buildAgencyLabel } from '@auto-rfp/core';
 import { createOpportunity, findOpportunityBySourceId } from '@/helpers/opportunity';
 import { getProjectById } from '@/helpers/project';
 import { syncOpportunityToApn } from '@/helpers/apn-db';
@@ -458,18 +459,14 @@ const importHigherGov = async (
       source: 'HIGHER_GOV',
       id: opp.opp_key,
       title: opp.title ?? 'Untitled',
-      type: opp.opp_type?.name ?? null,
+      type: opp.opp_type?.description ?? null,
       postedDateIso: opp.posted_date ? new Date(opp.posted_date).toISOString() : null,
       responseDeadlineIso: opp.due_date ? new Date(opp.due_date).toISOString() : null,
       noticeId: opp.source_id ?? null,
       solicitationNumber: null,
-      naicsCode: opp.naics_code?.code ?? null,
-      pscCode: opp.psc_code?.code ?? null,
-      organizationName: opp.agency?.name
-        ? (opp.agency.abbreviation && opp.agency.abbreviation !== opp.agency.name
-            ? `${opp.agency.name} (${opp.agency.abbreviation})`
-            : opp.agency.name)
-        : null,
+      naicsCode: opp.naics_code?.naics_code ?? null,
+      pscCode: opp.psc_code?.psc_code ?? null,
+      organizationName: buildAgencyLabel(opp.agency),
       setAside: opp.set_aside ?? (opp.sole_source_flag ? 'Sole Source' : null),
       description: [
         opp.ai_summary,
@@ -480,8 +477,8 @@ const importHigherGov = async (
       baseAndAllOptionsValue: opp.val_est_high ? parseFloat(opp.val_est_high) || null : null,
       // HigherGov-enriched fields
       placeOfPerformance: [opp.pop_city, opp.pop_state, opp.pop_zip, opp.pop_country].filter(Boolean).join(', ') || null,
-      contactEmail: opp.primary_contact_email?.email ?? null,
-      contactName: opp.primary_contact_email?.name ?? null,
+      contactEmail: opp.primary_contact_email?.contact_email ?? null,
+      contactName: opp.primary_contact_email?.contact_name ?? null,
       sourceUrl: opp.source_path ?? null,
       higherGovOppKey: opp.opp_key,
       higherGovAiSummary: opp.ai_summary ?? null,
