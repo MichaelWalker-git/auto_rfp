@@ -107,7 +107,10 @@ describe('Search Opportunities', () => {
       cy.contains('NAICS').should('be.visible')
       cy.contains('Import').should('be.visible')
       cy.contains(/Closes/i).should('be.visible')
-      cy.contains('Description').should('be.visible')
+      // The stub carries its description inline, so the summary renders straight
+      // away rather than behind a "Description" toggle. Only results whose text
+      // has to be fetched (a `descriptionUrl` and no inline text) get a toggle.
+      cy.contains(STUBBED_OPPORTUNITY.description).should('be.visible')
     })
 
     it('imports a solicitation into the project', () => {
