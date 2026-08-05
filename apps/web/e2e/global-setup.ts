@@ -41,6 +41,13 @@ setup('authenticate', async ({ page }) => {
   // Wait for successful login - should redirect to organizations or dashboard
   await page.waitForURL(/\/(organizations|dashboard)/, { timeout: 30000 });
 
+  // The login form renders in place on /organizations, so the URL check alone can
+  // pass before Amplify persists tokens. Wait for an authenticated-only element
+  // (the page heading) so localStorage tokens exist when we snapshot state.
+  await page
+    .getByRole('heading', { level: 1 })
+    .waitFor({ state: 'visible', timeout: 30000 });
+
   console.log('✅ Authentication successful');
 
   // Save storage state (cookies, localStorage)

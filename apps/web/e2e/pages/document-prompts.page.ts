@@ -38,6 +38,12 @@ export class DocumentPromptsPage {
   /** Wait until the Document Generation tab content has finished loading (skeletons gone). */
   async waitForDocumentsLoaded(): Promise<void> {
     await expect(this.documentsExplainer).toBeVisible({ timeout: 15000 });
+    // The explainer renders before SWR data lands; rows show "No text yet" until
+    // then. Every built-in type has default text in both scopes, so wait for the
+    // placeholders to clear (generous timeout for Lambda cold starts).
+    await expect(this.page.getByText('No text yet', { exact: false }).first()).not.toBeVisible({
+      timeout: 30000,
+    });
   }
 
   /** Wait until the AI Features tab content has finished loading (rows or empty state). */

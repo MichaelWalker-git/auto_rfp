@@ -19,6 +19,10 @@ const EXPECTED_FRAGMENT_ROWS = 32;
 /** Feature types that must no longer appear on the AI Features tab. */
 const DEAD_FEATURE_TYPES = ['RFP_DOCUMENT', 'PROPOSAL', 'TECHNICAL_PROPOSAL'];
 
+// All tests mutate the same COST_PROPOSAL row in the shared org — parallel
+// workers clobber each other's edits (afterEach resets race in-flight saves).
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Document Generation Prompts (Authenticated)', () => {
   let orgHref: string | null = null;
 
@@ -26,7 +30,10 @@ test.describe('Document Generation Prompts (Authenticated)', () => {
     await prompts.gotoForOrg(orgHref!, 'documents');
     await prompts.waitForDocumentsLoaded();
     const row = prompts.fragmentRow('SYSTEM', DOCUMENT_TYPE);
-    await row.scrollIntoViewIfNeeded();
+    // Rows re-mount when SWR data lands; assert visibility (auto-retrying) instead
+    // of scrollIntoViewIfNeeded, which throws if the node detaches mid-action.
+    // Subsequent locator actions auto-scroll as needed.
+    await expect(row).toBeVisible({ timeout: 15000 });
     return row;
   };
 
@@ -109,9 +116,11 @@ test.describe('Document Generation Prompts (Authenticated)', () => {
       return;
     }
 
-    // Edit the guidance fragment
+    // Edit the guidance fragment. Wait for the default text to land first —
+    // filling before SWR resolves gets wiped when the row syncs to fetched data.
     await documentPromptsPage.expandRow(row);
     const textarea = documentPromptsPage.fragmentTextarea(DOCUMENT_TYPE, 'Guidance');
+    await expect(textarea).not.toHaveValue('');
     const defaultText = await textarea.inputValue();
     await textarea.fill(`${defaultText}\n\n${OVERRIDE_MARKER}`);
     await expect(documentPromptsPage.unsavedBadge(row)).toBeVisible();
