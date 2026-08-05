@@ -79,6 +79,23 @@ describe('SCORING_SYSTEM_PROMPT content', () => {
     );
   });
 
+  it('gives hard blockers precedence over the decision floor', () => {
+    expect(SCORING_SYSTEM_PROMPT).toContain('HARD BLOCKERS TAKE PRECEDENCE');
+    expect(SCORING_SYSTEM_PROMPT).toContain('an expired deadline forces NO_GO');
+  });
+
+  it('restricts blockers[] to hard blockers for buildable software', () => {
+    expect(SCORING_SYSTEM_PROMPT).toContain('BLOCKERS[] COMPOSITION');
+    expect(SCORING_SYSTEM_PROMPT).toContain('ONLY the hard blockers listed above');
+    expect(SCORING_SYSTEM_PROMPT).toContain('are NOT');
+  });
+
+  it('forbids understating the composite score to force NO_GO', () => {
+    expect(SCORING_SYSTEM_PROMPT).toContain('do NOT understate compositeScore');
+    expect(SCORING_SYSTEM_PROMPT).toContain('a composite');
+    expect(SCORING_SYSTEM_PROMPT).toContain('of exactly 2.0 falls in the 2.0-2.99 CONDITIONAL_GO band');
+  });
+
   it('retains anti-hallucination honesty rules', () => {
     expect(SCORING_SYSTEM_PROMPT).toContain('PAST_PERFORMANCE_RELEVANCE score MUST be 1');
     expect(SCORING_SYSTEM_PROMPT).toContain('NEVER claim experience');
@@ -129,6 +146,18 @@ describe('SCORING_USER_PROMPT content', () => {
     expect(SCORING_USER_PROMPT).toContain(
       'if no past performance data exists, score 1',
     );
+  });
+
+  it('keeps product-gate items out of blockers[] in the override', () => {
+    expect(SCORING_USER_PROMPT).toContain('blockers[] may contain ONLY hard blockers');
+    expect(SCORING_USER_PROMPT).toContain('never in blockers[]');
+    expect(SCORING_USER_PROMPT).toContain('Hard blockers take precedence over this override');
+  });
+
+  it('stops product-ownership no-bids from forcing PRICING_POSITION to 1', () => {
+    expect(SCORING_USER_PROMPT).toContain('BUILDABLE_SOFTWARE exception');
+    expect(SCORING_USER_PROMPT).toContain('do NOT score 1 on that basis alone');
+    expect(SCORING_USER_PROMPT).toContain('Price the custom-build/POC');
   });
 
   it('retains the JSON output skeleton keys', () => {
