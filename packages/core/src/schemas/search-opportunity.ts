@@ -46,6 +46,13 @@ export const SamOpportunitySearchResultSchema = z.object({
   fullParentPathName: z.string().optional(),
   fullParentPathCode: z.string().optional(),
   description:        z.string().optional(),
+  /**
+   * Public sam.gov page for the notice, e.g. `https://sam.gov/opp/<id>/view`.
+   * SAM sometimes sends the literal string `"null"`, and its own docs still show
+   * a `beta.sam.gov` host that no longer resolves — `buildSamGovUrl` handles
+   * both, falling back to a URL built from `noticeId`.
+   */
+  uiLink:             z.string().nullish(),
   baseAndAllOptionsValue: z.number().optional(),
   award:              z.any().optional(),
   attachmentsCount:   z.number().int().nonnegative().optional(),
@@ -390,6 +397,37 @@ const isSamGovUrl = (s?: string): boolean => {
   try { return new URL(s).hostname.endsWith('sam.gov'); } catch { return false; }
 };
 
+/**
+ * Public sam.gov page for a notice, preferring SAM's own `uiLink` and falling
+ * back to the canonical path built from `noticeId`.
+ *
+ * `uiLink` needs sanitising before use: SAM sends the literal string `"null"`
+ * for some records, and its published examples use the retired `beta.sam.gov`
+ * host, which no longer resolves in DNS. Anything that isn't a usable sam.gov
+ * URL is discarded in favour of the `noticeId` form, verified against live
+ * records as `https://sam.gov/opp/<noticeId>/view`.
+ */
+export const buildSamGovUrl = (
+  uiLink?: string | null,
+  noticeId?: string | null,
+): string | null => {
+  const candidate = uiLink?.trim();
+  if (candidate && candidate.toLowerCase() !== 'null') {
+    try {
+      const url = new URL(candidate);
+      if (url.hostname.endsWith('sam.gov')) {
+        // Rewrite the retired beta host; the path shape is unchanged.
+        if (url.hostname === 'beta.sam.gov') url.hostname = 'sam.gov';
+        return url.toString();
+      }
+    } catch {
+      // Not a URL — fall through to the noticeId form.
+    }
+  }
+  const id = noticeId?.trim();
+  return id ? `https://sam.gov/opp/${encodeURIComponent(id)}/view` : null;
+};
+
 export const samSlimToSearchOpportunity = (o: SamOpportunitySearchResult): SearchOpportunity => ({
   id:                     o.noticeId ?? o.solicitationNumber ?? '',
   source:                 'SAM_GOV',
@@ -410,7 +448,7 @@ export const samSlimToSearchOpportunity = (o: SamOpportunitySearchResult): Searc
   active:                 toBool(o.active),
   baseAndAllOptionsValue: o.baseAndAllOptionsValue ?? null,
   attachmentsCount:       o.attachmentsCount ?? 0,
-  url:                    null,
+  url:                    buildSamGovUrl(o.uiLink, o.noticeId),
 });
 
 export const dibbsSlimToSearchOpportunity = (o: DibbsOpportunitySearchResult): SearchOpportunity => ({
