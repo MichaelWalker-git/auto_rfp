@@ -88,7 +88,10 @@ export const DocumentPromptRow = ({
   const updated = isCustomized ? updatedLabel(current?.updatedAt) : null;
 
   return (
-    <div className="rounded-2xl border bg-background shadow-sm">
+    <div
+      className="rounded-2xl border bg-background shadow-sm"
+      data-testid={`document-prompt-row-${scope}-${documentType}`}
+    >
       {/* header */}
       <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-2">

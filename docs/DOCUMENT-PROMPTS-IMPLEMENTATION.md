@@ -436,7 +436,7 @@ Only ADMIN holds `prompt:*` today via `ALL_PERMISSIONS` — unchanged.
 
 ---
 
-## 10. Testing <!-- ⏳ PENDING -->
+## 10. Testing <!-- ✅ IMPLEMENTED -->
 
 | Area | File | Cases |
 |---|---|---|
@@ -456,7 +456,7 @@ middy + AWS SDK before imports per `.claude/rules/09-testing.md`.
 
 ---
 
-## 11. Implementation Tickets <!-- ⏳ PENDING -->
+## 11. Implementation Tickets <!-- ✅ IMPLEMENTED -->
 
 ### DP-1 · Core schemas (S) <!-- ✅ IMPLEMENTED -->
 `DocumentPromptTypeSchema`, `DocumentPromptItemSchema`, `SaveDocumentPromptBodySchema`,
@@ -497,7 +497,7 @@ Tabs container (`nuqs` tab state); `FeaturePromptsTab` (dead types filtered,
 permission fix); `DocumentPromptsTab` + `DocumentPromptRow` (default/customized
 badges, char cap, reset with confirm); component tests.
 
-### DP-10 · E2E sanity (S) <!-- ⏳ PENDING -->
+### DP-10 · E2E sanity (S) <!-- ✅ IMPLEMENTED -->
 Playwright: open prompts page → Document tab → edit COST_PROPOSAL guidance → save
 → verify customized badge → reset → verify default badge.
 
@@ -550,6 +550,9 @@ DP-3..5 (runtime) and DP-6..9 (management surface) can proceed in parallel after
 | `apps/web/components/organizations/DocumentPromptsTab.tsx` | **new** | ✅ |
 | `apps/web/components/organizations/DocumentPromptRow.tsx` | **new** | ✅ |
 | `apps/web/components/organizations/__tests__/*` | new component tests | ✅ |
+| `apps/web/e2e/document-prompts.auth.spec.ts` | **new**: DP-10 e2e sanity spec | ✅ |
+| `apps/web/e2e/pages/document-prompts.page.ts` | **new**: prompts page object | ✅ |
+| `apps/web/e2e/fixtures/auth.ts` | extend: `documentPromptsPage` fixture | ✅ |
 
 ---
 
