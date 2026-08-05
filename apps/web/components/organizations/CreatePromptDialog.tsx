@@ -132,7 +132,7 @@ export function CreatePromptDialog(props: {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <PermissionButton requiredPermission="org:manage_settings" className="gap-2" disabled={disabled}>
+        <PermissionButton requiredPermission="prompt:create" className="gap-2" disabled={disabled}>
           <Plus className="h-4 w-4"/>
           {triggerLabel}
         </PermissionButton>
@@ -250,7 +250,7 @@ export function CreatePromptDialog(props: {
           </DialogClose>
 
           <PermissionButton 
-            requiredPermission="org:manage_settings"
+            requiredPermission="prompt:create"
             onClick={onSubmit} 
             disabled={isSaving || !prompt.trim()} 
             className="gap-2"

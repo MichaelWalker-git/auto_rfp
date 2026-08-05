@@ -1,274 +1,135 @@
 'use client';
 
 import * as React from 'react';
+import { parseAsStringLiteral, useQueryState } from 'nuqs';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { PermissionButton } from '@/components/ui/permission-button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
+import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 
-import { ChevronsUpDown, Plus, RefreshCw, Save, Settings2, Shield, User, X } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 import { PageHeader } from '@/components/layout/page-header';
 import { CreatePromptDialog } from '@/components/organizations/CreatePromptDialog';
+import { FeaturePromptsTab, type FeaturePromptSaveArgs, normalizeParams } from '@/components/organizations/FeaturePromptsTab';
+import { DocumentPromptsTab } from '@/components/organizations/DocumentPromptsTab';
+import type {
+  DocumentPromptResetArgs,
+  DocumentPromptSaveArgs,
+} from '@/components/organizations/DocumentPromptRow';
 
-import type { PromptItem } from '@auto-rfp/core';
-import { PromptScopeSchema, PromptTypeSchema } from '@auto-rfp/core';
+import { PromptScopeSchema, PromptTypeSchema, RFP_DOCUMENT_TYPES } from '@auto-rfp/core';
 
-import { usePrompts, useSavePrompt } from '@/lib/hooks/use-prompt';
+import { useDeletePrompt, usePrompts, useSavePrompt } from '@/lib/hooks/use-prompt';
 import { useCurrentOrganization } from '@/context/organization-context';
 
-type Scope = 'SYSTEM' | 'USER';
-
-function byTypeMap(items: PromptItem[]) {
-  const m = new Map<string, PromptItem>();
-  for (const it of items) if (it.type) m.set(it.type, it);
-  return m;
-}
-
-function normalizeParams(params?: string[]) {
-  return (params ?? []).map((p) => String(p).trim()).filter(Boolean);
-}
-
-function updatedLabel(iso?: string | null) {
-  if (!iso) return 'Not set yet';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return 'Updated';
-  return `Updated ${d.toLocaleString()}`;
-}
-
-function ScopeBadge({ scope }: { scope: Scope }) {
-  return scope === 'SYSTEM' ? (
-    <Badge className="gap-1">
-      <Shield className="h-3.5 w-3.5"/>
-      SYSTEM
-    </Badge>
-  ) : (
-    <Badge variant="secondary" className="gap-1">
-      <User className="h-3.5 w-3.5"/>
-      USER
-    </Badge>
-  );
-}
-
-function PromptRow({
-                     scope,
-                     type,
-                     current,
-                     onSave,
-                     isSaving,
-                   }: {
-  scope: Scope;
-  type: string;
-  current?: PromptItem | null;
-  onSave: (args: { scope: Scope; type: string; prompt: string; params: string[] }) => Promise<void>;
-  isSaving: boolean;
-}) {
-  const [prompt, setPrompt] = React.useState(current?.prompt ?? '');
-  const [params, setParams] = React.useState<string[]>(normalizeParams(current?.params));
-  const [paramDraft, setParamDraft] = React.useState('');
-  const [expanded, setExpanded] = React.useState(false);
-
-  React.useEffect(() => {
-    setPrompt(current?.prompt ?? '');
-    setParams(normalizeParams(current?.params));
-  }, [current?.prompt, current?.params]);
-
-  const dirty =
-    (current?.prompt ?? '') !== prompt ||
-    JSON.stringify(normalizeParams(current?.params)) !== JSON.stringify(normalizeParams(params));
-
-  const addParam = () => {
-    const p = paramDraft.trim();
-    if (!p) return;
-    setParams((prev) => Array.from(new Set([...prev, p])));
-    setParamDraft('');
-  };
-
-  const removeParam = (p: string) => setParams((prev) => prev.filter((x) => x !== p));
-
-  return (
-    <div className="rounded-2xl border bg-background shadow-sm">
-      {/* header */}
-      <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <ScopeBadge scope={scope}/>
-            <Badge variant="outline">{type}</Badge>
-            <span className="text-xs text-muted-foreground">{updatedLabel(current?.updatedAt)}</span>
-            {dirty ? <Badge variant="secondary">Unsaved</Badge> : null}
-          </div>
-
-          {!expanded ? (
-            <div className="rounded-xl bg-muted/30 p-3 text-xs text-muted-foreground">
-              {prompt.trim()
-                ? `${prompt.trim().slice(0, 260)}${prompt.trim().length > 260 ? '…' : ''}`
-                : 'No prompt yet. Click “Edit” to add one.'}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="flex shrink-0 items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-2 rounded-xl"
-            onClick={() => setExpanded((v) => !v)}
-          >
-            <ChevronsUpDown className="h-4 w-4"/>
-            {expanded ? 'Collapse' : 'Edit'}
-          </Button>
-
-          <PermissionButton
-            requiredPermission="org:manage_settings"
-            size="sm"
-            disabled={!dirty || isSaving}
-            className="gap-2 rounded-xl"
-            onClick={() => onSave({ scope, type, prompt, params })}
-          >
-            <Save className="h-4 w-4"/>
-            Save
-          </PermissionButton>
-        </div>
-      </div>
-
-      {/* expanded editor */}
-      {expanded ? (
-        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="min-w-0 space-y-2">
-            <Textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Write prompt text…"
-              className="min-h-[320px] resize-y rounded-xl"
-            />
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Tip: keep it deterministic.</span>
-              <span>{prompt.trim().length.toLocaleString()} chars</span>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border bg-muted/20 p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Settings2 className="h-4 w-4 text-muted-foreground"/>
-                Runtime params
-              </div>
-              <Badge variant="outline">{params.length}</Badge>
-            </div>
-
-            <div className="mt-3 flex gap-2">
-              <Input
-                value={paramDraft}
-                onChange={(e) => setParamDraft(e.target.value)}
-                placeholder="e.g. TIMESTAMP_ISO"
-                className="rounded-xl"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addParam();
-                  }
-                }}
-              />
-              <Button type="button" variant="outline" className="rounded-xl" onClick={addParam}>
-                <Plus className="h-4 w-4"/>
-              </Button>
-            </div>
-
-            {params.length ? (
-              <div className="mt-3 max-h-[280px] overflow-auto pr-1">
-                <div className="flex flex-wrap gap-2">
-                  {params.map((p) => (
-                    <Badge key={p} variant="secondary" className="gap-1">
-                      {p}
-                      <button
-                        type="button"
-                        className="ml-1 rounded hover:bg-muted/40"
-                        onClick={() => removeParam(p)}
-                        aria-label={`Remove ${p}`}
-                      >
-                        <X className="h-3.5 w-3.5"/>
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="mt-3 rounded-xl border border-dashed bg-background/40 p-3 text-xs text-muted-foreground">
-                No params yet. Add placeholders you resolve at runtime.
-              </div>
-            )}
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
+const TAB_VALUES = ['features', 'documents'] as const;
 
 export function PromptsManager() {
   const { toast } = useToast();
+  const { confirm, ConfirmDialog } = useConfirmDialog();
+
+  const [tab, setTab] = useQueryState(
+    'tab',
+    parseAsStringLiteral(TAB_VALUES).withDefault('features'),
+  );
 
   const { currentOrganization } = useCurrentOrganization();
-  const { system, user, isLoading, error, refresh } = usePrompts(currentOrganization?.id);
+  const { system, user, document, isLoading, error, refresh } = usePrompts(currentOrganization?.id);
   const { trigger: saveTrigger, isMutating: isSaving } = useSavePrompt(currentOrganization?.id);
+  const { trigger: deleteTrigger, isMutating: isDeleting } = useDeletePrompt(currentOrganization?.id);
 
   React.useEffect(() => {
     if (error) {
       toast({
         title: 'Failed to load prompts',
-        description: (error as any)?.message ?? String(error),
+        description: error instanceof Error ? error.message : String(error),
         variant: 'destructive',
       });
     }
   }, [error, toast]);
 
-  const systemMap = React.useMemo(() => byTypeMap(system), [system]);
-  const userMap = React.useMemo(() => byTypeMap(user), [user]);
-
-  const types = React.useMemo(() => {
-    const set = new Set<string>();
-    for (const it of system) if (it.type) set.add(it.type);
-    for (const it of user) if (it.type) set.add(it.type);
-
-    const known = (PromptTypeSchema as any)?._def?.values as string[] | undefined;
-    const list = Array.from(set);
-
-    return known?.length
-      ? [...known.filter((k) => set.has(k)), ...list.filter((t) => !new Set(known).has(t)).sort()]
-      : list.sort();
-  }, [system, user]);
-
-  const onSave = async (args: { scope: Scope; type: string; prompt: string; params: string[] }) => {
-    const scopeOk = PromptScopeSchema.safeParse(args.scope);
-    if (!scopeOk.success) {
+  const onSaveFeature = async (args: FeaturePromptSaveArgs) => {
+    const { success, data: scope } = PromptScopeSchema.safeParse(args.scope);
+    if (!success) {
       toast({ title: 'Invalid scope', description: 'Use SYSTEM or USER', variant: 'destructive' });
       return;
     }
 
-    const body = {
-      scope: scopeOk.data,
-      type: args.type,
-      prompt: args.prompt,
-      params: normalizeParams(args.params),
-      orgId: currentOrganization?.id,
-    };
+    const { success: typeOk, data: type } = PromptTypeSchema.safeParse(args.type);
+    if (!typeOk) {
+      toast({ title: 'Invalid type', description: `Unknown prompt type ${args.type}`, variant: 'destructive' });
+      return;
+    }
 
     try {
-      await saveTrigger(body as any);
+      await saveTrigger({
+        scope,
+        type,
+        prompt: args.prompt,
+        params: normalizeParams(args.params),
+        orgId: currentOrganization?.id,
+      });
       await refresh();
       toast({ title: 'Saved', description: `${args.scope} ${args.type} prompt updated.` });
-    } catch (e: any) {
+    } catch (e) {
       toast({
         title: 'Save failed',
-        description: e?.message ?? String(e),
+        description: e instanceof Error ? e.message : String(e),
         variant: 'destructive',
       });
     }
   };
+
+  const onSaveDocument = async (args: DocumentPromptSaveArgs) => {
+    try {
+      await saveTrigger({
+        scope: args.scope,
+        documentType: args.documentType,
+        prompt: args.prompt,
+        orgId: currentOrganization?.id,
+      });
+      await refresh();
+      toast({
+        title: 'Saved',
+        description: `${RFP_DOCUMENT_TYPES[args.documentType]} ${args.scope === 'SYSTEM' ? 'guidance' : 'task instructions'} updated.`,
+      });
+    } catch (e) {
+      toast({
+        title: 'Save failed',
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const onResetDocument = async (args: DocumentPromptResetArgs) => {
+    const ok = await confirm({
+      title: 'Reset to default?',
+      description: `The customized ${args.scope === 'SYSTEM' ? 'guidance' : 'task instructions'} for ${RFP_DOCUMENT_TYPES[args.documentType]} will be deleted and the built-in default will apply again.`,
+      confirmLabel: 'Reset',
+      variant: 'destructive',
+    });
+    if (!ok) return;
+
+    try {
+      await deleteTrigger({ scope: args.scope, documentType: args.documentType });
+      await refresh();
+      toast({
+        title: 'Reset',
+        description: `${RFP_DOCUMENT_TYPES[args.documentType]} reverted to the default.`,
+      });
+    } catch (e) {
+      toast({
+        title: 'Reset failed',
+        description: e instanceof Error ? e.message : String(e),
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const isBusy = isSaving || isDeleting;
 
   return (
     <div className="space-y-6">
@@ -277,12 +138,14 @@ export function PromptsManager() {
         description="System prompts are defaults; user prompts override at runtime."
         actions={
           <>
-            <CreatePromptDialog triggerLabel="New prompt" onSaved={refresh} disabled={isLoading || isSaving}/>
+            {tab === 'features' ? (
+              <CreatePromptDialog triggerLabel="New prompt" onSaved={refresh} disabled={isLoading || isBusy}/>
+            ) : null}
             <Button
               variant="outline"
               className="gap-2"
               onClick={() => refresh()}
-              disabled={isLoading || isSaving}
+              disabled={isLoading || isBusy}
             >
               <RefreshCw className="h-4 w-4"/>
               Refresh
@@ -291,36 +154,34 @@ export function PromptsManager() {
         }
       />
 
-      {isLoading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-[180px] w-full rounded-2xl"/>
-          <Skeleton className="h-[180px] w-full rounded-2xl"/>
-        </div>
-      ) : types.length === 0 ? (
-        <div className="rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
-          No prompts yet.
-        </div>
-      ) : (
-        <div className="space-y-10">
-          {types.map((type) => {
-            const sys = systemMap.get(type) ?? null;
-            const usr = userMap.get(type) ?? null;
+      <Tabs value={tab} onValueChange={(v) => setTab(v === 'documents' ? 'documents' : 'features')}>
+        <TabsList>
+          <TabsTrigger value="features">AI Features</TabsTrigger>
+          <TabsTrigger value="documents">Document Generation</TabsTrigger>
+        </TabsList>
 
-            return (
-              <section key={type} className="space-y-3">
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="text-sm font-semibold">{type}</div>
-                </div>
+        <TabsContent value="features" className="pt-4">
+          <FeaturePromptsTab
+            system={system}
+            user={user}
+            isLoading={isLoading}
+            isSaving={isBusy}
+            onSave={onSaveFeature}
+          />
+        </TabsContent>
 
-                <div className="space-y-3">
-                  <PromptRow scope="SYSTEM" type={type} current={sys} onSave={onSave} isSaving={isSaving}/>
-                  <PromptRow scope="USER" type={type} current={usr} onSave={onSave} isSaving={isSaving}/>
-                </div>
-              </section>
-            );
-          })}
-        </div>
-      )}
+        <TabsContent value="documents" className="pt-4">
+          <DocumentPromptsTab
+            documentPrompts={document}
+            isLoading={isLoading}
+            isSaving={isBusy}
+            onSave={onSaveDocument}
+            onReset={onResetDocument}
+          />
+        </TabsContent>
+      </Tabs>
+
+      <ConfirmDialog/>
     </div>
   );
 }

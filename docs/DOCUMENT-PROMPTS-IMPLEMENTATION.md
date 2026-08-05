@@ -377,7 +377,7 @@ existing lambdas) — no extra CDK code needed.
 
 ---
 
-## 8. Frontend — Hooks & Components <!-- ⏳ PENDING -->
+## 8. Frontend — Hooks & Components <!-- ✅ IMPLEMENTED -->
 
 ### 8.1 Hooks (`apps/web/lib/hooks/use-prompt.ts`, extend)
 
@@ -422,7 +422,7 @@ components/organizations/
 
 ---
 
-## 9. Permissions & RBAC <!-- ⏳ PENDING -->
+## 9. Permissions & RBAC <!-- ✅ IMPLEMENTED -->
 
 No new permissions. Existing `PROMPT_PERMISSIONS` cover everything:
 
@@ -492,7 +492,7 @@ DELETE route in `prompt.routes.ts`; CloudWatch Log Group for the new Lambda.
 (object-style URL builder per existing `promptApi.list`/`save` — supersedes
 the `deletePromptUrl` name).
 
-### DP-9 · Frontend tabs UI (L) <!-- ⏳ PENDING -->
+### DP-9 · Frontend tabs UI (L) <!-- ✅ IMPLEMENTED -->
 Tabs container (`nuqs` tab state); `FeaturePromptsTab` (dead types filtered,
 permission fix); `DocumentPromptsTab` + `DocumentPromptRow` (default/customized
 badges, char cap, reset with confirm); component tests.
@@ -545,11 +545,11 @@ DP-3..5 (runtime) and DP-6..9 (management surface) can proceed in parallel after
 | `packages/infra/api/routes/prompt.routes.ts` | extend: DELETE route | ✅ |
 | `apps/web/lib/hooks/use-prompt.ts` | extend: document group, delete hook | ✅ |
 | `apps/web/lib/prompt/prompt-api.ts` | extend: delete URL | ✅ |
-| `apps/web/components/organizations/PromptManager.tsx` | refactor → tabs container | ⏳ |
-| `apps/web/components/organizations/FeaturePromptsTab.tsx` | **new** (extracted; dead types filtered; permission fix) | ⏳ |
-| `apps/web/components/organizations/DocumentPromptsTab.tsx` | **new** | ⏳ |
-| `apps/web/components/organizations/DocumentPromptRow.tsx` | **new** | ⏳ |
-| `apps/web/components/organizations/__tests__/*` | new component tests | ⏳ |
+| `apps/web/components/organizations/PromptManager.tsx` | refactor → tabs container | ✅ |
+| `apps/web/components/organizations/FeaturePromptsTab.tsx` | **new** (extracted; dead types filtered; permission fix) | ✅ |
+| `apps/web/components/organizations/DocumentPromptsTab.tsx` | **new** | ✅ |
+| `apps/web/components/organizations/DocumentPromptRow.tsx` | **new** | ✅ |
+| `apps/web/components/organizations/__tests__/*` | new component tests | ✅ |
 
 ---
 
