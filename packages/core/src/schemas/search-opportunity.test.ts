@@ -35,10 +35,37 @@ describe('buildSamGovUrl', () => {
     expect(buildSamGovUrl(uiLink, 'notice-1')).toBe('https://sam.gov/opp/notice-1/view');
   });
 
-  it('ignores a uiLink pointing off sam.gov', () => {
+  it.each([
+    ['an unrelated host', 'https://evil.example.com/opp/abc/view'],
+    // A bare endsWith('sam.gov') matches these, and they are registerable.
+    ['a lookalike suffix', 'https://evilsam.gov/opp/abc/view'],
+    ['another lookalike suffix', 'https://notsam.gov/opp/abc/view'],
+    ['sam.gov as a subdomain of an attacker domain', 'https://sam.gov.evil.com/opp/abc/view'],
+    // `new URL()` reads everything before the @ as userinfo; the host is evil.com.
+    ['sam.gov in the userinfo', 'https://sam.gov@evil.com/opp/abc/view'],
+    ['sam.gov only in the query', 'https://evil.com/opp/abc/view?x=sam.gov'],
+    ['a javascript: scheme', 'javascript:alert(1)//sam.gov'],
+    ['a data: scheme', 'data:text/html,<script>alert(1)</script>'],
+  ])('ignores a uiLink with %s', (_label, uiLink) => {
     // Never emit a link to a host SAM does not control.
-    expect(buildSamGovUrl('https://evil.example.com/opp/abc/view', 'notice-1')).toBe(
-      'https://sam.gov/opp/notice-1/view',
+    expect(buildSamGovUrl(uiLink, 'notice-1')).toBe('https://sam.gov/opp/notice-1/view');
+  });
+
+  it.each([
+    ['the apex domain', 'https://sam.gov/opp/abc/view'],
+    ['a real subdomain', 'https://www.sam.gov/opp/abc/view'],
+    ['the api subdomain', 'https://api.sam.gov/opp/abc/view'],
+  ])('accepts %s', (_label, uiLink) => {
+    expect(buildSamGovUrl(uiLink, 'notice-1')).toBe(uiLink);
+  });
+
+  it('accepts a host differing only by case or a trailing dot', () => {
+    // "sam.gov." is a valid absolute FQDN and resolves identically.
+    expect(buildSamGovUrl('https://SAM.GOV/opp/abc/view', 'notice-1')).toBe(
+      'https://sam.gov/opp/abc/view',
+    );
+    expect(buildSamGovUrl('https://sam.gov./opp/abc/view', 'notice-1')).toBe(
+      'https://sam.gov./opp/abc/view',
     );
   });
 

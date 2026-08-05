@@ -392,9 +392,22 @@ const toBool = (v: string | boolean | undefined): boolean => {
   return false;
 };
 
+/**
+ * True for hosts SAM.gov actually controls.
+ *
+ * The `.` before the domain is load-bearing: a bare `endsWith('sam.gov')` also
+ * matches attacker-registerable lookalikes such as `evilsam.gov`. Matches the
+ * check in `handlers/search-opportunity/get-opportunity-description.ts`.
+ */
+const isSamGovHost = (hostname: string): boolean => {
+  // A trailing dot is a valid absolute FQDN ("sam.gov.") and resolves the same.
+  const host = hostname.toLowerCase().replace(/\.$/, '');
+  return host === 'sam.gov' || host.endsWith('.sam.gov');
+};
+
 const isSamGovUrl = (s?: string): boolean => {
   if (!s) return false;
-  try { return new URL(s).hostname.endsWith('sam.gov'); } catch { return false; }
+  try { return isSamGovHost(new URL(s).hostname); } catch { return false; }
 };
 
 /**
@@ -415,9 +428,12 @@ export const buildSamGovUrl = (
   if (candidate && candidate.toLowerCase() !== 'null') {
     try {
       const url = new URL(candidate);
-      if (url.hostname.endsWith('sam.gov')) {
+      // Scheme is checked too, so a `javascript:` or `data:` value can never
+      // reach an href — `new URL` happily parses those.
+      const isWebUrl = url.protocol === 'https:' || url.protocol === 'http:';
+      if (isWebUrl && isSamGovHost(url.hostname)) {
         // Rewrite the retired beta host; the path shape is unchanged.
-        if (url.hostname === 'beta.sam.gov') url.hostname = 'sam.gov';
+        if (url.hostname.toLowerCase() === 'beta.sam.gov') url.hostname = 'sam.gov';
         return url.toString();
       }
     } catch {
