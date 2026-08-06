@@ -117,6 +117,30 @@ describe('SCORING_SYSTEM_PROMPT content', () => {
     );
   });
 
+  it('bans customer-industry mismatch reasoning for STRATEGIC_ALIGNMENT', () => {
+    expect(SCORING_SYSTEM_PROMPT).toContain(
+      'CUSTOMER-INDUSTRY MISMATCH IS NEVER A STRATEGIC_ALIGNMENT DEDUCTION',
+    );
+    expect(SCORING_SYSTEM_PROMPT).toContain('component-type and delivery-model fit');
+    expect(SCORING_SYSTEM_PROMPT).toContain(
+      "isn't your specialty → 2/5\" is banned",
+    );
+    expect(SCORING_SYSTEM_PROMPT).toContain(
+      "the customer's industry does not change the code",
+    );
+  });
+
+  it('anchors strategic alignment at 3-4 for delivery-model-matching buildable software', () => {
+    expect(SCORING_SYSTEM_PROMPT).toContain(
+      'anchor STRATEGIC_ALIGNMENT at 3-4, NOT 2',
+    );
+    expect(SCORING_SYSTEM_PROMPT).toContain('closed competition');
+    expect(SCORING_SYSTEM_PROMPT).toContain('hostile contract terms');
+    expect(SCORING_SYSTEM_PROMPT).toContain(
+      'component-type and delivery-model fit alone',
+    );
+  });
+
   it('keeps all 5 criterion names and their weights unchanged', () => {
     expect(SCORING_SYSTEM_PROMPT).toContain('TECHNICAL_FIT (20% weight)');
     expect(SCORING_SYSTEM_PROMPT).toContain('PAST_PERFORMANCE_RELEVANCE (30% weight)');
@@ -155,6 +179,19 @@ describe('SCORING_USER_PROMPT content', () => {
     expect(SCORING_USER_PROMPT).toContain(
       'if no past performance data exists, score 1',
     );
+  });
+
+  it('mirrors the strategic-alignment delivery-model rule from the system prompt', () => {
+    expect(SCORING_USER_PROMPT).toContain('component-type and delivery-model');
+    expect(SCORING_USER_PROMPT).toContain(
+      "NOT on the end customer's industry/domain",
+    );
+    expect(SCORING_USER_PROMPT).toContain('eCitation for police');
+    expect(SCORING_USER_PROMPT).toContain('is banned reasoning');
+    expect(SCORING_USER_PROMPT).toContain('anchors at 3-4, not 2');
+    // existing anchors must survive unchanged
+    expect(SCORING_USER_PROMPT).toContain('5: Perfect strategic fit, builds portfolio, opens new markets');
+    expect(SCORING_USER_PROMPT).toContain('2: Limited strategic value, opportunistic only');
   });
 
   it('keeps product-gate items out of blockers[] in the override', () => {
