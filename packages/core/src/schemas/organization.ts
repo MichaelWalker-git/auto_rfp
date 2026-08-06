@@ -79,6 +79,8 @@ export const OrganizationItemSchema = OrganizationCreateRequestSchema.extend({
   slug: z.string().optional(),
   /** Whether POC generation via EventBridge is enabled for this org */
   enablePOCGeneration: z.boolean().optional(),
+  /** Whether the AI full-package compliance review is enabled for this org (set manually in DynamoDB; no UI) */
+  enableComplianceReview: z.boolean().optional(),
   /** Whether new-member detection alerts are enabled for this org (set manually in DynamoDB; no UI) */
   enableMemberDetection: z.boolean().optional().default(false),
 });
@@ -105,6 +107,7 @@ export const OrganizationListItemSchema = z.object({
   description: z.string().optional(),
   iconKey: z.string().optional(),
   enablePOCGeneration: z.boolean().optional(),
+  enableComplianceReview: z.boolean().optional(),
 });
 
 export type OrganizationListItem = z.infer<typeof OrganizationListItemSchema>;

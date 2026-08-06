@@ -21,6 +21,7 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { getApiKey } from '@/helpers/api-key-storage';
+import { buildAgencyLabel } from '@auto-rfp/core';
 import { HIGHERGOV_SECRET_PREFIX, HIGHERGOV_BASE_URL } from '@/constants/highergov';
 import {
   fetchAllHigherGovPursuits,
@@ -116,11 +117,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
       await delay(RATE_LIMIT_DELAY_MS);
       const attachments = await fetchHigherGovDocuments(cfg, opp.document_path, opp.opp_key);
 
-      const agencyLabel = opp.agency?.name
-        ? (opp.agency.abbreviation && opp.agency.abbreviation !== opp.agency.name
-          ? `${opp.agency.name} (${opp.agency.abbreviation})`
-          : opp.agency.name)
-        : null;
+      const agencyLabel = buildAgencyLabel(opp.agency);
 
       const { oppId, item } = await createOpportunity({
         orgId: data.orgId,
@@ -131,21 +128,21 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
           source: 'HIGHER_GOV',
           id: oppKey,
           title: opp.title ?? pursuit.title ?? 'Untitled',
-          type: opp.opp_type?.name ?? null,
+          type: opp.opp_type?.description ?? null,
           postedDateIso: opp.posted_date ? new Date(opp.posted_date).toISOString() : null,
           responseDeadlineIso: opp.due_date ? new Date(opp.due_date).toISOString() : null,
           noticeId: opp.source_id ?? null,
           solicitationNumber: null,
-          naicsCode: opp.naics_code?.code ?? null,
-          pscCode: opp.psc_code?.code ?? null,
+          naicsCode: opp.naics_code?.naics_code ?? null,
+          pscCode: opp.psc_code?.psc_code ?? null,
           organizationName: agencyLabel,
           setAside: opp.set_aside ?? (opp.sole_source_flag ? 'Sole Source' : null),
           description: [opp.ai_summary, opp.description_text && opp.description_text !== opp.ai_summary ? opp.description_text : null, opp.product_service ? `Product/Service: ${opp.product_service}` : null].filter(Boolean).join('\n\n') || null,
           active: true,
           baseAndAllOptionsValue: opp.val_est_high ? (Number.isFinite(parseFloat(opp.val_est_high)) ? parseFloat(opp.val_est_high) : null) : null,
           placeOfPerformance: [opp.pop_city, opp.pop_state, opp.pop_zip, opp.pop_country].filter(Boolean).join(', ') || null,
-          contactEmail: opp.primary_contact_email?.email ?? null,
-          contactName: opp.primary_contact_email?.name ?? null,
+          contactEmail: opp.primary_contact_email?.contact_email ?? null,
+          contactName: opp.primary_contact_email?.contact_name ?? null,
           sourceUrl: opp.source_path ?? null,
           higherGovOppKey: oppKey,
           higherGovAiSummary: opp.ai_summary ?? null,

@@ -15,6 +15,7 @@ node_modules
 **/node_modules
 .env
 .env.local
+env.local
 n8n-dev-agent/.env
 n8n-dev-agent/data/
 localstorage/
@@ -62,3 +63,9 @@ cypress.env.json
 
 # Local credentials — never commit
 ADMIN-CREDENTIALS.md
+
+# Playwright artifacts (generated per run)
+apps/web/playwright-report/
+apps/web/test-results/
+apps/web/e2e/.auth/
+!apps/web/e2e/.auth/.gitkeep

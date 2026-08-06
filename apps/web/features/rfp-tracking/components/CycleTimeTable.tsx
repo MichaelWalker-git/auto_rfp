@@ -20,9 +20,9 @@ export const CycleTimeTable = ({ summary, onExport }: CycleTimeTableProps) => (
       <div>
         <div className="flex items-center gap-2">
           <CardTitle className="text-base">Cycle Time</CardTitle>
-          <Badge variant="secondary" className="text-[10px] font-normal">All-time</Badge>
+          <Badge variant="secondary" className="text-[10px] font-normal">Last 60 days</Badge>
         </div>
-        <CardDescription>Average and median days spent per stage</CardDescription>
+        <CardDescription>Average and median days for RFPs submitted in the last 60 days</CardDescription>
       </div>
       <ExportCsvButton onExport={onExport} />
     </CardHeader>

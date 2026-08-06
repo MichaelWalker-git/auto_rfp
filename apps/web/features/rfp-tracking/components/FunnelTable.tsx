@@ -20,9 +20,12 @@ export const FunnelTable = ({ rows, onExport }: FunnelTableProps) => (
       <div>
         <div className="flex items-center gap-2">
           <CardTitle className="text-base">Funnel</CardTitle>
-          <Badge variant="secondary" className="text-[10px] font-normal">All-time</Badge>
+          <Badge variant="secondary" className="text-[10px] font-normal">Last 60 days</Badge>
         </div>
-        <CardDescription>Items that reached each stage, with conversion between stages</CardDescription>
+        <CardDescription>
+          Intake cohort from the last 60 days, followed through each stage — conversion is the
+          share of the previous stage that advanced
+        </CardDescription>
       </div>
       <ExportCsvButton onExport={onExport} disabled={rows.length === 0} />
     </CardHeader>

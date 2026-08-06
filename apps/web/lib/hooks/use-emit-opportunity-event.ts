@@ -11,23 +11,16 @@ interface EmitResult {
 
 export const useEmitOpportunityEvent = () => {
   const [isEmitting, setIsEmitting] = useState(false);
-  const [emitError, setEmitError] = useState<string | null>(null);
 
-  const emitEvent = async (orgId: string, projectId: string, oppId: string, force = false): Promise<EmitResult | null> => {
+  const emitEvent = async (orgId: string, projectId: string, oppId: string, force = false): Promise<EmitResult> => {
     setIsEmitting(true);
-    setEmitError(null);
     try {
       const url = buildApiUrl('/opportunity/emit-event');
-      const res = await apiMutate<EmitResult>(url, 'POST', { orgId, projectId, oppId, force });
-      return res;
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to emit event';
-      setEmitError(msg);
-      return null;
+      return await apiMutate<EmitResult>(url, 'POST', { orgId, projectId, oppId, force });
     } finally {
       setIsEmitting(false);
     }
   };
 
-  return { emitEvent, isEmitting, emitError, setEmitError };
+  return { emitEvent, isEmitting };
 };

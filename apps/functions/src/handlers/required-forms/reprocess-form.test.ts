@@ -113,7 +113,7 @@ describe('reprocess-form', () => {
     mockMammoth.mockResolvedValueOnce({ value: 'Company Name: ___' });
     mockExtractDocx.mockResolvedValueOnce({
       fields: [{ fieldId: 'a', label: 'Company Name', status: 'AUTO_FILLED', value: 'Acme' }],
-      totalFieldCount: 1, manualFieldCount: 0, autoFillPercentage: 100,
+      totalFieldCount: 1, manualFieldCount: 0, autoFillPercentage: 100, docxFillStrategy: 'TEXT_TOKEN',
     });
 
     const res = await baseHandler(event({
@@ -123,7 +123,8 @@ describe('reprocess-form', () => {
     expect(res.statusCode).toBe(200);
     expect(JSON.parse(res.body)).toMatchObject({ ok: true, status: 'READY', totalFieldCount: 1 });
     expect(mockStartTextract).not.toHaveBeenCalled();
-    expect(mockExtractDocx).toHaveBeenCalledWith('Company Name: ___', 'org-1');
+    // Now receives the raw buffer (for structure detection) plus the text and orgId.
+    expect(mockExtractDocx).toHaveBeenCalledWith(expect.any(Buffer), 'Company Name: ___', 'org-1');
     const readyCall = mockUpdateForm.mock.calls.find((c) => (c[0] as { patch?: { status?: string } }).patch?.status === 'READY');
     expect(readyCall).toBeDefined();
   });

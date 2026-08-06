@@ -24,6 +24,9 @@ jest.mock('@/helpers/document-prompts', () => ({
   buildSectionSystemPrompt: jest.fn(),
   buildUserPromptForDocumentType: jest.fn(),
 }));
+jest.mock('@/helpers/document-prompt-overrides', () => ({
+  resolveDocumentPromptFragments: jest.fn(),
+}));
 jest.mock('@/helpers/document-generation', () => ({
   extractBedrockText: jest.fn(),
   loadQaPairs: jest.fn(),
@@ -37,6 +40,7 @@ jest.mock('@/helpers/template', () => ({
   findBestTemplate: jest.fn(),
   loadTemplateHtml: jest.fn(),
   replaceMacros: jest.fn(),
+  buildMacroValues: jest.fn(),
 }));
 jest.mock('@/helpers/rfp-document', () => ({
   uploadRFPDocumentHtml: jest.fn(),
@@ -69,8 +73,23 @@ import {
   generateWithTemplateSections,
   applyTemplateStylesToContent,
   extractDocumentTitle,
+  processJobInner,
+  type Job,
 } from './generate-document-worker';
 import { generateDocumentSectionBySectionHtml } from './document-section-generator';
+import {
+  buildSystemPromptForDocumentType,
+  buildSectionSystemPrompt,
+  buildUserPromptForDocumentType,
+} from './document-prompts';
+import { resolveDocumentPromptFragments } from './document-prompt-overrides';
+import { safeParseJsonFromModel } from './json';
+import { gatherAllContext } from './document-context';
+import { loadQaPairs, loadSolicitation, resolveTemplateHtml } from './document-generation';
+import { buildMacroValues } from './template';
+import { uploadRFPDocumentHtml, updateRFPDocumentMetadata, getRFPDocument } from './rfp-document';
+import { getLatestVersionNumber, saveVersionHtml, createVersion } from './rfp-document-version';
+import { invokeModel } from './bedrock-http-client';
 
 const mockSectionGen = generateDocumentSectionBySectionHtml as jest.MockedFunction<
   typeof generateDocumentSectionBySectionHtml
@@ -373,5 +392,132 @@ describe('applyTemplateStylesToContent', () => {
   it('returns content unchanged when template has no inline styles', () => {
     const content = '<p>Body</p><h2>Heading</h2>';
     expect(applyTemplateStylesToContent(content, '<p>plain</p>')).toBe(content);
+  });
+});
+
+describe('processJobInner — document prompt override wiring', () => {
+  const job: Job = {
+    orgId: 'org-1',
+    projectId: 'proj-1',
+    opportunityId: 'opp-1',
+    documentType: 'TECHNICAL_PROPOSAL',
+    documentId: 'doc-1',
+  };
+
+  const mockResolveFragments = resolveDocumentPromptFragments as jest.MockedFunction<
+    typeof resolveDocumentPromptFragments
+  >;
+  const mockBuildSystem = buildSystemPromptForDocumentType as jest.MockedFunction<
+    typeof buildSystemPromptForDocumentType
+  >;
+  const mockBuildSection = buildSectionSystemPrompt as jest.MockedFunction<
+    typeof buildSectionSystemPrompt
+  >;
+  const mockBuildUser = buildUserPromptForDocumentType as jest.MockedFunction<
+    typeof buildUserPromptForDocumentType
+  >;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    mockResolveFragments.mockResolvedValue({ guidance: 'G-OVERRIDE', task: 'T-OVERRIDE' });
+    mockBuildSystem.mockReturnValue('sys prompt');
+    mockBuildSection.mockReturnValue('section sys prompt');
+    mockBuildUser.mockReturnValue('user prompt');
+
+    (loadQaPairs as jest.Mock).mockResolvedValue([]);
+    (loadSolicitation as jest.Mock).mockResolvedValue('solicitation text');
+    (buildMacroValues as jest.Mock).mockResolvedValue({});
+    (gatherAllContext as jest.Mock).mockResolvedValue('kb text');
+
+    (uploadRFPDocumentHtml as jest.Mock).mockResolvedValue('html-key');
+    (updateRFPDocumentMetadata as jest.Mock).mockResolvedValue(undefined);
+    (getRFPDocument as jest.Mock).mockResolvedValue(null);
+    (getLatestVersionNumber as jest.Mock).mockResolvedValue(0);
+    (saveVersionHtml as jest.Mock).mockResolvedValue('version-key');
+    (createVersion as jest.Mock).mockResolvedValue(undefined);
+  });
+
+  it('fetches fragments once and passes them to all builders (section-by-section strategy)', async () => {
+    const templateHtml =
+      '<h1>Technical Proposal</h1><h2>Approach</h2><p>[CONTENT: write the approach]</p>';
+    (resolveTemplateHtml as jest.Mock).mockResolvedValue(templateHtml);
+
+    const realBody = `<h2>Approach</h2><p>${'Our technical approach is comprehensive. '.repeat(10)}</p>`;
+    mockSectionGen.mockResolvedValue(['<p>Intro paragraph with substance.</p>', realBody]);
+
+    await processJobInner(job);
+
+    expect(mockResolveFragments).toHaveBeenCalledTimes(1);
+    expect(mockResolveFragments).toHaveBeenCalledWith('org-1', 'TECHNICAL_PROPOSAL');
+
+    expect(mockBuildSystem).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', templateHtml, 'G-OVERRIDE');
+    expect(mockBuildSection).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', 'G-OVERRIDE');
+    expect(mockBuildUser).toHaveBeenCalledWith(
+      'TECHNICAL_PROPOSAL',
+      'solicitation text',
+      '[]',
+      'kb text',
+      'T-OVERRIDE',
+    );
+  });
+
+  it('passes the guidance override to the single-shot system prompt (no template)', async () => {
+    (resolveTemplateHtml as jest.Mock).mockResolvedValue(null);
+    (safeParseJsonFromModel as jest.Mock).mockReturnValue({
+      title: 'Technical Proposal',
+      htmlContent: '<h2>Approach</h2><p>Generated single-shot content body.</p>',
+    });
+    (invokeModel as jest.Mock).mockResolvedValue(
+      new TextEncoder().encode(
+        JSON.stringify({
+          stop_reason: 'end_turn',
+          content: [{ type: 'text', text: '{"title":"Technical Proposal"}' }],
+        }),
+      ),
+    );
+
+    await processJobInner(job);
+
+    expect(mockResolveFragments).toHaveBeenCalledTimes(1);
+    // Called for Step 5 and again for the single-shot strategy — both carry the override.
+    for (const call of mockBuildSystem.mock.calls) {
+      expect(call[2]).toBe('G-OVERRIDE');
+    }
+    expect(mockBuildUser).toHaveBeenCalledWith(
+      'TECHNICAL_PROPOSAL',
+      'solicitation text',
+      '[]',
+      'kb text',
+      'T-OVERRIDE',
+    );
+  });
+
+  it('passes null fragments through when no overrides exist (defaults apply in builders)', async () => {
+    mockResolveFragments.mockResolvedValue({ guidance: null, task: null });
+    (resolveTemplateHtml as jest.Mock).mockResolvedValue(null);
+    (safeParseJsonFromModel as jest.Mock).mockReturnValue({
+      title: 'Technical Proposal',
+      htmlContent: '<h2>Approach</h2><p>Generated single-shot content body.</p>',
+    });
+    (invokeModel as jest.Mock).mockResolvedValue(
+      new TextEncoder().encode(
+        JSON.stringify({
+          stop_reason: 'end_turn',
+          content: [{ type: 'text', text: '{"title":"Technical Proposal"}' }],
+        }),
+      ),
+    );
+
+    await processJobInner(job);
+
+    expect(mockBuildSystem).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', null, null);
+    expect(mockBuildUser).toHaveBeenCalledWith(
+      'TECHNICAL_PROPOSAL',
+      'solicitation text',
+      '[]',
+      'kb text',
+      null,
+    );
   });
 });

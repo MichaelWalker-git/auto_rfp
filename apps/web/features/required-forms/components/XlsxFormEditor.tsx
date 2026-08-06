@@ -1,6 +1,15 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
+import {
+  highlightFieldById,
+  highlightCellByCoords,
+  highlightFormSnippet,
+  parseHighlightCell,
+  FIELD_LOCATOR_ATTR,
+  CELL_LOCATOR_ATTR,
+} from '@/features/compliance-review';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,6 +21,7 @@ import { usePermission } from '@/components/permission-wrapper';
 import { apiMutate, apiFetcher, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { cn } from '@/lib/utils';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useResizableSidebar } from '../hooks/useResizableSidebar';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 import type { DetectedFormField, RequiredFormItem } from '@auto-rfp/core';
@@ -56,6 +66,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
   const [isSaving, setIsSaving] = useState(false);
   const [reprocessing, setReprocessing] = useState(false);
   const [deletedFieldIds, setDeletedFieldIds] = useState<Set<string>>(new Set());
+  const { width: sidebarWidth, onResizeStart: handleSidebarResizeStart } = useResizableSidebar({ initial: 300 });
 
   const backUrl = `/organizations/${orgId}/projects/${doc.projectId}/opportunities/${doc.opportunityId}`;
 
@@ -183,6 +194,41 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
     loadXlsx();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc.sourceFileKey]);
+
+  // Compliance-review deep-link: when opened with ?highlightField / ?highlightCell
+  // / ?findSnippet, switch to the owning sheet and flash the referenced cell once
+  // the grid has rendered. DOM-only (never persisted) so export is unaffected.
+  const searchParams = useSearchParams();
+  const highlightField = searchParams.get('highlightField');
+  const highlightCellParam = searchParams.get('highlightCell');
+  const findSnippet = searchParams.get('findSnippet');
+  const hasHighlightedRef = useRef(false);
+  useEffect(() => {
+    if (loading || hasHighlightedRef.current) return;
+    if (!highlightField && !highlightCellParam && !findSnippet) return;
+
+    // Resolve the sheet the target lives on so a multi-sheet workbook lands on
+    // the right tab before we look for the node.
+    const cell = parseHighlightCell(highlightCellParam);
+    const targetSheet = highlightField
+      ? fieldSheetById[highlightField]
+      : cell && sheetTabs.includes(cell.sheet)
+        ? cell.sheet
+        : undefined;
+    // If the target sheet isn't rendered yet, switch to it and retry next pass.
+    if (targetSheet && targetSheet !== activeSheet) {
+      if (sheetTabs.includes(targetSheet)) setActiveSheet(targetSheet);
+      return;
+    }
+
+    hasHighlightedRef.current = true;
+    const t = setTimeout(() => {
+      if (highlightField && highlightFieldById(highlightField)) return;
+      if (cell && highlightCellByCoords(cell.row, cell.col)) return;
+      if (findSnippet) highlightFormSnippet(findSnippet);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [loading, highlightField, highlightCellParam, findSnippet, fieldSheetById, sheetTabs, activeSheet]);
 
   const handleCellChange = useCallback((sheetName: string, row: number, col: number, value: string) => {
     setIsDirty(true);
@@ -403,6 +449,8 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
                     return (
                       <td
                         key={colIdx}
+                        {...{ [CELL_LOCATOR_ATTR]: `${rowIdx},${colIdx}` }}
+                        {...(cell.fieldId ? { [FIELD_LOCATOR_ATTR]: cell.fieldId } : {})}
                         className={cn(
                           'border border-gray-200 px-2 py-1 align-top',
                           cell.isEditable && !isMark && !isEditing && 'cursor-text hover:bg-indigo-50/50',
@@ -451,8 +499,17 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
         </div>
         </div>
 
+        {/* Drag handle to resize the field sidebar. */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          onMouseDown={handleSidebarResizeStart}
+          className="w-1 shrink-0 cursor-ew-resize bg-border transition-colors hover:bg-indigo-400"
+          title="Drag to resize"
+        />
+
         {/* Right: Field sidebar — same light-surface pinning as the grid. */}
-        <div className="w-[300px] border-l flex flex-col overflow-hidden bg-white text-gray-900 shrink-0">
+        <div className="border-l flex flex-col overflow-hidden bg-white text-gray-900 shrink-0" style={{ width: sidebarWidth }}>
           <div className="px-4 py-3 border-b bg-gray-50/80 shrink-0">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-gray-700">Fields</p>
@@ -467,7 +524,11 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
                 const isEditingSidebar = editingSidebarField === field.fieldId;
                 const sidebarVal = sidebarValues[field.fieldId] ?? field.value ?? '';
                 return (
-                  <div key={field.fieldId} className="px-4 py-2.5 border-b border-gray-100 group">
+                  <div
+                    key={field.fieldId}
+                    {...{ [FIELD_LOCATOR_ATTR]: field.fieldId }}
+                    className="px-4 py-2.5 border-b border-gray-100 group"
+                  >
                     <div className="flex items-center justify-between">
                       <p className="text-[11px] font-medium text-gray-500 truncate">{field.label}</p>
                       {canEdit && (

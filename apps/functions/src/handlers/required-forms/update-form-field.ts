@@ -63,6 +63,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
         matrixCategory: null,
         matrixFeature: null,
         matrixColumn: 'OTHER',
+        docxAnchor: null,
       });
     } else {
       const existing = updatedFields[fieldIdx];

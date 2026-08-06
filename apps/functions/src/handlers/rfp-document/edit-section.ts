@@ -27,6 +27,8 @@ import { invokeModel } from '@/helpers/bedrock-http-client';
 import type { QaPair } from '@/helpers/document-generation';
 import { loadQaPairs, loadSolicitation } from '@/helpers/document-generation';
 import { gatherAllContext } from '@/helpers/document-context';
+import { getDefaultGuidance } from '@/helpers/document-prompts';
+import { resolveDocumentPromptFragments } from '@/helpers/document-prompt-overrides';
 import { TEMPERATURE } from '@/constants/document-generation';
 import { requireEnv } from '@/helpers/env';
 
@@ -81,9 +83,21 @@ const MAX_CONTEXT_CHARS = 6000;
 
 // ─── Build Section Edit Prompt ───
 
-const buildSectionEditSystemPrompt = (sectionTitle: string): string => `You are a senior proposal writer and capture manager with 20+ years of experience winning US federal government contracts.
+export const buildSectionEditSystemPrompt = (
+  sectionTitle: string,
+  documentType: string,
+  guidanceOverride?: string | null,
+): string => {
+  const guidance = guidanceOverride ?? getDefaultGuidance(documentType);
+
+  return `You are a senior proposal writer and capture manager with 20+ years of experience winning US federal government contracts.
 
 You are editing a SINGLE SECTION of an RFP proposal document. The section is titled "${sectionTitle}".
+
+═══════════════════════════════════════
+DOCUMENT TYPE GUIDANCE
+═══════════════════════════════════════
+${guidance}
 
 CRITICAL OUTPUT FORMAT:
 - Return ONLY the updated HTML for this section
@@ -117,6 +131,7 @@ You have access to tools to gather specific data for this section:
 - get_deadlines: Get deadline information
 
 Use these tools proactively when the user's instruction requires specific data.`;
+};
 
 const buildSectionEditUserPrompt = (args: {
   instruction: string;
@@ -221,24 +236,32 @@ export const baseHandler = async (
       loadSolicitation(projectId, opportunityId).catch(() => ''), '',
     );
 
-    const [qaPairs, solicitation, enrichedContext] = await Promise.all([
+    const documentType = doc.documentType ?? 'TECHNICAL_PROPOSAL';
+
+    const [qaPairs, solicitation, enrichedContext, fragments] = await Promise.all([
       withTimeout(loadQaPairs(projectId, opportunityId).catch(() => [] as QaPair[]), [] as QaPair[]),
       solicitationPromise,
       withTimeout(
         solicitationPromise.then((loadedSolicitation) =>
           gatherAllContext({
             projectId, orgId, opportunityId, solicitation: loadedSolicitation,
-            documentType: doc.documentType ?? 'TECHNICAL_PROPOSAL',
+            documentType,
           }),
         ).catch(() => ''),
         '',
+      ),
+      // Never throws — falls back to nulls (hardcoded default guidance applies).
+      // Still time-bounded: a hanging read must not eat the Bedrock budget.
+      withTimeout(
+        resolveDocumentPromptFragments(orgId, documentType),
+        { guidance: null, task: null },
       ),
     ]);
 
     console.log(`[edit-section] Context loaded: solicitation=${solicitation.length} chars, enriched=${enrichedContext.length} chars, qaPairs=${qaPairs.length}`);
 
     // 4. Build prompts
-    const systemPrompt = buildSectionEditSystemPrompt(sectionTitle);
+    const systemPrompt = buildSectionEditSystemPrompt(sectionTitle, documentType, fragments.guidance);
     const userPrompt = buildSectionEditUserPrompt({
       instruction,
       currentSectionHtml,

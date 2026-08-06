@@ -39,9 +39,11 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
 
   const lowerKey = form.sourceFileKey?.toLowerCase() ?? '';
   const isPdf = lowerKey.endsWith('.pdf');
-  const isDocx = lowerKey.endsWith('.docx') || lowerKey.endsWith('.doc');
+  // Only .docx: mammoth reads the OOXML zip, not legacy OLE .doc (rejected at
+  // intake). Keeping the guard honest avoids a mammoth throw on a stray .doc.
+  const isDocx = lowerKey.endsWith('.docx');
   if (!isPdf && !isDocx) {
-    return apiResponse(400, { message: 'Reprocessing is only supported for PDF and Word forms' });
+    return apiResponse(400, { message: 'Reprocessing is only supported for PDF and .docx forms' });
   }
 
   await updateRequiredForm({
@@ -58,12 +60,12 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
       const buf = await streamToBuffer(body);
       const { value: text } = await mammoth.extractRawText({ buffer: buf });
 
-      const { fields, totalFieldCount, manualFieldCount, autoFillPercentage } =
-        await extractAndAutofillDocxForm(text ?? '', orgId);
+      const { fields, totalFieldCount, manualFieldCount, autoFillPercentage, docxFillStrategy } =
+        await extractAndAutofillDocxForm(buf, text ?? '', orgId);
 
       await updateRequiredForm({
         orgId, projectId: data.projectId, opportunityId: data.opportunityId, formId: data.formId,
-        patch: { fields, status: 'READY', totalFieldCount, manualFieldCount, autoFillPercentage },
+        patch: { fields, status: 'READY', totalFieldCount, manualFieldCount, autoFillPercentage, docxFillStrategy },
       });
       return apiResponse(200, { ok: true, status: 'READY', totalFieldCount });
     } catch (err) {

@@ -59,6 +59,64 @@ export const MatrixColumnSchema = z.enum([
 ]);
 export type MatrixColumn = z.infer<typeof MatrixColumnSchema>;
 
+// ─── DOCX Fill Strategy (form-level) ───
+
+// How a DOCX form is filled. BOTH strategies write into the ORIGINAL document
+// (formatting preserved); neither generates a separate document. The value is
+// informational — it drives detection routing and UI messaging, not a different
+// output format. Null on non-DOCX forms and legacy records.
+//
+// - IN_PLACE:   the doc has real fillable content controls (`<w:sdt>`) or legacy
+//               FORMTEXT form fields. Values are written into those controls.
+// - TEXT_TOKEN: a prose/styled-text doc. Fillable spots are inline placeholders
+//               (`[INSERT SUPPLIER NAME]` → TEXT_TOKEN anchor) and label blanks
+//               (`Name:`/`Title:`/`Date:` → TEXT_LABEL anchor, per-occurrence).
+//               Values are written into those spots in place.
+//
+// Only fields WITH a value are written; empty fields are skipped, so the spot
+// stays exactly as in the original ("filled stays filled, empty stays empty").
+// A label the LLM surfaced but couldn't anchor is left as-is and flagged manual.
+// The original is never corrupted.
+export const DocxFillStrategySchema = z.enum(['IN_PLACE', 'TEXT_TOKEN']);
+export type DocxFillStrategy = z.infer<typeof DocxFillStrategySchema>;
+
+// ─── DOCX Anchor (field-level) ───
+
+// Anchors a field back to a location in the source document.xml so the filler
+// can write the value into the ORIGINAL document without re-parsing. Null for
+// fields with no fillable spot (left blank, flagged manual) and all non-DOCX
+// forms — mirrors how XLSX fields carry `cellReference`.
+export const DocxAnchorSchema = z.object({
+  kind: z.enum(['SDT', 'LEGACY_FORMFIELD', 'TEXT_TOKEN', 'TEXT_LABEL', 'TABLE_CELL_LABEL', 'UNDERSCORE_BLANK', 'CHECKBOX']),
+  // SDT:              the <w:id w:val> of the content control (stable, unique).
+  // LEGACY_FORMFIELD: the FORMTEXT bookmark name.
+  // TEXT_TOKEN:       the literal placeholder text to find-and-replace in a run,
+  //                   e.g. "[INSERT SUPPLIER NAME]".
+  // TEXT_LABEL:       a label with a blank on the SAME line, e.g. "Name:   ".
+  //                   The value is written right after the label in its run.
+  // TABLE_CELL_LABEL: a label in one table cell whose answer belongs in the
+  //                   NEXT cell, e.g. | Signature: | <blank> |. The value is
+  //                   written into the neighbouring answer cell.
+  // UNDERSCORE_BLANK: an underline run ("______") whose caption is on an
+  //                   adjacent line, e.g. "____" over "Name of Firm". The value
+  //                   replaces the underline.
+  // CHECKBOX:         a text checkbox glyph (□/☐) next to an option label, e.g.
+  //                   "□Corporation". Ticking writes markChar (☒) over the box;
+  //                   `ref` is the option label, `occurrence` disambiguates.
+  // For the label kinds, `ref` is the label text and `occurrence` disambiguates
+  // repeats. Matching between detection and fill is done via the shared
+  // fill-spot finder, so occurrences always align.
+  ref: z.string(),
+  // 0-based index of which occurrence of `ref` this field targets. Only
+  // meaningful for TEXT_LABEL (a doc can repeat the same label); null/0 for the
+  // single-target kinds.
+  occurrence: z.number().int().min(0).nullable().default(null),
+  // Best-effort human label captured at extraction (SDT alias/tag, bookmark, or
+  // humanized token text).
+  sourceLabel: z.string().nullable().default(null),
+});
+export type DocxAnchor = z.infer<typeof DocxAnchorSchema>;
+
 // ─── Detected Form Field ───
 
 export const DetectedFormFieldSchema = z.object({
@@ -91,6 +149,8 @@ export const DetectedFormFieldSchema = z.object({
   matrixCategory: z.string().nullable().default(null),
   matrixFeature: z.string().nullable().default(null),
   matrixColumn: MatrixColumnSchema.default('OTHER'),
+  // DOCX in-place anchor. Null for COMPANION fields and all non-DOCX forms.
+  docxAnchor: DocxAnchorSchema.nullable().default(null),
 });
 
 export type DetectedFormField = z.infer<typeof DetectedFormFieldSchema>;
@@ -109,6 +169,9 @@ export const RequiredFormItemSchema = z.object({
   sourceFileKey: z.string(),
   sourcePageRange: z.string().nullable().default(null),
   sourceSheetName: z.string().nullable().default(null),
+  // How a DOCX form is exported (in-place fill vs generated companion sheet).
+  // Null on non-DOCX forms and legacy records; the filler treats null as COMPANION.
+  docxFillStrategy: DocxFillStrategySchema.nullable().default(null),
   fields: z.array(DetectedFormFieldSchema).default([]),
   filledFileKey: z.string().nullable().default(null),
   autoFillPercentage: z.number().min(0).max(100).default(0),
@@ -151,6 +214,7 @@ export type CreateRequiredFormDTO = z.infer<typeof CreateRequiredFormDTOSchema>;
 
 export const UpdateRequiredFormDTOSchema = z.object({
   status: FormProcessingStatusSchema.optional(),
+  docxFillStrategy: DocxFillStrategySchema.nullable().optional(),
   fields: z.array(DetectedFormFieldSchema).optional(),
   filledFileKey: z.string().nullable().optional(),
   autoFillPercentage: z.number().min(0).max(100).optional(),

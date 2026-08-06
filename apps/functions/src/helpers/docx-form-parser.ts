@@ -5,8 +5,9 @@ import { safeParseJsonFromModel } from './json';
 import { requireEnv } from './env';
 import { getCompanyProfile } from './company-profile';
 import { autofillFieldsWithTools } from './autofill-fields-with-tools';
+import { detectDocxStructure, type DocxStructuredField } from './docx-structure';
 
-import type { DetectedFormField } from '@auto-rfp/core';
+import type { DetectedFormField, DocxFillStrategy } from '@auto-rfp/core';
 
 const getBedrockModelId = () => requireEnv('BEDROCK_MODEL_ID');
 
@@ -85,51 +86,106 @@ export const parseDocxForms = async (docText: string): Promise<DetectedFormField
     const label = typeof raw?.label === 'string' ? raw.label.trim() : '';
     if (!label) continue;
     const pageNumber = typeof raw?.pageNumber === 'number' ? raw.pageNumber : null;
-    fields.push({
-      fieldId: uuidv4(),
-      label,
-      value: null,
-      status: 'EMPTY',
-      confidence: null,
-      profileFieldKey: null,
-      manualReason: null,
-      pageNumber,
-      cellReference: null,
-      // DOCX forms have no worksheets; null routes every consumer to sheet index 0.
-      sheetName: null,
-      sheetIndex: null,
-      boundingBox: null,
-      markType: 'TEXT',
-      markChar: null,
-      markGeometry: null,
-      matrixCategory: null,
-      matrixFeature: null,
-      matrixColumn: 'OTHER',
-    });
+    fields.push(makeDocxField({ label, pageNumber }));
     if (fields.length >= MAX_FIELDS) break;
   }
 
   return fields;
 };
 
+// Build an empty DOCX DetectedFormField with the shared defaults. `docxAnchor`
+// is null for LLM-surfaced manual-only labels (no fillable spot) and populated
+// for structured controls / text tokens. DOCX forms have no PDF/XLSX geometry,
+// so boundingBox, cellReference and sheet identity are always null.
+const makeDocxField = (args: {
+  label: string;
+  pageNumber?: number | null;
+  markType?: DetectedFormField['markType'];
+  docxAnchor?: DetectedFormField['docxAnchor'];
+}): DetectedFormField => ({
+  fieldId: uuidv4(),
+  label: args.label,
+  value: null,
+  status: 'EMPTY',
+  confidence: null,
+  profileFieldKey: null,
+  manualReason: null,
+  pageNumber: args.pageNumber ?? null,
+  cellReference: null,
+  sheetName: null,
+  sheetIndex: null,
+  boundingBox: null,
+  markType: args.markType ?? 'TEXT',
+  markChar: null,
+  markGeometry: null,
+  matrixCategory: null,
+  matrixFeature: null,
+  matrixColumn: 'OTHER',
+  docxAnchor: args.docxAnchor ?? null,
+});
+
+// Convert structured controls found by detectDocxStructure into DetectedFormFields,
+// preserving each control's write-back anchor for the in-place filler.
+const buildStructuredFields = (structured: DocxStructuredField[]): DetectedFormField[] =>
+  structured
+    .slice(0, MAX_FIELDS)
+    .map((s) => makeDocxField({ label: s.label, markType: s.markType, docxAnchor: s.anchor }));
+
 export type DocxFormResult = {
   fields: DetectedFormField[];
   totalFieldCount: number;
   manualFieldCount: number;
   autoFillPercentage: number;
+  // How this form is filled. Both strategies write into the ORIGINAL document.
+  // IN_PLACE = real content controls / FORMTEXT; TEXT_TOKEN = prose placeholders.
+  docxFillStrategy: DocxFillStrategy;
 };
 
 /**
- * Full DOCX form processing: extract fields from the document text, then
- * autofill them from the org's company profile. Shared by the detect-required-
- * forms pipeline step and the reprocess handler so both produce identical
- * results. Returns the fields plus the derived counts the caller persists.
+ * Full DOCX form processing: detect the document's structure, extract fields,
+ * then autofill them from the org's company profile. Shared by the detect-
+ * required-forms pipeline step and the reprocess handler so both produce
+ * identical results. Both strategies fill the ORIGINAL document — nothing
+ * generates a separate document.
+ *
+ * - IN_PLACE: the DOCX has real fillable content controls / legacy form fields.
+ *   Fields are built from those controls with a write-back anchor.
+ * - TEXT_TOKEN: a prose doc. Fillable fields are the detected bracket
+ *   placeholders (anchored on the literal token). We ALSO run the LLM over the
+ *   text to surface labels with no placeholder (signature/date/name lines) and
+ *   add any that aren't already covered as anchor-less fields — these are left
+ *   blank in the original and flagged for manual completion.
+ *
+ * Autofill runs identically in both branches. `buffer` is the raw .docx bytes
+ * (needed for structure detection); `docText` is its mammoth-extracted text.
  */
 export const extractAndAutofillDocxForm = async (
+  buffer: Buffer,
   docText: string,
   orgId: string,
 ): Promise<DocxFormResult> => {
-  let fields = await parseDocxForms(docText);
+  const { strategy, structuredFields } = await detectDocxStructure(buffer);
+
+  let fields: DetectedFormField[];
+  if (strategy === 'IN_PLACE') {
+    fields = buildStructuredFields(structuredFields);
+  } else {
+    // TEXT_TOKEN. Every fillable spot in a prose form is either a bracket token
+    // or a label blank — both caught by structural detection, both anchored and
+    // exportable. So when detection found ANY field, trust it exclusively.
+    //
+    // We do NOT also run the LLM pass in that case: it re-describes the same
+    // spots in different words ("Supplier By" vs "[INSERT SUPPLIER NAME] — By:"),
+    // which dedup can't reliably match, producing ANCHOR-LESS duplicates that
+    // silently do nothing on export. Only fall back to the LLM when detection
+    // found nothing at all, so a doc with no recognizable structure still yields
+    // a best-effort (manual-only) field list.
+    const anchored = buildStructuredFields(structuredFields);
+    fields = anchored.length > 0
+      ? anchored.slice(0, MAX_FIELDS)
+      : (await parseDocxForms(docText)).slice(0, MAX_FIELDS);
+  }
+
   if (fields.length > 0) {
     const profile = await getCompanyProfile(orgId);
     if (profile) {
@@ -142,5 +198,5 @@ export const extractAndAutofillDocxForm = async (
   const autoFilled = fields.filter((f) => f.status === 'AUTO_FILLED').length;
   const autoFillPercentage = totalFieldCount > 0 ? Math.round((autoFilled / totalFieldCount) * 100) : 0;
 
-  return { fields, totalFieldCount, manualFieldCount, autoFillPercentage };
+  return { fields, totalFieldCount, manualFieldCount, autoFillPercentage, docxFillStrategy: strategy };
 };

@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Paperclip,
   FileEdit,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ import {
   ComplianceReport,
 } from '@/features/proposal-submission';
 import { RequiredFormsList } from '@/features/required-forms';
+import { ComplianceReviewPanel } from '@/features/compliance-review';
 import { OpportunityApprovalPanel } from '@/features/opportunity-approval';
 import PermissionWrapper from '@/components/permission-wrapper';
 
@@ -82,11 +84,12 @@ const SECTION_NAV_ITEMS: SectionNavItem[] = [
   { id: 'solicitation-documents', label: 'Solicitations', icon: <Paperclip className="h-3.5 w-3.5" /> },
   { id: 'required-forms', label: 'Required Forms', icon: <FileEdit className="h-3.5 w-3.5" /> },
   { id: 'rfp-documents', label: 'RFP Documents', icon: <FileEdit className="h-3.5 w-3.5" /> },
+  { id: 'ai-compliance-review', label: 'AI Review', icon: <Sparkles className="h-3.5 w-3.5" /> },
   { id: 'submission-compliance', label: 'Submission', icon: <ShieldCheck className="h-3.5 w-3.5" /> },
   { id: 'post-award', label: 'Post-Award', icon: <Trophy className="h-3.5 w-3.5" /> },
 ];
 
-const SectionNavigation = () => {
+const SectionNavigation = ({ hiddenIds }: { hiddenIds?: string[] }) => {
   const handleScrollTo = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
@@ -94,10 +97,14 @@ const SectionNavigation = () => {
     }
   };
 
+  const items = hiddenIds?.length
+    ? SECTION_NAV_ITEMS.filter((item) => !hiddenIds.includes(item.id))
+    : SECTION_NAV_ITEMS;
+
   return (
     <div className="flex flex-wrap items-center gap-2 py-2">
       <span className="text-xs font-medium text-muted-foreground mr-1">Jump to:</span>
-      {SECTION_NAV_ITEMS.map((item) => (
+      {items.map((item) => (
         <Button
           key={item.id}
           variant="outline"
@@ -208,6 +215,9 @@ const OpportunityContent = ({ className }: { className?: string }) => {
   const { projectId, oppId, orgId, opportunity, refetch } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id;
+  // AI Compliance Review is a single-org (Horus Technology) feature, gated by the
+  // org-level enableComplianceReview flag — same pattern as Generate POC.
+  const complianceReviewEnabled = !!currentOrganization?.enableComplianceReview;
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Smart auto-reload: 5s if pending items, 30s if stable, stops after 3 unchanged
@@ -259,7 +269,7 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       <OpportunityApprovalPanel orgId={orgId} projectId={projectId} opportunityId={oppId} onResolved={refetch} />
 
       {/* Section Navigation */}
-      <SectionNavigation />
+      <SectionNavigation hiddenIds={complianceReviewEnabled ? undefined : ['ai-compliance-review']} />
 
       {/* ── Opportunity Analysis ─────────────────────────────────────── */}
       <section id="executive-brief" className="scroll-mt-4">
@@ -292,6 +302,17 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       <section className="scroll-mt-4">
         <OpportunityContextPanel />
       </section>
+
+      {/* ── AI Compliance Review (single-org feature) ──────────────────── */}
+      {complianceReviewEnabled && (
+        <section id="ai-compliance-review" className="space-y-4 scroll-mt-4">
+          <SectionDivider
+            icon={<Sparkles className="h-4 w-4" />}
+            title="AI Compliance Review"
+          />
+          <ComplianceReviewPanel orgId={orgId} projectId={projectId} oppId={oppId} />
+        </section>
+      )}
 
       {/* ── Submission & Compliance ────────────────────────────────────── */}
       <section id="submission-compliance" className="space-y-4 scroll-mt-4">

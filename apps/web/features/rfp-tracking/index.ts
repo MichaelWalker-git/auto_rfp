@@ -17,7 +17,6 @@ export {
   throughputByWeek,
   funnel,
   cycleTime,
-  winRate,
   outcomeBreakdown,
   aging,
   ownerOptions,

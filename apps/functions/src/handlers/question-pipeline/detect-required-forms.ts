@@ -1,5 +1,5 @@
 import { requireEnv } from '@/helpers/env';
-import { loadTextFromS3, copyS3Object } from '@/helpers/s3';
+import { loadTextFromS3, copyS3Object, getFileBufferFromS3 } from '@/helpers/s3';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import { safeParseJsonFromModel } from '@/helpers/json';
 import { getQuestionFileItem, checkQuestionFileCancelled, updateQuestionFile } from '@/helpers/questionFile';
@@ -398,28 +398,56 @@ export const baseHandler = async (
         });
       }
     } else if (isDocx) {
-      // DOCX forms have no PDF/Textract geometry. Extract fields from the text
-      // we already loaded, then autofill from the company profile exactly like
-      // the Textract callback does for PDFs. Fields carry a null boundingBox.
+      // DOCX forms have no PDF/Textract geometry. Detect the document's structure
+      // (real content controls → IN_PLACE with anchors, else TEXT_TOKEN over prose),
+      // extract fields, then autofill from the company profile exactly like the
+      // Textract callback does for PDFs. Fields carry a null boundingBox.
       try {
         await updateRequiredForm({
           orgId, projectId, opportunityId, formId,
           patch: { status: 'IN_PROGRESS' },
         });
 
-        const { fields, totalFieldCount, manualFieldCount, autoFillPercentage } =
-          await extractAndAutofillDocxForm(docText, orgId);
+        const buffer = await getFileBufferFromS3(getDocumentsBucket(), stableFileKey);
+        const { fields, totalFieldCount, manualFieldCount, autoFillPercentage, docxFillStrategy } =
+          await extractAndAutofillDocxForm(buffer, docText, orgId);
 
-        await updateRequiredForm({
-          orgId, projectId, opportunityId, formId,
-          patch: {
-            fields,
-            status: 'READY',
-            totalFieldCount,
-            manualFieldCount,
-            autoFillPercentage,
-          },
-        });
+        if (totalFieldCount === 0) {
+          // BACKSTOP (mirrors the XLSX path): Bedrock detected a form here, but no
+          // fillable fields were extracted. Missing a required form is critical, so
+          // never silently drop it — surface it for manual review, linked to the
+          // source file, so the user can complete it directly from the attachment.
+          console.warn(
+            `DOCX form "${formName}" (${formId}) detected but extracted 0 fields — ` +
+            'surfacing for manual review instead of dropping.',
+          );
+          await updateRequiredForm({
+            orgId, projectId, opportunityId, formId,
+            patch: {
+              fields: [],
+              status: 'READY',
+              docxFillStrategy,
+              totalFieldCount: 0,
+              manualFieldCount: 0,
+              autoFillPercentage: 0,
+              reviewRequired: true,
+              errorMessage:
+                'Automatic field extraction found no fillable fields. Review and complete this form manually from the attached file.',
+            },
+          });
+        } else {
+          await updateRequiredForm({
+            orgId, projectId, opportunityId, formId,
+            patch: {
+              fields,
+              status: 'READY',
+              docxFillStrategy,
+              totalFieldCount,
+              manualFieldCount,
+              autoFillPercentage,
+            },
+          });
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error(`DOCX form parse failed for form ${formId}: ${message}`);

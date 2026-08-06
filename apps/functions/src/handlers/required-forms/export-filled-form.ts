@@ -10,6 +10,7 @@ import { getRequiredForm, updateRequiredForm } from '@/helpers/required-form';
 import { syncFormFilledFileToProposal } from '@/helpers/required-form-proposal-bridge';
 import { fillPdfForm } from '@/helpers/pdf-form-filler';
 import { fillXlsxForm } from '@/helpers/xlsx-form-filler';
+import { fillDocxForm } from '@/helpers/docx-form-filler';
 import { requireEnv } from '@/helpers/env';
 
 import {
@@ -44,6 +45,10 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
   const lowerKey = form.sourceFileKey.toLowerCase();
   const isPdf = lowerKey.endsWith('.pdf');
   const isXlsx = lowerKey.endsWith('.xlsx') || lowerKey.endsWith('.xls');
+  // Only .docx: the filler reads the OOXML zip via JSZip. Legacy OLE .doc can't
+  // be parsed (and is rejected at intake), so a stray .doc falls to the
+  // passthrough branch below (streamed unchanged) rather than throwing.
+  const isDocx = lowerKey.endsWith('.docx');
 
   let outputKey: string;
 
@@ -61,6 +66,18 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
       sourceFileKey: form.sourceFileKey,
       fields: form.fields,
       outputKey,
+    });
+  } else if (isDocx) {
+    outputKey = `${orgId}/${data.projectId}/${data.opportunityId}/required-forms/${data.formId}/filled.docx`;
+    await fillDocxForm({
+      sourceFileKey: form.sourceFileKey,
+      fields: form.fields,
+      // Null/legacy strategy → TEXT_TOKEN. The filler routes per-field on each
+      // anchor's kind anyway; legacy records simply have no anchors, so nothing
+      // is written and the original streams through untouched.
+      strategy: form.docxFillStrategy ?? 'TEXT_TOKEN',
+      outputKey,
+      formName: form.name,
     });
   } else {
     // Unsupported type — fall back to streaming the source file unchanged.

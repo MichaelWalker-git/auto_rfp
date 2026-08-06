@@ -1,5 +1,9 @@
 import { TEMPLATE_CATEGORY_LABELS, RFP_DOCUMENT_TYPES } from '@auto-rfp/core';
 
+/** Fallback label for document types not present in the label maps: "MY_CUSTOM_TYPE" → "My Custom Type". */
+const humanizeDocumentType = (documentType: string): string =>
+  documentType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+
 // ─── RFP Best Practices & Document Type Guidance ───
 
 const DOC_TYPE_GUIDANCE: Record<string, string> = {
@@ -527,9 +531,40 @@ WRITING RULES:
 - Include assumptions that affect pricing`,
 
   COST_PROPOSAL: `
-(Same guidance as PRICE_VOLUME — see above)
-- Focus on cost realism, reasonableness, and completeness
-- Ensure full traceability between technical approach and cost elements
+STRUCTURE (follow this order unless template overrides):
+1. Pricing Summary
+   - Total proposed price with breakdown by CLIN/period
+   - Price summary table
+   - Any options or optional pricing
+
+2. Basis of Estimate
+   - Methodology used for cost estimation
+   - Assumptions and constraints
+   - Labor rate justification
+   - Indirect rate structure (if applicable)
+
+3. Labor Categories & Rates
+   - Each labor category with description and hourly/annual rate
+   - Basis for rates (GSA schedule, market research, historical data)
+   - Escalation factors for multi-year contracts
+
+4. Other Direct Costs (ODCs)
+   - Travel estimates with basis
+   - Materials and supplies
+   - Subcontractor costs
+   - Equipment and licenses
+
+5. Cost Narrative
+   - Explain how pricing represents best value
+   - Demonstrate cost realism and reasonableness
+   - Highlight cost efficiencies and savings opportunities
+
+WRITING RULES:
+- Ensure mathematical accuracy in all calculations
+- Provide full traceability between technical approach and cost elements
+- Justify all rates with supporting data
+- Address cost realism, reasonableness, and completeness — prices should be neither too high nor unrealistically low
+- Include assumptions that affect pricing
 - Include all required cost certifications and representations
 - Use the get_pricing_data tool to retrieve actual labor rates, cost estimates, staffing plans, and bid analysis from the pricing module
 - If pricing data is available, use real figures instead of placeholders`,
@@ -725,12 +760,13 @@ CONTENT GENERATION RULES:
 export const buildSystemPromptForDocumentType = (
   documentType: string,
   templateHtmlScaffold?: string | null,
+  guidanceOverride?: string | null,
 ): string => {
   const typeLabel =
     TEMPLATE_CATEGORY_LABELS[documentType as keyof typeof TEMPLATE_CATEGORY_LABELS] ??
-    documentType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+    humanizeDocumentType(documentType);
 
-  const guidance = DOC_TYPE_GUIDANCE[documentType] ?? DEFAULT_GUIDANCE(typeLabel);
+  const guidance = guidanceOverride ?? DOC_TYPE_GUIDANCE[documentType] ?? DEFAULT_GUIDANCE(typeLabel);
 
   let prompt = `You are a senior proposal writer and capture manager with 20+ years of experience winning US federal government contracts. You specialize in writing compliant, compelling, and customer-focused proposals that score highly against evaluation criteria.
 
@@ -1019,6 +1055,27 @@ YOUR TASK — ${typeLabel}:
 6. MAINTAIN customer focus throughout — write from the customer's perspective.
 7. Return ONLY valid JSON in the required format. No text outside the JSON object.`;
 
+// ─── Default fragment accessors ───
+// Expose the hardcoded per-type fragments so the prompt-management API can
+// present them as editable defaults. Fallback order matches the builders:
+// type-specific map entry → generic DEFAULT_* text.
+
+/** Default SYSTEM-scope guidance fragment for a document type. */
+export const getDefaultGuidance = (documentType: string): string => {
+  const typeLabel =
+    TEMPLATE_CATEGORY_LABELS[documentType as keyof typeof TEMPLATE_CATEGORY_LABELS] ??
+    humanizeDocumentType(documentType);
+  return (DOC_TYPE_GUIDANCE[documentType] ?? DEFAULT_GUIDANCE(typeLabel)).trim();
+};
+
+/** Default USER-scope task fragment for a document type. */
+export const getDefaultTask = (documentType: string): string => {
+  const typeLabel =
+    RFP_DOCUMENT_TYPES[documentType as keyof typeof RFP_DOCUMENT_TYPES] ??
+    humanizeDocumentType(documentType);
+  return (DOC_TYPE_TASK[documentType] ?? DEFAULT_TASK(typeLabel)).trim();
+};
+
 // ─── Section-Specific System Prompt ───────────────────────────────────────────
 
 /**
@@ -1036,12 +1093,13 @@ YOUR TASK — ${typeLabel}:
  */
 export const buildSectionSystemPrompt = (
   documentType: string,
+  guidanceOverride?: string | null,
 ): string => {
   const typeLabel =
     TEMPLATE_CATEGORY_LABELS[documentType as keyof typeof TEMPLATE_CATEGORY_LABELS] ??
-    documentType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+    humanizeDocumentType(documentType);
 
-  const guidance = DOC_TYPE_GUIDANCE[documentType] ?? DEFAULT_GUIDANCE(typeLabel);
+  const guidance = guidanceOverride ?? DOC_TYPE_GUIDANCE[documentType] ?? DEFAULT_GUIDANCE(typeLabel);
 
   // The AI sees the template section content directly in the user prompt (via templateContent),
   // so it can observe and replicate the exact inline styles from the template HTML.
@@ -1145,17 +1203,18 @@ ${stylingSection}`;
  * Each document type gets focused task instructions that direct the model
  * to use the most relevant context and produce the right content.
  */
-export function buildUserPromptForDocumentType(
+export const buildUserPromptForDocumentType = (
   documentType: string,
   solicitation: string,
   qaText: string,
   enrichedKbText: string,
-): string {
+  taskOverride?: string | null,
+): string => {
   const typeLabel =
     RFP_DOCUMENT_TYPES[documentType as keyof typeof RFP_DOCUMENT_TYPES] ??
-    documentType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+    humanizeDocumentType(documentType);
 
-  const taskInstructions = DOC_TYPE_TASK[documentType] ?? DEFAULT_TASK(typeLabel);
+  const taskInstructions = taskOverride ?? DOC_TYPE_TASK[documentType] ?? DEFAULT_TASK(typeLabel);
 
   return `
 ═══════════════════════════════════════
@@ -1188,4 +1247,4 @@ ${enrichedKbText || 'No enrichment context available.'}
 ═══════════════════════════════════════
 ${taskInstructions.trim()}
 `.trim();
-}
+};

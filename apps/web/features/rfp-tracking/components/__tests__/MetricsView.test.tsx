@@ -63,19 +63,13 @@ const fixtureItems = () => [
 ];
 
 describe('MetricsView', () => {
-  it('renders all six metric cards', () => {
+  it('renders all five metric cards', () => {
     render(<MetricsView items={fixtureItems()} nowIso={NOW} orgId="org-1" orgName="Acme" />);
     expect(screen.getByText('Throughput')).toBeTruthy();
     expect(screen.getByText('Funnel')).toBeTruthy();
     expect(screen.getByText('Cycle Time')).toBeTruthy();
-    expect(screen.getByText('Win Rate')).toBeTruthy();
     expect(screen.getByText('Outcome Breakdown')).toBeTruthy();
     expect(screen.getByText('Aging')).toBeTruthy();
-  });
-
-  it('renders the win-rate raw counts', () => {
-    render(<MetricsView items={fixtureItems()} nowIso={NOW} orgId="org-1" orgName="Acme" />);
-    expect(screen.getByText(/of 1 submitted/i)).toBeTruthy();
   });
 
   it('renders without crashing on empty input and shows empty-state copy', () => {
@@ -85,8 +79,6 @@ describe('MetricsView', () => {
     expect(screen.getByText('Throughput')).toBeTruthy();
     expect(screen.getByText(/No outcomes in this period/i)).toBeTruthy();
     expect(screen.getByText(/Nothing is aging past 7 days/i)).toBeTruthy();
-    // Win rate with nothing submitted → 0 of 0.
-    expect(screen.getByText(/0 of 0 submitted/i)).toBeTruthy();
   });
 
   it('exports the throughput CSV when its button is clicked', () => {
@@ -100,8 +92,10 @@ describe('MetricsView', () => {
   it('populates the owner dropdown from assigneeName and recomputes on select', () => {
     render(<MetricsView items={fixtureItems()} nowIso={NOW} orgId="org-1" orgName="Acme" />);
 
-    // Baseline win rate reflects both submitted items in window (only 'won').
-    expect(screen.getByText(/1 of 1 submitted/i)).toBeTruthy();
+    // Baseline: Bob's still-open RFP is aging (created ~26 days before NOW),
+    // so the aging table lists it rather than showing its empty-state copy.
+    expect(screen.queryByText(/Nothing is aging past 7 days/i)).toBeNull();
+    expect(screen.getByText('Open RFP')).toBeTruthy();
 
     // The dropdown must populate from Linear-synced (name-only) items: both
     // owner names appear as options alongside "All owners".
@@ -111,14 +105,15 @@ describe('MetricsView', () => {
     expect(screen.getByRole('option', { name: 'Amy' })).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Bob' })).toBeTruthy();
 
-    // Switch owner to Bob (name-only, no assigneeId) — Bob's RFP was never
-    // submitted → 0 of 0. This proves selecting by name filters the metrics.
-    fireEvent.click(screen.getByRole('option', { name: 'Bob' }));
-    expect(screen.getByText(/0 of 0 submitted/i)).toBeTruthy();
-
-    // And selecting Amy (the submitted+won owner) restores 1 of 1.
-    fireEvent.click(screen.getByRole('combobox'));
+    // Switch owner to Amy (name-only, no assigneeId) — Amy's only RFP is the
+    // terminal 'won' item, which never ages, so the aging table empties out.
+    // This proves selecting by name filters the metrics.
     fireEvent.click(screen.getByRole('option', { name: 'Amy' }));
-    expect(screen.getByText(/1 of 1 submitted/i)).toBeTruthy();
+    expect(screen.getByText(/Nothing is aging past 7 days/i)).toBeTruthy();
+
+    // And selecting Bob (the open-RFP owner) brings the aging row back.
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(screen.getByRole('option', { name: 'Bob' }));
+    expect(screen.getByText('Open RFP')).toBeTruthy();
   });
 });

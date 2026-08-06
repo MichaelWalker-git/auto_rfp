@@ -160,3 +160,65 @@
   }
 }
 
+
+
+/* ── DOCX form editor: rendered document view ──
+   Mammoth emits clean but unstyled HTML; give it document-like contrast,
+   spacing and visible table borders so it doesn't read as washed-out. */
+.docx-render {
+  color: #0f172a; /* slate-900 */
+  word-break: break-word;
+}
+.docx-render p { margin: 0 0 0.6em; }
+.docx-render h1, .docx-render h2, .docx-render h3 { font-weight: 700; margin: 1em 0 0.4em; }
+.docx-render h1 { font-size: 1.5em; }
+.docx-render h2 { font-size: 1.25em; }
+.docx-render h3 { font-size: 1.1em; }
+.docx-render ul, .docx-render ol { margin: 0 0 0.6em; padding-left: 1.4em; }
+.docx-render li { margin-bottom: 0.2em; }
+.docx-render table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.8em 0;
+}
+.docx-render td, .docx-render th {
+  border: 1px solid #cbd5e1; /* slate-300 */
+  padding: 0.4em 0.6em;
+  vertical-align: top;
+}
+.docx-render th { background: #f1f5f9; font-weight: 600; }
+.docx-render strong { font-weight: 700; }
+
+/* Interactive field spots injected into the document. */
+.af-field {
+  display: inline-block;
+  min-width: 5ch;
+  padding: 0 0.25em;
+  border-radius: 3px;
+  cursor: pointer;
+  scroll-margin: 6rem;
+  transition: background-color 0.12s, box-shadow 0.12s;
+}
+.af-field--empty {
+  background: #fef9c3; /* amber-100: an unfilled slot */
+  border-bottom: 1px solid #eab308;
+  color: #a16207;
+}
+.af-field--filled {
+  background: #dcfce7; /* emerald-100 */
+  color: #065f46;
+  font-weight: 500;
+}
+.af-field:hover { box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.5); }
+.af-field--active {
+  box-shadow: 0 0 0 2px #6366f1; /* indigo-500 */
+  background: #e0e7ff; /* indigo-100 */
+}
+.af-field--checkbox {
+  min-width: unset;
+  font-size: 1.1em;
+  line-height: 1;
+  padding: 0 0.1em;
+}
+.af-field--checkbox.af-field--filled { background: transparent; color: #4338ca; font-weight: 700; }
+.af-field--checkbox.af-field--empty { background: transparent; color: #64748b; }

@@ -50,6 +50,20 @@ import type {
  *   RFP_SYNC_PROJECT_NAME  — Linear project name to pull (default below)
  */
 
+/**
+ * One Linear issue-history event, reduced to the fields the timeline
+ * reconstruction needs: when it happened, the workflow-state delta, and the
+ * label deltas. `addedLabels`/`removedLabels` are label NAMES (Linear returns
+ * `IssueLabel` objects; we keep `.name`).
+ */
+interface LinearHistoryEvent {
+  createdAt: string;
+  fromStateName: string | null;
+  toStateName: string | null;
+  addedLabels: string[];
+  removedLabels: string[];
+}
+
 interface LinearRow {
   id: string;
   title: string;
@@ -63,6 +77,8 @@ interface LinearRow {
   startedAt: string | null;
   completedAt: string | null;
   url: string;
+  /** Full issue-history events, sorted ascending by `createdAt`. */
+  history: LinearHistoryEvent[];
 }
 
 const ORG_ID = requireEnv('RFP_SYNC_ORG_ID');
@@ -149,18 +165,184 @@ const isTerminalStage = (stage: RfpPipelineStage): boolean => TERMINAL_STAGES.ha
 const transitionTimestamp = (row: LinearRow, stage: RfpPipelineStage): string =>
   (isTerminalStage(stage) && row.completedAt ? row.completedAt : row.updatedAt);
 
+// ─── History reconstruction ───────────────────────────────────────────────────
+
+/** One resolved board stage the issue occupied, with the REAL time it entered it. */
+interface StageEntry {
+  stage: RfpPipelineStage;
+  at: string;
+}
+
+/**
+ * Replay a Linear issue's audited history (workflow-state changes + label
+ * add/remove events, each with a real `createdAt`) into the ordered list of
+ * board stages it actually passed through. This is the input the metrics tab
+ * was missing: cycle-time, aging, and the win-rate window all need to know WHEN
+ * an issue reached each gate, not just where it sits now.
+ *
+ * How it works:
+ *   - Reconstruct the (status, labelSet) the issue had over time by replaying
+ *     the history forward from creation (labels start empty; every add/remove is
+ *     applied in `createdAt` order), running the SAME `resolveRfpStage` used for
+ *     current state at each step so historical and live resolution can't diverge.
+ *   - Emit a StageEntry whenever the resolved stage changes.
+ *   - The authoritative CURRENT stage always terminates the timeline: replay can
+ *     drift from the live state when history is truncated (> HISTORY_EVENTS_PER_ISSUE
+ *     events) or a label predates the fetched window, so we trust the caller's
+ *     resolved `currentStage`, stamped with its best real timestamp.
+ *
+ * With no history events at all, the timeline collapses to a single current-stage
+ * entry stamped via `transitionTimestamp` — identical to the pre-history seed, so
+ * behaviour degrades gracefully.
+ */
+const reconstructStageTimeline = (row: LinearRow, currentStage: RfpPipelineStage): StageEntry[] => {
+  const events = [...row.history].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+  const timeline: StageEntry[] = [];
+
+  const pushIfChanged = (status: string, labels: Set<string>, at: string): void => {
+    const stage = resolveRfpStage({ identifier: row.id, status, labels: [...labels] });
+    if (!stage) return;
+    const last = timeline[timeline.length - 1];
+    if (last && last.stage === stage) return;
+    timeline.push({ stage, at });
+  };
+
+  if (events.length > 0) {
+    // Initial workflow status = the state BEFORE the first recorded status
+    // change; if none is recorded the issue has sat in its current status since
+    // creation. Labels are rebuilt forward from an empty set at creation.
+    let status = row.linearStatus;
+    for (const e of events) {
+      if (e.fromStateName) {
+        status = e.fromStateName;
+        break;
+      }
+    }
+    const labels = new Set<string>();
+
+    // Creation-time snapshot captures the intake stage (INITIAL_APPROVAL) so the
+    // first cycle-time gap (found → first approval) is derivable.
+    pushIfChanged(status, labels, row.createdAt);
+
+    for (const e of events) {
+      if (e.toStateName) status = e.toStateName;
+      for (const l of e.addedLabels) labels.add(l);
+      for (const l of e.removedLabels) labels.delete(l);
+      pushIfChanged(status, labels, e.createdAt);
+    }
+  }
+
+  const last = timeline[timeline.length - 1];
+  if (!last || last.stage !== currentStage) {
+    timeline.push({ stage: currentStage, at: transitionTimestamp(row, currentStage) });
+  }
+
+  return timeline;
+};
+
+/**
+ * Collapse a stage timeline into an approvalHistory. Consecutive stages that map
+ * to the SAME approval milestone (e.g. firstApproved → inProgress are both
+ * I_APPROVED) collapse to one entry, so the history is one entry per approval
+ * gate actually crossed, with the real `changedAt` of the first stage in that run.
+ */
+const timelineToApprovalHistory = (
+  timeline: StageEntry[],
+  row: LinearRow,
+): OpportunityApprovalTransition[] => {
+  const out: OpportunityApprovalTransition[] = [];
+  let prev: OpportunityApprovalStatus | null = null;
+  for (const { stage, at } of timeline) {
+    const to = STAGE_TO_APPROVAL[stage];
+    if (out.length > 0 && to === prev) continue;
+    out.push({
+      from: prev,
+      to,
+      changedAt: at,
+      changedBy: 'system',
+      reason: `Reconstructed from Linear ${row.id} history`,
+      gate: gateFor(to),
+    });
+    prev = to;
+  }
+  return out;
+};
+
+/** As `timelineToApprovalHistory`, but for the unified status axis. */
+const timelineToStatusHistory = (
+  timeline: StageEntry[],
+  row: LinearRow,
+): OpportunityStatusTransition[] => {
+  const out: OpportunityStatusTransition[] = [];
+  let prev: OpportunityStatus | null = null;
+  for (const { stage, at } of timeline) {
+    const to = STAGE_TO_STATUS[stage];
+    if (out.length > 0 && to === prev) continue;
+    out.push({
+      from: prev,
+      to,
+      changedAt: at,
+      changedBy: 'system',
+      reason: `Reconstructed from Linear ${row.id} history`,
+      source: 'SYSTEM',
+    });
+    prev = to;
+  }
+  return out;
+};
+
+/**
+ * Is any history entry authored by something OTHER than this sync? The sync
+ * stamps its own entries with `changedBy: 'system'`; dashboard gate approvals
+ * (opportunity-approval.ts) and brief scoring stamp a real user id or their own
+ * author. When present, we must NOT rebuild from Linear — doing so would flatten
+ * the "who approved this / why" attribution to `system`. Such records keep the
+ * incremental append-on-change merge instead (the safe path).
+ */
+const hasHumanAuthoredHistory = (existing: ExistingRecord | null): boolean => {
+  if (!existing) return false;
+  const approval = existing.approvalHistory ?? [];
+  const status = existing.statusHistory ?? [];
+  return approval.some((e) => e.changedBy !== 'system') || status.some((e) => e.changedBy !== 'system');
+};
+
+/**
+ * How many issue-history events to pull per issue. Linear enforces a per-query
+ * complexity budget (max 10000), and a nested connection multiplies cost:
+ * `issues(first: N) × history(first: M)` dominates the query. We keep
+ * `ISSUES_PER_PAGE × HISTORY_EVENTS_PER_ISSUE` well under that budget
+ * (50 × 25 = 1250 node-products ≈ 7k complexity with the other nested fields).
+ *
+ * A two-gate RFP flow produces well under 25 status/label transitions, so this
+ * covers the full audit trail for the Government Contracting board. If an issue
+ * ever exceeds it we still get its most recent 25 events and the reconstruction
+ * degrades gracefully to the current-state fallback the sync used before history
+ * was available. The board holds ~43 issues, so a 50-issue page also fetches
+ * everything in a single request (pagination still kicks in above 50).
+ */
+const HISTORY_EVENTS_PER_ISSUE = 25;
+const ISSUES_PER_PAGE = 50;
+
 /**
  * A single raw GraphQL query per page, with every nested field inlined. The
  * SDK's lazy relations (issue.state / .assignee / .creator / .labels()) would
- * otherwise cost one round-trip per issue per relation — ~4×250 = 1000 requests
- * — which Linear rate-limits/resets. This is one request per 250-issue page.
+ * otherwise cost one round-trip per issue per relation — ~4×N = hundreds of
+ * requests — which Linear rate-limits/resets. This is one request per page of
+ * ISSUES_PER_PAGE issues.
+ *
+ * `history` is fetched inline here for the same reason: it is the audited,
+ * per-transition log (workflow-state changes + label add/remove events, each
+ * with a real `createdAt`) that lets us reconstruct WHEN an issue passed each
+ * approval gate. Without it we can only observe the current state and guess at
+ * timings — which starves cycle-time, aging, and the win-rate window. Ordered
+ * ascending so the reconstruction can replay it forward.
  */
 const PROJECT_ISSUES_QUERY = `
   query RfpProjectIssues($name: String!, $after: String) {
     projects(filter: { name: { eq: $name } }, first: 1) {
       nodes {
         id
-        issues(first: 250, after: $after) {
+        issues(first: ${ISSUES_PER_PAGE}, after: $after) {
           pageInfo { hasNextPage endCursor }
           nodes {
             identifier
@@ -175,6 +357,15 @@ const PROJECT_ISSUES_QUERY = `
             assignee { name }
             creator { name }
             labels { nodes { name } }
+            history(first: ${HISTORY_EVENTS_PER_ISSUE}) {
+              nodes {
+                createdAt
+                fromState { name }
+                toState { name }
+                addedLabels { name }
+                removedLabels { name }
+              }
+            }
           }
         }
       }
@@ -201,6 +392,15 @@ interface ProjectIssuesResponse {
           assignee: { name: string } | null;
           creator: { name: string } | null;
           labels: { nodes: Array<{ name: string }> };
+          history: {
+            nodes: Array<{
+              createdAt: string;
+              fromState: { name: string } | null;
+              toState: { name: string } | null;
+              addedLabels: Array<{ name: string }> | null;
+              removedLabels: Array<{ name: string }> | null;
+            }>;
+          };
         }>;
       };
     }>;
@@ -243,6 +443,13 @@ const fetchLinearRows = async (client: LinearClient): Promise<LinearRow[]> => {
         startedAt: node.startedAt ?? null,
         completedAt: node.completedAt ?? null,
         url: node.url,
+        history: node.history.nodes.map((h) => ({
+          createdAt: h.createdAt,
+          fromStateName: h.fromState?.name ?? null,
+          toStateName: h.toState?.name ?? null,
+          addedLabels: (h.addedLabels ?? []).map((l) => l.name),
+          removedLabels: (h.removedLabels ?? []).map((l) => l.name),
+        })),
       });
     }
 
@@ -300,13 +507,16 @@ interface ExistingRecord {
  *
  *  - Current-state fields (status, approvalStatus, pipelineStage, title, etc.)
  *    are authoritative from Linear.
- *  - statusHistory / approvalHistory are PRESERVED. A new transition entry is
- *    APPENDED only when the resolved value actually differs from the existing
- *    current value (dedupe — an unchanged re-sync appends nothing), with the
- *    best available real timestamp and `from` = the previous value.
+ *  - History handling depends on who authored the existing record:
+ *      • Human-authored (a dashboard gate approval / brief scoring wrote an entry
+ *        whose `changedBy` is a real user, not 'system') → PRESERVE + append-on-
+ *        change, exactly as before. Rebuilding from Linear would flatten the
+ *        "who approved this / why" attribution to 'system', so we never do it here.
+ *      • System-only or brand-new → RECONSTRUCT the full, correctly-dated history
+ *        from Linear's audited issue history (see reconstructStageTimeline). This
+ *        backfills the real per-gate timestamps the metrics tab needs; it runs on
+ *        every sync but is deterministic/idempotent, so it's a no-op once built.
  *  - createdAt / createdBy are preserved from the existing record.
- *  - For a brand-new record (no existing item) a single honest seed entry
- *    (from: null → current) is written.
  */
 const buildRecord = (row: LinearRow, stage: RfpPipelineStage, existing: ExistingRecord | null) => {
   const approvalStatus = STAGE_TO_APPROVAL[stage];
@@ -315,22 +525,15 @@ const buildRecord = (row: LinearRow, stage: RfpPipelineStage, existing: Existing
   const syncedAt = nowIso();
   const changedAt = transitionTimestamp(row, stage);
 
-  // ── statusHistory: preserve + append-on-change ──────────────────────────────
-  const existingStatusHistory = existing?.statusHistory ?? [];
-  const prevStatus = existing?.status ?? null;
-  const statusHistory: OpportunityStatusTransition[] =
-    existing === null
-      ? [
-          {
-            from: null,
-            to: status,
-            changedAt,
-            changedBy: 'system',
-            reason: `Synced from Linear ${row.id}`,
-            source: 'SYSTEM',
-          },
-        ]
-      : prevStatus === status
+  let statusHistory: OpportunityStatusTransition[];
+  let approvalHistory: OpportunityApprovalTransition[];
+
+  if (hasHumanAuthoredHistory(existing)) {
+    // ── Safe path: preserve human attribution, append-on-change ───────────────
+    const existingStatusHistory = existing!.statusHistory ?? [];
+    const prevStatus = existing!.status ?? null;
+    statusHistory =
+      prevStatus === status
         ? existingStatusHistory
         : [
             ...existingStatusHistory,
@@ -344,23 +547,11 @@ const buildRecord = (row: LinearRow, stage: RfpPipelineStage, existing: Existing
             },
           ];
 
-  // ── approvalHistory: preserve + append-on-change ────────────────────────────
-  const existingApprovalHistory = existing?.approvalHistory ?? [];
-  const prevApproval = existing?.approvalStatus ?? null;
-  const approvalReason = `Synced from Linear ${row.id} (${row.labels.join(', ') || 'no label'})`;
-  const approvalHistory: OpportunityApprovalTransition[] =
-    existing === null
-      ? [
-          {
-            from: null,
-            to: approvalStatus,
-            changedAt,
-            changedBy: 'system',
-            reason: approvalReason,
-            gate: gateFor(approvalStatus),
-          },
-        ]
-      : prevApproval === approvalStatus
+    const existingApprovalHistory = existing!.approvalHistory ?? [];
+    const prevApproval = existing!.approvalStatus ?? null;
+    const approvalReason = `Synced from Linear ${row.id} (${row.labels.join(', ') || 'no label'})`;
+    approvalHistory =
+      prevApproval === approvalStatus
         ? existingApprovalHistory
         : [
             ...existingApprovalHistory,
@@ -373,6 +564,12 @@ const buildRecord = (row: LinearRow, stage: RfpPipelineStage, existing: Existing
               gate: gateFor(approvalStatus),
             },
           ];
+  } else {
+    // ── Reconstruct the real, dated timeline from Linear's issue history ──────
+    const timeline = reconstructStageTimeline(row, stage);
+    statusHistory = timelineToStatusHistory(timeline, row);
+    approvalHistory = timelineToApprovalHistory(timeline, row);
+  }
 
   return {
     [PK_NAME]: OPPORTUNITY_PK,

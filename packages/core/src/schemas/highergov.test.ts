@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   HigherGovOpportunitySearchResultSchema,
+  buildAgencyLabel,
   higherGovToSearchOpportunity,
   ImportHigherGovRequestSchema,
   OpportunitySourceSchema,
@@ -29,16 +30,59 @@ describe('HigherGovOpportunitySearchResultSchema', () => {
       source_type: 'sam',
       posted_date: '2025-06-01',
       due_date: '2025-07-01',
-      agency: { name: 'DoD', abbreviation: 'DOD', type: 'Federal' },
-      naics_code: { code: '541511', description: 'Custom Computer Programming' },
-      psc_code: { code: 'D302', description: 'IT Services' },
-      opp_type: { name: 'SOLICITATION' },
+      // Real API key names — `name`/`abbreviation`/`code`/`description` do not exist on
+      // these objects, which is why the old reads always resolved to undefined.
+      agency: { agency_name: 'Department of Defense', agency_abbreviation: 'DoD' },
+      naics_code: { naics_code: '541511' },
+      psc_code: { psc_code: 'D302' },
+      opp_type: { description: 'SOLICITATION' },
       set_aside: 'Small Business',
       val_est_high: '500000',
       path: '/contract-opportunity/OPP-123',
     });
     expect(success).toBe(true);
     expect(data?.opp_key).toBe('OPP-123');
+    // Assert the SHAPE, not just that parsing succeeded. `.passthrough()` accepts unknown
+    // keys and every field is `.nullish()`, so without these the schema's field names are
+    // untestable — the old wrong names would parse this fixture just as happily.
+    expect(data?.agency?.agency_name).toBe('Department of Defense');
+    expect(data?.agency?.agency_abbreviation).toBe('DoD');
+    expect(data?.naics_code?.naics_code).toBe('541511');
+    expect(data?.psc_code?.psc_code).toBe('D302');
+    expect(data?.opp_type?.description).toBe('SOLICITATION');
+  });
+
+  it('parses the contact objects on their real keys', () => {
+    // `primary_contact_email.email`/`.name` never existed — the API's PeopleSimple object
+    // uses `contact_email`/`contact_name`. Imports saved null for both before the fix.
+    const { success, data } = HigherGovOpportunitySearchResultSchema.safeParse({
+      opp_key: 'OPP-C',
+      primary_contact_email: { contact_name: 'Jane Doe', contact_email: 'jane@agency.gov' },
+      secondary_contact_email: { contact_name: 'John Roe', contact_email: 'john@agency.gov' },
+    });
+    expect(success).toBe(true);
+    expect(data?.primary_contact_email?.contact_email).toBe('jane@agency.gov');
+    expect(data?.primary_contact_email?.contact_name).toBe('Jane Doe');
+    expect(data?.secondary_contact_email?.contact_email).toBe('john@agency.gov');
+  });
+
+  it('accepts explicit nulls on scalar fields', () => {
+    // The API sends explicit nulls, not omissions — `ai_summary` was null on 29 of 100
+    // sampled live records, which `.optional()` does not describe. Note the client
+    // currently CASTS rather than parses (helpers/highergov.ts), so today this schema is
+    // compile-time documentation of the wire format; this test is what keeps it honest,
+    // and it is a precondition for validating at the boundary later.
+    const { success, data } = HigherGovOpportunitySearchResultSchema.safeParse({
+      opp_key: 'OPP-N',
+      title: null,
+      ai_summary: null,
+      description_text: null,
+      posted_date: null,
+      due_date: null,
+      agency: null,
+    });
+    expect(success).toBe(true);
+    expect(data?.ai_summary).toBeNull();
   });
 
   it('accepts minimal data (only opp_key required)', () => {
@@ -71,9 +115,9 @@ describe('higherGovToSearchOpportunity', () => {
       source_id: 'SAM-123',
       posted_date: '2025-06-01',
       due_date: '2025-07-15',
-      agency: { name: 'USAF' },
-      naics_code: { code: '541511' },
-      opp_type: { name: 'SOLICITATION' },
+      agency: { agency_name: 'USAF' },
+      naics_code: { naics_code: '541511' },
+      opp_type: { description: 'SOLICITATION' },
       set_aside: 'SDVOSB',
       val_est_high: '250000',
       path: '/contract-opportunity/OPP-1',
@@ -146,6 +190,28 @@ describe('higherGovToSearchOpportunity', () => {
       path: 'https//www.highergov.com/sl/contract-opportunity/test-123',
     });
     expect(result.url).toBe('https://www.highergov.com/sl/contract-opportunity/test-123');
+  });
+});
+
+describe('buildAgencyLabel', () => {
+  it('combines name and abbreviation', () => {
+    expect(buildAgencyLabel({ agency_name: 'Department of Defense', agency_abbreviation: 'DoD' }))
+      .toBe('Department of Defense (DoD)');
+  });
+
+  it('omits the abbreviation when it duplicates the name', () => {
+    expect(buildAgencyLabel({ agency_name: 'USAF', agency_abbreviation: 'USAF' })).toBe('USAF');
+  });
+
+  it('falls back to whichever field is present', () => {
+    expect(buildAgencyLabel({ agency_name: 'USAF' })).toBe('USAF');
+    expect(buildAgencyLabel({ agency_abbreviation: 'DoD' })).toBe('DoD');
+  });
+
+  it('returns null when the agency is absent or empty', () => {
+    expect(buildAgencyLabel(undefined)).toBeNull();
+    expect(buildAgencyLabel(null)).toBeNull();
+    expect(buildAgencyLabel({})).toBeNull();
   });
 });
 

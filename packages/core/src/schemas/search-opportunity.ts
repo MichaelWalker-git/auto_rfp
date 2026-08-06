@@ -439,67 +439,87 @@ export const dibbsSlimToSearchOpportunity = (o: DibbsOpportunitySearchResult): S
 // HIGHER_GOV
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// NOTE: .passthrough() used until schemas are validated against real HigherGov API responses.
-
+// Validated against the public HigherGov OpenAPI spec
+// (https://www.highergov.com/api-external/schema/ — no API key required) and against a
+// 100-record live SLED sample. Nested-object field names below are the REAL ones; earlier
+// guesses (`agency.name`, `naics_code.description`, `opp_type.name`, …) never existed and
+// were silently dropped, which `.passthrough()` hid. `.passthrough()` is retained because
+// the API adds fields over time.
 export const HigherGovOpportunitySearchResultSchema = z.object({
   opp_key:          z.string(),
-  title:            z.string().optional(),
-  description_text: z.string().optional(),
-  ai_summary:       z.string().optional(),
-  source_id:        z.string().optional(),
-  source_id_version: z.string().optional(),
-  source_type:      z.string().optional(),
-  captured_date:    z.string().optional(),
-  posted_date:      z.string().optional(),
-  due_date:         z.string().optional(),
+  // `.nullish()` not `.optional()`: the API sends explicit nulls — in the live sample
+  // ai_summary was null on 29/100 records and description_text on 10/100, which
+  // `.optional()` does not describe.
+  //
+  // NOTE: this schema is not currently enforced at runtime — `helpers/highergov.ts` casts
+  // the response rather than calling `safeParse`, which is why the wrong key names below
+  // went undetected for so long. Treat it as documentation of the wire format until a
+  // parse is added at the boundary.
+  title:            z.string().nullish(),
+  description_text: z.string().nullish(),
+  ai_summary:       z.string().nullish(),
+  source_id:        z.string().nullish(),
+  source_id_version: z.string().nullish(),
+  source_type:      z.string().nullish(),
+  captured_date:    z.string().nullish(),
+  posted_date:      z.string().nullish(),
+  due_date:         z.string().nullish(),
   agency: z.object({
-    name:         z.string().optional(),
-    abbreviation: z.string().optional(),
-    type:         z.string().optional(),
-  }).passthrough().optional(),
+    agency_key:         z.union([z.string(), z.number()]).nullish(),
+    agency_name:        z.string().nullish(),
+    agency_abbreviation: z.string().nullish(),
+    agency_type:        z.string().nullish(),
+    path:               z.string().nullish(),
+  }).passthrough().nullish(),
+  /** Code only — the API does NOT return a NAICS description on this endpoint. */
   naics_code: z.object({
-    code:        z.string().optional(),
-    description: z.string().optional(),
-  }).passthrough().optional(),
+    naics_code: z.string().nullish(),
+  }).passthrough().nullish(),
+  /** Code only — the API does NOT return a PSC description on this endpoint. */
   psc_code: z.object({
-    code:        z.string().optional(),
-    description: z.string().optional(),
-  }).passthrough().optional(),
+    psc_code: z.string().nullish(),
+  }).passthrough().nullish(),
+  /** e.g. "Solicitation". The field is `description`, not `name`. */
   opp_type: z.object({
-    name: z.string().optional(),
-  }).passthrough().optional(),
+    description: z.string().nullish(),
+  }).passthrough().nullish(),
   primary_contact_email: z.object({
-    name:  z.string().optional(),
-    email: z.string().optional(),
-    phone: z.string().optional(),
-    title: z.string().optional(),
-  }).passthrough().optional(),
+    contact_name:       z.string().nullish(),
+    contact_first_name: z.string().nullish(),
+    contact_last_name:  z.string().nullish(),
+    contact_email:      z.string().nullish(),
+    contact_phone:      z.string().nullish(),
+    contact_title:      z.string().nullish(),
+  }).passthrough().nullish(),
   secondary_contact_email: z.object({
-    name:  z.string().optional(),
-    email: z.string().optional(),
-    phone: z.string().optional(),
-    title: z.string().optional(),
-  }).passthrough().optional(),
-  set_aside:          z.string().optional(),
-  val_est_low:        z.string().optional(),
-  val_est_high:       z.string().optional(),
-  pop_country:        z.string().optional(),
-  pop_state:          z.string().optional(),
-  pop_city:           z.string().optional(),
-  pop_zip:            z.string().optional(),
-  sole_source_flag:   z.boolean().optional(),
-  product_service:    z.string().optional(),
-  path:               z.string().optional(),
-  source_path:        z.string().optional(),
-  document_path:      z.string().optional(),
-  version_key:        z.string().optional(),
+    contact_name:       z.string().nullish(),
+    contact_first_name: z.string().nullish(),
+    contact_last_name:  z.string().nullish(),
+    contact_email:      z.string().nullish(),
+    contact_phone:      z.string().nullish(),
+    contact_title:      z.string().nullish(),
+  }).passthrough().nullish(),
+  set_aside:          z.string().nullish(),
+  val_est_low:        z.string().nullish(),
+  val_est_high:       z.string().nullish(),
+  pop_country:        z.string().nullish(),
+  pop_state:          z.string().nullish(),
+  pop_city:           z.string().nullish(),
+  pop_zip:            z.string().nullish(),
+  sole_source_flag:   z.boolean().nullish(),
+  /** Single-character goods/services code ("P" or "S") — not prose, not searchable text. */
+  product_service:    z.string().nullish(),
+  path:               z.string().nullish(),
+  source_path:        z.string().nullish(),
+  document_path:      z.string().nullish(),
+  version_key:        z.string().nullish(),
 }).passthrough();
 
 export type HigherGovOpportunitySearchResult = z.infer<typeof HigherGovOpportunitySearchResultSchema>;
 
 // ─── HigherGov mapper ────────────────────────────────────────────────────────
 
-const buildHigherGovUrl = (path?: string): string | null => {
+const buildHigherGovUrl = (path?: string | null): string | null => {
   if (!path) return null;
   // Already a proper URL
   if (path.startsWith('https://') || path.startsWith('http://')) return path;
@@ -511,11 +531,15 @@ const buildHigherGovUrl = (path?: string): string | null => {
   return `https://www.highergov.com${path.startsWith('/') ? '' : '/'}${path}`;
 };
 
-/** Build a rich agency label: "USAF (Department of the Air Force)" */
-const buildAgencyLabel = (a?: HigherGovOpportunitySearchResult['agency']): string | null => {
+/** "Agency Name (ABBR)", or just the name when there is no distinct abbreviation. */
+export const buildAgencyLabel = (a?: HigherGovOpportunitySearchResult['agency']): string | null => {
   if (!a) return null;
-  if (a.abbreviation && a.name && a.abbreviation !== a.name) return `${a.name} (${a.abbreviation})`;
-  return a.name ?? a.abbreviation ?? null;
+  // Real keys are `agency_name` / `agency_abbreviation`. The previous `name` /
+  // `abbreviation` reads always returned undefined, so agency was never displayed.
+  const name = a.agency_name;
+  const abbreviation = a.agency_abbreviation;
+  if (abbreviation && name && abbreviation !== name) return `${name} (${abbreviation})`;
+  return name ?? abbreviation ?? null;
 };
 
 /** Build place-of-performance string: "Washington, DC 20001, US" */
@@ -539,10 +563,12 @@ export const higherGovToSearchOpportunity = (o: HigherGovOpportunitySearchResult
   solicitationNumber:     null,
   noticeId:               o.source_id ?? null,
   title:                  o.title ?? '',
-  type:                   o.opp_type?.name ?? null,
+  // `opp_type.description` (e.g. "Solicitation"), not `.name` — `.name` does not exist.
+  type:                   o.opp_type?.description ?? null,
   postedDate:             o.posted_date ?? null,
   closingDate:            o.due_date ?? null,
-  naicsCode:              o.naics_code?.code ?? null,
+  // `naics_code.naics_code`, not `.code` — `.code` does not exist.
+  naicsCode:              o.naics_code?.naics_code ?? null,
   organizationName:       buildAgencyLabel(o.agency),
   contractVehicle:        null,
   setAside:               o.set_aside ?? (o.sole_source_flag ? 'Sole Source' : null),

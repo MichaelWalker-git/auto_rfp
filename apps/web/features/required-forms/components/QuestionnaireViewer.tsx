@@ -1,12 +1,19 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import * as XLSX from 'xlsx';
 import { apiMutate, buildApiUrl } from '@/lib/hooks/api-helpers';
+import {
+  parseHighlightCell,
+  highlightCellByCoords,
+  highlightFormSnippet,
+  CELL_LOCATOR_ATTR,
+} from '@/features/compliance-review';
 
 type CellData = {
   value: string;
@@ -41,6 +48,10 @@ export const QuestionnaireEditor = ({
   const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null);
   const [workbookRef, setWorkbookRef] = useState<XLSX.WorkBook | null>(null);
   const [sheetName, setSheetName] = useState<string>('');
+  // SheetJS row index of grid row 0 (the used range's start row). The compliance
+  // cell inventory uses ABSOLUTE SheetJS coordinates, so a `data-highlight-cell`
+  // attribute must add this base back to the grid index to match an anchor.
+  const [baseRow, setBaseRow] = useState<number>(0);
   const originalBufferRef = useRef<ArrayBuffer | null>(null);
   const [colWidths, setColWidths] = useState<number[]>([]);
   const [rowHeights, setRowHeights] = useState<number[]>([]);
@@ -82,6 +93,7 @@ export const QuestionnaireEditor = ({
         if (!sheet) throw new Error('No sheet found');
 
         const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
+        setBaseRow(range.s.r);
         const merges = sheet['!merges'] ?? [];
 
         // Build merge map: for each cell, know if it's the start of a merge or hidden by a merge
@@ -224,6 +236,59 @@ export const QuestionnaireEditor = ({
     onWorkbookReady(getBuffer);
   }, [grid, sheetName, onWorkbookReady]);
 
+  // Compliance-review deep-link: when opened with ?highlightCell / ?findSnippet,
+  // scroll to + flash the referenced cell. DOM-only (never persisted) so export
+  // is unaffected. The viewer renders only the first sheet, so a cell anchor for
+  // another sheet falls back to snippet search.
+  //
+  // We POLL rather than flash on a single fixed delay: this grid can be hundreds
+  // of rows, so the cell's <td> may not be painted yet when the effect first runs
+  // (setLoading(false)/setGrid/setSheetName can commit before the heavy grid is
+  // laid out). A one-shot timeout that fires early finds nothing and — with the
+  // ref already set — never retries. Polling re-tries until the target node
+  // exists, mirroring the HTML editor's highlightFromParams.
+  const searchParams = useSearchParams();
+  const highlightCellParam = searchParams?.get('highlightCell') ?? null;
+  const findSnippet = searchParams?.get('findSnippet') ?? null;
+  const hasHighlightedRef = useRef(false);
+  useEffect(() => {
+    if (loading || hasHighlightedRef.current) return;
+    if (!highlightCellParam && !findSnippet) return;
+
+    const cell = parseHighlightCell(highlightCellParam);
+    const onThisSheet = !!cell && cell.sheet.trim().toLowerCase() === sheetName.trim().toLowerCase();
+
+    let attempts = 0;
+    const MAX_ATTEMPTS = 40; // ~6s of settling headroom (150ms × 40)
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const tryHighlight = () => {
+      attempts += 1;
+      // Prefer the exact cell; fall back to snippet search over the grid.
+      if (onThisSheet && highlightCellByCoords(cell!.row, cell!.col)) {
+        hasHighlightedRef.current = true;
+        return;
+      }
+      if (findSnippet && highlightFormSnippet(findSnippet)) {
+        hasHighlightedRef.current = true;
+        return;
+      }
+      if (attempts < MAX_ATTEMPTS) {
+        timer = setTimeout(tryHighlight, 150);
+      } else {
+        // Give up quietly — nothing to point at (e.g. cell on a non-rendered
+        // sheet and the snippet isn't in the visible grid).
+        hasHighlightedRef.current = true;
+      }
+    };
+
+    // First attempt on the next tick so the initial grid paint has a chance.
+    timer = setTimeout(tryHighlight, 150);
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [loading, highlightCellParam, findSnippet, sheetName]);
+
   const handleCellChange = useCallback((row: number, col: number, value: string) => {
     setGrid((prev) => {
       const updated = [...prev];
@@ -346,6 +411,10 @@ export const QuestionnaireEditor = ({
                     colSpan={cell.colSpan}
                     rowSpan={cell.rowSpan}
                     style={{ maxHeight: rowHeights[rowIdx] ?? 24 }}
+                    // Absolute SheetJS coords so a compliance-review `cell` anchor
+                    // ({sheet,row,col}) resolves to the same node the backend
+                    // inventoried. col is already absolute; row adds the base.
+                    {...{ [CELL_LOCATOR_ATTR]: `${baseRow + rowIdx},${colIdx}` }}
                     className={cn(
                       'relative px-2 py-1 border border-border/40 overflow-hidden align-top cursor-cell',
                       isEditing && 'ring-2 ring-primary ring-inset',

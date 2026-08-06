@@ -220,6 +220,7 @@ export const mapBlocksToFields = (
       matrixCategory: null,
       matrixFeature: null,
       matrixColumn: 'OTHER',
+      docxAnchor: null,
     });
   }
 
@@ -246,6 +247,7 @@ export const mapBlocksToFields = (
       matrixCategory: null,
       matrixFeature: null,
       matrixColumn: 'OTHER',
+      docxAnchor: null,
     });
   }
 

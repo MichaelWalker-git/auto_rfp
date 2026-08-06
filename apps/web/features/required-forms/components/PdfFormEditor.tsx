@@ -1,6 +1,8 @@
 'use client';
 
 import { memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { highlightFieldById, highlightFormSnippet } from '@/features/compliance-review';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,6 +14,7 @@ import { usePermission } from '@/components/permission-wrapper';
 import { apiMutate, apiFetcher, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { cn } from '@/lib/utils';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useResizableSidebar } from '../hooks/useResizableSidebar';
 import Link from 'next/link';
 import type { DetectedFormField, RequiredFormItem } from '@auto-rfp/core';
 import { parsePageRange } from '@auto-rfp/core';
@@ -284,6 +287,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
   const [reprocessing, setReprocessing] = useState(false);
   const [aiFillingIds, setAiFillingIds] = useState<Set<string>>(new Set());
   const { confirm, ConfirmDialog } = useConfirmDialog();
+  const { width: sidebarWidth, onResizeStart: handleSidebarResizeStart } = useResizableSidebar({ initial: 320 });
 
   const backUrl = `/organizations/${orgId}/projects/${doc.projectId}/opportunities/${doc.opportunityId}`;
 
@@ -382,6 +386,27 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
     const inView = rect.top >= 0 && rect.bottom <= window.innerHeight;
     if (!inView) el.scrollIntoView({ block: 'center' });
   }, [activeField]);
+
+  // Compliance-review deep-link: when opened with ?highlightField / ?findSnippet,
+  // activate + flash the referenced field once the PDF pages have rendered.
+  // DOM-only (never persisted) so export is unaffected.
+  const searchParams = useSearchParams();
+  const highlightField = searchParams.get('highlightField');
+  const findSnippet = searchParams.get('findSnippet');
+  const hasHighlightedRef = useRef(false);
+  useEffect(() => {
+    if (pdfLoading || hasHighlightedRef.current) return;
+    if (!highlightField && !findSnippet) return;
+    hasHighlightedRef.current = true;
+    // Selecting the field activates its overlay + sidebar row; the flash and
+    // snippet fallback run after a short delay so overlays are laid out.
+    if (highlightField) setActiveField(highlightField);
+    const t = setTimeout(() => {
+      if (highlightField && highlightFieldById(highlightField)) return;
+      if (findSnippet) highlightFormSnippet(findSnippet);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [pdfLoading, highlightField, findSnippet]);
 
   // Save all fields in one request
   const handleSaveAll = useCallback(async () => {
@@ -967,8 +992,17 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
           )}
         </div>
 
-        {/* Right: Field panel */}
-        <div className="w-[320px] border-l flex flex-col overflow-hidden bg-white">
+        {/* Drag handle to resize the field panel. */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          onMouseDown={handleSidebarResizeStart}
+          className="w-1 shrink-0 cursor-ew-resize bg-border transition-colors hover:bg-indigo-400"
+          title="Drag to resize"
+        />
+
+        {/* Right: Field panel (user-resizable) */}
+        <div className="border-l flex flex-col overflow-hidden bg-white shrink-0" style={{ width: sidebarWidth }}>
           <div className="px-4 py-3 border-b shrink-0 bg-gray-50/80">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-gray-700">Fields</p>
