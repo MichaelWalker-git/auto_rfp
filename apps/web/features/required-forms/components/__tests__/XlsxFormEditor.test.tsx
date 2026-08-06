@@ -91,6 +91,7 @@ const buildDoc = (): RequiredFormItem => ({
   sourceFileKey: 'org-1/proj-1/opp-1/attachment-a.xlsx',
   sourcePageRange: null,
   sourceSheetName: 'Compliance',
+  docxFillStrategy: null,
   // The extracted field lives on the SECOND sheet (B2 on "Compliance").
   fields: [
     {
@@ -112,6 +113,7 @@ const buildDoc = (): RequiredFormItem => ({
       matrixCategory: null,
       matrixFeature: 'MFA support',
       matrixColumn: 'FULLY_MEETS',
+      docxAnchor: null,
     },
   ],
   filledFileKey: null,

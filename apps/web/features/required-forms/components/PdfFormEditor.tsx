@@ -14,6 +14,7 @@ import { usePermission } from '@/components/permission-wrapper';
 import { apiMutate, apiFetcher, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { cn } from '@/lib/utils';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useResizableSidebar } from '../hooks/useResizableSidebar';
 import Link from 'next/link';
 import type { DetectedFormField, RequiredFormItem } from '@auto-rfp/core';
 import { parsePageRange } from '@auto-rfp/core';
@@ -286,6 +287,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
   const [reprocessing, setReprocessing] = useState(false);
   const [aiFillingIds, setAiFillingIds] = useState<Set<string>>(new Set());
   const { confirm, ConfirmDialog } = useConfirmDialog();
+  const { width: sidebarWidth, onResizeStart: handleSidebarResizeStart } = useResizableSidebar({ initial: 320 });
 
   const backUrl = `/organizations/${orgId}/projects/${doc.projectId}/opportunities/${doc.opportunityId}`;
 
@@ -990,8 +992,17 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
           )}
         </div>
 
-        {/* Right: Field panel */}
-        <div className="w-[320px] border-l flex flex-col overflow-hidden bg-white">
+        {/* Drag handle to resize the field panel. */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          onMouseDown={handleSidebarResizeStart}
+          className="w-1 shrink-0 cursor-ew-resize bg-border transition-colors hover:bg-indigo-400"
+          title="Drag to resize"
+        />
+
+        {/* Right: Field panel (user-resizable) */}
+        <div className="border-l flex flex-col overflow-hidden bg-white shrink-0" style={{ width: sidebarWidth }}>
           <div className="px-4 py-3 border-b shrink-0 bg-gray-50/80">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-gray-700">Fields</p>
