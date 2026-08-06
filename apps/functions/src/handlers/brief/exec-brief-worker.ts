@@ -66,12 +66,16 @@ const JobSchema = z.object({
 type Job = z.infer<typeof JobSchema>;
 type Section = Job['section'];
 
-/** Weighted scoring criteria – must match the prompt instructions */
+/**
+ * Weighted scoring criteria – must match the prompt instructions.
+ * POC-first weighting: build capability (TECHNICAL_FIT) and delivery-model fit
+ * (STRATEGIC_ALIGNMENT) outweigh incumbent-style past-performance history.
+ */
 const SCORING_WEIGHTS: Record<string, number> = {
-  TECHNICAL_FIT: 0.20,
-  PAST_PERFORMANCE_RELEVANCE: 0.30,
+  TECHNICAL_FIT: 0.25,
+  PAST_PERFORMANCE_RELEVANCE: 0.20,
   PRICING_POSITION: 0.15,
-  STRATEGIC_ALIGNMENT: 0.25,
+  STRATEGIC_ALIGNMENT: 0.30,
   INCUMBENT_RISK: 0.10,
 };
 
@@ -625,7 +629,7 @@ async function runScoring(job: Job): Promise<void> {
     }
 
     // Auto-run past-performance matching before scoring so the
-    // PAST_PERFORMANCE_RELEVANCE criterion (30% weight) sees matched projects.
+    // PAST_PERFORMANCE_RELEVANCE criterion (20% weight) sees matched projects.
     // Idempotent — returns cached section data when matching already ran, and
     // is non-blocking: scoring proceeds without it when matching fails.
     const pastPerformanceData = await ensurePastPerformanceForScoring({

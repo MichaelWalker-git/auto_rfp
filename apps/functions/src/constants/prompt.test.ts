@@ -141,9 +141,10 @@ describe('SCORING_SYSTEM_PROMPT content', () => {
     );
   });
 
-  it('keeps all 5 criterion names and their weights unchanged', () => {
-    expect(SCORING_SYSTEM_PROMPT).toContain('TECHNICAL_FIT (20% weight)');
-    expect(SCORING_SYSTEM_PROMPT).toContain('PAST_PERFORMANCE_RELEVANCE (30% weight)');
+  it('keeps all 5 criterion names and their POC-first weights unchanged', () => {
+    expect(SCORING_SYSTEM_PROMPT).toContain('TECHNICAL_FIT (25% weight)');
+    expect(SCORING_SYSTEM_PROMPT).toContain('PAST_PERFORMANCE_RELEVANCE (20% weight)');
+    expect(SCORING_SYSTEM_PROMPT).toContain('STRATEGIC_ALIGNMENT (30% weight)');
     expect(SCORING_SYSTEM_PROMPT).toContain('PRICING_POSITION');
     expect(SCORING_SYSTEM_PROMPT).toContain('STRATEGIC_ALIGNMENT');
     expect(SCORING_SYSTEM_PROMPT).toContain('INCUMBENT_RISK');
