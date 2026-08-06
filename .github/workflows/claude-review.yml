@@ -82,7 +82,7 @@ jobs:
 
           cat /tmp/diff_trimmed.txt >> /tmp/prompt.txt
 
-          if ! claude --print "$(cat /tmp/prompt.txt)" > /tmp/review_raw.txt 2>&1; then
+          if ! claude --print < /tmp/prompt.txt > /tmp/review_raw.txt 2>&1; then
             echo "::group::Claude CLI failure output (exit non-zero)"
             cat /tmp/review_raw.txt
             echo "::endgroup::"
