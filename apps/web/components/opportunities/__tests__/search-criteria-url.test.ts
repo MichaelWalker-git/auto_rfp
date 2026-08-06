@@ -115,6 +115,34 @@ describe('savedSearchToParams', () => {
     expect(params.get('to')).toBe('2026-08-05');
   });
 
+  it('pads single-digit stored dates into valid ISO', () => {
+    // A stored `7/6/2026` would otherwise become a non-ISO `2026-7-6`.
+    const params = savedSearchToParams(makeSavedSearch({ keywords: 'x', postedFrom: '7/6/2026' }));
+
+    expect(params.get('from')).toBe('2026-07-06');
+  });
+
+  it.each([
+    ['empty', ''],
+    ['already ISO', '2026-07-06'],
+    ['not a date', 'garbage'],
+    ['missing the year', '07/06'],
+  ])('omits a %s stored date rather than emitting a broken one', (_label, postedFrom) => {
+    const params = savedSearchToParams(makeSavedSearch({ keywords: 'x', postedFrom }));
+
+    expect(params.has('from')).toBe(false);
+  });
+
+  it('restores the calendar day the user picked, not the UTC day', () => {
+    // `new Date('2026-07-06')` is UTC midnight, which is the 5th for anyone west
+    // of UTC — so the date picker used to show the day before.
+    const values = paramsToFormValues(new URLSearchParams({ q: 'x', from: '2026-07-06' }));
+
+    expect(values?.postedFrom?.getFullYear()).toBe(2026);
+    expect(values?.postedFrom?.getMonth()).toBe(6); // July, zero-indexed
+    expect(values?.postedFrom?.getDate()).toBe(6);
+  });
+
   it('round-trips into criteria the search page can run', () => {
     const criteria = paramsToCriteria(savedSearchToParams(makeSavedSearch({
       higherGovSearchId: SEARCH_ID,

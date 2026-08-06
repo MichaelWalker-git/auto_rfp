@@ -72,8 +72,18 @@ const DEFAULTS: FormValues = {
 const mmddToDate = (s?: string) => {
   if (!s) return undefined;
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
-  return m ? new Date(`${m[3]}-${m[1]}-${m[2]}`) : undefined;
+  // Built from parts rather than parsed from a string: `new Date('2026-07-06')` is
+  // UTC midnight, which renders as the 5th anywhere west of UTC.
+  return m ? new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2])) : undefined;
 };
+
+/**
+ * Calendar day as `yyyy-MM-dd`, taken from the local date rather than via
+ * `toISOString()`, which converts to UTC first and so reports the previous day for
+ * users ahead of UTC (Tokyo, Sydney, Auckland).
+ */
+const toLocalIsoDate = (d?: Date): string | undefined =>
+  d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : undefined;
 
 const fmtShort = (d?: Date) => d ? format(d, 'MMM d') : '—';
 
@@ -323,10 +333,10 @@ export const SearchOpportunityForm = ({ orgId, onSearch, isLoading, initialValue
     naics:        v.naics?.length ? v.naics : undefined,
     setAsideCode: v.setAsideCode || undefined,
     sources:      v.source !== 'all' ? [v.source as 'SAM_GOV' | 'DIBBS' | 'HIGHER_GOV'] : undefined,
-    postedFrom:   v.postedFrom?.toISOString().slice(0, 10),
-    postedTo:     v.postedTo?.toISOString().slice(0, 10),
-    closingFrom:  v.closingFrom?.toISOString().slice(0, 10),
-    closingTo:    v.closingTo?.toISOString().slice(0, 10),
+    postedFrom:   toLocalIsoDate(v.postedFrom),
+    postedTo:     toLocalIsoDate(v.postedTo),
+    closingFrom:  toLocalIsoDate(v.closingFrom),
+    closingTo:    toLocalIsoDate(v.closingTo),
     higherGovSourceType: v.higherGovSourceType || undefined,
     higherGovSearchId: v.higherGovSearchId?.trim() || undefined,
     limit: 25,

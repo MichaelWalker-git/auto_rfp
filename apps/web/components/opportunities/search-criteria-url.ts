@@ -19,7 +19,22 @@ const DEFAULT_LIMIT = 25;
 const mmDdYyyyToIso = (d?: string): string | undefined => {
   if (!d) return undefined;
   const [mm, dd, yyyy] = d.split('/');
-  return mm && dd && yyyy ? `${yyyy}-${mm}-${dd}` : undefined;
+  if (!mm || !dd || !yyyy) return undefined;
+  // Pad, since a stored `7/6/2026` would otherwise produce a non-ISO `2026-7-6`.
+  return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+};
+
+/**
+ * `yyyy-MM-dd` → a Date at local midnight.
+ *
+ * `new Date('2026-07-06')` is parsed as UTC midnight, which renders as the 5th for
+ * anyone west of UTC — so a date picker restored from the URL showed the day
+ * before. Building from the parts keeps the calendar day the user chose.
+ */
+const isoToLocalDate = (iso: string): Date | undefined => {
+  const [yyyy, mm, dd] = iso.split('-').map(Number);
+  if (!yyyy || !mm || !dd) return undefined;
+  return new Date(yyyy, mm - 1, dd);
 };
 
 export const criteriaToParams = (c: SearchOpportunityCriteria): URLSearchParams => {
@@ -73,7 +88,7 @@ const hasAnyCriteria = (p: URLSearchParams): boolean =>
 
 export const paramsToFormValues = (p: URLSearchParams): Partial<FormValues> | null => {
   if (!hasAnyCriteria(p)) return null;
-  const parseDate = (s: string | null) => s ? new Date(s) : undefined;
+  const parseDate = (s: string | null) => (s ? isoToLocalDate(s) : undefined);
   return {
     keywords: p.get('q') ?? '',
     source: (p.get('source') as FormValues['source']) ?? 'all',
