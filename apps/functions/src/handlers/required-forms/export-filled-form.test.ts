@@ -53,6 +53,11 @@ jest.mock('@/helpers/xlsx-form-filler', () => ({
   fillXlsxForm: (...args: unknown[]) => mockFillXlsxForm(...args),
 }));
 
+const mockFillDocxForm = jest.fn();
+jest.mock('@/helpers/docx-form-filler', () => ({
+  fillDocxForm: (...args: unknown[]) => mockFillDocxForm(...args),
+}));
+
 jest.mock('@/helpers/api', () => ({
   apiResponse: (statusCode: number, body: unknown) => ({ statusCode, body: JSON.stringify(body) }),
   getOrgId: (event: { queryStringParameters?: Record<string, string> }) =>
@@ -151,10 +156,55 @@ describe('export-filled-form', () => {
     expect(mockFillXlsxForm).toHaveBeenCalled();
   });
 
-  it('falls back to a passthrough signed URL for unsupported file types', async () => {
+  it('routes DOCX source files through fillDocxForm and persists filledFileKey (TEXT_TOKEN default)', async () => {
     mockGetForm.mockResolvedValueOnce(baseForm({
-      sourceFileKey: 'src/file.docx',
-      sourceFileName: 'file.docx',
+      sourceFileKey: 'org/p/o/required-forms/form-1/source.docx',
+      sourceFileName: 'source.docx',
+      name: 'Data Security Addendum',
+      // docxFillStrategy omitted → legacy → TEXT_TOKEN default
+    }));
+    mockFillDocxForm.mockResolvedValueOnce(undefined);
+    mockUpdateForm.mockResolvedValueOnce(undefined);
+
+    const res = await baseHandler(queryEvent({ orgId: 'org', projectId: 'p', opportunityId: 'o', formId: 'form-1' }));
+
+    expect(res.statusCode).toBe(200);
+    expect(mockFillDocxForm).toHaveBeenCalledWith({
+      sourceFileKey: 'org/p/o/required-forms/form-1/source.docx',
+      fields: [],
+      strategy: 'TEXT_TOKEN',
+      outputKey: 'org/p/o/required-forms/form-1/filled.docx',
+      formName: 'Data Security Addendum',
+    });
+    expect(mockFillPdfForm).not.toHaveBeenCalled();
+    expect(mockUpdateForm).toHaveBeenCalledWith(expect.objectContaining({
+      patch: { filledFileKey: 'org/p/o/required-forms/form-1/filled.docx' },
+    }));
+    expect(JSON.parse(res.body as string)).toEqual({
+      downloadUrl: 'https://signed.example/url',
+      fileName: 'filled_source.docx',
+    });
+  });
+
+  it('passes the persisted IN_PLACE strategy through to fillDocxForm', async () => {
+    mockGetForm.mockResolvedValueOnce(baseForm({
+      sourceFileKey: 'src/form.docx',
+      sourceFileName: 'form.docx',
+      name: 'Vendor Form',
+      docxFillStrategy: 'IN_PLACE',
+    }));
+    mockFillDocxForm.mockResolvedValueOnce(undefined);
+    mockUpdateForm.mockResolvedValueOnce(undefined);
+
+    await baseHandler(queryEvent({ orgId: 'org', projectId: 'p', opportunityId: 'o', formId: 'form-1' }));
+
+    expect(mockFillDocxForm).toHaveBeenCalledWith(expect.objectContaining({ strategy: 'IN_PLACE' }));
+  });
+
+  it('falls back to a passthrough signed URL for genuinely unsupported file types', async () => {
+    mockGetForm.mockResolvedValueOnce(baseForm({
+      sourceFileKey: 'src/file.txt',
+      sourceFileName: 'file.txt',
     }));
 
     const res = await baseHandler(queryEvent({ orgId: 'org', projectId: 'p', opportunityId: 'o', formId: 'form-1' }));
@@ -162,10 +212,11 @@ describe('export-filled-form', () => {
     expect(res.statusCode).toBe(200);
     expect(mockFillPdfForm).not.toHaveBeenCalled();
     expect(mockFillXlsxForm).not.toHaveBeenCalled();
+    expect(mockFillDocxForm).not.toHaveBeenCalled();
     expect(mockUpdateForm).not.toHaveBeenCalled();
     expect(JSON.parse(res.body as string)).toEqual({
       downloadUrl: 'https://signed.example/url',
-      fileName: 'file.docx',
+      fileName: 'file.txt',
     });
   });
 

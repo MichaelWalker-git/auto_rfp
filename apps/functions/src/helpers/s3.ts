@@ -69,6 +69,15 @@ export async function getFileFromS3(bucket: string, key: string) {
   return obj.Body;
 }
 
+// Fetch an S3 object fully into a Buffer. For binary files (e.g. DOCX bytes for
+// structure detection) where the whole object is needed in memory.
+export async function getFileBufferFromS3(bucket: string, key: string): Promise<Buffer> {
+  const obj = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  const bytes = await obj.Body?.transformToByteArray();
+  if (!bytes) throw new Error(`S3 object body is empty: ${key}`);
+  return Buffer.from(bytes);
+}
+
 /**
  * Validate and sanitize S3 key
  */

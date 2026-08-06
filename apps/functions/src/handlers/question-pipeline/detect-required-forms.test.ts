@@ -7,9 +7,11 @@ jest.mock('@/sentry-lambda', () => ({ withSentryLambda: (fn: unknown) => fn }));
 
 const mockLoadTextFromS3 = jest.fn();
 const mockCopyS3Object = jest.fn();
+const mockGetFileBufferFromS3 = jest.fn();
 jest.mock('@/helpers/s3', () => ({
   loadTextFromS3: (...args: unknown[]) => mockLoadTextFromS3(...args),
   copyS3Object: (...args: unknown[]) => mockCopyS3Object(...args),
+  getFileBufferFromS3: (...args: unknown[]) => mockGetFileBufferFromS3(...args),
 }));
 
 const mockInvokeModel = jest.fn();
@@ -96,6 +98,8 @@ beforeEach(() => {
   mockListForms.mockResolvedValue([]);
   mockUpdateQuestionFile.mockResolvedValue({ success: true });
   mockMarkFormsReady.mockResolvedValue(undefined);
+  // DOCX branch fetches the raw bytes for structure detection.
+  mockGetFileBufferFromS3.mockResolvedValue(Buffer.from('docx bytes'));
 });
 
 describe('detect-required-forms', () => {
@@ -414,7 +418,7 @@ describe('detect-required-forms', () => {
     mockCreateForm.mockResolvedValueOnce({ formId: 'form-docx-single', item: {} });
     mockExtractDocx.mockResolvedValueOnce({
       fields: [{ fieldId: 'a', label: 'Company Name', status: 'AUTO_FILLED', value: 'Acme' }],
-      totalFieldCount: 1, manualFieldCount: 0, autoFillPercentage: 100,
+      totalFieldCount: 1, manualFieldCount: 0, autoFillPercentage: 100, docxFillStrategy: 'TEXT_TOKEN',
     });
 
     const res = await baseHandler(docxEvent);
@@ -524,13 +528,17 @@ describe('detect-required-forms', () => {
       totalFieldCount: 2,
       manualFieldCount: 1,
       autoFillPercentage: 50,
+      docxFillStrategy: 'TEXT_TOKEN',
     });
 
     const res = await baseHandler(docxEvent);
 
     expect(res).toEqual({ ok: true, formsDetected: 1 });
     expect(mockStartTextract).not.toHaveBeenCalled();
-    expect(mockExtractDocx).toHaveBeenCalledWith('Company Name: ___\nAuthorized Signature: ___', 'org-1');
+    // Now receives the raw buffer for structure detection alongside text + orgId.
+    expect(mockExtractDocx).toHaveBeenCalledWith(
+      expect.any(Buffer), 'Company Name: ___\nAuthorized Signature: ___', 'org-1',
+    );
     const readyCall = mockUpdateForm.mock.calls.find((c) => c[0].patch?.status === 'READY');
     expect(readyCall![0]).toMatchObject({
       formId: 'form-d',
@@ -558,13 +566,16 @@ describe('detect-required-forms', () => {
     );
     mockCreateForm.mockResolvedValueOnce({ formId: 'form-e', item: {} });
     mockExtractDocx.mockResolvedValueOnce({
-      fields: [], totalFieldCount: 0, manualFieldCount: 0, autoFillPercentage: 0,
+      fields: [], totalFieldCount: 0, manualFieldCount: 0, autoFillPercentage: 0, docxFillStrategy: 'TEXT_TOKEN',
     });
 
     await baseHandler(docxEvent);
 
     const readyCall = mockUpdateForm.mock.calls.find((c) => c[0].patch?.status === 'READY');
-    expect(readyCall![0].patch).toMatchObject({ status: 'READY', totalFieldCount: 0 });
+    // Zero-field DOCX is surfaced for manual review (backstop), not dropped.
+    expect(readyCall![0].patch).toMatchObject({
+      status: 'READY', totalFieldCount: 0, reviewRequired: true,
+    });
   });
 
   it('marks a DOCX form FAILED if field extraction throws', async () => {
