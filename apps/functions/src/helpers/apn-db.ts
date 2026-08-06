@@ -6,6 +6,8 @@
  * Stores `apnOpportunityId` and `apnSyncError` directly on the opportunity item —
  * no separate APN_REGISTRATION entity needed.
  */
+import type { AceStage } from '@auto-rfp/core';
+
 export const syncOpportunityToApn = async (args: {
   orgId: string;
   projectId: string;
@@ -18,6 +20,8 @@ export const syncOpportunityToApn = async (args: {
   description?: string;
   /** Pass the existing apnOpportunityId to update instead of create */
   existingApnId?: string | null;
+  /** Explicit ACE lifecycle stage — overrides the proposalStatus mapping */
+  aceStage?: AceStage;
 }): Promise<void> => {
   console.log(`[syncOpportunityToApn] Starting sync for oppId=${args.oppId} with proposalStatus=${args.proposalStatus}`);
   

@@ -8,6 +8,11 @@ jest.mock('../../hooks/use-approval-advance', () => ({
   useApprovalAdvance: () => ({ advance: mockAdvance, pendingOppId: null, error: null }),
 }));
 
+const mockSetStage = jest.fn();
+jest.mock('../../hooks/use-ace-stage', () => ({
+  useAceStage: () => ({ setStage: mockSetStage, pendingOppId: null, error: null }),
+}));
+
 const NOW = '2026-07-27T00:00:00.000Z';
 
 beforeEach(() => jest.clearAllMocks());
@@ -96,5 +101,17 @@ describe('PipelineCard', () => {
     const item = makeItem({ approvalStatus: 'INITIAL_APPROVAL', projectId: 'proj-1' });
     render(<PipelineCard card={toBoardCard(item, NOW)} orgId="org-1" canAdvance />);
     expect(screen.queryByRole('button', { name: /send for pre-sub review|mark submitted/i })).toBeNull();
+  });
+
+  it('renders the ACE stage dropdown when canAdvance is true', () => {
+    const item = makeItem({ projectId: 'proj-1', aceStage: 'Prospect' });
+    render(<PipelineCard card={toBoardCard(item, NOW)} orgId="org-1" canAdvance />);
+    expect(screen.getByRole('combobox', { name: /ace stage/i })).toBeTruthy();
+  });
+
+  it('hides the ACE stage dropdown when canAdvance is false', () => {
+    const item = makeItem({ projectId: 'proj-1', aceStage: 'Prospect' });
+    render(<PipelineCard card={toBoardCard(item, NOW)} orgId="org-1" canAdvance={false} />);
+    expect(screen.queryByRole('combobox', { name: /ace stage/i })).toBeNull();
   });
 });

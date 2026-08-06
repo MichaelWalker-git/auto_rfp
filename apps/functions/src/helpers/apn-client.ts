@@ -8,6 +8,7 @@ import {
   MarketingSource,
 } from '@aws-sdk/client-partnercentral-selling';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import type { AceStage } from '@auto-rfp/core';
 import { docClient } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
 import { APN_CATALOG } from '@/constants/apn';
@@ -80,6 +81,11 @@ export interface SyncToApnArgs {
   description?:      string;
   /** Existing APN opportunity ID — if set, updates instead of creating */
   existingApnId?:    string | null;
+  /**
+   * Explicit ACE lifecycle stage (exact Partner Central `LifeCycle.Stage`
+   * string). When set, overrides the proposalStatus-derived stage mapping.
+   */
+  aceStage?:         AceStage;
 }
 
 /**
@@ -90,13 +96,16 @@ export const syncToPartnerCentral = async (args: SyncToApnArgs): Promise<void> =
   const {
     orgId, projectId, oppId, customerName, opportunityTitle,
     opportunityValue, expectedCloseDate, proposalStatus, description, existingApnId,
+    aceStage,
   } = args;
 
-  console.log(`[APN] Starting sync for oppId=${oppId}, proposalStatus=${proposalStatus}, existingApnId=${existingApnId}`);
+  console.log(`[APN] Starting sync for oppId=${oppId}, proposalStatus=${proposalStatus}, aceStage=${aceStage}, existingApnId=${existingApnId}`);
 
-  // Map proposal status to APN stage
-  const stage = stageMap[proposalStatus] ?? Stage.PROSPECT;
-  console.log(`[APN] Mapped '${proposalStatus}' to stage '${stage}'`);
+  // Explicit ACE stage wins; otherwise map proposal status to APN stage.
+  // AceStage values are the exact SDK Stage strings, so pass through directly.
+  const stage: (typeof Stage)[keyof typeof Stage] =
+    aceStage ?? stageMap[proposalStatus] ?? Stage.PROSPECT;
+  console.log(`[APN] Resolved stage '${stage}' (${aceStage ? 'explicit aceStage' : `mapped from '${proposalStatus}'`})`);
 
   // Prepare LifeCycle with conditional closedLostReason
   const lifecycle: any = {

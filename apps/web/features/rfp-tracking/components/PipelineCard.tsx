@@ -9,6 +9,8 @@ import { CalendarClock, User, Clock, Send } from 'lucide-react';
 import { RFP_STAGE_LABELS, RFP_STAGE_COLORS } from '@auto-rfp/core';
 import type { BoardCard } from '../lib/derive-board';
 import { useApprovalAdvance } from '../hooks/use-approval-advance';
+import { useAceStage } from '../hooks/use-ace-stage';
+import { AceStageSelect } from './AceStageSelect';
 import {
   formatCurrency,
   DEADLINE_BADGE_CLASSES,
@@ -34,10 +36,12 @@ interface PipelineCardProps {
 export function PipelineCard({ card, orgId, canAdvance }: PipelineCardProps) {
   const { item, stage, approvalStatus, daysInCurrentStage, deadlineUrgency, daysToDeadline } = card;
   const { advance, pendingOppId } = useApprovalAdvance(orgId);
+  const { setStage, pendingOppId: acePendingOppId } = useAceStage(orgId);
   const [detailOpen, setDetailOpen] = useState(false);
 
   const oppId = item.oppId ?? item.id;
   const isPending = pendingOppId === oppId;
+  const isAcePending = acePendingOppId === oppId;
 
   const advanceAction =
     canAdvance && item.projectId && approvalStatus === 'II_APPROVED' ? (
@@ -51,6 +55,18 @@ export function PipelineCard({ card, orgId, canAdvance }: PipelineCardProps) {
         <Send className="h-3.5 w-3.5" />
         Mark Submitted
       </Button>
+    ) : null;
+
+  // ACE (Partner Central) stage dropdown — on every card for opportunity:edit
+  // holders. Picking a stage on a card with no PC record yet creates one.
+  const aceStageSelect =
+    canAdvance && item.projectId ? (
+      <AceStageSelect
+        value={item.aceStage ?? undefined}
+        syncError={item.apnSyncError}
+        disabled={isAcePending}
+        onChange={(aceStage) => setStage({ projectId: item.projectId!, oppId, aceStage })}
+      />
     ) : null;
 
   return (
@@ -110,6 +126,7 @@ export function PipelineCard({ card, orgId, canAdvance }: PipelineCardProps) {
             </div>
           </button>
 
+          {aceStageSelect}
           {advanceAction}
         </CardContent>
       </Card>

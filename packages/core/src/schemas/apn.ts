@@ -1,5 +1,56 @@
 import { z } from 'zod';
 
+// ─── ACE Opportunity Lifecycle Stage ──────────────────────────────────────────
+
+/**
+ * AWS Partner Central opportunity lifecycle stages. The values are the exact
+ * `LifeCycle.Stage` strings the Partner Central Selling API accepts, so the
+ * stored value is sent to the API verbatim — no mapping layer.
+ */
+export const AceStageSchema = z.enum([
+  'Prospect',
+  'Qualified',
+  'Technical Validation',
+  'Business Validation',
+  'Committed',
+  'Launched',
+  'Closed Lost',
+]);
+export type AceStage = z.infer<typeof AceStageSchema>;
+
+/** Lifecycle order, used to render the stage dropdown. */
+export const ACE_STAGE_ORDER: readonly AceStage[] = [
+  'Prospect',
+  'Qualified',
+  'Technical Validation',
+  'Business Validation',
+  'Committed',
+  'Launched',
+  'Closed Lost',
+];
+
+/**
+ * One ACE stage change. `GATE_APPROVAL` marks the automatic Prospect set on
+ * gate-1 approve; `MANUAL` marks a dropdown change from the board.
+ */
+export const AceStageTransitionSchema = z.object({
+  from: AceStageSchema.nullable(),
+  to: AceStageSchema,
+  changedAt: z.string().datetime(),
+  changedBy: z.string().min(1),
+  source: z.enum(['GATE_APPROVAL', 'MANUAL']),
+});
+export type AceStageTransition = z.infer<typeof AceStageTransitionSchema>;
+
+/** POST /dashboard/update-ace-stage request body. */
+export const UpdateAceStageSchema = z.object({
+  orgId: z.string().min(1),
+  projectId: z.string().min(1),
+  oppId: z.string().min(1),
+  aceStage: AceStageSchema,
+});
+export type UpdateAceStage = z.infer<typeof UpdateAceStageSchema>;
+
 // ─── APN Registration Status ──────────────────────────────────────────────────
 
 export const ApnRegistrationStatusSchema = z.enum([

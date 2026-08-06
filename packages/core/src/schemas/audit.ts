@@ -125,6 +125,8 @@ export const AuditActionSchema = z.enum([
   // Opportunity go/no-go approval (RFP tracking dashboard)
   'OPPORTUNITY_APPROVED',
   'OPPORTUNITY_REJECTED',
+  // ACE (AWS Partner Central) lifecycle stage
+  'OPPORTUNITY_ACE_STAGE_CHANGED',
   // Extraction (auto-populate from documents)
   'EXTRACTION_JOB_STARTED',
   'EXTRACTION_JOB_COMPLETED',

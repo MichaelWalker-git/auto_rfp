@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { PK_NAME, SK_NAME } from '../constants';
 import { JurisdictionSchema } from './foia';
 import { WinDataSchema, LossDataSchema } from './outcome-detail';
+import { AceStageSchema, AceStageTransitionSchema } from './apn';
 
 const flexibleDateSchema = z
   .string()
@@ -298,6 +299,14 @@ export const OpportunityItemSchema = z.object({
   apnOpportunityId: z.string().nullish(),
   /** Last APN sync error message (null = no error) */
   apnSyncError:     z.string().nullish(),
+  /**
+   * ACE (Partner Central) lifecycle stage. Set to 'Prospect' automatically on
+   * gate-1 approve; thereafter driven manually via the board dropdown. The
+   * value is the exact Partner Central `LifeCycle.Stage` string.
+   */
+  aceStage:         AceStageSchema.optional(),
+  /** History of ACE stage changes */
+  aceStageHistory:  z.array(AceStageTransitionSchema).optional(),
   // Assignment fields
   /** User ID of the person assigned to work on this opportunity */
   assigneeId:       z.string().nullish(),
@@ -374,6 +383,8 @@ export const OpportunityCreateRequestSchema = OpportunityItemSchema.omit({
   eventBridgeEmittedAt: true,
   apnOpportunityId: true,
   apnSyncError: true,
+  aceStage: true,
+  aceStageHistory: true,
   pocUrl: true,
   pocDeployedAt: true,
   pocGenState: true,
@@ -410,6 +421,9 @@ export const OpportunityListItemSchema = z.object({
   status:    OpportunityStatusSchema.optional(),
   approvalStatus: OpportunityApprovalStatusSchema.optional(),
   pipelineStage: RfpPipelineStageSchema.optional(),
+  aceStage: AceStageSchema.optional(),
+  apnOpportunityId: z.string().nullish(),
+  apnSyncError:     z.string().nullish(),
   active:    z.boolean().optional(),
   organizationName:     z.string().nullish(),
   noticeId:             z.string().nullish(),

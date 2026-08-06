@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
+  AceStageSchema,
+  ACE_STAGE_ORDER,
+  AceStageTransitionSchema,
+  UpdateAceStageSchema,
   ApnRegistrationStatusSchema,
   AwsServiceSchema,
   ApnRegistrationItemSchema,
@@ -26,6 +30,95 @@ const validRegistrationItem = {
   createdAt: '2025-01-01T00:00:00Z',
   updatedAt: '2025-01-01T00:00:00Z',
 };
+
+describe('AceStageSchema', () => {
+  it('accepts exactly the 7 Partner Central stage strings', () => {
+    const stages = [
+      'Prospect',
+      'Qualified',
+      'Technical Validation',
+      'Business Validation',
+      'Committed',
+      'Launched',
+      'Closed Lost',
+    ];
+    stages.forEach((stage) => {
+      expect(AceStageSchema.safeParse(stage).success).toBe(true);
+    });
+  });
+
+  it('rejects non-Partner-Central casings and unknown values', () => {
+    expect(AceStageSchema.safeParse('PROSPECT').success).toBe(false);
+    expect(AceStageSchema.safeParse('prospect').success).toBe(false);
+    expect(AceStageSchema.safeParse('Closed Won').success).toBe(false);
+    expect(AceStageSchema.safeParse('').success).toBe(false);
+  });
+
+  it('ACE_STAGE_ORDER contains all 7 stages in lifecycle order', () => {
+    expect(ACE_STAGE_ORDER).toEqual([
+      'Prospect',
+      'Qualified',
+      'Technical Validation',
+      'Business Validation',
+      'Committed',
+      'Launched',
+      'Closed Lost',
+    ]);
+    ACE_STAGE_ORDER.forEach((stage) => {
+      expect(AceStageSchema.safeParse(stage).success).toBe(true);
+    });
+  });
+});
+
+describe('AceStageTransitionSchema', () => {
+  const validTransition = {
+    from: 'Prospect',
+    to: 'Qualified',
+    changedAt: '2026-08-05T12:00:00Z',
+    changedBy: 'user-1',
+    source: 'MANUAL',
+  };
+
+  it('accepts a valid transition', () => {
+    expect(AceStageTransitionSchema.safeParse(validTransition).success).toBe(true);
+  });
+
+  it('accepts from=null for the first transition', () => {
+    expect(
+      AceStageTransitionSchema.safeParse({ ...validTransition, from: null, source: 'GATE_APPROVAL' }).success,
+    ).toBe(true);
+  });
+
+  it('rejects an invalid source', () => {
+    expect(
+      AceStageTransitionSchema.safeParse({ ...validTransition, source: 'SYSTEM' }).success,
+    ).toBe(false);
+  });
+
+  it('rejects a non-datetime changedAt', () => {
+    expect(
+      AceStageTransitionSchema.safeParse({ ...validTransition, changedAt: 'yesterday' }).success,
+    ).toBe(false);
+  });
+});
+
+describe('UpdateAceStageSchema', () => {
+  const valid = { orgId: 'org-1', projectId: 'proj-1', oppId: 'opp-1', aceStage: 'Committed' };
+
+  it('accepts a valid payload', () => {
+    expect(UpdateAceStageSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it('rejects missing identifiers', () => {
+    expect(UpdateAceStageSchema.safeParse({ ...valid, oppId: '' }).success).toBe(false);
+    const { orgId: _orgId, ...withoutOrg } = valid;
+    expect(UpdateAceStageSchema.safeParse(withoutOrg).success).toBe(false);
+  });
+
+  it('rejects an invalid stage', () => {
+    expect(UpdateAceStageSchema.safeParse({ ...valid, aceStage: 'COMMITTED' }).success).toBe(false);
+  });
+});
 
 describe('ApnRegistrationStatusSchema', () => {
   it('accepts all valid statuses', () => {
