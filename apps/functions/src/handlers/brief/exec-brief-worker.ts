@@ -52,6 +52,7 @@ import { invokeClaudeWithTools } from '@/helpers/bedrock-tool-loop';
 import { BRIEF_TOOLS, executeBriefTool } from '@/helpers/brief-tools';
 import { usePricingSystemPrompt, usePricingUserPrompt } from '@/constants/pricing-prompts';
 import { onBriefScoringComplete } from '@/helpers/opportunity-status';
+import { ensurePastPerformanceForScoring } from '@/helpers/past-performance-matching';
 
 const JobSchema = z.object({
   orgId: z.string().min(1),
@@ -65,12 +66,16 @@ const JobSchema = z.object({
 type Job = z.infer<typeof JobSchema>;
 type Section = Job['section'];
 
-/** Weighted scoring criteria – must match the prompt instructions */
+/**
+ * Weighted scoring criteria – must match the prompt instructions.
+ * POC-first weighting: build capability (TECHNICAL_FIT) and delivery-model fit
+ * (STRATEGIC_ALIGNMENT) outweigh incumbent-style past-performance history.
+ */
 const SCORING_WEIGHTS: Record<string, number> = {
-  TECHNICAL_FIT: 0.20,
-  PAST_PERFORMANCE_RELEVANCE: 0.30,
+  TECHNICAL_FIT: 0.25,
+  PAST_PERFORMANCE_RELEVANCE: 0.20,
   PRICING_POSITION: 0.15,
-  STRATEGIC_ALIGNMENT: 0.25,
+  STRATEGIC_ALIGNMENT: 0.30,
   INCUMBENT_RISK: 0.10,
 };
 
@@ -623,7 +628,15 @@ async function runScoring(job: Job): Promise<void> {
       throw new BusinessRetryError(`Section data missing for scoring: ${missingData.join(', ')}`);
     }
 
-    const pastPerformanceData = sections?.pastPerformance?.data;
+    // Auto-run past-performance matching before scoring so the
+    // PAST_PERFORMANCE_RELEVANCE criterion (20% weight) sees matched projects.
+    // Idempotent — returns cached section data when matching already ran, and
+    // is non-blocking: scoring proceeds without it when matching fails.
+    const pastPerformanceData = await ensurePastPerformanceForScoring({
+      executiveBriefId,
+      orgId,
+      brief,
+    });
     const pricingData = sections?.pricing?.data;
 
     // Also try to load actual cost estimate data from the pricing module
@@ -693,7 +706,7 @@ async function runScoring(job: Job): Promise<void> {
 
     const computedComposite = weightedCompositeScore((data?.criteria ?? []) as Array<{ name?: string; score?: number }>);
 
-    const normalized = {
+    const normalized = applyExpiredDeadlineGuard({
       ...data,
       compositeScore: computedComposite,
       decision:
@@ -706,7 +719,7 @@ async function runScoring(job: Job): Promise<void> {
       blockers: data.blockers ?? [],
       requiredActions: data.requiredActions ?? [],
       confidenceDrivers: data.confidenceDrivers ?? [],
-    };
+    });
 
     type SectionStatus = 'FAILED' | 'IN_PROGRESS' | 'IDLE' | 'COMPLETE';
     const nextSections: Record<string, { status: SectionStatus }> = {
@@ -802,6 +815,40 @@ const baseHandler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
 const average = (nums: number[]): number => {
   if (!nums.length) return 0;
   return nums.reduce((a, b) => a + b, 0) / nums.length;
+};
+
+/**
+ * Detect blockers that indicate the submission/response deadline has expired.
+ * The prompt instructs the model to emit "Submission deadline has passed", but
+ * we match robustly on deadline + expiry wording variants.
+ */
+export const isExpiredDeadlineBlocker = (blocker: string): boolean =>
+  /deadline|due date|response date|closing date/i.test(blocker) &&
+  /expired|passed|past due|in the past|already closed|has closed|lapsed|elapsed/i.test(blocker);
+
+const DEADLINE_OVERRIDE_NOTE =
+  'Deadline override: decision forced to NO_GO because the submission deadline has already passed.';
+
+/**
+ * Deterministic guard for the prompt's FINAL CONSISTENCY CHECK: if blockers[]
+ * contains an expired-deadline entry, the decision MUST be NO_GO. The LLM only
+ * complies ~80% of the time, so we enforce it in post-processing.
+ * Does NOT change the composite score.
+ */
+export const applyExpiredDeadlineGuard = <
+  T extends { decision?: string | null; blockers?: string[] | null; decisionRationale?: string | null },
+>(
+  scoring: T,
+): T => {
+  const hasExpiredDeadlineBlocker = (scoring.blockers ?? []).some(isExpiredDeadlineBlocker);
+  if (!hasExpiredDeadlineBlocker || scoring.decision === 'NO_GO') return scoring;
+
+  const rationale = scoring.decisionRationale?.trim();
+  return {
+    ...scoring,
+    decision: 'NO_GO',
+    decisionRationale: rationale ? `${rationale} ${DEADLINE_OVERRIDE_NOTE}` : DEADLINE_OVERRIDE_NOTE,
+  };
 };
 
 const weightedCompositeScore = (criteria: Array<{ name?: string; score?: number }>): number => {
