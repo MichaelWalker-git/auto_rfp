@@ -54,6 +54,9 @@ const FREQ_LABEL: Record<string, string> = {
 const SOURCE_LABEL: Record<string, string> = {
   SAM_GOV: 'SAM.gov',
   DIBBS: 'DIBBS',
+  // Was missing, so every HigherGov saved search was mislabelled "SAM.gov" by the
+  // fallback below.
+  HIGHER_GOV: 'HigherGov',
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -78,10 +81,24 @@ export const SavedSearchCard = ({
 
   // Build a short subtitle from key criteria
   const parts: string[] = [];
+  // A HigherGov ID carries its own filters, so it is the whole search — without
+  // it here the card would claim "All opportunities", which is not what runs.
+  if (s.criteria.higherGovSearchId) parts.push(`HigherGov ID: ${s.criteria.higherGovSearchId}`);
   if (s.criteria.keywords) parts.push(`"${s.criteria.keywords}"`);
   if (s.criteria.naics?.length) parts.push(`NAICS: ${s.criteria.naics.join(', ')}`);
   if (s.criteria.setAsideCode) parts.push(s.criteria.setAsideCode);
-  const subtitle = parts.length > 0 ? parts.join(' · ') : 'All opportunities';
+
+  /**
+   * HigherGov has no keyword parameter, so a HigherGov search with no ID and no
+   * other filters matches everything in its date range. Searches saved before the
+   * ID was persisted look exactly like working ones, so say so rather than
+   * describing them as "All opportunities" and letting them run silently.
+   */
+  const isUnfilteredHigherGov = s.source === 'HIGHER_GOV' && parts.length === 0;
+
+  const subtitle = isUnfilteredHigherGov
+    ? 'No HigherGov ID saved — re-save this search to set one'
+    : parts.length > 0 ? parts.join(' · ') : 'All opportunities';
 
   return (
     <div className={!s.isEnabled ? 'opacity-60' : ''}>

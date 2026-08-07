@@ -101,6 +101,13 @@ export const LoadSearchOpportunitiesRequestSchema = z.object({
   // ── HigherGov-specific ─────────────────────────────────────────────────────
   /** HigherGov source_type filter: avoid duplicating results from sources the user already searches directly. */
   higherGovSourceType: z.enum(['sam', 'dibbs', 'sbir', 'grant', 'sled']).optional(),
+  /**
+   * HigherGov saved-search ID (e.g. `BWr0PdG39B6mX8cG47AQ8`), the only route to
+   * their boolean search engine — the API has no free-text keyword parameter.
+   * Saved-search criteria are validated against this schema, so omitting it here
+   * silently stripped the ID on save.
+   */
+  higherGovSearchId: z.string().min(1).optional(),
 
   // ── Value range ───────────────────────────────────────────────────────────
   dollarRange: DollarRangeSchema,

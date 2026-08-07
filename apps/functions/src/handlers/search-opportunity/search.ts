@@ -153,8 +153,8 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
       try {
         const apiKey = await getApiKey(orgId, HIGHERGOV_SECRET_PREFIX);
         if (apiKey) {
-          const pageSize = data.limit ?? 25;
           const hasSearchId = !!data.higherGovSearchId;
+          const pageSize = data.limit ?? 25;
 
           const postedDate = !hasSearchId && data.postedFrom
             ? `${data.postedFrom.slice(6)}-${data.postedFrom.slice(0, 2)}-${data.postedFrom.slice(3, 5)}`
