@@ -20,7 +20,18 @@ jest.mock('@/helpers/autofill-fields-with-tools', () => ({
   autofillFieldsWithTools: (...args: unknown[]) => mockAutofillFields(...args),
 }));
 
+const mockDetectDocxStructure = jest.fn();
+jest.mock('./docx-structure', () => ({
+  detectDocxStructure: (...args: unknown[]) => mockDetectDocxStructure(...args),
+}));
+
 process.env.BEDROCK_MODEL_ID = 'anthropic.claude-test';
+
+// Default: no structured controls, no tokens → TEXT_TOKEN with an empty field
+// list, so extraction falls through to the LLM-over-text path. IN_PLACE and
+// token-bearing tests override this.
+const TEXT_TOKEN_EMPTY = { strategy: 'TEXT_TOKEN' as const, structuredFields: [] };
+const EMPTY_BUFFER = Buffer.from('');
 
 import { parseDocxForms, extractAndAutofillDocxForm } from './docx-form-parser';
 
@@ -30,6 +41,7 @@ const encodeModelResponse = (text: string): Uint8Array =>
 beforeEach(() => {
   jest.clearAllMocks();
   uuidCounter = 0;
+  mockDetectDocxStructure.mockResolvedValue(TEXT_TOKEN_EMPTY);
 });
 
 describe('parseDocxForms', () => {
@@ -106,7 +118,7 @@ describe('extractAndAutofillDocxForm', () => {
       { fieldId: 'uuid-2', label: 'Signature', status: 'MANUAL_REQUIRED', value: null },
     ]);
 
-    const result = await extractAndAutofillDocxForm('Company Name: __\nSignature: __', 'org-1');
+    const result = await extractAndAutofillDocxForm(EMPTY_BUFFER, 'Company Name: __\nSignature: __', 'org-1');
 
     expect(mockGetCompanyProfile).toHaveBeenCalledWith('org-1');
     expect(mockAutofillFields).toHaveBeenCalledTimes(1);
@@ -114,7 +126,68 @@ describe('extractAndAutofillDocxForm', () => {
       totalFieldCount: 2,
       manualFieldCount: 1,
       autoFillPercentage: 50,
+      docxFillStrategy: 'TEXT_TOKEN',
     });
+  });
+
+  it('uses structured fields (IN_PLACE) and skips LLM extraction when controls exist', async () => {
+    mockDetectDocxStructure.mockResolvedValueOnce({
+      strategy: 'IN_PLACE',
+      structuredFields: [
+        { anchor: { kind: 'SDT', ref: '111', sourceLabel: 'Company Name' }, label: 'Company Name', markType: 'TEXT' },
+        { anchor: { kind: 'SDT', ref: '222', sourceLabel: 'Agree' }, label: 'Agree', markType: 'CHECKBOX' },
+      ],
+    });
+    mockGetCompanyProfile.mockResolvedValueOnce({ companyName: 'Acme' });
+    mockAutofillFields.mockImplementationOnce((fields: unknown) => fields);
+
+    const result = await extractAndAutofillDocxForm(EMPTY_BUFFER, 'irrelevant text', 'org-1');
+
+    // LLM extraction must NOT run for structured docs.
+    expect(mockInvokeModel).not.toHaveBeenCalled();
+    expect(result.docxFillStrategy).toBe('IN_PLACE');
+    expect(result.totalFieldCount).toBe(2);
+    expect(result.fields[0].docxAnchor).toEqual({ kind: 'SDT', ref: '111', sourceLabel: 'Company Name' });
+    expect(result.fields[1].markType).toBe('CHECKBOX');
+  });
+
+  it('trusts anchored fields exclusively and does NOT run the LLM when detection found spots (TEXT_TOKEN)', async () => {
+    // Detection found the fillable spots (anchored, exportable).
+    mockDetectDocxStructure.mockResolvedValueOnce({
+      strategy: 'TEXT_TOKEN',
+      structuredFields: [
+        { anchor: { kind: 'TEXT_TOKEN', ref: '[INSERT SUPPLIER NAME]', occurrence: null, sourceLabel: 'Supplier Name' }, label: 'Supplier Name', markType: 'TEXT' },
+        { anchor: { kind: 'TEXT_LABEL', ref: 'By:', occurrence: 1, sourceLabel: 'Supplier — By:' }, label: 'Supplier — By:', markType: 'TEXT' },
+      ],
+    });
+    mockGetCompanyProfile.mockResolvedValueOnce({ companyName: 'Acme' });
+    mockAutofillFields.mockImplementationOnce((fields: unknown) => fields);
+
+    const result = await extractAndAutofillDocxForm(EMPTY_BUFFER, 'text', 'org-1');
+
+    // The LLM pass must NOT run — it would produce anchor-less duplicates
+    // ("Supplier By") that silently do nothing on export.
+    expect(mockInvokeModel).not.toHaveBeenCalled();
+    expect(result.docxFillStrategy).toBe('TEXT_TOKEN');
+    expect(result.totalFieldCount).toBe(2);
+    // Every field carries an anchor → every field is exportable.
+    expect(result.fields.every((f) => f.docxAnchor !== null)).toBe(true);
+  });
+
+  it('falls back to the LLM ONLY when detection found no spots (TEXT_TOKEN)', async () => {
+    mockDetectDocxStructure.mockResolvedValueOnce({ strategy: 'TEXT_TOKEN', structuredFields: [] });
+    mockInvokeModel.mockResolvedValueOnce(
+      encodeModelResponse(JSON.stringify({ fields: [{ label: 'Authorized Signature' }] })),
+    );
+    mockGetCompanyProfile.mockResolvedValueOnce({ companyName: 'Acme' });
+    mockAutofillFields.mockImplementationOnce((fields: unknown) => fields);
+
+    const result = await extractAndAutofillDocxForm(EMPTY_BUFFER, 'text with no recognizable spots', 'org-1');
+
+    expect(mockInvokeModel).toHaveBeenCalledTimes(1);
+    expect(result.totalFieldCount).toBe(1);
+    // Anchor-less manual field, surfaced so nothing is silently dropped.
+    expect(result.fields[0].docxAnchor).toBeNull();
   });
 
   it('skips profile lookup and autofill when no fields are extracted', async () => {
@@ -122,11 +195,13 @@ describe('extractAndAutofillDocxForm', () => {
       encodeModelResponse(JSON.stringify({ fields: [] })),
     );
 
-    const result = await extractAndAutofillDocxForm('no blanks', 'org-1');
+    const result = await extractAndAutofillDocxForm(EMPTY_BUFFER, 'no blanks', 'org-1');
 
     expect(mockGetCompanyProfile).not.toHaveBeenCalled();
     expect(mockAutofillFields).not.toHaveBeenCalled();
-    expect(result).toEqual({ fields: [], totalFieldCount: 0, manualFieldCount: 0, autoFillPercentage: 0 });
+    expect(result).toEqual({
+      fields: [], totalFieldCount: 0, manualFieldCount: 0, autoFillPercentage: 0, docxFillStrategy: 'TEXT_TOKEN',
+    });
   });
 
   it('keeps fields unfilled when the org has no company profile', async () => {
@@ -135,7 +210,7 @@ describe('extractAndAutofillDocxForm', () => {
     );
     mockGetCompanyProfile.mockResolvedValueOnce(null);
 
-    const result = await extractAndAutofillDocxForm('Company Name: __', 'org-1');
+    const result = await extractAndAutofillDocxForm(EMPTY_BUFFER, 'Company Name: __', 'org-1');
 
     expect(mockAutofillFields).not.toHaveBeenCalled();
     expect(result.totalFieldCount).toBe(1);

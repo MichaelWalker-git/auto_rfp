@@ -288,6 +288,7 @@ export const parseXlsxForms = async (fileKey: string): Promise<ParsedSheet[]> =>
               matrixCategory: sectionHeader,
               matrixFeature: featureText.trim(),
               matrixColumn,
+              docxAnchor: null,
             });
           }
         }
@@ -354,6 +355,7 @@ export const parseXlsxForms = async (fileKey: string): Promise<ParsedSheet[]> =>
               matrixCategory: null,
               matrixFeature: null,
               matrixColumn: 'OTHER',
+              docxAnchor: null,
             });
           }
         }
@@ -388,6 +390,7 @@ export const parseXlsxForms = async (fileKey: string): Promise<ParsedSheet[]> =>
               matrixCategory: null,
               matrixFeature: null,
               matrixColumn: 'OTHER',
+              docxAnchor: null,
             });
           }
         }

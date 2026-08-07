@@ -21,6 +21,7 @@ import { usePermission } from '@/components/permission-wrapper';
 import { apiMutate, apiFetcher, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { cn } from '@/lib/utils';
 import { useConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useResizableSidebar } from '../hooks/useResizableSidebar';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 import type { DetectedFormField, RequiredFormItem } from '@auto-rfp/core';
@@ -65,6 +66,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
   const [isSaving, setIsSaving] = useState(false);
   const [reprocessing, setReprocessing] = useState(false);
   const [deletedFieldIds, setDeletedFieldIds] = useState<Set<string>>(new Set());
+  const { width: sidebarWidth, onResizeStart: handleSidebarResizeStart } = useResizableSidebar({ initial: 300 });
 
   const backUrl = `/organizations/${orgId}/projects/${doc.projectId}/opportunities/${doc.opportunityId}`;
 
@@ -497,8 +499,17 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
         </div>
         </div>
 
+        {/* Drag handle to resize the field sidebar. */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          onMouseDown={handleSidebarResizeStart}
+          className="w-1 shrink-0 cursor-ew-resize bg-border transition-colors hover:bg-indigo-400"
+          title="Drag to resize"
+        />
+
         {/* Right: Field sidebar — same light-surface pinning as the grid. */}
-        <div className="w-[300px] border-l flex flex-col overflow-hidden bg-white text-gray-900 shrink-0">
+        <div className="border-l flex flex-col overflow-hidden bg-white text-gray-900 shrink-0" style={{ width: sidebarWidth }}>
           <div className="px-4 py-3 border-b bg-gray-50/80 shrink-0">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-gray-700">Fields</p>

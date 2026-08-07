@@ -481,15 +481,22 @@ async function runForOrg(args: {
         continue;
       }
 
-      const postedDate = criteria.postedFrom
+      // A search_id already encodes its own keywords, filters and date range, so
+      // the other parameters are dropped on that path — matching the live search
+      // handler. Without this the scheduled run queried something different from
+      // what the user saved.
+      const hasSearchId = !!criteria.higherGovSearchId;
+
+      const postedDate = !hasSearchId && criteria.postedFrom
         ? `${criteria.postedFrom.slice(6)}-${criteria.postedFrom.slice(0, 2)}-${criteria.postedFrom.slice(3, 5)}`
         : undefined;
 
       const resp = await searchHigherGovOpportunities(
         { baseUrl: HIGHERGOV_BASE_URL, apiKey: hgApiKey, httpsAgent },
         {
-          keywords:   criteria.keywords,
-          sourceType: criteria.higherGovSourceType,
+          keywords:   hasSearchId ? undefined : criteria.keywords,
+          searchId:   criteria.higherGovSearchId,
+          sourceType: hasSearchId ? undefined : criteria.higherGovSourceType,
           postedDate,
           ordering:   '-captured_date',
           pageSize:   criteria.limit ?? 25,

@@ -107,7 +107,14 @@ describe('Search Opportunities', () => {
       cy.contains('NAICS').should('be.visible')
       cy.contains('Import').should('be.visible')
       cy.contains(/Closes/i).should('be.visible')
-      cy.contains('Description').should('be.visible')
+      cy.contains(STUBBED_OPPORTUNITY.title).should('be.visible')
+      // Deliberately not asserting on the description here. This suite runs
+      // against the deployed site (see `baseUrl` in cypress.config.ts), so any
+      // assertion has to hold for whatever is currently on develop as well as
+      // for this branch — and the two render descriptions differently: a
+      // "Description" toggle before, the text inline after. Description
+      // behaviour is covered by the component tests in
+      // components/opportunities/__tests__/SearchOpportunityResultsTable.test.tsx.
     })
 
     it('imports a solicitation into the project', () => {

@@ -72,8 +72,18 @@ const DEFAULTS: FormValues = {
 const mmddToDate = (s?: string) => {
   if (!s) return undefined;
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
-  return m ? new Date(`${m[3]}-${m[1]}-${m[2]}`) : undefined;
+  // Built from parts rather than parsed from a string: `new Date('2026-07-06')` is
+  // UTC midnight, which renders as the 5th anywhere west of UTC.
+  return m ? new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2])) : undefined;
 };
+
+/**
+ * Calendar day as `yyyy-MM-dd`, taken from the local date rather than via
+ * `toISOString()`, which converts to UTC first and so reports the previous day for
+ * users ahead of UTC (Tokyo, Sydney, Auckland).
+ */
+const toLocalIsoDate = (d?: Date): string | undefined =>
+  d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : undefined;
 
 const fmtShort = (d?: Date) => d ? format(d, 'MMM d') : '—';
 
@@ -250,16 +260,18 @@ const HigherGovSearchIdSelector = ({
       <PopoverTrigger asChild>
         <Button type="button" variant="outline" size="sm"
           className={cn('h-8 gap-1.5 text-xs font-normal', !!value && 'border-primary bg-primary/5 text-primary font-medium')}>
-          {value ? `Search: ${value.slice(0, 12)}` : 'Saved Search'}
+          {/* Deliberately not "Saved Search" — this form also has our own Saved
+              Searches picker, and one label for two features read as a bug. */}
+          {value ? `ID: ${value.slice(0, 12)}` : 'HigherGov ID'}
           {value
-            ? <span role="button" tabIndex={0} aria-label="Clear saved search" onClick={e => { e.stopPropagation(); onChange(''); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onChange(''); } }} className="ml-0.5 hover:text-destructive cursor-pointer"><X className="h-3 w-3" /></span>
+            ? <span role="button" tabIndex={0} aria-label="Clear HigherGov ID" onClick={e => { e.stopPropagation(); onChange(''); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onChange(''); } }} className="ml-0.5 hover:text-destructive cursor-pointer"><X className="h-3 w-3" /></span>
             : <ChevronDown className="h-3 w-3 opacity-50" />}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-3 space-y-3" align="start">
         {/* Paste URL input */}
         <div>
-          <Label className="text-xs font-medium mb-1.5 block">HigherGov Saved Search URL</Label>
+          <Label className="text-xs font-medium mb-1.5 block">HigherGov search URL or ID</Label>
           <div className="flex gap-1.5">
             <Input
               ref={inputRef}
@@ -321,10 +333,10 @@ export const SearchOpportunityForm = ({ orgId, onSearch, isLoading, initialValue
     naics:        v.naics?.length ? v.naics : undefined,
     setAsideCode: v.setAsideCode || undefined,
     sources:      v.source !== 'all' ? [v.source as 'SAM_GOV' | 'DIBBS' | 'HIGHER_GOV'] : undefined,
-    postedFrom:   v.postedFrom?.toISOString().slice(0, 10),
-    postedTo:     v.postedTo?.toISOString().slice(0, 10),
-    closingFrom:  v.closingFrom?.toISOString().slice(0, 10),
-    closingTo:    v.closingTo?.toISOString().slice(0, 10),
+    postedFrom:   toLocalIsoDate(v.postedFrom),
+    postedTo:     toLocalIsoDate(v.postedTo),
+    closingFrom:  toLocalIsoDate(v.closingFrom),
+    closingTo:    toLocalIsoDate(v.closingTo),
     higherGovSourceType: v.higherGovSourceType || undefined,
     higherGovSearchId: v.higherGovSearchId?.trim() || undefined,
     limit: 25,
@@ -339,6 +351,7 @@ export const SearchOpportunityForm = ({ orgId, onSearch, isLoading, initialValue
       postedFrom: mmddToDate(c.postedFrom), postedTo: mmddToDate(c.postedTo),
       closingFrom: mmddToDate(c.closingFrom), closingTo: mmddToDate(c.closingTo),
       higherGovSourceType: (c.higherGovSourceType ?? '') as FormValues['higherGovSourceType'],
+      higherGovSearchId: c.higherGovSearchId ?? '',
     });
   };
 
@@ -353,7 +366,7 @@ export const SearchOpportunityForm = ({ orgId, onSearch, isLoading, initialValue
         body: JSON.stringify({
           source: w.source === 'DIBBS' ? 'DIBBS' : w.source === 'HIGHER_GOV' ? 'HIGHER_GOV' : 'SAM_GOV', orgId,
           name: saveName.trim() || 'My Search',
-          criteria: { postedFrom: fmt(c.postedFrom), postedTo: fmt(c.postedTo), keywords: c.keywords, naics: c.naics, setAsideCode: c.setAsideCode, closingFrom: c.closingFrom ? fmt(c.closingFrom) : undefined, closingTo: c.closingTo ? fmt(c.closingTo) : undefined },
+          criteria: { postedFrom: fmt(c.postedFrom), postedTo: fmt(c.postedTo), keywords: c.keywords, naics: c.naics, setAsideCode: c.setAsideCode, closingFrom: c.closingFrom ? fmt(c.closingFrom) : undefined, closingTo: c.closingTo ? fmt(c.closingTo) : undefined, higherGovSourceType: c.higherGovSourceType, higherGovSearchId: c.higherGovSearchId },
           frequency: 'DAILY', autoImport: false, notifyEmails: [], isEnabled: true,
         }),
       });

@@ -16,8 +16,10 @@ import { listRequiredFormsByOpportunity, type RequiredFormDBItem } from '@/helpe
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { requireEnv } from '@/helpers/env';
 import { sanitizeFileName } from '@/helpers/export';
-import { getFileFromS3 } from '@/helpers/s3';
+import { getFileFromS3, getFileBufferFromS3 } from '@/helpers/s3';
 import { fillPdfForm } from '@/helpers/pdf-form-filler';
+import { fillDocxForm } from '@/helpers/docx-form-filler';
+import { fillXlsxForm } from '@/helpers/xlsx-form-filler';
 import { parsePageRange } from '@auto-rfp/core';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -49,15 +51,88 @@ interface ExportedFormInfo {
   skipReason?: string;
 }
 
-// The bulk export path fills every form through the PDF filler
-// (exportFilledForm → fillPdfForm). DOCX forms have no PDF filler yet, so
-// running them through it errors/produces garbage. Exclude them here until a
-// DOCX filler exists — a single DOCX can still be downloaded (as its source)
-// from the per-form export endpoint. Tracked for a real DOCX filler.
-const isBulkExportableForm = (form: RequiredFormDBItem): boolean => {
+const isDocxForm = (form: RequiredFormDBItem): boolean => {
   const key = form.sourceFileKey?.toLowerCase() ?? '';
-  const isDocx = key.endsWith('.docx') || key.endsWith('.doc') || form.formType === 'DOCX_FORM';
-  return !isDocx;
+  // Only .docx is fillable (OOXML zip). Legacy .doc is rejected at intake; the
+  // authoritative signal is formType, with the extension as a fallback.
+  return key.endsWith('.docx') || form.formType === 'DOCX_FORM';
+};
+
+const isXlsxForm = (form: RequiredFormDBItem): boolean => {
+  const key = form.sourceFileKey?.toLowerCase() ?? '';
+  return key.endsWith('.xlsx') || key.endsWith('.xls') ||
+    form.formType === 'XLSX_FORM' || form.formType === 'XLSX_MATRIX';
+};
+
+// Which forms are exportable in a given bulk-export mode.
+// - 'merged': the output is a single merged PDF built with pdf-lib. A DOCX
+//   cannot be merged into a PDF without a heavy DOCX→PDF converter (rejected on
+//   cost grounds), so DOCX stays excluded from merged mode — it's an honest
+//   limit, and the DOCX is still downloadable individually.
+// - 'individual': each form becomes its own file in a ZIP, routed to its own
+//   filler (PDF→pdf, DOCX→docx, XLSX→xlsx), so all types are exportable.
+// Merged mode can only combine PDF-fillable forms; DOCX and XLSX have no
+// PDF representation here, so they're excluded from merged (still available
+// individually).
+const isBulkExportableForm = (form: RequiredFormDBItem, mode: ExportMode): boolean =>
+  mode === 'individual' ? true : !isDocxForm(form) && !isXlsxForm(form);
+
+// Fill a DOCX form and return its filled bytes for the ZIP. Mirrors
+// exportFilledForm's contract ({ buffer, error }).
+const exportFilledDocx = async (
+  orgId: string,
+  projectId: string,
+  opportunityId: string,
+  form: RequiredFormDBItem,
+): Promise<{ buffer: Buffer | null; error?: string }> => {
+  const outputKey = `${orgId}/${projectId}/${opportunityId}/required-forms/${form.formId}/export-temp.docx`;
+  try {
+    await fillDocxForm({
+      sourceFileKey: form.sourceFileKey,
+      fields: form.fields,
+      strategy: form.docxFillStrategy ?? 'TEXT_TOKEN',
+      outputKey,
+      formName: form.name,
+    });
+    const buffer = await getFileBufferFromS3(DOCUMENTS_BUCKET, outputKey);
+    return { buffer };
+  } catch (err) {
+    console.error(`Failed to export DOCX form "${form.name}" (${form.formId}):`, err);
+    return { buffer: null, error: err instanceof Error ? err.message : 'DOCX export failed' };
+  } finally {
+    try {
+      await s3Client.send(new DeleteObjectCommand({ Bucket: DOCUMENTS_BUCKET, Key: outputKey }));
+    } catch (cleanupErr) {
+      console.warn(`Failed to delete temp file ${outputKey}:`, cleanupErr);
+    }
+  }
+};
+
+// Fill an XLSX form and return its filled bytes for the ZIP. Mirrors
+// exportFilledForm's contract ({ buffer, error }). Without this, an XLSX form
+// in individual mode would be routed to the PDF filler (PDFDocument.load on
+// xlsx bytes throws → misread as an encrypted PDF → dropped from the ZIP).
+const exportFilledXlsx = async (
+  orgId: string,
+  projectId: string,
+  opportunityId: string,
+  form: RequiredFormDBItem,
+): Promise<{ buffer: Buffer | null; error?: string }> => {
+  const outputKey = `${orgId}/${projectId}/${opportunityId}/required-forms/${form.formId}/export-temp.xlsx`;
+  try {
+    await fillXlsxForm({ sourceFileKey: form.sourceFileKey, fields: form.fields, outputKey });
+    const buffer = await getFileBufferFromS3(DOCUMENTS_BUCKET, outputKey);
+    return { buffer };
+  } catch (err) {
+    console.error(`Failed to export XLSX form "${form.name}" (${form.formId}):`, err);
+    return { buffer: null, error: err instanceof Error ? err.message : 'XLSX export failed' };
+  } finally {
+    try {
+      await s3Client.send(new DeleteObjectCommand({ Bucket: DOCUMENTS_BUCKET, Key: outputKey }));
+    } catch (cleanupErr) {
+      console.warn(`Failed to delete temp file ${outputKey}:`, cleanupErr);
+    }
+  }
 };
 
 const buildExportAllS3Key = (
@@ -202,7 +277,7 @@ const handleMergedExport = async (
 
   // Filter to selected forms with fields
   const selectedForms = allForms.filter(
-    (f) => documentIds.includes(f.formId) && f.fields.length > 0 && f.sourceFileKey && isBulkExportableForm(f),
+    (f) => documentIds.includes(f.formId) && f.fields.length > 0 && f.sourceFileKey && isBulkExportableForm(f, 'merged'),
   );
 
   if (selectedForms.length === 0) {
@@ -347,7 +422,7 @@ export const baseHandler = async (
 
     // Filter to only forms with fields and source files
     const exportableForms = forms.filter(
-      (form) => form.fields.length > 0 && form.sourceFileKey && isBulkExportableForm(form),
+      (form) => form.fields.length > 0 && form.sourceFileKey && isBulkExportableForm(form, 'individual'),
     );
 
     if (exportableForms.length === 0) {
@@ -359,18 +434,27 @@ export const baseHandler = async (
     const zip = new JSZip();
     const exportedForms: ExportedFormInfo[] = [];
 
-    // Process each form
+    // Process each form. Route by type to the matching filler — DOCX and XLSX
+    // must NOT go through the PDF filler (PDFDocument.load on their bytes throws
+    // and the form would be silently dropped from the ZIP).
     for (const form of exportableForms) {
-      const { buffer, error } = await exportFilledForm(orgId, projectId, opportunityId, form);
+      const docx = isDocxForm(form);
+      const xlsx = !docx && isXlsxForm(form);
+      const { buffer, error } = docx
+        ? await exportFilledDocx(orgId, projectId, opportunityId, form)
+        : xlsx
+          ? await exportFilledXlsx(orgId, projectId, opportunityId, form)
+          : await exportFilledForm(orgId, projectId, opportunityId, form);
 
       if (buffer) {
         const sanitizedName = sanitizeFileName(form.name).slice(0, 80);
         const uniqueId = form.formId.slice(0, 8);
-        zip.file(`${sanitizedName}-${uniqueId}.pdf`, buffer);
+        const ext = docx ? 'docx' : xlsx ? 'xlsx' : 'pdf';
+        zip.file(`${sanitizedName}-${uniqueId}.${ext}`, buffer);
         exportedForms.push({
           formId: form.formId,
           name: form.name,
-          formats: ['pdf'],
+          formats: [ext],
           skipped: false,
         });
       } else {

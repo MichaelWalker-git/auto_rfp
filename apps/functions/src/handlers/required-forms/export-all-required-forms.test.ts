@@ -33,8 +33,17 @@ jest.mock('@/helpers/pdf-form-filler', () => ({
   fillPdfForm: jest.fn(),
 }));
 
+jest.mock('@/helpers/docx-form-filler', () => ({
+  fillDocxForm: jest.fn(),
+}));
+
+jest.mock('@/helpers/xlsx-form-filler', () => ({
+  fillXlsxForm: jest.fn(),
+}));
+
 jest.mock('@/helpers/s3', () => ({
   getFileFromS3: jest.fn(),
+  getFileBufferFromS3: jest.fn(),
 }));
 
 jest.mock('@/helpers/api', () => ({
@@ -74,12 +83,18 @@ process.env.PRESIGN_EXPIRES_IN = '3600';
 import { baseHandler } from './export-all-required-forms';
 import { listRequiredFormsByOpportunity } from '@/helpers/required-form';
 import { fillPdfForm } from '@/helpers/pdf-form-filler';
+import { fillDocxForm } from '@/helpers/docx-form-filler';
+import { fillXlsxForm } from '@/helpers/xlsx-form-filler';
+import { getFileBufferFromS3 } from '@/helpers/s3';
 import type { AuthedEvent } from '@/middleware/rbac-middleware';
 
 const mockListRequiredForms = listRequiredFormsByOpportunity as jest.MockedFunction<
   typeof listRequiredFormsByOpportunity
 >;
 const mockFillPdfForm = fillPdfForm as jest.MockedFunction<typeof fillPdfForm>;
+const mockFillDocxForm = fillDocxForm as jest.MockedFunction<typeof fillDocxForm>;
+const mockFillXlsxForm = fillXlsxForm as jest.MockedFunction<typeof fillXlsxForm>;
+const mockGetFileBufferFromS3 = getFileBufferFromS3 as jest.MockedFunction<typeof getFileBufferFromS3>;
 
 describe('export-all-required-forms', () => {
   beforeEach(() => {
@@ -195,7 +210,7 @@ describe('export-all-required-forms', () => {
       expect(body.summary.totalForms).toBe(2);
     });
 
-    it('excludes DOCX forms from bulk export so they never hit the PDF filler', async () => {
+    it('includes DOCX forms in individual (ZIP) export via fillDocxForm', async () => {
       const mockForms = [
         {
           formId: 'form-pdf',
@@ -211,11 +226,14 @@ describe('export-all-required-forms', () => {
           formType: 'DOCX_FORM',
           fields: [{ fieldId: 'f2', value: 'y' }],
           sourceFileKey: 's3://bucket/form.docx',
+          docxFillStrategy: 'TEXT_TOKEN',
           orgId: 'org-123', projectId: 'proj-123', opportunityId: 'opp-123',
         },
       ];
       mockListRequiredForms.mockResolvedValue(mockForms as never);
       mockFillPdfForm.mockResolvedValue(undefined);
+      mockFillDocxForm.mockResolvedValue('filled.docx');
+      mockGetFileBufferFromS3.mockResolvedValue(Buffer.from([9, 9, 9]));
       mockSend.mockResolvedValue({
         Body: { transformToByteArray: async () => new Uint8Array([1, 2, 3, 4]) },
       });
@@ -224,12 +242,42 @@ describe('export-all-required-forms', () => {
 
       expect(result.statusCode).toBe(200);
       const body = JSON.parse(result.body as string);
-      // Only the PDF form is bundled; the DOCX form is filtered out entirely.
-      expect(body.summary.totalForms).toBe(1);
-      // fillPdfForm must never be called with the .docx source.
-      const filledKeys = mockFillPdfForm.mock.calls.map((c) => (c[0] as { sourceFileKey: string }).sourceFileKey);
-      expect(filledKeys).not.toContain('s3://bucket/form.docx');
-      expect(filledKeys).toContain('s3://bucket/form.pdf');
+      // Both forms are bundled now.
+      expect(body.summary.totalForms).toBe(2);
+      // DOCX goes through fillDocxForm (not the PDF filler) with its strategy.
+      expect(mockFillDocxForm).toHaveBeenCalledWith(expect.objectContaining({
+        sourceFileKey: 's3://bucket/form.docx',
+        strategy: 'TEXT_TOKEN',
+        formName: 'DOCX Form',
+      }));
+      const pdfKeys = mockFillPdfForm.mock.calls.map((c) => (c[0] as { sourceFileKey: string }).sourceFileKey);
+      expect(pdfKeys).not.toContain('s3://bucket/form.docx');
+    });
+
+    it('routes XLSX forms through fillXlsxForm, NOT the PDF filler', async () => {
+      const mockForms = [
+        {
+          formId: 'form-xlsx',
+          name: 'XLSX Form',
+          formType: 'XLSX_FORM',
+          fields: [{ fieldId: 'f1', value: 'x' }],
+          sourceFileKey: 's3://bucket/form.xlsx',
+          orgId: 'org-123', projectId: 'proj-123', opportunityId: 'opp-123',
+        },
+      ];
+      mockListRequiredForms.mockResolvedValue(mockForms as never);
+      mockFillXlsxForm.mockResolvedValue('filled.xlsx');
+      mockGetFileBufferFromS3.mockResolvedValue(Buffer.from([7, 7, 7]));
+      mockSend.mockResolvedValue({ Body: { transformToByteArray: async () => new Uint8Array([1, 2]) } });
+
+      const result = await baseHandler(createMockEvent({ projectId: 'proj-123', opportunityId: 'opp-123' }));
+
+      expect(result.statusCode).toBe(200);
+      // The XLSX filler runs; the PDF filler must NOT be called for the .xlsx
+      // (routing it there would throw in PDFDocument.load and drop the form).
+      expect(mockFillXlsxForm).toHaveBeenCalledWith(expect.objectContaining({ sourceFileKey: 's3://bucket/form.xlsx' }));
+      const pdfKeys = mockFillPdfForm.mock.calls.map((c) => (c[0] as { sourceFileKey: string }).sourceFileKey);
+      expect(pdfKeys).not.toContain('s3://bucket/form.xlsx');
     });
   });
 

@@ -243,14 +243,20 @@ auditStack.addDependency(db);
 auditStack.addDependency(api);
 
 // Scheduled sync: mirror the Linear "Government Contracting" board into the
-// RFP-tracking pipeline every 15 minutes (Horustech org, dev only for now).
+// RFP-tracking pipeline every 15 minutes. The sync MUST write under the same
+// org id the dashboard queries (rfpTrackingOrgId, which is stage-specific) —
+// otherwise records land under one org's SK prefix while get-rfp-pipeline reads
+// another's, leaving the board empty. Falls back to the dev org for stages
+// without a designated RFP org; RFP_SYNC_ORG_ID overrides per environment.
+const rfpSyncOrgId =
+  process.env.RFP_SYNC_ORG_ID || rfpTrackingOrgId || '9c0a5757-e2da-4e71-9490-01c558f7ffc3';
 const rfpLinearSyncStack = new RfpLinearSyncStack(app, `AutoRfp-RfpLinearSync-${stage}`, {
   env,
   stage,
   mainTable: db.tableName,
-  rfpOrgId: '9c0a5757-e2da-4e71-9490-01c558f7ffc3',
+  rfpOrgId: rfpSyncOrgId,
   rfpProjectId: RFP_SYNC_PROJECT_ID,
-  linearOrgId: '6fbf749f-7173-489c-be0a-564f97ebf8b0',
+  linearOrgId: process.env.RFP_SYNC_LINEAR_ORG_ID || '6fbf749f-7173-489c-be0a-564f97ebf8b0',
   linearProjectName: 'Government Contracting',
   windowDays: 14,
   commonEnv: {

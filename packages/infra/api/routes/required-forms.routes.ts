@@ -5,6 +5,7 @@ export function requiredFormsDomain(): DomainRoutes {
   return { basePath: 'required-forms', routes: [
     { method: 'GET', path: 'list', entry: lambdaEntry('required-forms/list-required-forms.ts') },
     { method: 'GET', path: 'get', entry: lambdaEntry('required-forms/get-required-form.ts') },
+    { method: 'GET', path: 'render', entry: lambdaEntry('required-forms/render-docx-form.ts'), timeoutSeconds: 30 },
     { method: 'PUT', path: 'field', entry: lambdaEntry('required-forms/update-form-field.ts') },
     { method: 'PUT', path: 'save-fields', entry: lambdaEntry('required-forms/save-form-fields.ts') },
     { method: 'DELETE', path: 'delete', entry: lambdaEntry('required-forms/delete-required-form.ts') },
