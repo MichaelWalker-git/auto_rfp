@@ -114,6 +114,31 @@ export const AceSubmissionSchema = z.object({
 });
 export type AceSubmission = z.infer<typeof AceSubmissionSchema>;
 
+/**
+ * Honest, source-derived overrides for the fields we send to Partner Central.
+ *
+ * The Linear-sync board records are thin shells (organizationName=null, no
+ * description) and the 15-minute sync overwrites them every run, so real data
+ * cannot live on that record. This object holds the genuine values read from the
+ * source opportunity record + its executive brief, stored on the board item
+ * under `aceEnrichment` (a field the sync carries forward, never derives). The
+ * APN client merges it into the create/advance payload; every field is optional
+ * so a partial enrichment degrades to the existing placeholder logic.
+ */
+export const AceEnrichmentSchema = z.object({
+  /** Real customer/agency name → Customer.Account.CompanyName. */
+  customerName: z.string().min(1).optional(),
+  /** Free-text place of performance → parsed into Customer.Account.Address. */
+  placeOfPerformance: z.string().min(1).optional(),
+  /** Solicitation number → top-level PartnerOpportunityIdentifier. */
+  solicitationNumber: z.string().min(1).optional(),
+  /** Executive-brief summary prose → Project.CustomerBusinessProblem. */
+  customerBusinessProblem: z.string().min(1).optional(),
+  /** ISO datetime the enrichment was written (audit/debug only). */
+  enrichedAt: z.string().datetime().optional(),
+});
+export type AceEnrichment = z.infer<typeof AceEnrichmentSchema>;
+
 /** POST /dashboard/update-ace-stage request body. */
 export const UpdateAceStageSchema = z.object({
   orgId: z.string().min(1),

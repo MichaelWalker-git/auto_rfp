@@ -12,7 +12,7 @@ import { z } from 'zod';
 import { PK_NAME, SK_NAME } from '../constants';
 import { JurisdictionSchema } from './foia';
 import { WinDataSchema, LossDataSchema } from './outcome-detail';
-import { AceStageSchema, AceStageTransitionSchema, AceSubmissionSchema } from './apn';
+import { AceStageSchema, AceStageTransitionSchema, AceSubmissionSchema, AceEnrichmentSchema } from './apn';
 
 const flexibleDateSchema = z
   .string()
@@ -313,6 +313,14 @@ export const OpportunityItemSchema = z.object({
    * scheduled ACE-submission poller. See AceSubmissionSchema.
    */
   aceSubmission:    AceSubmissionSchema.optional(),
+  /**
+   * Honest, source-derived overrides (real CompanyName / Address / solicitation
+   * / business problem) merged into the Partner Central payload. Written by the
+   * ACE enrichment backfill from the source opportunity record + executive
+   * brief; carried forward by the Linear sync (which never derives it). See
+   * AceEnrichmentSchema.
+   */
+  aceEnrichment:    AceEnrichmentSchema.optional(),
   // Assignment fields
   /** User ID of the person assigned to work on this opportunity */
   assigneeId:       z.string().nullish(),
@@ -392,6 +400,7 @@ export const OpportunityCreateRequestSchema = OpportunityItemSchema.omit({
   aceStage: true,
   aceStageHistory: true,
   aceSubmission: true,
+  aceEnrichment: true,
   pocUrl: true,
   pocDeployedAt: true,
   pocGenState: true,

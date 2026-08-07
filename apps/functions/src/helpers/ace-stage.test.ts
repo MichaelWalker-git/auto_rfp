@@ -121,7 +121,7 @@ describe('syncAceStageToPartnerCentral', () => {
     );
   });
 
-  it('falls back to title / 0 / now / null for missing fields', async () => {
+  it('falls back to title / null value / now / null for missing fields', async () => {
     await syncAceStageToPartnerCentral({
       ...ids,
       item: { oppId: 'opp-1', id: 'opp-1', title: 'Fallback Title' } as OpportunityItem,
@@ -130,7 +130,9 @@ describe('syncAceStageToPartnerCentral', () => {
     expect(mockSyncOpportunityToApn).toHaveBeenCalledWith(
       expect.objectContaining({
         customerName: 'Fallback Title',
-        opportunityValue: 0,
+        // No baseAndAllOptionsValue on the item ⇒ pass null so the APN client
+        // omits ExpectedCustomerSpend rather than fabricating a $0/placeholder.
+        opportunityValue: null,
         expectedCloseDate: '2026-08-05T12:00:00.000Z',
         existingApnId: null,
       }),

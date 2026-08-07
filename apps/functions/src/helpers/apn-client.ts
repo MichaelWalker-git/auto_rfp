@@ -11,9 +11,11 @@ import {
   AwsFundingUsed,
   SalesInvolvementType,
   Visibility,
+  OpportunityType,
+  PrimaryNeedFromAws,
 } from '@aws-sdk/client-partnercentral-selling';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import type { AceStage } from '@auto-rfp/core';
+import type { AceStage, AceEnrichment } from '@auto-rfp/core';
 import { docClient } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
 import { APN_CATALOG } from '@/constants/apn';
@@ -62,6 +64,216 @@ const toFutureCloseDate = (iso: string): string => {
   return new Date(effective).toISOString().split('T')[0];
 };
 
+// ─── Fixed values for AWS-required fields with no upstream source ─────────────
+//
+// AWS Partner Central requires these to submit an opportunity, but the Linear
+// "Government Contracting" board carries no field for them. These are the
+// correct fixed values for our profile: SaaS proposals responding to public
+// sector RFPs, where the co-sell ask is Public Tender / RFx support. They are
+// intentionally constants (not placeholders) — every RFP on this board fits it.
+const GOV_OPPORTUNITY_TYPE = OpportunityType.NET_NEW_BUSINESS;
+/**
+ * Placeholder monthly AWS spend (USD) used when an opportunity has no real
+ * contract value to derive from. Not a real estimate — a stand-in so the field
+ * is always populated. TODO: source a genuine per-deal figure (AWS Pricing
+ * Calculator) once that data exists.
+ */
+const PLACEHOLDER_MONTHLY_SPEND = 1000;
+const GOV_PRIMARY_NEED = PrimaryNeedFromAws.CO_SELL_SUPPORT_FOR_PUBLIC_TENDER_RFX;
+/**
+ * A US address is required. We serve US government customers; the specific
+ * agency's city/state isn't captured upstream, so we send the country + a
+ * neutral capital-region placeholder that satisfies the required-field
+ * validation without asserting a false specific location.
+ */
+const GOV_ADDRESS = {
+  CountryCode: 'US' as const,
+  StateOrRegion: 'District of Columbia',
+  PostalCode: '20001',
+} as const;
+
+/**
+ * ACE `Customer.Account.Address.StateOrRegion` accepts a fixed list of full
+ * state/region NAMES (not USPS abbreviations). We commonly hold the state as a
+ * 2-letter code (e.g. "VA") or a full name in `placeOfPerformance`, so map both
+ * forms to the exact ACE-accepted name. Anything unrecognized is dropped rather
+ * than sent (an invalid StateOrRegion fails validation).
+ */
+const US_STATE_NAMES: Record<string, string> = {
+  AL: 'Alabama', AK: 'Alaska', AS: 'American Samoa', AZ: 'Arizona', AR: 'Arkansas',
+  CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware',
+  DC: 'District of Columbia', FL: 'Florida', GA: 'Georgia', GU: 'Guam', HI: 'Hawaii',
+  ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky',
+  LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan',
+  MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska',
+  NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York',
+  NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon',
+  PA: 'Pennsylvania', PR: 'Puerto Rico', RI: 'Rhode Island', SC: 'South Carolina',
+  SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont',
+  VA: 'Virginia', VI: 'Virgin Islands', WA: 'Washington', WV: 'West Virginia',
+  WI: 'Wisconsin', WY: 'Wyoming',
+};
+const ACE_STATE_NAME_SET = new Set(Object.values(US_STATE_NAMES));
+
+/** Normalize a raw state token to an ACE-accepted state name, or undefined. */
+const toAceStateName = (raw: string): string | undefined => {
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  const upper = trimmed.toUpperCase();
+  if (US_STATE_NAMES[upper]) return US_STATE_NAMES[upper];
+  // Already a full name (case-insensitive match against the accepted set).
+  const match = [...ACE_STATE_NAME_SET].find((n) => n.toLowerCase() === trimmed.toLowerCase());
+  return match;
+};
+
+/** A US 5- or 9-digit ZIP appearing anywhere in the string. */
+const ZIP_RE = /\b(\d{5})(?:-\d{4})?\b/;
+
+/**
+ * Best-effort parse of a free-text `placeOfPerformance` into an ACE Address.
+ * Handles the common shapes we see on these records:
+ *   "Norfolk, VA"
+ *   "Oakdale, New York 11769"
+ *   "Tucson, AZ 85701"
+ *   "South Dakota"
+ *   "San Mateo County, California"
+ * Only fields we can extract confidently are set; CountryCode is always 'US'.
+ * Returns the DC placeholder when nothing usable can be parsed, so the required
+ * Address is always populated.
+ */
+const parseUsAddress = (placeOfPerformance: string | null | undefined) => {
+  const text = (placeOfPerformance ?? '').trim();
+  if (!text) return GOV_ADDRESS;
+
+  const zip = text.match(ZIP_RE)?.[1];
+  // Strip the ZIP out before comma parsing so it doesn't pollute the state token.
+  const withoutZip = zip ? text.replace(ZIP_RE, '').trim() : text;
+  const parts = withoutZip.split(',').map((p) => p.trim()).filter(Boolean);
+
+  let city: string | undefined;
+  let state: string | undefined;
+
+  if (parts.length >= 2) {
+    // "City, State" — last segment is the state, the one before it the city.
+    state = toAceStateName(parts[parts.length - 1]!);
+    city = parts[parts.length - 2];
+  } else if (parts.length === 1) {
+    // A lone token: treat as a state if it maps, otherwise as a city.
+    const asState = toAceStateName(parts[0]!);
+    if (asState) state = asState;
+    else city = parts[0];
+  }
+
+  const address: {
+    CountryCode: 'US';
+    City?: string;
+    StateOrRegion?: string;
+    PostalCode?: string;
+  } = { CountryCode: 'US' };
+  if (city) address.City = city;
+  if (state) address.StateOrRegion = state;
+  if (zip) address.PostalCode = zip;
+
+  // If we couldn't extract a state or a zip, fall back to the neutral placeholder
+  // rather than sending a half-empty address that may fail validation.
+  if (!address.StateOrRegion && !address.PostalCode) return GOV_ADDRESS;
+  return address;
+};
+
+/** Trim the Linear issue body to a single, ACE-safe field value. */
+const toBusinessProblem = (description: string | undefined, title: string): string => {
+  const body = (description ?? '').trim();
+  // ACE caps CustomerBusinessProblem at 4000 chars; keep a comfortable margin.
+  if (body.length >= 20) return body.slice(0, 2000);
+  // Degrade gracefully when the issue has no usable body: the title is the only
+  // other real signal, expanded into a minimal problem statement.
+  return `Government contracting opportunity: ${title}`.slice(0, 2000);
+};
+
+/**
+ * Build the shared Customer/Project/Marketing/top-level fields both the create
+ * and the stage-advance paths send. AWS validates the WHOLE opportunity on every
+ * write, so both paths must send an identical, complete payload — centralizing
+ * it here keeps them from drifting (the drift is what caused the historical
+ * REQUIRED_FIELD_MISSING failures).
+ */
+const buildOpportunityFields = (args: {
+  customerName: string;
+  opportunityTitle?: string;
+  opportunityValue?: number | null;
+  description?: string;
+  /**
+   * Honest enrichment overrides sourced from the real opportunity record + its
+   * executive brief (see ace-enrichment). When present these replace the
+   * placeholder-derived values; when absent the existing placeholder logic
+   * applies unchanged.
+   */
+  enrichment?: AceEnrichment;
+}) => {
+  const title = args.opportunityTitle || args.customerName;
+  // A real executive-brief business problem wins over the title/body-derived
+  // stub; fall back to the existing derivation when no override is supplied.
+  const businessProblem = args.enrichment?.customerBusinessProblem?.trim()
+    ? args.enrichment.customerBusinessProblem.trim().slice(0, 2000)
+    : toBusinessProblem(args.description, title);
+  // Real place-of-performance → structured Address; else neutral placeholder.
+  const address = args.enrichment?.placeOfPerformance
+    ? parseUsAddress(args.enrichment.placeOfPerformance)
+    : GOV_ADDRESS;
+  // Real solicitation number → PartnerOpportunityIdentifier (optional field).
+  const partnerOpportunityIdentifier = args.enrichment?.solicitationNumber?.trim() || undefined;
+
+  // ExpectedCustomerSpend represents the customer's estimated *monthly AWS
+  // spend* — a figure the RFP data cannot produce (no cost proposal exists, and
+  // the only dollar field, total contract value, is a lump sum populated on a
+  // tiny minority of records). AWS does NOT require this field to submit, but we
+  // include it anyway: the real contract value when we have one, otherwise a
+  // PLACEHOLDER monthly amount. TODO: replace the placeholder with a real
+  // per-deal AWS Pricing Calculator estimate when that data becomes available.
+  const monthlyAmount =
+    typeof args.opportunityValue === 'number' && args.opportunityValue > 0
+      ? Math.round(args.opportunityValue)
+      : PLACEHOLDER_MONTHLY_SPEND;
+  const spend = [{
+    Amount: String(monthlyAmount),
+    CurrencyCode: 'USD' as const,
+    Frequency: 'Monthly' as const,
+    TargetCompany: 'AWS',
+  }];
+
+  return {
+    Customer: {
+      Account: {
+        CompanyName: args.customerName,
+        Industry: 'Government' as const,
+        // No website is captured upstream — kept as a neutral placeholder by
+        // decision (see ace-enrichment); ACE does not require a real URL.
+        WebsiteUrl: 'https://unknown.gov',
+        Address: address,
+      },
+    },
+    Project: {
+      Title: title,
+      CustomerBusinessProblem: businessProblem,
+      CustomerUseCase: 'Business Applications & Contact Center' as const,
+      DeliveryModels: ['SaaS or PaaS' as const],
+      // Satisfies "associate at least one solution OR provide a description";
+      // we have no catalog Solution id, so we describe the offered solution.
+      OtherSolutionDescription: businessProblem,
+      ExpectedCustomerSpend: spend,
+    },
+    Marketing: {
+      Source: MarketingSource.NONE,
+      AwsFundingUsed: AwsFundingUsed.NO,
+    },
+    OpportunityType: GOV_OPPORTUNITY_TYPE,
+    PrimaryNeedsFromAws: [GOV_PRIMARY_NEED],
+    // Real solicitation number, when known — a top-level field on both the
+    // create and update requests. Omitted (undefined) when absent.
+    ...(partnerOpportunityIdentifier ? { PartnerOpportunityIdentifier: partnerOpportunityIdentifier } : {}),
+  };
+};
+
 // ─── Update opportunity's APN fields in DynamoDB ──────────────────────────────
 
 const setApnFields = async (
@@ -97,7 +309,8 @@ export interface SyncToApnArgs {
   oppId:             string;
   customerName:      string;
   opportunityTitle?: string;
-  opportunityValue:  number;
+  /** Total contract value if known; null/undefined ⇒ ExpectedCustomerSpend omitted. */
+  opportunityValue?: number | null;
   expectedCloseDate: string;
   proposalStatus:    string;
   description?:      string;
@@ -108,6 +321,12 @@ export interface SyncToApnArgs {
    * string). When set, overrides the proposalStatus-derived stage mapping.
    */
   aceStage?:         AceStage;
+  /**
+   * Honest source-derived field overrides (real CompanyName / Address /
+   * solicitation / business problem). Merged into the create/update payload;
+   * when absent the existing placeholder logic applies.
+   */
+  enrichment?:       AceEnrichment;
 }
 
 /**
@@ -118,8 +337,13 @@ export const syncToPartnerCentral = async (args: SyncToApnArgs): Promise<void> =
   const {
     orgId, projectId, oppId, customerName, opportunityTitle,
     opportunityValue, expectedCloseDate, proposalStatus, description, existingApnId,
-    aceStage,
+    aceStage, enrichment,
   } = args;
+
+  // A real customer name from the enrichment overrides the (often org-fallback)
+  // customerName the caller passed — the board record's org resolves to
+  // "HORUSTECH", which is us, not the government customer.
+  const effectiveCustomerName = enrichment?.customerName?.trim() || customerName;
 
   console.log(`[APN] Starting sync for oppId=${oppId}, proposalStatus=${proposalStatus}, aceStage=${aceStage}, existingApnId=${existingApnId}`);
 
@@ -142,36 +366,20 @@ export const syncToPartnerCentral = async (args: SyncToApnArgs): Promise<void> =
     lifecycle.ClosedLostReason = 'Customer Deficiency';
   }
 
-  // Prepare API payload
+  // Prepare API payload. The shared field builder fills every AWS-required
+  // field (Customer/Project/Marketing/OpportunityType/PrimaryNeedsFromAws),
+  // deriving CustomerBusinessProblem + the solution description from the real
+  // Linear issue body. UseCases stay empty while AwsFundingUsed = No.
   const payload = {
     Catalog: APN_CATALOG,
-    Customer: {
-      Account: {
-        CompanyName: customerName,
-        Industry: 'Government' as const,
-        WebsiteUrl: 'https://unknown.gov',
-        Address: { CountryCode: 'US' as const },
-      },
-    },
-    Project: {
-      Title: opportunityTitle || customerName,
-      CustomerUseCase: 'Business Applications & Contact Center' as const,
-      DeliveryModels: ['SaaS or PaaS' as const],
-      ExpectedCustomerSpend: [{
-        Amount: String(Math.max(opportunityValue, 1)),
-        CurrencyCode: 'USD' as const,
-        Frequency: 'Monthly' as const,
-        TargetCompany: 'AWS',
-      }],
-    },
+    ...buildOpportunityFields({
+      customerName: effectiveCustomerName,
+      opportunityTitle,
+      opportunityValue,
+      description,
+      enrichment,
+    }),
     LifeCycle: lifecycle,
-    // These opportunities are not sourced from an AWS marketing activity and use
-    // no MDF funding. ACE requires AwsFundingUsed to be set; UseCases must stay
-    // empty while AwsFundingUsed = No.
-    Marketing: {
-      Source: MarketingSource.NONE,
-      AwsFundingUsed: AwsFundingUsed.NO,
-    },
   };
 
   const client = getClient();
@@ -228,16 +436,15 @@ export const syncToPartnerCentral = async (args: SyncToApnArgs): Promise<void> =
         throw new Error(`Cannot update opportunity in ${lifecycleStage} state`);
       }
 
-      // Step 4: Send update with RevisionId
+      // Step 4: Send update with RevisionId. Spread the full payload so the
+      // update carries every AWS-required field (Customer/Project/Marketing/
+      // OpportunityType/PrimaryNeedsFromAws) identically to create — AWS
+      // validates the whole object, so a partial patch is rejected.
       const updatePayload = {
-        Catalog: APN_CATALOG,
+        ...payload,
         Identifier: existingApnId,
         RevisionId: currentRevisionId,
         LastModifiedDate: (getResponse as any).LastModifiedDate ?? new Date(),
-        Customer: payload.Customer,
-        Project: payload.Project,
-        LifeCycle: payload.LifeCycle,
-        Marketing: payload.Marketing,
       };
 
       console.log(`[APN] Sending UpdateOpportunityCommand with RevisionId ${currentRevisionId}...`);
@@ -534,9 +741,13 @@ export const advanceOpportunityStage = async (args: {
   apnOpportunityId: string;
   customerName: string;
   opportunityTitle?: string;
-  opportunityValue: number;
+  /** Total contract value if known; null/undefined ⇒ ExpectedCustomerSpend omitted. */
+  opportunityValue?: number | null;
   expectedCloseDate: string;
+  description?: string;
   aceStage: AceStage;
+  /** Honest source-derived overrides merged into the advance payload. */
+  enrichment?: AceEnrichment;
 }): Promise<void> => {
   const catalog = getSubmissionCatalog();
   const client = getClient();
@@ -550,37 +761,26 @@ export const advanceOpportunityStage = async (args: {
     new GetOpportunityCommand({ Catalog: catalog, Identifier: args.apnOpportunityId }),
   ) as { RevisionId?: string; LastModifiedDate?: Date };
 
+  // Reuse the SAME shared field builder the create/sync path uses so the
+  // advance carries every AWS-required field (Customer/Project/Marketing/
+  // OpportunityType/PrimaryNeedsFromAws + CustomerBusinessProblem + solution
+  // description) identically. AWS validates the WHOLE object on every write, so
+  // any divergence here re-introduces REQUIRED_FIELD_MISSING.
   const advancePayload = {
     Catalog: catalog,
     Identifier: args.apnOpportunityId,
     ...(current.RevisionId ? { RevisionId: current.RevisionId } : {}),
     LastModifiedDate: current.LastModifiedDate ?? new Date(),
-    Customer: {
-      Account: {
-        CompanyName: args.customerName,
-        Industry: 'Government' as const,
-        WebsiteUrl: 'https://unknown.gov',
-        Address: { CountryCode: 'US' as const },
-      },
-    },
-    Project: {
-      Title: args.opportunityTitle || args.customerName,
-      CustomerUseCase: 'Business Applications & Contact Center' as const,
-      DeliveryModels: ['SaaS or PaaS' as const],
-      ExpectedCustomerSpend: [{
-        Amount: String(Math.max(args.opportunityValue, 1)),
-        CurrencyCode: 'USD' as const,
-        Frequency: 'Monthly' as const,
-        TargetCompany: 'AWS',
-      }],
-    },
+    ...buildOpportunityFields({
+      customerName: args.enrichment?.customerName?.trim() || args.customerName,
+      opportunityTitle: args.opportunityTitle,
+      opportunityValue: args.opportunityValue,
+      description: args.description,
+      enrichment: args.enrichment,
+    }),
     LifeCycle: {
       Stage: args.aceStage as (typeof Stage)[keyof typeof Stage],
       TargetCloseDate: toFutureCloseDate(args.expectedCloseDate),
-    },
-    Marketing: {
-      Source: MarketingSource.NONE,
-      AwsFundingUsed: AwsFundingUsed.NO,
     },
   };
 

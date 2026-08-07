@@ -259,6 +259,10 @@ export const stepAceSubmission = async (ids: Ids): Promise<AceSubmissionStepOutc
           opportunityValue: item.baseAndAllOptionsValue ?? 0,
           expectedCloseDate: item.responseDeadlineIso ?? nowIso(),
           aceStage: 'Technical Validation',
+          // Honest source-derived overrides (real customer name / address /
+          // solicitation / business problem) written by the enrichment backfill.
+          // Absent for non-backfilled records ⇒ placeholder logic applies.
+          enrichment: item.aceEnrichment,
         });
         // Reflect the advance on the local ACE stage axis (idempotent — only
         // appends a transition when the stage actually changes).

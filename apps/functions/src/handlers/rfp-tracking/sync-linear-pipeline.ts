@@ -24,6 +24,8 @@ import { startAceSubmission } from '@/helpers/ace-submission';
 import type {
   AceStage,
   AceStageTransition,
+  AceSubmission,
+  AceEnrichment,
   OpportunityApprovalTransition,
   OpportunityStatusTransition,
 } from '@auto-rfp/core';
@@ -71,6 +73,8 @@ interface LinearHistoryEvent {
 interface LinearRow {
   id: string;
   title: string;
+  /** The Linear issue body (markdown). The real RFP write-up we push to ACE. */
+  description: string | null;
   linearStatus: string;
   labels: string[];
   dueDate: string | null;
@@ -351,6 +355,7 @@ const PROJECT_ISSUES_QUERY = `
           nodes {
             identifier
             title
+            description
             url
             dueDate
             createdAt
@@ -386,6 +391,7 @@ interface ProjectIssuesResponse {
         nodes: Array<{
           identifier: string;
           title: string;
+          description: string | null;
           url: string;
           dueDate: string | null;
           createdAt: string;
@@ -437,6 +443,7 @@ const fetchLinearRows = async (client: LinearClient): Promise<LinearRow[]> => {
       rows.push({
         id: node.identifier,
         title: node.title,
+        description: node.description ?? null,
         linearStatus: node.state?.name ?? '',
         labels: node.labels.nodes.map((l) => l.name),
         dueDate: node.dueDate ?? null,
@@ -510,6 +517,10 @@ interface ExistingRecord {
   aceStageHistory?: AceStageTransition[];
   apnOpportunityId?: string | null;
   apnSyncError?: string | null;
+  // Submission state machine progress + honest enrichment overrides — also
+  // record-only, so carried forward for the same full-overwrite reason.
+  aceSubmission?: AceSubmission;
+  aceEnrichment?: AceEnrichment;
 }
 
 /**
@@ -600,7 +611,10 @@ const buildRecord = (row: LinearRow, stage: RfpPipelineStage, existing: Existing
     pscCode: null,
     organizationName: null,
     setAside: null,
-    description: null,
+    // The Linear issue body — the real RFP write-up. Carried through so the ACE
+    // (Partner Central) push has a genuine CustomerBusinessProblem/solution
+    // description instead of a placeholder. Null when the issue has no body.
+    description: row.description,
     status,
     statusHistory,
     approvalStatus,
@@ -627,6 +641,13 @@ const buildRecord = (row: LinearRow, stage: RfpPipelineStage, existing: Existing
     aceStageHistory: existing?.aceStageHistory,
     apnOpportunityId: existing?.apnOpportunityId ?? undefined,
     apnSyncError: existing?.apnSyncError ?? undefined,
+    // Submission state machine progress (engagement/review/advance) and the
+    // honest enrichment overrides both live only on the record and would be
+    // wiped by this full overwrite — carry them forward untouched. The
+    // enrichment is written once by the backfill; the sync must never derive
+    // or clear it, only preserve it.
+    aceSubmission: existing?.aceSubmission,
+    aceEnrichment: existing?.aceEnrichment,
   };
 };
 

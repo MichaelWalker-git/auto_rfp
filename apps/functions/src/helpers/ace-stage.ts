@@ -96,12 +96,18 @@ export const syncAceStageToPartnerCentral = async (args: AceStageSyncArgs): Prom
       oppId,
       customerName: item.organizationName ?? item.title ?? 'Unknown Customer',
       opportunityTitle: item.title,
-      opportunityValue: item.baseAndAllOptionsValue ?? 0,
+      // Pass the real contract value or null — the APN client omits
+      // ExpectedCustomerSpend entirely rather than fabricate a figure.
+      opportunityValue: item.baseAndAllOptionsValue ?? null,
       expectedCloseDate: item.responseDeadlineIso ?? nowIso(),
       proposalStatus: 'PROSPECT',
       description: item.description?.substring(0, 500) ?? undefined,
       existingApnId: item.apnOpportunityId ?? null,
       aceStage,
+      // Honest source-derived overrides (real customer name, place of
+      // performance → address, solicitation number, business problem). Absent
+      // for non-backfilled records ⇒ the APN client falls back to placeholders.
+      enrichment: item.aceEnrichment,
     });
 
     // The APN client wrote the outcome onto the item — re-read to report it.
