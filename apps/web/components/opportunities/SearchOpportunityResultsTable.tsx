@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SearchOpportunity } from '@auto-rfp/core';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import {
   ExternalLink,
   FileText,
   Loader2,
+  RotateCw,
   Shield,
   Tag,
 } from 'lucide-react';
@@ -122,11 +123,17 @@ const EmptyState = () => (
 const useSamDescription = (orgId: string | undefined, descriptionUrl: string | null) => {
   const [description, setDescription] = useState<string | null>(null);
   const [isLoading, setLoading]       = useState(false);
-  const [loaded, setLoaded]           = useState(false);
+  const [hasFailed, setHasFailed]     = useState(false);
+  const [hasAttempted, setAttempted]  = useState(false);
+  // A ref rather than state: it is set synchronously, so two callers firing in
+  // the same tick can't both get past the guard and fetch twice.
+  const loadedRef                     = useRef(false);
 
   const load = async () => {
-    if (!orgId || !descriptionUrl || loaded) return;
+    if (!orgId || !descriptionUrl || loadedRef.current) return;
+    loadedRef.current = true;
     setLoading(true);
+    setHasFailed(false);
     try {
       const res = await authFetcher(
         `${env.BASE_API_URL}/search-opportunities/opportunity-description?orgId=${encodeURIComponent(orgId)}`,
@@ -139,57 +146,228 @@ const useSamDescription = (orgId: string | undefined, descriptionUrl: string | n
         const data = await res.json() as { description?: string; content?: string; opportunityDescription?: string };
         setDescription(data.description ?? data.content ?? data.opportunityDescription ?? null);
       } else if (res.status === 404 || res.status === 400) {
+        // Definitive "there isn't one" — retrying would return the same answer.
         setDescription(null);
+      } else {
+        // 5xx and rate limiting are transient, so these are worth retrying.
+        setHasFailed(true);
       }
     } catch {
-      // silently fail
+      setHasFailed(true);
     } finally {
       setLoading(false);
-      setLoaded(true);
+      setAttempted(true);
     }
   };
 
-  return { description, isLoading, load, loaded };
+  /** Clears the once-only guard so a failed fetch can be tried again. */
+  const retry = () => {
+    loadedRef.current = false;
+    void load();
+  };
+
+  return { description, isLoading, hasFailed, hasAttempted, load, retry };
+};
+
+/**
+ * Runs `onVisible` once, when the returned ref's element first scrolls into
+ * view. Search pages render 25 results at a time and SAM.gov descriptions each
+ * cost a request against a rate-limited key with no server-side cache, so they
+ * are fetched for the cards actually reached rather than all of them up front.
+ */
+const useLoadWhenVisible = (enabled: boolean, onVisible: () => void) => {
+  const ref = useRef<HTMLDivElement>(null);
+  // Kept in a ref so re-renders don't tear down and recreate the observer.
+  const onVisibleRef = useRef(onVisible);
+  onVisibleRef.current = onVisible;
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!enabled || !el) return;
+
+    // Older browsers (and any environment without the API) just load right away.
+    if (typeof IntersectionObserver === 'undefined') {
+      onVisibleRef.current();
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          observer.disconnect();
+          onVisibleRef.current();
+        }
+      },
+      // Start slightly before the card is on screen so text is ready on arrival.
+      { rootMargin: '200px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [enabled]);
+
+  return ref;
 };
 
 // ─── Description panel ───────────────────────────────────────────────────────
 
-const DescriptionPanel = ({
+/**
+ * HigherGov and DIBBS return plain text with `\n\n` paragraph breaks; SAM.gov's
+ * lazily-fetched body is HTML. Sniffing the content handles both, and handles a
+ * source sending the other format than expected.
+ */
+const looksLikeHtml = (s: string): boolean => /<\/?[a-z][a-z0-9]*(?:\s[^<>]*)?>/i.test(s);
+
+/** Explicit allow-list, mirroring opportunity-item-card.tsx. */
+const DESCRIPTION_SANITIZE_OPTIONS = {
+  ALLOWED_TAGS: [
+    'p', 'br', 'div', 'span', 'strong', 'b', 'em', 'i', 'u', 's',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'ul', 'ol', 'li',
+    'a', 'blockquote', 'code', 'pre', 'hr',
+    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+  ],
+  ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style'],
+  FORCE_BODY: true,
+};
+
+const DescriptionBody = ({ description }: { description: string }) =>
+  looksLikeHtml(description) ? (
+    <div
+      data-testid="description-html"
+      className={cn(
+        'prose prose-xs max-w-none text-xs text-muted-foreground leading-relaxed',
+        '[&_p]:mb-2 [&_p:last-child]:mb-0',
+        '[&_ul]:mb-2 [&_ul]:pl-4 [&_li]:list-disc [&_li]:mb-0.5',
+        '[&_ol]:mb-2 [&_ol]:pl-4 [&_ol>li]:list-decimal',
+        '[&_strong]:font-semibold [&_strong]:text-foreground',
+        '[&_u]:underline',
+        '[&_h1]:text-sm [&_h1]:font-semibold [&_h1]:mb-1',
+        '[&_h2]:text-xs [&_h2]:font-semibold [&_h2]:mb-1',
+        '[&_h3]:text-xs [&_h3]:font-semibold [&_h3]:mb-1',
+        '[&_a]:text-primary [&_a]:underline [&_a]:hover:opacity-80',
+        '[&_br]:block',
+      )}
+      dangerouslySetInnerHTML={{
+        __html: DOMPurify.sanitize(description, DESCRIPTION_SANITIZE_OPTIONS),
+      }}
+    />
+  ) : (
+    // React renders a string child as a text node, so this needs no sanitizing.
+    // `whitespace-pre-line` keeps the paragraph breaks, and is scoped to this
+    // branch — `white-space` inherits, so applying it to the HTML branch above
+    // would double its `[&_p]:mb-2` paragraph spacing.
+    <p
+      data-testid="description-text"
+      className="whitespace-pre-line text-xs text-muted-foreground leading-relaxed"
+    >
+      {description}
+    </p>
+  );
+
+/**
+ * Always-visible summary, for text that already came back on the search
+ * response. Summaries run to ~5,000 characters, so it stays in a short scrolling
+ * box by default — keeping a list of results scannable — and expands to full
+ * height on demand. "Show more" appears only when the text actually overflows,
+ * measured rather than derived from a hardcoded line height (this text is
+ * `text-xs`, and the card's own width affects wrapping).
+ */
+const InlineDescription = ({ description }: { description: string }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [canExpand, setCanExpand] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    // Skip while expanded: the box is unbounded then, so it never reports
+    // overflow and the control would vanish mid-read.
+    if (!el || isExpanded) return;
+    setCanExpand(el.scrollHeight > el.clientHeight + 1);
+  }, [description, isExpanded]);
+
+  return (
+    <div className="mt-1 space-y-1">
+      <div
+        ref={scrollRef}
+        data-testid="description-inline"
+        className={cn('overscroll-contain pr-1', !isExpanded && 'max-h-24 overflow-y-auto')}
+      >
+        <DescriptionBody description={description} />
+      </div>
+      {(canExpand || isExpanded) && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsExpanded((v) => !v)}
+          aria-expanded={isExpanded}
+          className="h-auto gap-1 p-0 has-[>svg]:px-0 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-primary"
+        >
+          {isExpanded ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+          {isExpanded ? 'Show less' : 'Show more'}
+        </Button>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Picks the right state for a card's summary: skeletons while a SAM.gov fetch is
+ * in flight, a retry affordance if it failed, an explicit note when the source
+ * has no description, or the text itself.
+ */
+const DescriptionSlot = ({
   description,
   isLoading,
+  hasFailed,
+  hasAttempted,
+  onRetry,
 }: {
   description: string | null;
   isLoading: boolean;
-}) => (
-  <div className="mt-3 pt-3 border-t">
-    {isLoading ? (
-      <div className="space-y-1.5">
+  hasFailed: boolean;
+  hasAttempted: boolean;
+  onRetry: () => void;
+}) => {
+  if (isLoading) {
+    return (
+      <div className="space-y-1.5" data-testid="description-loading">
         <Skeleton className="h-3 w-full" />
-        <Skeleton className="h-3 w-5/6" />
         <Skeleton className="h-3 w-4/6" />
       </div>
-    ) : description ? (
-      <div
-        className={cn(
-          'prose prose-xs max-w-none text-xs text-muted-foreground leading-relaxed',
-          '[&_p]:mb-2 [&_p:last-child]:mb-0',
-          '[&_ul]:mb-2 [&_ul]:pl-4 [&_li]:list-disc [&_li]:mb-0.5',
-          '[&_ol]:mb-2 [&_ol]:pl-4 [&_ol>li]:list-decimal',
-          '[&_strong]:font-semibold [&_strong]:text-foreground',
-          '[&_u]:underline',
-          '[&_h1]:text-sm [&_h1]:font-semibold [&_h1]:mb-1',
-          '[&_h2]:text-xs [&_h2]:font-semibold [&_h2]:mb-1',
-          '[&_h3]:text-xs [&_h3]:font-semibold [&_h3]:mb-1',
-          '[&_a]:text-primary [&_a]:underline [&_a]:hover:opacity-80',
-          '[&_br]:block',
-        )}
-        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(description) }}
-      />
-    ) : (
-      <p className="text-xs text-muted-foreground italic">No description available.</p>
-    )}
-  </div>
-);
+    );
+  }
+
+  if (description) return <InlineDescription description={description} />;
+
+  if (hasFailed) {
+    return (
+      <div className="flex items-center gap-2" data-testid="description-error">
+        <p className="text-xs text-muted-foreground italic">Couldn&apos;t load description.</p>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onRetry}
+          className="h-auto gap-1 p-0 has-[>svg]:px-0 text-xs font-normal text-primary hover:bg-transparent hover:underline"
+        >
+          <RotateCw className="size-3" />
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  // Only after a fetch has actually resolved — otherwise every card without an
+  // inline summary would claim "none" before its request even starts.
+  if (hasAttempted) {
+    return (
+      <p className="text-xs text-muted-foreground italic" data-testid="description-empty">
+        No description provided.
+      </p>
+    );
+  }
+
+  return null;
+};
 
 // ─── Opportunity card ─────────────────────────────────────────────────────────
 
@@ -208,21 +386,35 @@ const OpportunityCard = ({
   const urgency = getClosingUrgency(opp.closingDate);
   const isImporting = importingId === opp.id;
   const ref = opp.noticeId ?? opp.solicitationNumber;
-  const [expanded, setExpanded] = useState(false);
-  const { description, isLoading: descLoading, load: loadDesc } = useSamDescription(
+  // SAM.gov sends a sam.gov URL in place of the description text, so it needs a
+  // fetch. HigherGov and DIBBS already return the text inline on the search
+  // response, so for those the hook no-ops (no orgId) and the inline text is used.
+  const {
+    description: fetchedDescription,
+    isLoading: descLoading,
+    hasFailed: descFailed,
+    hasAttempted: descAttempted,
+    load: loadDesc,
+    retry: retryDesc,
+  } = useSamDescription(
     opp.source === 'SAM_GOV' ? orgId : undefined,
     opp.descriptionUrl ?? null,
   );
-
-  const handleToggleDescription = () => {
-    if (!expanded) loadDesc();
-    setExpanded((v) => !v);
-  };
+  // DIBBS maps `o.description ?? null`, which does not collapse '' to null.
+  const inlineDescription = opp.description?.trim() ? opp.description : null;
+  const needsFetch = !inlineDescription && Boolean(opp.descriptionUrl);
+  // Fetched once this card is nearly on screen, so every source ends up showing
+  // its summary without a click.
+  const cardRef = useLoadWhenVisible(needsFetch, loadDesc);
+  const description = inlineDescription ?? fetchedDescription;
 
   return (
     <Card className="group hover:shadow-md transition-all duration-200 hover:border-primary/30">
       <CardContent className="p-4">
-        <div className="flex items-start gap-4">
+        {/* The visibility ref goes here rather than on <Card>: this is React 18
+            and `Card` is a plain function component with no forwardRef, so a
+            `ref` on it would be silently dropped. */}
+        <div ref={cardRef} className="flex items-start gap-4">
           {/* Main content */}
           <div className="flex-1 min-w-0 space-y-2">
             {/* Title + source badge */}
@@ -260,6 +452,15 @@ const OpportunityCard = ({
                 </span>
               )}
             </div>
+
+            {/* Summary — inline for HigherGov/DIBBS, fetched on approach for SAM.gov */}
+            <DescriptionSlot
+              description={description}
+              isLoading={descLoading}
+              hasFailed={descFailed}
+              hasAttempted={descAttempted}
+              onRetry={retryDesc}
+            />
 
             {/* Tags row */}
             <div className="flex flex-wrap gap-1.5">
@@ -323,26 +524,8 @@ const OpportunityCard = ({
                 View source
               </a>
             )}
-            {/* SAM.gov description toggle */}
-            {opp.source === 'SAM_GOV' && opp.noticeId && (
-              <button
-                onClick={handleToggleDescription}
-                className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors"
-              >
-                {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-                {expanded ? 'Hide' : 'Description'}
-              </button>
-            )}
           </div>
         </div>
-
-        {/* Expandable description */}
-        {expanded && (
-          <DescriptionPanel
-            description={description}
-            isLoading={descLoading}
-          />
-        )}
       </CardContent>
     </Card>
   );
