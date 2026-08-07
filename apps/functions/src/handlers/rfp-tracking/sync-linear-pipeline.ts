@@ -19,7 +19,11 @@ import { buildOpportunitySk } from '@/helpers/opportunity';
 import { queryAllBySkPrefix, deleteItem, getItem, putItem, putFullItem } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
 import { nowIso } from '@/helpers/date';
+import { ensureAceTechnicalValidation } from '@/helpers/ace-stage';
+import { startAceSubmission } from '@/helpers/ace-submission';
 import type {
+  AceStage,
+  AceStageTransition,
   OpportunityApprovalTransition,
   OpportunityStatusTransition,
 } from '@auto-rfp/core';
@@ -499,6 +503,13 @@ interface ExistingRecord {
   approvalStatus?: OpportunityApprovalStatus;
   statusHistory?: OpportunityStatusTransition[];
   approvalHistory?: OpportunityApprovalTransition[];
+  // ACE / Partner Central axis — driven outside this sync (submitted-trigger
+  // and the board dropdown). buildRecord does a FULL overwrite via putFullItem,
+  // so these must be carried forward or every 15-min run would wipe them.
+  aceStage?: AceStage;
+  aceStageHistory?: AceStageTransition[];
+  apnOpportunityId?: string | null;
+  apnSyncError?: string | null;
 }
 
 /**
@@ -609,6 +620,13 @@ const buildRecord = (row: LinearRow, stage: RfpPipelineStage, existing: Existing
     updatedBy: 'system',
     updatedByName: 'Linear sync',
     syncedAt,
+    // Carry the ACE / Partner Central axis forward — this sync never sets it in
+    // the record literal (the submitted-trigger below writes it separately), but
+    // putFullItem is a full overwrite so omitting these would wipe them each run.
+    aceStage: existing?.aceStage,
+    aceStageHistory: existing?.aceStageHistory,
+    apnOpportunityId: existing?.apnOpportunityId ?? undefined,
+    apnSyncError: existing?.apnSyncError ?? undefined,
   };
 };
 
@@ -621,6 +639,11 @@ interface SyncResult {
   skippedUntracked: number;
   skippedOutOfWindow: number;
   expiredIntake: number;
+  /**
+   * ACE (Partner Central) opportunities created or advanced to
+   * 'Technical Validation' this run because an RFP transitioned into submitted.
+   */
+  aceAdvanced: number;
   byStage: Record<string, number>;
 }
 
@@ -690,6 +713,10 @@ export const syncLinearPipeline = async (): Promise<SyncResult> => {
   let skippedOutOfWindow = 0;
   let expiredIntake = 0;
   const records: ReturnType<typeof buildRecord>[] = [];
+  // oppIds that transitioned INTO the submitted stage this run (were not
+  // submitted before, are now). These trigger the ACE 'Technical Validation'
+  // auto-create AFTER the upserts land, so getOpportunity finds the record.
+  const submittedTransitions: string[] = [];
 
   for (const row of rows) {
     const stage = resolveRfpStage({ identifier: row.id, status: row.linearStatus, labels: row.labels });
@@ -712,7 +739,18 @@ export const syncLinearPipeline = async (): Promise<SyncResult> => {
       continue;
     }
     const sk = buildOpportunitySk(ORG_ID, PROJECT_ID, oppIdFor(row.id));
-    records.push(buildRecord(row, stage, existingBySk.get(sk) ?? null));
+    const existingRec = existingBySk.get(sk) ?? null;
+
+    // Transition INTO submitted: the issue resolves to `submitted` this run and
+    // was not already at status SUBMITTED (covers a brand-new record that first
+    // appears already submitted, and an existing one crossing the line now). An
+    // already-submitted item is skipped here, and ensureAceTechnicalValidation
+    // guards on aceStage too — so this never re-creates a second ACE opp.
+    if (stage === 'submitted' && existingRec?.status !== 'SUBMITTED') {
+      submittedTransitions.push(oppIdFor(row.id));
+    }
+
+    records.push(buildRecord(row, stage, existingRec));
   }
 
   const byStage = records.reduce<Record<string, number>>((acc, r) => {
@@ -724,6 +762,24 @@ export const syncLinearPipeline = async (): Promise<SyncResult> => {
   // and createdAt already preserved by buildRecord, so this no longer clobbers).
   for (const record of records) {
     await putFullItem(record);
+  }
+
+  // ACE (Partner Central): an RFP marked submitted on the board is the sole
+  // trigger for creating an ACE opportunity — advanced straight to
+  // 'Technical Validation'. Runs AFTER the upserts so the record exists for
+  // getOpportunity. Best-effort and idempotent: never fails the sync run, and
+  // an already-'Technical Validation' opp is a no-op (see ensureAceTechnicalValidation).
+  let aceAdvanced = 0;
+  for (const oppId of submittedTransitions) {
+    const outcome = await ensureAceTechnicalValidation({ orgId: ORG_ID, projectId: PROJECT_ID, oppId });
+    if (outcome === 'created' || outcome === 'advanced') aceAdvanced += 1;
+
+    // Kick off the async submit→AWS-review→advance bot for the freshly-created
+    // Partner Central opportunity. Gated by ACE_SUBMISSION_ENABLED (no-op when
+    // off) and idempotent (leaves an already in-flight submission alone). The
+    // scheduled poller then walks it to 'Technical Validation'. Best-effort:
+    // startAceSubmission never throws, so it can't fail the sync run.
+    await startAceSubmission({ orgId: ORG_ID, projectId: PROJECT_ID, oppId });
   }
 
   // Prune previously-synced records that are no longer shown. Only touch records
@@ -756,6 +812,7 @@ export const syncLinearPipeline = async (): Promise<SyncResult> => {
       skippedUntracked,
       skippedOutOfWindow,
       expiredIntake,
+      aceAdvanced,
       byStage,
     };
   }
@@ -780,6 +837,7 @@ export const syncLinearPipeline = async (): Promise<SyncResult> => {
       skippedUntracked,
       skippedOutOfWindow,
       expiredIntake,
+      aceAdvanced,
       byStage,
     };
   }
@@ -801,6 +859,7 @@ export const syncLinearPipeline = async (): Promise<SyncResult> => {
     skippedUntracked,
     skippedOutOfWindow,
     expiredIntake,
+    aceAdvanced,
     byStage,
   };
 };

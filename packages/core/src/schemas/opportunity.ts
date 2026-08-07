@@ -12,7 +12,7 @@ import { z } from 'zod';
 import { PK_NAME, SK_NAME } from '../constants';
 import { JurisdictionSchema } from './foia';
 import { WinDataSchema, LossDataSchema } from './outcome-detail';
-import { AceStageSchema, AceStageTransitionSchema } from './apn';
+import { AceStageSchema, AceStageTransitionSchema, AceSubmissionSchema } from './apn';
 
 const flexibleDateSchema = z
   .string()
@@ -307,6 +307,12 @@ export const OpportunityItemSchema = z.object({
   aceStage:         AceStageSchema.optional(),
   /** History of ACE stage changes */
   aceStageHistory:  z.array(AceStageTransitionSchema).optional(),
+  /**
+   * Progress of the automatic submit→AWS-review→advance-to-Technical-Validation
+   * pipeline. Absent until the submitted-trigger kicks it off. Driven by the
+   * scheduled ACE-submission poller. See AceSubmissionSchema.
+   */
+  aceSubmission:    AceSubmissionSchema.optional(),
   // Assignment fields
   /** User ID of the person assigned to work on this opportunity */
   assigneeId:       z.string().nullish(),
@@ -385,6 +391,7 @@ export const OpportunityCreateRequestSchema = OpportunityItemSchema.omit({
   apnSyncError: true,
   aceStage: true,
   aceStageHistory: true,
+  aceSubmission: true,
   pocUrl: true,
   pocDeployedAt: true,
   pocGenState: true,
@@ -422,6 +429,7 @@ export const OpportunityListItemSchema = z.object({
   approvalStatus: OpportunityApprovalStatusSchema.optional(),
   pipelineStage: RfpPipelineStageSchema.optional(),
   aceStage: AceStageSchema.optional(),
+  aceSubmission: AceSubmissionSchema.optional(),
   apnOpportunityId: z.string().nullish(),
   apnSyncError:     z.string().nullish(),
   active:    z.boolean().optional(),

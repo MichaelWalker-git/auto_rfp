@@ -32,6 +32,19 @@ jest.mock('@/helpers/db', () => ({
 const mockGetApiKey = jest.fn();
 jest.mock('@/helpers/api-key-storage', () => ({ getApiKey: (...args: unknown[]) => mockGetApiKey(...args) }));
 
+// ACE (Partner Central) trigger — mocked so the submitted-transition path is
+// observable without reaching Partner Central / the opportunity helpers.
+const mockEnsureAce = jest.fn();
+jest.mock('@/helpers/ace-stage', () => ({
+  ensureAceTechnicalValidation: (...args: unknown[]) => mockEnsureAce(...args),
+}));
+
+// ACE submission bot kickoff — mocked; flag-gated + idempotent in real code.
+const mockStartAceSubmission = jest.fn();
+jest.mock('@/helpers/ace-submission', () => ({
+  startAceSubmission: (...args: unknown[]) => mockStartAceSubmission(...args),
+}));
+
 // Required env is read at module load — set before importing the handler.
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.RFP_SYNC_ORG_ID = 'org-123';
@@ -52,6 +65,8 @@ beforeEach(() => {
   mockDeleteItem.mockResolvedValue(undefined);
   mockDocSend.mockResolvedValue({});
   mockPutFullItem.mockImplementation((item: unknown) => Promise.resolve(item));
+  mockEnsureAce.mockResolvedValue('created');
+  mockStartAceSubmission.mockResolvedValue('disabled');
 });
 
 /** One node in the raw GraphQL issues connection. */
@@ -506,5 +521,92 @@ describe('syncLinearPipeline — history reconstruction (backfill)', () => {
     expect(approvalHistory.map((e) => e.to)).toEqual(['INITIAL_APPROVAL', 'I_APPROVED']);
     expect(approvalHistory[0]).toMatchObject({ changedAt: '2026-07-01T00:00:00.000Z' });
     expect(approvalHistory[1]).toMatchObject({ changedAt: '2026-07-04T10:00:00.000Z' });
+  });
+});
+
+describe('syncLinearPipeline — ACE Technical Validation on submitted', () => {
+  // A submitted issue that closed recently (within the 30-day terminal window).
+  const recentCompletedAt = () => new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+
+  it('creates/advances ACE to Technical Validation when an issue transitions into submitted', async () => {
+    mockRawRequest.mockResolvedValue(
+      linearPage([
+        issueNode({ identifier: 'HOR-100', state: { name: 'Submitted' }, completedAt: recentCompletedAt() }),
+      ]),
+    );
+    // Existing record was NOT submitted before → this run is a transition.
+    mockQueryAllBySkPrefix.mockResolvedValue([
+      existingRecord('linear-hor-100', { status: 'PURSUING', approvalStatus: 'I_APPROVED' }),
+    ]);
+
+    const result = await syncLinearPipeline();
+
+    expect(mockEnsureAce).toHaveBeenCalledTimes(1);
+    expect(mockEnsureAce).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: 'org-123', projectId: 'gov-contracting', oppId: 'linear-hor-100' }),
+    );
+    expect(result.aceAdvanced).toBe(1);
+  });
+
+  it('does nothing for an already-submitted opportunity (no re-trigger)', async () => {
+    mockRawRequest.mockResolvedValue(
+      linearPage([
+        issueNode({ identifier: 'HOR-100', state: { name: 'Submitted' }, completedAt: recentCompletedAt() }),
+      ]),
+    );
+    // Existing record is ALREADY at status SUBMITTED → not a transition this run.
+    mockQueryAllBySkPrefix.mockResolvedValue([
+      existingRecord('linear-hor-100', { status: 'SUBMITTED', approvalStatus: 'SUBMITTED', aceStage: 'Technical Validation' }),
+    ]);
+
+    const result = await syncLinearPipeline();
+
+    expect(mockEnsureAce).not.toHaveBeenCalled();
+    expect(result.aceAdvanced).toBe(0);
+  });
+
+  it('does not fail the sync when the ACE push errors (best-effort)', async () => {
+    mockEnsureAce.mockResolvedValueOnce('error');
+    mockRawRequest.mockResolvedValue(
+      linearPage([
+        issueNode({ identifier: 'HOR-100', state: { name: 'Submitted' }, completedAt: recentCompletedAt() }),
+      ]),
+    );
+    mockQueryAllBySkPrefix.mockResolvedValue([
+      existingRecord('linear-hor-100', { status: 'PURSUING', approvalStatus: 'I_APPROVED' }),
+    ]);
+
+    const result = await syncLinearPipeline();
+
+    // The record was still written; only the ACE side-effect failed.
+    expect(result.written).toBe(1);
+    expect(result.aceAdvanced).toBe(0);
+    expect(mockEnsureAce).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves existing ACE / APN fields through the full-overwrite upsert', async () => {
+    // A non-submitted issue re-synced: buildRecord must carry ACE/APN forward,
+    // or putFullItem would wipe them every run.
+    mockRawRequest.mockResolvedValue(linearPage([issueNode({ identifier: 'HOR-100' })]));
+    mockQueryAllBySkPrefix.mockResolvedValue([
+      existingRecord('linear-hor-100', {
+        status: 'PURSUING',
+        approvalStatus: 'I_APPROVED',
+        aceStage: 'Technical Validation',
+        apnOpportunityId: 'O123456',
+        aceStageHistory: [
+          { from: null, to: 'Technical Validation', changedAt: '2026-07-10T00:00:00.000Z', changedBy: 'system', source: 'AUTO_SUBMITTED' },
+        ],
+      }),
+    ]);
+
+    await syncLinearPipeline();
+
+    const rec = putRecordFor('linear-hor-100');
+    expect(rec?.aceStage).toBe('Technical Validation');
+    expect(rec?.apnOpportunityId).toBe('O123456');
+    expect((rec?.aceStageHistory as unknown[])).toHaveLength(1);
+    // Not a submitted transition → no ACE trigger.
+    expect(mockEnsureAce).not.toHaveBeenCalled();
   });
 });

@@ -37,13 +37,6 @@ jest.mock('@/helpers/rfp-linear-writeback', () => ({
   writeBackApprovalToLinear: (...args: unknown[]) => mockWriteBack(...args),
 }));
 
-const mockSetAceStageLocal = jest.fn();
-const mockSyncAceStage = jest.fn();
-jest.mock('@/helpers/ace-stage', () => ({
-  setAceStageLocal: (...args: unknown[]) => mockSetAceStageLocal(...args),
-  syncAceStageToPartnerCentral: (...args: unknown[]) => mockSyncAceStage(...args),
-}));
-
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.REGION = 'us-east-1';
 
@@ -79,10 +72,6 @@ describe('decide-rfp-approval', () => {
     mockTransition.mockResolvedValue({ oppId: 'opp-1', approvalStatus: 'I_APPROVED' });
     mockWriteBack.mockReset();
     mockWriteBack.mockResolvedValue({ updated: true });
-    mockSetAceStageLocal.mockReset();
-    mockSyncAceStage.mockReset();
-    mockSetAceStageLocal.mockResolvedValue({ oppId: 'opp-1', aceStage: 'Prospect' });
-    mockSyncAceStage.mockResolvedValue(true);
   });
 
   it('returns 400 for an invalid payload', async () => {
@@ -212,67 +201,13 @@ describe('decide-rfp-approval', () => {
     expect(response).toMatchObject({ statusCode: 409 });
   });
 
-  // ── ACE (Partner Central) auto-create on gate-1 approve ──────────────────────
+  // ── ACE (Partner Central) is NOT created on gate approval anymore ────────────
+  // Submitted (handled in sync-linear-pipeline.ts) is now the sole ACE trigger.
 
-  it('gate-1 approve creates the ACE opportunity at Prospect', async () => {
-    const response = await baseHandler(makeEvent({ ...base, gate: 'INITIAL', decision: 'APPROVE' }));
-    expect(mockSetAceStageLocal).toHaveBeenCalledWith(
-      expect.objectContaining({
-        orgId: 'org-1',
-        projectId: 'proj-1',
-        oppId: 'opp-1',
-        to: 'Prospect',
-        source: 'GATE_APPROVAL',
-        changedBy: 'user-1',
-      }),
-    );
-    expect(mockSyncAceStage).toHaveBeenCalledWith(
-      expect.objectContaining({ aceStage: 'Prospect', oppId: 'opp-1' }),
-    );
-    const body = JSON.parse((response as { body: string }).body);
-    expect(body.aceSynced).toBe(true);
-  });
-
-  it('gate-1 reject does NOT create an ACE opportunity', async () => {
-    mockTransition.mockResolvedValueOnce({ oppId: 'opp-1', approvalStatus: 'NOT_APPROVED' });
-    await baseHandler(makeEvent({ ...base, gate: 'INITIAL', decision: 'REJECT' }));
-    expect(mockSetAceStageLocal).not.toHaveBeenCalled();
-    expect(mockSyncAceStage).not.toHaveBeenCalled();
-  });
-
-  it('gate-2 approve does NOT create an ACE opportunity', async () => {
-    mockGetOpportunity.mockResolvedValueOnce({ item: { approvalStatus: 'PRE_SUB_APPROVAL' }, oppId: 'opp-1' });
-    mockTransition.mockResolvedValueOnce({ oppId: 'opp-1', approvalStatus: 'II_APPROVED' });
-    await baseHandler(makeEvent({ ...base, gate: 'FINAL', decision: 'APPROVE' }));
-    expect(mockSetAceStageLocal).not.toHaveBeenCalled();
-    expect(mockSyncAceStage).not.toHaveBeenCalled();
-  });
-
-  it('skips ACE creation when the item already has an apnOpportunityId', async () => {
-    mockGetOpportunity.mockResolvedValueOnce({
-      item: { approvalStatus: 'INITIAL_APPROVAL', apnOpportunityId: 'O123456', oppId: 'linear-hor-1', id: 'linear-hor-1', noticeId: 'HOR-1' },
-      oppId: 'opp-1',
-    });
-    const response = await baseHandler(makeEvent({ ...base, gate: 'INITIAL', decision: 'APPROVE' }));
-    expect(response).toMatchObject({ statusCode: 200 });
-    expect(mockSetAceStageLocal).not.toHaveBeenCalled();
-    expect(mockSyncAceStage).not.toHaveBeenCalled();
-  });
-
-  it('still returns 200 when ACE creation throws (best-effort)', async () => {
-    mockSetAceStageLocal.mockRejectedValueOnce(new Error('DynamoDB down'));
+  it('gate-1 approve does NOT create an ACE opportunity or return aceSynced', async () => {
     const response = await baseHandler(makeEvent({ ...base, gate: 'INITIAL', decision: 'APPROVE' }));
     expect(response).toMatchObject({ statusCode: 200 });
     const body = JSON.parse((response as { body: string }).body);
-    expect(body.ok).toBe(true);
-    expect(body.aceSynced).toBe(false);
-  });
-
-  it('reports aceSynced=false when the Partner Central push fails', async () => {
-    mockSyncAceStage.mockResolvedValueOnce(false);
-    const response = await baseHandler(makeEvent({ ...base, gate: 'INITIAL', decision: 'APPROVE' }));
-    expect(response).toMatchObject({ statusCode: 200 });
-    const body = JSON.parse((response as { body: string }).body);
-    expect(body.aceSynced).toBe(false);
+    expect(body).not.toHaveProperty('aceSynced');
   });
 });

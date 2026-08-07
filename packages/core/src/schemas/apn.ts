@@ -30,17 +30,89 @@ export const ACE_STAGE_ORDER: readonly AceStage[] = [
 ];
 
 /**
- * One ACE stage change. `GATE_APPROVAL` marks the automatic Prospect set on
- * gate-1 approve; `MANUAL` marks a dropdown change from the board.
+ * One ACE stage change. `AUTO_SUBMITTED` marks the automatic
+ * 'Technical Validation' set when an RFP is marked submitted on the Linear
+ * board (creates the Partner Central opportunity); `MANUAL` marks a dropdown
+ * change from the board; `GATE_APPROVAL` is the legacy gate-1 provenance,
+ * retained for records created before submitted became the only ACE trigger.
  */
 export const AceStageTransitionSchema = z.object({
   from: AceStageSchema.nullable(),
   to: AceStageSchema,
   changedAt: z.string().datetime(),
   changedBy: z.string().min(1),
-  source: z.enum(['GATE_APPROVAL', 'MANUAL']),
+  source: z.enum(['GATE_APPROVAL', 'MANUAL', 'AUTO_SUBMITTED']),
 });
 export type AceStageTransition = z.infer<typeof AceStageTransitionSchema>;
+
+// ─── ACE Submission State Machine ─────────────────────────────────────────────
+
+/**
+ * State of the automatic "advance to Technical Validation" pipeline for one
+ * opportunity. AWS Partner Central makes this inherently async and multi-step:
+ * a new opportunity is locked at Prospect / ReviewStatus=`Pending Submission`,
+ * and its stage only becomes editable after it is submitted to AWS review and
+ * AWS approves it. This value tracks where a given opportunity is in that walk.
+ *
+ *   NONE               — no submission started (default).
+ *   ENGAGEMENT_PENDING — StartEngagementFromOpportunityTask fired; polling the
+ *                        async task (TaskStatus IN_PROGRESS) for an EngagementId.
+ *   ENGAGED            — engagement task COMPLETE; ready to SubmitOpportunity.
+ *   SUBMITTED          — SubmitOpportunity called; ReviewStatus=`Submitted`.
+ *   IN_REVIEW          — AWS is validating (ReviewStatus=`In review`).
+ *   ACTION_REQUIRED    — AWS needs changes (ReviewStatus=`Action Required`);
+ *                        paused for a human, surfaced on the board.
+ *   APPROVED           — AWS approved (ReviewStatus=`Approved`); stage now editable.
+ *   ADVANCED           — UpdateOpportunity set the stage to Technical Validation
+ *                        (terminal success).
+ *   REJECTED           — AWS disqualified the opportunity (terminal).
+ *   FAILED             — the engagement task FAILED or a hard API error (terminal
+ *                        until manually retried); see aceSubmissionError.
+ */
+export const AceSubmissionStateSchema = z.enum([
+  'NONE',
+  'ENGAGEMENT_PENDING',
+  'ENGAGED',
+  'SUBMITTED',
+  'IN_REVIEW',
+  'ACTION_REQUIRED',
+  'APPROVED',
+  'ADVANCED',
+  'REJECTED',
+  'FAILED',
+]);
+export type AceSubmissionState = z.infer<typeof AceSubmissionStateSchema>;
+
+/** States the poller no longer needs to touch. */
+export const ACE_SUBMISSION_TERMINAL_STATES: readonly AceSubmissionState[] = [
+  'ADVANCED',
+  'REJECTED',
+  'FAILED',
+];
+
+/**
+ * Per-opportunity progress record for the submit→review→advance pipeline.
+ * Stored on the opportunity item as `aceSubmission`. Every field is optional so
+ * partial progress is representable and the object is safe to merge forward.
+ */
+export const AceSubmissionSchema = z.object({
+  state: AceSubmissionStateSchema,
+  /** TaskId from StartEngagementFromOpportunityTask (oit-…), polled for completion. */
+  taskId: z.string().optional(),
+  /** EngagementId once the task completes. */
+  engagementId: z.string().optional(),
+  /** Last observed Partner Central LifeCycle.ReviewStatus (verbatim string). */
+  reviewStatus: z.string().optional(),
+  /** Human-facing reason/comments from AWS (Action Required / Rejected). Display only. */
+  reviewComments: z.string().optional(),
+  /** Last error message from a failed step (display only — never parsed). */
+  error: z.string().nullish(),
+  /** ISO datetime of the last state transition. */
+  lastStepAt: z.string().datetime().optional(),
+  /** Number of poller ticks spent on the current step (loop/backoff guard). */
+  attempts: z.number().int().nonnegative().optional(),
+});
+export type AceSubmission = z.infer<typeof AceSubmissionSchema>;
 
 /** POST /dashboard/update-ace-stage request body. */
 export const UpdateAceStageSchema = z.object({

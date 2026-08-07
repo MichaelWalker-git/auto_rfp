@@ -115,3 +115,96 @@ export const syncAceStageToPartnerCentral = async (args: AceStageSyncArgs): Prom
     return false;
   }
 };
+
+/**
+ * Outcome of an attempt to bring an opportunity's ACE stage to
+ * 'Technical Validation':
+ *   - 'created'  — the ACE stage was set and no Partner Central opportunity
+ *                  existed before (a new PC opp is created by the sync push).
+ *   - 'advanced' — the ACE stage was set and a PC opportunity already existed
+ *                  (its lifecycle stage is updated).
+ *   - 'skipped'  — already at 'Technical Validation' AND the Partner Central
+ *                  opportunity already exists (idempotent no-op).
+ *   - 'error'    — the opportunity was missing or a local write threw.
+ *
+ * Note: a record at 'Technical Validation' locally but WITHOUT an
+ * apnOpportunityId (a prior PC push failed) is NOT skipped — the push is
+ * retried and the result is 'created'/'advanced'.
+ */
+export type AceTechnicalValidationOutcome = 'created' | 'advanced' | 'skipped' | 'error';
+
+export interface EnsureAceTechnicalValidationArgs {
+  orgId: string;
+  projectId: string;
+  oppId: string;
+  /** Attribution for the stage transition. Defaults to 'system'. */
+  changedBy?: string;
+  /** Provenance recorded on the transition. Defaults to 'AUTO_SUBMITTED'. */
+  source?: AceStageTransition['source'];
+}
+
+/**
+ * Best-effort: bring an opportunity's ACE stage to 'Technical Validation',
+ * creating (or updating) the Partner Central opportunity. Used by the "RFP
+ * marked submitted" auto-trigger (Linear sync) and the one-off backfill.
+ *
+ * Idempotent: a no-op when the opportunity is already at 'Technical Validation'
+ * AND already has a Partner Central opportunity. If the stage is set locally but
+ * the PC opportunity is missing (an earlier push failed), the push is retried.
+ * The Partner Central push itself is idempotent (ClientToken = `${orgId}-${oppId}`)
+ * and non-blocking, so re-runs never create a duplicate PC opportunity.
+ *
+ * NEVER throws — a missing opportunity or a DynamoDB failure is caught and
+ * reported as 'error' so callers (a scheduled sync, a batch backfill) keep going.
+ */
+export const ensureAceTechnicalValidation = async (
+  args: EnsureAceTechnicalValidationArgs,
+): Promise<AceTechnicalValidationOutcome> => {
+  const { orgId, projectId, oppId, changedBy = 'system', source = 'AUTO_SUBMITTED' } = args;
+
+  try {
+    const existing = await getOpportunity({ orgId, projectId, oppId });
+    if (!existing) {
+      console.error(`[ace-stage] ensureAceTechnicalValidation: opportunity not found oppId=${oppId}`);
+      return 'error';
+    }
+
+    const item = existing.item as OpportunityItem;
+    const hadApnId = Boolean(item.apnOpportunityId);
+    const alreadyAtStage = item.aceStage === 'Technical Validation';
+
+    // Idempotent skip — but only once the Partner Central opportunity actually
+    // exists. If the stage was set locally on a prior run yet the PC push failed
+    // (no apnOpportunityId), retry the push instead of stranding the record.
+    if (alreadyAtStage && hadApnId) return 'skipped';
+
+    // Re-push without re-appending history when the stage is already correct
+    // locally; only write a new transition when the stage actually changes.
+    const itemForSync = alreadyAtStage
+      ? item
+      : await setAceStageLocal({
+          orgId,
+          projectId,
+          oppId,
+          to: 'Technical Validation',
+          changedBy,
+          source,
+        });
+
+    await syncAceStageToPartnerCentral({
+      orgId,
+      projectId,
+      oppId,
+      item: itemForSync,
+      aceStage: 'Technical Validation',
+    });
+
+    return hadApnId ? 'advanced' : 'created';
+  } catch (err) {
+    console.error(
+      `[ace-stage] ensureAceTechnicalValidation failed for oppId=${oppId}:`,
+      err instanceof Error ? err.message : err,
+    );
+    return 'error';
+  }
+};

@@ -4,8 +4,13 @@ import {
   UpdateOpportunityCommand,
   GetOpportunityCommand,
   SubmitOpportunityCommand,
+  StartEngagementFromOpportunityTaskCommand,
+  ListEngagementFromOpportunityTasksCommand,
   Stage,
   MarketingSource,
+  AwsFundingUsed,
+  SalesInvolvementType,
+  Visibility,
 } from '@aws-sdk/client-partnercentral-selling';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import type { AceStage } from '@auto-rfp/core';
@@ -38,6 +43,23 @@ const stageMap: Record<string, (typeof Stage)[keyof typeof Stage]> = {
   SUBMITTED: Stage.QUALIFIED,
   WON:       Stage.COMMITTED,
   LOST:      Stage.CLOSED_LOST,
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Partner Central requires `LifeCycle.TargetCloseDate` to be a FUTURE date
+ * (YYYY-MM-DD). RFPs we push are frequently already submitted, so their
+ * response deadline is in the past — which ACE rejects. Clamp any non-future
+ * date forward so the create/update always validates. A future date passes
+ * through unchanged.
+ */
+const toFutureCloseDate = (iso: string): string => {
+  const parsed = Date.parse(iso);
+  const today = Date.now();
+  // 30 days out gives ACE a comfortably-future date when the source is invalid/past.
+  const effective = !Number.isNaN(parsed) && parsed > today ? parsed : today + 30 * DAY_MS;
+  return new Date(effective).toISOString().split('T')[0];
 };
 
 // ─── Update opportunity's APN fields in DynamoDB ──────────────────────────────
@@ -107,10 +129,12 @@ export const syncToPartnerCentral = async (args: SyncToApnArgs): Promise<void> =
     aceStage ?? stageMap[proposalStatus] ?? Stage.PROSPECT;
   console.log(`[APN] Resolved stage '${stage}' (${aceStage ? 'explicit aceStage' : `mapped from '${proposalStatus}'`})`);
 
-  // Prepare LifeCycle with conditional closedLostReason
+  // Prepare LifeCycle with conditional closedLostReason.
+  // ACE requires TargetCloseDate to be in the future; submitted RFPs have past
+  // deadlines, so clamp forward.
   const lifecycle: any = {
     Stage: stage,
-    TargetCloseDate: expectedCloseDate.split('T')[0],
+    TargetCloseDate: toFutureCloseDate(expectedCloseDate),
   };
 
   // Add closedLostReason when stage is CLOSED_LOST
@@ -141,8 +165,12 @@ export const syncToPartnerCentral = async (args: SyncToApnArgs): Promise<void> =
       }],
     },
     LifeCycle: lifecycle,
+    // These opportunities are not sourced from an AWS marketing activity and use
+    // no MDF funding. ACE requires AwsFundingUsed to be set; UseCases must stay
+    // empty while AwsFundingUsed = No.
     Marketing: {
-      Source: MarketingSource.MARKETING_ACTIVITY,
+      Source: MarketingSource.NONE,
+      AwsFundingUsed: AwsFundingUsed.NO,
     },
   };
 
@@ -305,6 +333,14 @@ export const syncToPartnerCentral = async (args: SyncToApnArgs): Promise<void> =
       apnId = response.Id ?? '';
       console.log(`[APN] Create successful, APN ID: ${apnId}`);
 
+      // NOTE: ACE creates every opportunity at 'Prospect' with
+      // LifeCycle.ReviewStatus = 'Pending Submission', and the API forbids stage
+      // changes while in that state ("You can not update the stage when
+      // Opportunity status is Pending Submission"). Advancing to the requested
+      // stage (e.g. 'Technical Validation') is therefore a human step in the
+      // Partner Central console once the opportunity is submitted for review.
+      // We intentionally do NOT attempt a follow-up stage update here.
+
       // Submit for review
       if (apnId) {
         try {
@@ -337,4 +373,216 @@ export const syncToPartnerCentral = async (args: SyncToApnArgs): Promise<void> =
     // Don't throw - make it non-blocking
     console.warn(`[APN] Sync failed but continuing (non-blocking): ${errorMessage}`);
   }
+};
+
+// ─── Submission / Engagement Lifecycle (advance-to-Technical-Validation bot) ──
+//
+// AWS Partner Central makes advancing an opportunity's stage inherently async:
+// a new opp is locked at Prospect / ReviewStatus=`Pending Submission`, its stage
+// is only editable once submitted to AWS review and Approved. The low-level ops
+// below are the primitives the ace-submission state machine drives, one step per
+// scheduled poller tick. They read a submission catalog that defaults to the
+// main APN catalog but can be overridden (APN_SUBMISSION_CATALOG=Sandbox) so the
+// whole lifecycle can be exercised against the Sandbox catalog before pointing
+// it at production `AWS`.
+
+/**
+ * The catalog submissions are made against. Defaults to APN_CATALOG ('AWS',
+ * production) but can be overridden to 'Sandbox' for safe end-to-end testing.
+ */
+export const getSubmissionCatalog = (): string =>
+  process.env['APN_SUBMISSION_CATALOG'] ?? APN_CATALOG;
+
+/** Result of starting an engagement task (async — poll TaskId for completion). */
+export interface StartEngagementResult {
+  taskId?: string;
+  taskStatus?: string;
+  engagementId?: string;
+  message?: string;
+}
+
+/**
+ * Kick off StartEngagementFromOpportunityTask for an opportunity. Idempotent via
+ * ClientToken (`${orgId}-${oppId}-engage`). Returns the TaskId to poll; the task
+ * itself completes asynchronously. Throws on hard API errors — the caller
+ * (state machine) decides how to record them.
+ */
+export const startEngagementFromOpportunity = async (args: {
+  orgId: string;
+  oppId: string;
+  apnOpportunityId: string;
+}): Promise<StartEngagementResult> => {
+  const catalog = getSubmissionCatalog();
+  const client = getClient();
+  console.log(`[APN] StartEngagementFromOpportunityTask apnId=${args.apnOpportunityId} catalog=${catalog}`);
+
+  const response = await client.send(
+    new StartEngagementFromOpportunityTaskCommand({
+      Catalog: catalog,
+      Identifier: args.apnOpportunityId,
+      ClientToken: `${args.orgId}-${args.oppId}-engage`,
+      AwsSubmission: {
+        InvolvementType: SalesInvolvementType.FOR_VISIBILITY_ONLY,
+        Visibility: Visibility.FULL,
+      },
+    }),
+  );
+
+  return {
+    taskId: response.TaskId,
+    taskStatus: response.TaskStatus,
+    engagementId: response.EngagementId,
+    message: response.Message,
+  };
+};
+
+/**
+ * Poll the status of a previously-started engagement task by TaskId. Returns the
+ * latest TaskStatus (IN_PROGRESS | COMPLETE | FAILED) and, once COMPLETE, the
+ * EngagementId. Returns undefined status when the task can't be found.
+ */
+export const getEngagementTaskStatus = async (args: {
+  taskId: string;
+  apnOpportunityId: string;
+}): Promise<StartEngagementResult> => {
+  const catalog = getSubmissionCatalog();
+  const client = getClient();
+
+  const response = await client.send(
+    new ListEngagementFromOpportunityTasksCommand({
+      Catalog: catalog,
+      TaskIdentifier: [args.taskId],
+    }),
+  );
+
+  const summary = (response.TaskSummaries ?? [])[0];
+  return {
+    taskId: summary?.TaskId,
+    taskStatus: summary?.TaskStatus,
+    engagementId: summary?.EngagementId,
+    message: summary?.Message,
+  };
+};
+
+/**
+ * Submit an opportunity to AWS review (SubmitOpportunity). Requires an
+ * engagement to exist first. Throws on API errors.
+ */
+export const submitOpportunityForReview = async (args: {
+  apnOpportunityId: string;
+}): Promise<void> => {
+  const catalog = getSubmissionCatalog();
+  const client = getClient();
+  console.log(`[APN] SubmitOpportunity apnId=${args.apnOpportunityId} catalog=${catalog}`);
+
+  await client.send(
+    new SubmitOpportunityCommand({
+      Catalog: catalog,
+      Identifier: args.apnOpportunityId,
+      InvolvementType: SalesInvolvementType.FOR_VISIBILITY_ONLY,
+      Visibility: Visibility.FULL,
+    }),
+  );
+};
+
+/** The review-relevant slice of a GetOpportunity response. */
+export interface OpportunityReviewSnapshot {
+  reviewStatus?: string;
+  stage?: string;
+  reviewComments?: string;
+  reviewStatusReason?: string;
+  lastModifiedDate?: Date;
+}
+
+/**
+ * Read the current LifeCycle.ReviewStatus / Stage for an opportunity. Used by
+ * the poller to detect when AWS has moved the opp out of review. Throws on API
+ * errors.
+ */
+export const getOpportunityReviewSnapshot = async (args: {
+  apnOpportunityId: string;
+}): Promise<OpportunityReviewSnapshot> => {
+  const catalog = getSubmissionCatalog();
+  const client = getClient();
+
+  const response = await client.send(
+    new GetOpportunityCommand({
+      Catalog: catalog,
+      Identifier: args.apnOpportunityId,
+    }),
+  );
+
+  return {
+    reviewStatus: response.LifeCycle?.ReviewStatus,
+    stage: response.LifeCycle?.Stage,
+    reviewComments: response.LifeCycle?.ReviewComments,
+    reviewStatusReason: response.LifeCycle?.ReviewStatusReason,
+    lastModifiedDate: response.LastModifiedDate,
+  };
+};
+
+/**
+ * Advance an already-approved opportunity's stage. Only valid once the opp has
+ * left `Pending Submission` and is `Approved` (editable). Reuses the existing
+ * update path via syncToPartnerCentral with an explicit aceStage. Throws on
+ * hard errors so the state machine can record/retry.
+ */
+export const advanceOpportunityStage = async (args: {
+  orgId: string;
+  projectId: string;
+  oppId: string;
+  apnOpportunityId: string;
+  customerName: string;
+  opportunityTitle?: string;
+  opportunityValue: number;
+  expectedCloseDate: string;
+  aceStage: AceStage;
+}): Promise<void> => {
+  const catalog = getSubmissionCatalog();
+  const client = getClient();
+  console.log(`[APN] Advancing apnId=${args.apnOpportunityId} to stage '${args.aceStage}' catalog=${catalog}`);
+
+  // Read the latest opportunity for RevisionId / LastModifiedDate concurrency
+  // control. UpdateOpportunity validates the WHOLE object, so a LifeCycle-only
+  // patch is rejected with REQUIRED_FIELD_MISSING for Customer/Marketing — we
+  // must resend the full payload (mirrors syncToPartnerCentral's update path).
+  const current = await client.send(
+    new GetOpportunityCommand({ Catalog: catalog, Identifier: args.apnOpportunityId }),
+  ) as { RevisionId?: string; LastModifiedDate?: Date };
+
+  const advancePayload = {
+    Catalog: catalog,
+    Identifier: args.apnOpportunityId,
+    ...(current.RevisionId ? { RevisionId: current.RevisionId } : {}),
+    LastModifiedDate: current.LastModifiedDate ?? new Date(),
+    Customer: {
+      Account: {
+        CompanyName: args.customerName,
+        Industry: 'Government' as const,
+        WebsiteUrl: 'https://unknown.gov',
+        Address: { CountryCode: 'US' as const },
+      },
+    },
+    Project: {
+      Title: args.opportunityTitle || args.customerName,
+      CustomerUseCase: 'Business Applications & Contact Center' as const,
+      DeliveryModels: ['SaaS or PaaS' as const],
+      ExpectedCustomerSpend: [{
+        Amount: String(Math.max(args.opportunityValue, 1)),
+        CurrencyCode: 'USD' as const,
+        Frequency: 'Monthly' as const,
+        TargetCompany: 'AWS',
+      }],
+    },
+    LifeCycle: {
+      Stage: args.aceStage as (typeof Stage)[keyof typeof Stage],
+      TargetCloseDate: toFutureCloseDate(args.expectedCloseDate),
+    },
+    Marketing: {
+      Source: MarketingSource.NONE,
+      AwsFundingUsed: AwsFundingUsed.NO,
+    },
+  };
+
+  await client.send(new UpdateOpportunityCommand(advancePayload));
 };

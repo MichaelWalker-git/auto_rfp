@@ -19,7 +19,6 @@ import {
   InvalidApprovalTransitionError,
 } from '@/helpers/opportunity-approval';
 import { writeBackApprovalToLinear } from '@/helpers/rfp-linear-writeback';
-import { setAceStageLocal, syncAceStageToPartnerCentral } from '@/helpers/ace-stage';
 import { RfpApprovalDecisionSchema } from '@auto-rfp/core';
 import type { OpportunityApprovalStatus, Permission } from '@auto-rfp/core';
 
@@ -128,38 +127,12 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
       to: toApproval,
     });
 
-    // Gate-1 approve → create the opportunity in AWS Partner Central at stage
-    // Prospect (the only automatic ACE mapping). Best-effort like the Linear
-    // write-back: the approval is already committed, an ACE failure never
-    // fails the request. Skipped when the item is already synced to PC.
-    let aceSynced = false;
-    if (gate === 'INITIAL' && decision === 'APPROVE' && !existing.item.apnOpportunityId) {
-      try {
-        const updated = await setAceStageLocal({
-          orgId,
-          projectId,
-          oppId,
-          to: 'Prospect',
-          changedBy: userId ?? 'system',
-          source: 'GATE_APPROVAL',
-        });
-        aceSynced = await syncAceStageToPartnerCentral({
-          orgId,
-          projectId,
-          oppId,
-          item: updated,
-          aceStage: 'Prospect',
-        });
-        item = { ...item, aceStage: 'Prospect' as const };
-      } catch (aceErr: unknown) {
-        console.error(
-          `[decide-rfp-approval] ACE Prospect creation failed for oppId=${oppId}:`,
-          aceErr instanceof Error ? aceErr.message : aceErr,
-        );
-      }
-    }
+    // ACE (Partner Central) opportunities are no longer created on gate-1
+    // approve. The sole trigger is now an RFP being marked "submitted" on the
+    // Linear board, handled in sync-linear-pipeline.ts (advances the ACE stage
+    // straight to 'Technical Validation').
 
-    return apiResponse(200, { ok: true, oppId, item, linearSynced: linear.updated, aceSynced });
+    return apiResponse(200, { ok: true, oppId, item, linearSynced: linear.updated });
   } catch (err: unknown) {
     if (err instanceof Error && err.name === 'ConditionalCheckFailedException') {
       return apiResponse(404, { ok: false, error: 'Opportunity not found' });

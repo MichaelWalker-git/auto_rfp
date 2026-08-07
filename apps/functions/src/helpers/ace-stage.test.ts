@@ -17,7 +17,7 @@ jest.mock('@/helpers/date', () => ({
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.REGION = 'us-east-1';
 
-import { setAceStageLocal, syncAceStageToPartnerCentral } from './ace-stage';
+import { setAceStageLocal, syncAceStageToPartnerCentral, ensureAceTechnicalValidation } from './ace-stage';
 import type { OpportunityItem } from '@auto-rfp/core';
 
 const ids = { orgId: 'org-1', projectId: 'proj-1', oppId: 'opp-1' };
@@ -160,5 +160,81 @@ describe('syncAceStageToPartnerCentral', () => {
       ...ids, item: baseItem as OpportunityItem, aceStage: 'Prospect',
     });
     expect(synced).toBe(false);
+  });
+});
+
+describe('ensureAceTechnicalValidation', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSyncOpportunityToApn.mockResolvedValue(undefined);
+    mockUpdateOpportunity.mockImplementation(async ({ patch }: { patch: Record<string, unknown> }) => ({
+      item: { ...baseItem, ...patch },
+    }));
+    // After a local write + PC push, the re-read reports a synced PC opportunity.
+    mockGetOpportunity.mockResolvedValue({ item: { ...baseItem, apnOpportunityId: 'O123', apnSyncError: null } });
+  });
+
+  it("returns 'error' (never throws) when the opportunity is missing", async () => {
+    mockGetOpportunity.mockResolvedValue(null);
+    await expect(ensureAceTechnicalValidation(ids)).resolves.toBe('error');
+    expect(mockUpdateOpportunity).not.toHaveBeenCalled();
+  });
+
+  it("sets the stage and returns 'created' when no PC opportunity existed", async () => {
+    // First read: no apnOpportunityId. Subsequent reads (post-sync): synced.
+    mockGetOpportunity
+      .mockResolvedValueOnce({ item: { ...baseItem } })
+      .mockResolvedValue({ item: { ...baseItem, apnOpportunityId: 'O123', apnSyncError: null } });
+
+    const outcome = await ensureAceTechnicalValidation(ids);
+
+    expect(outcome).toBe('created');
+    const { patch } = mockUpdateOpportunity.mock.calls[0][0];
+    expect(patch.aceStage).toBe('Technical Validation');
+    expect(patch.aceStageHistory[0]).toMatchObject({ to: 'Technical Validation', source: 'AUTO_SUBMITTED', changedBy: 'system' });
+    expect(mockSyncOpportunityToApn).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns 'advanced' when a PC opportunity already existed", async () => {
+    mockGetOpportunity.mockResolvedValue({ item: { ...baseItem, apnOpportunityId: 'O555' } });
+
+    const outcome = await ensureAceTechnicalValidation(ids);
+
+    expect(outcome).toBe('advanced');
+    expect(mockSyncOpportunityToApn).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips (no writes) when already at Technical Validation AND a PC opp exists", async () => {
+    mockGetOpportunity.mockResolvedValue({
+      item: { ...baseItem, aceStage: 'Technical Validation', apnOpportunityId: 'O999' },
+    });
+
+    const outcome = await ensureAceTechnicalValidation(ids);
+
+    expect(outcome).toBe('skipped');
+    expect(mockUpdateOpportunity).not.toHaveBeenCalled();
+    expect(mockSyncOpportunityToApn).not.toHaveBeenCalled();
+  });
+
+  it("retries the PC push (no new history) when stage is set locally but the PC opp is missing", async () => {
+    // Simulates a record stranded by an earlier failed push: stage set, no apnId.
+    mockGetOpportunity.mockResolvedValue({
+      item: { ...baseItem, aceStage: 'Technical Validation', apnOpportunityId: undefined, apnSyncError: 'BUSINESS_VALIDATION_EXCEPTION' },
+    });
+
+    const outcome = await ensureAceTechnicalValidation(ids);
+
+    expect(outcome).toBe('created');
+    // Stage already correct locally — no new transition appended.
+    expect(mockUpdateOpportunity).not.toHaveBeenCalled();
+    // But the PC push IS retried.
+    expect(mockSyncOpportunityToApn).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns 'error' (never throws) when a local write throws", async () => {
+    mockGetOpportunity.mockResolvedValue({ item: { ...baseItem } });
+    mockUpdateOpportunity.mockRejectedValueOnce(new Error('dynamo down'));
+
+    await expect(ensureAceTechnicalValidation(ids)).resolves.toBe('error');
   });
 });
