@@ -114,6 +114,7 @@ function toSlim(o: any): SamOpportunitySearchResult {
     fullParentPathName: o?.fullParentPathName,
     fullParentPathCode: o?.fullParentPathCode,
     description: o?.description,
+    uiLink: o?.uiLink,
     baseAndAllOptionsValue,
     award: o?.award,
     attachmentsCount,
