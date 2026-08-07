@@ -15,6 +15,17 @@ import type { FormValues } from './SearchOpportunityForm';
 /** Default page size; kept out of the URL so links stay readable. */
 const DEFAULT_LIMIT = 25;
 
+/**
+ * A `limit` off the URL is untrusted: a hand-crafted `?limit=abc` yields `NaN`,
+ * and a negative/zero value is meaningless to the API. Fall back to the default
+ * unless it parses to a positive integer.
+ */
+const parseLimit = (raw: string | null): number => {
+  if (raw === null) return DEFAULT_LIMIT;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : DEFAULT_LIMIT;
+};
+
 /** `MM/dd/yyyy` (how saved searches store dates) → `yyyy-MM-dd` (what the URL uses). */
 const mmDdYyyyToIso = (d?: string): string | undefined => {
   if (!d) return undefined;
@@ -117,6 +128,6 @@ export const paramsToCriteria = (p: URLSearchParams): SearchOpportunityCriteria 
     closingTo:           p.get('closingTo') ?? undefined,
     higherGovSourceType: p.get('hgSource') ?? undefined,
     higherGovSearchId:   p.get('hgId') ?? undefined,
-    limit:               p.has('limit') ? Number(p.get('limit')) : DEFAULT_LIMIT,
+    limit:               parseLimit(p.get('limit')),
   };
 };

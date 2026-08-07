@@ -65,6 +65,14 @@ describe('paramsToCriteria', () => {
     expect(restored?.sources).toEqual(['HIGHER_GOV']);
   });
 
+  it('falls back to the default limit for a garbage or non-positive value', () => {
+    // A hand-crafted `?limit=abc` used to pass NaN straight to the search API.
+    expect(paramsToCriteria(new URLSearchParams({ hgId: SEARCH_ID, limit: 'abc' }))?.limit).toBe(25);
+    expect(paramsToCriteria(new URLSearchParams({ hgId: SEARCH_ID, limit: '0' }))?.limit).toBe(25);
+    expect(paramsToCriteria(new URLSearchParams({ hgId: SEARCH_ID, limit: '-5' }))?.limit).toBe(25);
+    expect(paramsToCriteria(new URLSearchParams({ hgId: SEARCH_ID, limit: '50' }))?.limit).toBe(50);
+  });
+
   it('round-trips an id alongside other filters', () => {
     const original = {
       higherGovSearchId: SEARCH_ID,
