@@ -259,7 +259,11 @@ const buildOpportunityFields = (args: {
       DeliveryModels: ['SaaS or PaaS' as const],
       // Satisfies "associate at least one solution OR provide a description";
       // we have no catalog Solution id, so we describe the offered solution.
-      OtherSolutionDescription: businessProblem,
+      // ACE caps this field at 255 chars (CustomerBusinessProblem allows ~2000),
+      // so truncate independently — the full prose still lands on the problem
+      // field. Verified against the Sandbox catalog: the un-truncated value fails
+      // with INVALID_STRING_FORMAT (pattern (?s).{0,255}).
+      OtherSolutionDescription: businessProblem.slice(0, 255),
       ExpectedCustomerSpend: spend,
     },
     Marketing: {
