@@ -260,3 +260,39 @@ describe('htmlToDocxBuffer — furniture layout parity with PDF', () => {
     }
   });
 });
+
+describe('htmlToDocxBuffer — page numbers are live Word fields', () => {
+  it('emits fldChar/instrText field structure, not a frozen number', async () => {
+    const buf = await htmlToDocxBuffer('<p>Body</p>', {
+      furniture: furniture({
+        footer: {
+          enabled: true,
+          html: '<p>Page {{PAGE_NUMBER}} of {{TOTAL_PAGES}}</p>',
+          align: 'CENTER',
+          heightIn: 0.5,
+        },
+      }),
+    });
+
+    const JSZipMod = (await import('jszip')).default;
+    const zip = await JSZipMod.loadAsync(buf);
+    const footers = Object.keys(zip.files).filter((n) => /footer\d*\.xml$/.test(n));
+    const xmls = await Promise.all(footers.map((n) => zip.files[n].async('string')));
+    const withField = xmls.filter((x) => /PAGE/.test(x));
+
+    expect(withField.length).toBeGreaterThan(0);
+    for (const xml of withField) {
+      // A live field is: fldChar begin -> instrText PAGE -> fldChar end. Word
+      // recomputes it on repagination.
+      expect((xml.match(/w:fldCharType="begin"/g) ?? []).length).toBeGreaterThanOrEqual(2);
+      expect((xml.match(/w:fldCharType="end"/g) ?? []).length).toBeGreaterThanOrEqual(2);
+      expect(xml).toMatch(/<w:instrText[^>]*>\s*PAGE\s*<\/w:instrText>/);
+      expect(xml).toMatch(/<w:instrText[^>]*>\s*NUMPAGES\s*<\/w:instrText>/);
+
+      // The decisive check: no literal digit anywhere in the footer's text runs.
+      // A baked-in number would go stale the moment anyone edits the document.
+      const texts = (xml.match(/<w:t[^>]*>[^<]*<\/w:t>/g) ?? []).map((t) => t.replace(/<[^>]+>/g, ''));
+      expect(texts.some((t) => /\d/.test(t))).toBe(false);
+    }
+  });
+});
