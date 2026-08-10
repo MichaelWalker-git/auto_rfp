@@ -30,8 +30,6 @@ interface FurnitureEditorProps {
   disabled?: boolean;
   /** Uploads a file to S3 and resolves to its key. */
   onUploadImage?: (file: File) => Promise<string>;
-  /** Resolves an S3 key to a viewable URL, so the preview can show images. */
-  onGetDownloadUrl?: (key: string) => Promise<string>;
 }
 
 /**
@@ -49,7 +47,6 @@ export const FurnitureEditor = ({
   onChange,
   disabled = false,
   onUploadImage,
-  onGetDownloadUrl,
 }: FurnitureEditorProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -135,7 +132,7 @@ export const FurnitureEditor = ({
         preview, so an empty band stays compact.
       */}
       {value.enabled && value.html.trim().length > 0 && (
-        <FurniturePreview value={value} onGetDownloadUrl={onGetDownloadUrl} />
+        <FurniturePreview value={value} />
       )}
 
       <Textarea

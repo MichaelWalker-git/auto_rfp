@@ -9,8 +9,6 @@ import { useResolvedFurnitureImages } from '../hooks/useResolvedFurnitureImages'
 interface FurniturePreviewProps {
   /** The band to preview. */
   value: PageFurniture;
-  /** Resolves an S3 key to a temporary viewable URL. */
-  onGetDownloadUrl?: (key: string) => Promise<string>;
   className?: string;
 }
 
@@ -34,8 +32,9 @@ interface FurniturePreviewProps {
  *    render as labelled chips. `{{PAGE_NUMBER}}`/`{{TOTAL_PAGES}}` get `#`/`##`
  *    because the renderer computes them per page.
  */
-export const FurniturePreview = ({ value, onGetDownloadUrl, className }: FurniturePreviewProps) => {
-  const { resolved, failedKeys } = useResolvedFurnitureImages([value.html], onGetDownloadUrl);
+export const FurniturePreview = ({ value, className }: FurniturePreviewProps) => {
+  // Resolution goes through the shared presign cache; see useResolvedFurnitureImages.
+  const { resolved, failedKeys } = useResolvedFurnitureImages([value.html]);
 
   const maxImgPx = Math.max(8, Math.round(value.heightIn * 96));
 

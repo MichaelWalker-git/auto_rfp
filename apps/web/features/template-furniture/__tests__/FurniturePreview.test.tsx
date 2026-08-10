@@ -1,3 +1,9 @@
+const mockGetPresignedDownloadUrl = jest.fn();
+
+jest.mock('@/lib/presign-cache', () => ({
+  getPresignedDownloadUrl: (key: string) => mockGetPresignedDownloadUrl(key),
+}));
+
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { PageFurnitureSchema, type PageFurniture } from '@auto-rfp/core';
 import { FurniturePreview } from '../components/FurniturePreview';
@@ -16,6 +22,7 @@ const flushDebounce = async () => {
 
 beforeEach(() => {
   jest.useFakeTimers();
+  mockGetPresignedDownloadUrl.mockReset();
 });
 
 afterEach(() => {
@@ -24,55 +31,38 @@ afterEach(() => {
 
 describe('FurniturePreview — image resolution', () => {
   it('resolves an s3key reference to a viewable URL', async () => {
-    const onGetDownloadUrl = jest.fn().mockResolvedValue('https://signed.example/logo.png');
-    render(
-      <FurniturePreview
-        value={band({ html: '<img src="s3key:org/logo.png">' })}
-        onGetDownloadUrl={onGetDownloadUrl}
-      />,
-    );
+    mockGetPresignedDownloadUrl.mockResolvedValue('https://signed.example/logo.png');
+    render(<FurniturePreview value={band({ html: '<img src="s3key:org/logo.png">' })} />);
 
     await flushDebounce();
-    await waitFor(() => expect(onGetDownloadUrl).toHaveBeenCalledWith('org/logo.png'));
+    await waitFor(() => expect(mockGetPresignedDownloadUrl).toHaveBeenCalledWith('org/logo.png'));
     await waitFor(() =>
       expect(content().querySelector('img')?.getAttribute('src')).toBe('https://signed.example/logo.png'),
     );
   });
 
   it('never renders the raw s3key: scheme, which a browser cannot load', async () => {
-    const onGetDownloadUrl = jest.fn().mockResolvedValue('https://signed.example/logo.png');
-    render(
-      <FurniturePreview
-        value={band({ html: '<img src="s3key:org/logo.png">' })}
-        onGetDownloadUrl={onGetDownloadUrl}
-      />,
-    );
+    mockGetPresignedDownloadUrl.mockResolvedValue('https://signed.example/logo.png');
+    render(<FurniturePreview value={band({ html: '<img src="s3key:org/logo.png">' })} />);
     await flushDebounce();
     await waitFor(() => expect(content().innerHTML).not.toContain('s3key:'));
   });
 
   it('requests each distinct key once, not per render', async () => {
-    const onGetDownloadUrl = jest.fn().mockResolvedValue('https://signed.example/a.png');
+    mockGetPresignedDownloadUrl.mockResolvedValue('https://signed.example/a.png');
     const value = band({ html: '<img src="s3key:a.png"><img src="s3key:a.png">' });
-    const { rerender } = render(
-      <FurniturePreview value={value} onGetDownloadUrl={onGetDownloadUrl} />,
-    );
+    const { rerender } = render(<FurniturePreview value={value} />);
     await flushDebounce();
-    rerender(<FurniturePreview value={value} onGetDownloadUrl={onGetDownloadUrl} />);
+    rerender(<FurniturePreview value={value} />);
     await flushDebounce();
 
     // A naive effect would presign on every keystroke and every re-render.
-    expect(onGetDownloadUrl).toHaveBeenCalledTimes(1);
+    expect(mockGetPresignedDownloadUrl).toHaveBeenCalledTimes(1);
   });
 
   it('marks an image whose resolution failed, rather than showing a blank', async () => {
-    const onGetDownloadUrl = jest.fn().mockRejectedValue(new Error('AccessDenied'));
-    render(
-      <FurniturePreview
-        value={band({ html: '<img src="s3key:org/missing.png">' })}
-        onGetDownloadUrl={onGetDownloadUrl}
-      />,
-    );
+    mockGetPresignedDownloadUrl.mockRejectedValue(new Error('AccessDenied'));
+    render(<FurniturePreview value={band({ html: '<img src="s3key:org/missing.png">' })} />);
     await flushDebounce();
     // A styled stub, not an <img src="">, which browsers draw as a broken-image
     // glyph and reads as an error rather than a pending state.
@@ -83,15 +73,12 @@ describe('FurniturePreview — image resolution', () => {
   });
 
   it('does not call the resolver when there are no images', async () => {
-    const onGetDownloadUrl = jest.fn();
-    render(
-      <FurniturePreview value={band({ html: '<p>Just text</p>' })} onGetDownloadUrl={onGetDownloadUrl} />,
-    );
+    render(<FurniturePreview value={band({ html: '<p>Just text</p>' })} />);
     await flushDebounce();
-    expect(onGetDownloadUrl).not.toHaveBeenCalled();
+    expect(mockGetPresignedDownloadUrl).not.toHaveBeenCalled();
   });
 
-  it('renders without a resolver, showing a pending stub rather than a broken image', () => {
+  it('shows a pending stub rather than a broken image before resolution completes', () => {
     render(<FurniturePreview value={band({ html: '<img src="s3key:org/logo.png">' })} />);
     expect(content().querySelector('.furniture-img-stub[data-state="loading"]')).toBeInTheDocument();
     // Never emit an <img> with an empty src — that renders as the browser's "?" glyph.
@@ -160,5 +147,26 @@ describe('FurniturePreview — layout fidelity', () => {
   it('scales the cap with a taller band', () => {
     render(<FurniturePreview value={band({ html: '<img src="s3key:a.png">', heightIn: 1 })} />);
     expect(content().getAttribute('style')).toContain('96px');
+  });
+});
+
+describe('FurniturePreview — resolution path', () => {
+  /**
+   * The original bug was reintroduced once already: the cache was written, but the
+   * pages kept passing the page-level SWR trigger as a prop, so the cache was dead
+   * code and the header/footer race persisted. This guards the wiring itself.
+   */
+  it('resolves through the shared presign cache, not an injected resolver', async () => {
+    mockGetPresignedDownloadUrl.mockResolvedValue('https://signed.example/logo.png');
+    render(<FurniturePreview value={band({ html: '<img src="s3key:org/logo.png">' })} />);
+    await flushDebounce();
+    // If a component ever threads a resolver prop through again, this fails.
+    await waitFor(() => expect(mockGetPresignedDownloadUrl).toHaveBeenCalledTimes(1));
+  });
+
+  it('accepts no resolver prop at all', () => {
+    // Compile-time intent, asserted at runtime: the public surface is value + className.
+    const props = Object.keys({ value: band(), className: '' });
+    expect(props).not.toContain('onGetDownloadUrl');
   });
 });

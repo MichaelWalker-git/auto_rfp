@@ -288,7 +288,6 @@ export default function CreateTemplatePage() {
               bodyHtml={content}
               disabled={isDisabled}
               onUploadImage={handleUploadImageToS3}
-          onGetDownloadUrl={handleGetDownloadUrl}
             />
           </div>
         </div>
@@ -302,7 +301,6 @@ export default function CreateTemplatePage() {
           bodyHtml={content}
           disabled={isDisabled}
           onUploadImage={handleUploadImageToS3}
-          onGetDownloadUrl={handleGetDownloadUrl}
         />
       </div>
 

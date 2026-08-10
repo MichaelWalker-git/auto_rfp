@@ -1313,10 +1313,10 @@ export const RichTextEditor = ({
   // Presign the furniture images once here, so every page sheet reuses the same
   // resolved URLs rather than each requesting its own.
   const { resolved: resolvedFurnitureImages, failedKeys: failedFurnitureImages } =
-    useResolvedFurnitureImages(
-      [furniture?.header.html ?? '', furniture?.footer.html ?? ''],
-      onGetDownloadUrl,
-    );
+    useResolvedFurnitureImages([
+      furniture?.header.html ?? '',
+      furniture?.footer.html ?? '',
+    ]);
 
   const initializedRef = useRef(false);
 
