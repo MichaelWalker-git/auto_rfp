@@ -125,8 +125,24 @@ export type FurnitureSectionOverride = z.infer<typeof FurnitureSectionOverrideSc
  * pre-existing template rendering byte-identically to before this feature.
  */
 export const TemplateFurnitureSchema = z.object({
-  header: PageFurnitureSchema.default({}),
-  footer: PageFurnitureSchema.default({}),
+  /**
+   * Defaults to LEFT. Western reading order puts the eye top-left first, so that
+   * is where branding belongs — it is the near-universal convention for RFP
+   * responses, proposals and corporate reports. A centred logo reads as a title
+   * page or letterhead.
+   */
+  header: PageFurnitureSchema.extend({
+    align: PageFurnitureAlignmentSchema.default('LEFT'),
+  }).default({}),
+  /**
+   * Defaults to CENTER. An evaluator flipping pages tracks a fixed centre point
+   * more easily than one that shifts, and government formatting instructions
+   * frequently mandate centred page numbers. Matches our own executive brief
+   * export (`export-brief-docx.ts`), which centres its footer.
+   */
+  footer: PageFurnitureSchema.extend({
+    align: PageFurnitureAlignmentSchema.default('CENTER'),
+  }).default({}),
   /** Overrides keyed by 0-based page-break section index. Empty ⇒ defaults apply to all pages. */
   sectionOverrides: z.array(FurnitureSectionOverrideSchema).max(50).default([]),
 });

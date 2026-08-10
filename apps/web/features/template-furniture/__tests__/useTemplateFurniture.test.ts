@@ -32,9 +32,15 @@ describe('useTemplateFurniture', () => {
     const { result } = renderHook(() => useTemplateFurniture());
     act(() => result.current.updateFooter({ html: '<p>F</p>', align: 'RIGHT', heightIn: 0.75 }));
     expect(result.current.furniture.footer.align).toBe('RIGHT');
-    expect(result.current.furniture.footer.heightIn) .toBe(0.75);
-    // The header must be untouched.
-    expect(result.current.furniture.header.align).toBe('CENTER');
+    expect(result.current.furniture.footer.heightIn).toBe(0.75);
+    // The header must be untouched, and keeps its own LEFT default.
+    expect(result.current.furniture.header.align).toBe('LEFT');
+  });
+
+  it('starts with the professional defaults: header left, footer centred', () => {
+    const { result } = renderHook(() => useTemplateFurniture());
+    expect(result.current.furniture.header.align).toBe('LEFT');
+    expect(result.current.furniture.footer.align).toBe('CENTER');
   });
 
   it('defaults every section to visible', () => {

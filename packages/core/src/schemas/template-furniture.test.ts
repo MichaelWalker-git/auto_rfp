@@ -60,6 +60,23 @@ describe('TemplateFurnitureSchema', () => {
     expect(data?.footer.enabled).toBe(true);
   });
 
+  it('defaults the header to LEFT, the professional convention for branding', () => {
+    // Western reading order puts the eye top-left, which is where a logo belongs
+    // in an RFP response. A centred logo reads as a title page.
+    expect(TemplateFurnitureSchema.parse({}).header.align).toBe('LEFT');
+  });
+
+  it('defaults the footer to CENTER, matching our own brief export', () => {
+    // Evaluators track a fixed centre point when flipping pages, and government
+    // formatting instructions frequently mandate centred page numbers.
+    expect(TemplateFurnitureSchema.parse({}).footer.align).toBe('CENTER');
+  });
+
+  it('still honours an explicit alignment over the per-band default', () => {
+    const parsed = TemplateFurnitureSchema.parse({ header: { align: 'RIGHT' } });
+    expect(parsed.header.align).toBe('RIGHT');
+  });
+
   it('caps sectionOverrides to guard the DynamoDB item size', () => {
     const tooMany = Array.from({ length: 51 }, (_, i) => ({ sectionIndex: i }));
     expect(TemplateFurnitureSchema.safeParse({ sectionOverrides: tooMany }).success).toBe(false);
