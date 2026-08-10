@@ -74,10 +74,12 @@ describe('FurniturePreview — image resolution', () => {
       />,
     );
     await flushDebounce();
-    // Mirrors the export path, which keeps an unresolvable placeholder visible.
+    // A styled stub, not an <img src="">, which browsers draw as a broken-image
+    // glyph and reads as an error rather than a pending state.
     await waitFor(() =>
-      expect(content().querySelector('img[data-furniture-img-failed]')).toBeInTheDocument(),
+      expect(content().querySelector('.furniture-img-stub[data-state="failed"]')).toBeInTheDocument(),
     );
+    expect(content().querySelector('img')).not.toBeInTheDocument();
   });
 
   it('does not call the resolver when there are no images', async () => {
@@ -89,9 +91,16 @@ describe('FurniturePreview — image resolution', () => {
     expect(onGetDownloadUrl).not.toHaveBeenCalled();
   });
 
-  it('renders without a resolver, leaving the image unresolved', () => {
+  it('renders without a resolver, showing a pending stub rather than a broken image', () => {
     render(<FurniturePreview value={band({ html: '<img src="s3key:org/logo.png">' })} />);
-    expect(content().querySelector('img[data-furniture-img-loading]')).toBeInTheDocument();
+    expect(content().querySelector('.furniture-img-stub[data-state="loading"]')).toBeInTheDocument();
+    // Never emit an <img> with an empty src — that renders as the browser's "?" glyph.
+    expect(content().querySelector('img')).not.toBeInTheDocument();
+  });
+
+  it('never emits an img with an empty src', () => {
+    render(<FurniturePreview value={band({ html: '<img src="s3key:a.png"><img src="s3key:b.png">' })} />);
+    expect(content().innerHTML).not.toContain('src=""');
   });
 });
 
