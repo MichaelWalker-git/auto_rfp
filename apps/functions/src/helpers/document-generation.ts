@@ -183,11 +183,18 @@ export const resolveTemplateHtml = async (
  *
  * Uses the same template resolution as `resolveTemplateHtml` so the furniture
  * always comes from the template that supplied the body.
+ *
+ * Macros in the header/footer are resolved here, at the same point the body's are.
+ * Without this a `{{COMPANY_NAME}}` in a header reached the renderer verbatim and
+ * printed as literal `{{COMPANY_NAME}}` on every page. The reserved page tokens
+ * are deliberately left intact — `replaceMacros` skips them so each renderer can
+ * map them to a live page-number field.
  */
 export const resolveTemplateFurniture = async (
   orgId: string,
   documentType: string,
   templateId?: string,
+  macroValues?: Record<string, string>,
 ): Promise<{ templateId?: string; furniture?: TemplateFurniture }> => {
   try {
     const template = templateId
@@ -195,7 +202,19 @@ export const resolveTemplateFurniture = async (
       : await findBestTemplate(orgId, documentType);
 
     if (!template) return {};
-    return { templateId: template.id, furniture: template.furniture };
+    if (!template.furniture) return { templateId: template.id };
+
+    const resolveHtml = (html: string): string =>
+      macroValues ? replaceMacros(html, macroValues) : html;
+
+    return {
+      templateId: template.id,
+      furniture: {
+        ...template.furniture,
+        header: { ...template.furniture.header, html: resolveHtml(template.furniture.header.html) },
+        footer: { ...template.furniture.footer, html: resolveHtml(template.furniture.footer.html) },
+      },
+    };
   } catch (err) {
     // Never fail generation over furniture — a document without a header is far
     // better than no document.
