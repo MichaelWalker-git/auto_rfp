@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { FurniturePreview } from './FurniturePreview';
 
 const ALIGNMENTS: { value: PageFurnitureAlignment; label: string }[] = [
   { value: 'LEFT', label: 'Left' },
@@ -29,6 +30,8 @@ interface FurnitureEditorProps {
   disabled?: boolean;
   /** Uploads a file to S3 and resolves to its key. */
   onUploadImage?: (file: File) => Promise<string>;
+  /** Resolves an S3 key to a viewable URL, so the preview can show images. */
+  onGetDownloadUrl?: (key: string) => Promise<string>;
 }
 
 /**
@@ -46,6 +49,7 @@ export const FurnitureEditor = ({
   onChange,
   disabled = false,
   onUploadImage,
+  onGetDownloadUrl,
 }: FurnitureEditorProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -124,6 +128,16 @@ export const FurnitureEditor = ({
         </div>
       </div>
 
+      {/*
+        Rendered preview. The textarea below holds raw HTML, so an uploaded logo
+        appears there only as `<img src="s3key:...">` — unreadable to a browser and
+        the reason the editor looked broken. Shown only when there is something to
+        preview, so an empty band stays compact.
+      */}
+      {value.enabled && value.html.trim().length > 0 && (
+        <FurniturePreview value={value} onGetDownloadUrl={onGetDownloadUrl} />
+      )}
+
       <Textarea
         ref={textareaRef}
         value={value.html}
@@ -174,7 +188,7 @@ export const FurnitureEditor = ({
         </Button>
 
         <div className="flex items-center gap-1.5 ml-auto">
-          <Label htmlFor={`furniture-${kind}-height`} className="text-xs text-slate-500">
+          <Label htmlFor={`furniture-${kind}-height`} className="text-xs text-muted-foreground">
             Height (in)
           </Label>
           <Input
@@ -195,7 +209,7 @@ export const FurnitureEditor = ({
       </div>
 
       {uploadError && (
-        <p className="text-xs text-red-600" role="alert">{uploadError}</p>
+        <p className="text-xs text-destructive" role="alert">{uploadError}</p>
       )}
 
       <input
