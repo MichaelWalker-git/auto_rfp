@@ -519,8 +519,7 @@ export default function EditTemplatePage() {
                 onChange={setContent}
                 disabled={isUpdating}
                 minHeight="500px"
-                furniture={furnitureState.furniture}
-              onUploadImageToS3={handleUploadImageToS3}
+                onUploadImageToS3={handleUploadImageToS3}
                 onGetDownloadUrl={handleGetDownloadUrl}
                 onUploadingChange={setIsImageUploading}
                 onEditorReady={(editor) => { editorRef.current = editor; }}

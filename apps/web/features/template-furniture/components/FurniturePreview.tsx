@@ -49,8 +49,17 @@ export const FurniturePreview = ({ value, className }: FurniturePreviewProps) =>
 
   return (
     <div className={cn('rounded-md border border-border bg-muted/30 px-2 py-1.5', className)}>
-      <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-        Preview
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          Preview
+        </span>
+        {/*
+          The template canvas cannot show running furniture — ProseMirror is one
+          continuous text stream, so a page's "margin" is really the previous
+          page's body text. This strip is therefore the only place it is shown,
+          and it has to say that the band repeats.
+        */}
+        <span className="text-[9px] text-muted-foreground/70">repeats on every page</span>
       </div>
       <div
         data-testid="furniture-preview-content"
