@@ -538,7 +538,6 @@ export default function EditTemplatePage() {
               bodyHtml={content}
               disabled={isDisabled}
               onUploadImage={handleUploadImageToS3}
-          onGetDownloadUrl={handleGetDownloadUrl}
             />
           </div>
         </div>
@@ -552,7 +551,6 @@ export default function EditTemplatePage() {
           bodyHtml={content}
           disabled={isDisabled}
           onUploadImage={handleUploadImageToS3}
-          onGetDownloadUrl={handleGetDownloadUrl}
         />
       </div>
 

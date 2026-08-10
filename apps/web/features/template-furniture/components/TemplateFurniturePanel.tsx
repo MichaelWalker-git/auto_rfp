@@ -15,8 +15,6 @@ interface TemplateFurniturePanelProps {
   bodyHtml: string;
   disabled?: boolean;
   onUploadImage?: (file: File) => Promise<string>;
-  /** Resolves an S3 key to a viewable URL, for the preview strips. */
-  onGetDownloadUrl?: (key: string) => Promise<string>;
 }
 
 /**
@@ -84,7 +82,6 @@ export const TemplateFurniturePanel = ({
   bodyHtml,
   disabled = false,
   onUploadImage,
-  onGetDownloadUrl,
 }: TemplateFurniturePanelProps) => {
   const { furniture, updateHeader, updateFooter, setSectionOverride, sectionVisibility } = furnitureState;
 
@@ -117,7 +114,6 @@ export const TemplateFurniturePanel = ({
             onChange={updateHeader}
             disabled={disabled}
             onUploadImage={onUploadImage}
-            onGetDownloadUrl={onGetDownloadUrl}
           />
         </FurnitureGroup>
 
@@ -131,7 +127,6 @@ export const TemplateFurniturePanel = ({
             onChange={updateFooter}
             disabled={disabled}
             onUploadImage={onUploadImage}
-            onGetDownloadUrl={onGetDownloadUrl}
           />
         </FurnitureGroup>
 
