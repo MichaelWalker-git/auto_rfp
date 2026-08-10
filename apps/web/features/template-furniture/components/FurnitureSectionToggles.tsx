@@ -1,7 +1,6 @@
 'use client';
 
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import type { FurnitureSection } from '../lib/sections';
 
 interface FurnitureSectionTogglesProps {
@@ -30,7 +29,7 @@ export const FurnitureSectionToggles = ({
 }: FurnitureSectionTogglesProps) => {
   if (sections.length <= 1) {
     return (
-      <p className="text-xs text-slate-500">
+      <p className="text-xs text-muted-foreground">
         Insert a page break in the template to control the header and footer separately
         for each part of the document (for example, to hide them on a cover page).
       </p>
@@ -39,7 +38,7 @@ export const FurnitureSectionToggles = ({
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 text-[11px] font-medium uppercase tracking-wide text-slate-400">
+      <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
         <span>Section</span>
         <span>Header</span>
         <span>Footer</span>
@@ -50,10 +49,10 @@ export const FurnitureSectionToggles = ({
         return (
           <div
             key={section.index}
-            className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 border-t border-slate-100 py-1.5"
+            className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 border-t border-border py-1.5"
           >
-            <span className="truncate text-sm text-slate-700" title={section.label}>
-              <span className="text-slate-400 mr-1.5">{section.index + 1}.</span>
+            <span className="truncate text-sm text-foreground" title={section.label}>
+              <span className="text-muted-foreground mr-1.5">{section.index + 1}.</span>
               {section.label}
             </span>
 
@@ -74,7 +73,7 @@ export const FurnitureSectionToggles = ({
       })}
 
       {(!hasHeader || !hasFooter) && (
-        <p className="pt-1 text-xs text-slate-500">
+        <p className="pt-1 text-xs text-muted-foreground">
           {!hasHeader && !hasFooter
             ? 'Add header or footer content above to enable these toggles.'
             : !hasHeader
