@@ -52,6 +52,9 @@ const baseHandler = async (
       ...(data.agencyId !== undefined && { agencyId: data.agencyId }),
       ...(data.agencyName !== undefined && { agencyName: data.agencyName }),
       ...(data.macros !== undefined && { macros: data.macros }),
+      // Only overlay when present — an unrelated PATCH must not wipe a saved
+      // header/footer, so "omitted" has to stay distinct from "cleared".
+      ...(data.furniture !== undefined && { furniture: data.furniture }),
       htmlContentKey,
       currentVersion: newVersion,
       sections: [],

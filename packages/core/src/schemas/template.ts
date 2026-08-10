@@ -72,6 +72,106 @@ export const TemplateVersionMetaSchema = z.object({
 export type TemplateVersionMeta = z.infer<typeof TemplateVersionMetaSchema>;
 
 // ================================
+// Page Furniture (headers & footers)
+// ================================
+
+export const PAGE_FURNITURE_ALIGNMENTS = ['LEFT', 'CENTER', 'RIGHT'] as const;
+export const PageFurnitureAlignmentSchema = z.enum(PAGE_FURNITURE_ALIGNMENTS);
+export type PageFurnitureAlignment = z.infer<typeof PageFurnitureAlignmentSchema>;
+
+/**
+ * One piece of running page furniture — a header or a footer.
+ *
+ * `html` is HTML rather than plain text so images ride the same
+ * `<img src="s3key:KEY" data-s3-key="KEY">` convention already used by template
+ * bodies, and so the existing upload/strip/resolve helpers apply unchanged.
+ *
+ * `heightIn` is the reserved band height. Page margins are grown by this amount
+ * at render time — without that the furniture overprints the body text.
+ */
+export const PageFurnitureSchema = z.object({
+  enabled: z.boolean().default(true),
+  html: z.string().max(20_000).default(''),
+  align: PageFurnitureAlignmentSchema.default('CENTER'),
+  heightIn: z.number().min(0).max(3).default(0.5),
+});
+
+export type PageFurniture = z.infer<typeof PageFurnitureSchema>;
+
+/**
+ * Per-section visibility override.
+ *
+ * "Section" means a page-break-delimited run of content, indexed from 0 — NOT a
+ * physical page. Neither output format can address a physical page: page count
+ * only exists after pagination, and DOCX exposes just first/default/even slots
+ * per section. Sections map exactly onto real OOXML sections and CSS named
+ * pages, which is what makes "no header on the cover page, none on the
+ * appendix" expressible in both formats.
+ *
+ * An omitted field means "inherit the template default".
+ */
+export const FurnitureSectionOverrideSchema = z.object({
+  sectionIndex: z.number().int().nonnegative(),
+  showHeader: z.boolean().optional(),
+  showFooter: z.boolean().optional(),
+});
+
+export type FurnitureSectionOverride = z.infer<typeof FurnitureSectionOverrideSchema>;
+
+/**
+ * Header/footer configuration for a template.
+ *
+ * Absent `furniture` on a template means "no header or footer" — that keeps every
+ * pre-existing template rendering byte-identically to before this feature.
+ */
+export const TemplateFurnitureSchema = z.object({
+  header: PageFurnitureSchema.default({}),
+  footer: PageFurnitureSchema.default({}),
+  /** Overrides keyed by 0-based page-break section index. Empty ⇒ defaults apply to all pages. */
+  sectionOverrides: z.array(FurnitureSectionOverrideSchema).max(50).default([]),
+});
+
+export type TemplateFurniture = z.infer<typeof TemplateFurnitureSchema>;
+
+/**
+ * Tokens that look like macros but MUST NOT be resolved by `replaceMacros`.
+ *
+ * Macro substitution runs at generation time — before pagination exists — so a
+ * page number cannot be known then. Each renderer maps these to a native live
+ * field instead: `PageNumber.CURRENT`/`TOTAL_PAGES` for DOCX, and Puppeteer's
+ * `.pageNumber`/`.totalPages` spans for PDF. Baking in a literal number would
+ * go stale the moment anyone edits the document in Word.
+ */
+export const RESERVED_PAGE_TOKENS = ['PAGE_NUMBER', 'TOTAL_PAGES'] as const;
+export type ReservedPageToken = (typeof RESERVED_PAGE_TOKENS)[number];
+
+export const isReservedPageToken = (key: string): key is ReservedPageToken =>
+  (RESERVED_PAGE_TOKENS as readonly string[]).includes(key);
+
+/**
+ * Resolve a section's effective header/footer visibility.
+ *
+ * Single source of truth shared by all three renderers so PDF, DOCX and HTML
+ * cannot drift — "displays consistently across all generated document types"
+ * is an acceptance criterion, and three copies of this rule would break it.
+ */
+export const resolveFurnitureVisibility = (
+  furniture: TemplateFurniture | undefined,
+  sectionIndex: number,
+): { showHeader: boolean; showFooter: boolean } => {
+  if (!furniture) return { showHeader: false, showFooter: false };
+
+  const override = furniture.sectionOverrides.find((o) => o.sectionIndex === sectionIndex);
+  const hasHeaderContent = furniture.header.enabled && furniture.header.html.trim().length > 0;
+  const hasFooterContent = furniture.footer.enabled && furniture.footer.html.trim().length > 0;
+
+  return {
+    showHeader: hasHeaderContent && (override?.showHeader ?? true),
+    showFooter: hasFooterContent && (override?.showFooter ?? true),
+  };
+};
+
+// ================================
 // Main Template Schema
 // ================================
 
@@ -82,6 +182,9 @@ export const TemplateItemSchema = z.object({
   category: TemplateCategorySchema,
   description: z.string().max(2000).optional(),
   htmlContentKey: z.string().nullable().optional(),
+
+  /** Running header/footer config. Absent ⇒ no header or footer is rendered. */
+  furniture: TemplateFurnitureSchema.optional(),
 
   // Metadata
   tags: z.array(z.string().max(50)).max(20).default([]),
@@ -130,6 +233,8 @@ export const CreateTemplateDTOSchema = z.object({
   description: z.string().max(2000).optional(),
   /** Raw HTML content — stored in S3, key saved as htmlContentKey */
   htmlContent: z.string().max(10_000_000).optional(),
+  /** Running header/footer config. Omit for no header/footer. */
+  furniture: TemplateFurnitureSchema.optional(),
   macros: z.array(MacroDefinitionSchema).optional(),
   tags: z.array(z.string().max(50)).max(20).optional(),
   agencyId: z.string().max(200).optional(),
@@ -144,6 +249,8 @@ export const UpdateTemplateDTOSchema = z.object({
   description: z.string().max(2000).optional(),
   /** Raw HTML content — stored in S3, key saved as htmlContentKey */
   htmlContent: z.string().max(10_000_000).optional(),
+  /** Running header/footer config. Omitted ⇒ existing config is preserved, not cleared. */
+  furniture: TemplateFurnitureSchema.optional(),
   macros: z.array(MacroDefinitionSchema).optional(),
   tags: z.array(z.string().max(50)).max(20).optional(),
   changeNotes: z.string().max(1000).optional(),
@@ -273,6 +380,9 @@ export const SYSTEM_MACROS: MacroDefinition[] = [
   { key: 'BASE_AND_OPTIONS_VALUE',    label: 'Base and Options Value',    description: 'Total base + option periods value',                          type: 'SYSTEM', dataSource: 'opportunity.baseAndAllOptionsValue', required: false },
   // Content
   { key: 'CONTENT',                   label: 'Content',                   description: 'Placeholder for AI-generated or user-authored content',      type: 'SYSTEM', dataSource: '_generated.content',                required: false },
+  // Page furniture — resolved by the renderer, NOT by replaceMacros (see RESERVED_PAGE_TOKENS)
+  { key: 'PAGE_NUMBER',               label: 'Page Number',               description: 'Current page number — header/footer only',                    type: 'SYSTEM', dataSource: '_renderer.pageNumber',              required: false },
+  { key: 'TOTAL_PAGES',               label: 'Total Pages',               description: 'Total page count — header/footer only',                       type: 'SYSTEM', dataSource: '_renderer.totalPages',              required: false },
 ];
 
 // ================================

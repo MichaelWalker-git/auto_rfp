@@ -20,6 +20,7 @@ import { useCustomDocumentTypes, useSaveCustomDocumentType } from '@/lib/hooks/u
 import { usePresignUpload, usePresignDownload, uploadFileToS3 } from '@/lib/hooks/use-presign';
 import type { Editor } from '@tiptap/react';
 import { MacroInsertionBar } from '@/components/templates/MacroInsertionBar';
+import { TemplateFurniturePanel, useTemplateFurniture } from '@/features/template-furniture';
 
 const BUILT_IN_CATEGORIES = [
   { value: 'COVER_LETTER', label: 'Cover Letter' },
@@ -56,6 +57,7 @@ export default function CreateTemplatePage() {
   const [newTypeName, setNewTypeName] = useState('');
   const [newTypeDescription, setNewTypeDescription] = useState('');
   const editorRef = useRef<Editor | null>(null);
+  const furnitureState = useTemplateFurniture();
 
   const { toast } = useToast();
   const { create, isCreating } = useCreateTemplate();
@@ -120,6 +122,9 @@ export default function CreateTemplatePage() {
         name: name.trim(),
         category,
         htmlContent: cleanContent,
+        // undefined when nothing is configured, so the template stays without
+        // a header/footer rather than gaining an empty one.
+        furniture: furnitureState.toPayload(),
       });
 
       toast({
@@ -275,15 +280,27 @@ export default function CreateTemplatePage() {
 
         {/* Right sidebar: Variables */}
         <div className="w-72 shrink-0 hidden lg:block">
-          <div className="sticky top-4">
+          <div className="sticky top-4 space-y-4">
             <MacroInsertionBar onInsert={insertMacro} disabled={isDisabled} />
+            <TemplateFurniturePanel
+              furnitureState={furnitureState}
+              bodyHtml={content}
+              disabled={isDisabled}
+              onUploadImage={handleUploadImageToS3}
+            />
           </div>
         </div>
       </div>
 
       {/* Mobile: show variables below editor */}
-      <div className="lg:hidden mt-6">
+      <div className="lg:hidden mt-6 space-y-4">
         <MacroInsertionBar onInsert={insertMacro} disabled={isDisabled} />
+        <TemplateFurniturePanel
+          furnitureState={furnitureState}
+          bodyHtml={content}
+          disabled={isDisabled}
+          onUploadImage={handleUploadImageToS3}
+        />
       </div>
 
       {/* Create Document Type Dialog */}
