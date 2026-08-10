@@ -24,6 +24,12 @@ const flexibleDateSchema = z
 export const OpportunitySourceSchema = z.enum(['SAM_GOV', 'DIBBS', 'HIGHER_GOV', 'MANUAL_UPLOAD']);
 export type OpportunitySource = z.infer<typeof OpportunitySourceSchema>;
 
+// ─── Delivery location constraint ───────────────────────────────────────────────
+
+/** Whether the solicitation permits offshore/non-US delivery. */
+export const DeliveryLocationConstraintSchema = z.enum(['US_ONLY', 'OFFSHORE_ALLOWED', 'UNKNOWN']);
+export type DeliveryLocationConstraint = z.infer<typeof DeliveryLocationConstraintSchema>;
+
 // ─── Pipeline Stage ───────────────────────────────────────────────────────────
 
 /**
@@ -342,6 +348,12 @@ export const OpportunityItemSchema = z.object({
   decisionDateIso: flexibleDateSchema.nullish(),
   /** Contract start / period-of-performance start date */
   contractStartDateIso: flexibleDateSchema.nullish(),
+  /** Whether offshore delivery is allowed. AI-detected during brief analysis; user-editable. */
+  deliveryLocationConstraint: DeliveryLocationConstraintSchema.nullish(),
+  /** How the constraint was set — drives the "auto-detected (editable)" UI hint. */
+  deliveryConstraintSource: z.enum(['AI_DETECTED', 'USER_SET']).nullish(),
+  /** Short rationale for the detected constraint (quote/keyword from solicitation). */
+  deliveryConstraintRationale: z.string().max(500).nullish(),
 });
 
 export type OpportunityItem = z.infer<typeof OpportunityItemSchema>;

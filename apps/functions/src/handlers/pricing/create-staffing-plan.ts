@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { CreateStaffingPlanSchema, type StaffingPlan } from '@auto-rfp/core';
 import { apiResponse } from '@/helpers/api';
 import { nowIso } from '@/helpers/date';
-import { createStaffingPlanRecord, resolveStaffingPlanItems } from '@/helpers/pricing';
+import { createStaffingPlanRecord, resolveStaffingPlanItems, resolveRateBasisForOpportunity } from '@/helpers/pricing';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
@@ -26,10 +26,13 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     const userId = event.auth?.userId || 'unknown';
     const now = nowIso();
 
+    // Rate basis: explicit request value overrides; otherwise derive from the opportunity.
+    const basis = data.rateBasis ?? await resolveRateBasisForOpportunity(data.orgId, data.projectId, data.opportunityId);
+
     // Resolve labor items against org labor rates
     let resolved;
     try {
-      resolved = await resolveStaffingPlanItems(data.orgId, data.laborItems);
+      resolved = await resolveStaffingPlanItems(data.orgId, data.laborItems, basis);
     } catch (resolveErr: unknown) {
       return apiResponse(400, {
         message: resolveErr instanceof Error ? resolveErr.message : 'Failed to resolve labor rates',
@@ -52,7 +55,13 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
 
     const result = await createStaffingPlanRecord(staffingPlan);
 
-    return apiResponse(201, { staffingPlan: result });
+    // Surface positions that fell back to onshore (OFFSHORE basis but no offshore rate on file)
+    // so the UI can warn rather than silently pricing them at onshore rates.
+    return apiResponse(201, {
+      staffingPlan: result,
+      rateBasis: basis,
+      ...(resolved.fallbackPositions.length > 0 ? { onshoreFallbackPositions: resolved.fallbackPositions } : {}),
+    });
   } catch (err: unknown) {
     console.error('Error in createStaffingPlan handler:', err);
     return apiResponse(500, {

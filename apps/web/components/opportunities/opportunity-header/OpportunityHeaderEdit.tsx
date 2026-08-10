@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import React, { useEffect, useState } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Input } from '@/components/ui/input';
@@ -40,6 +40,7 @@ const EditFormSchema = z.object({
   contactEmail: z.string().trim().email('Invalid email').optional().or(z.literal('')),
   decisionDateIso: z.string().trim().optional().or(z.literal('')),
   contractStartDateIso: z.string().trim().optional().or(z.literal('')),
+  deliveryLocationConstraint: z.enum(['US_ONLY', 'OFFSHORE_ALLOWED', 'UNKNOWN']).optional(),
   // Status + outcome
   status: z.enum(['IDENTIFIED', 'QUALIFYING', 'PURSUING', 'SUBMITTED', 'WON', 'LOST', 'NO_BID', 'WITHDRAWN']).optional(),
   outcomeComment: z.string().trim().optional(),
@@ -84,6 +85,7 @@ export const OpportunityHeaderEdit = ({
     reset,
     watch,
     setValue,
+    control,
     formState: { errors },
   } = useForm<EditFormValues>({
     resolver: zodResolver(EditFormSchema),
@@ -102,6 +104,7 @@ export const OpportunityHeaderEdit = ({
       contactEmail: opportunity.contactEmail || '',
       decisionDateIso: opportunity.decisionDateIso ? opportunity.decisionDateIso.split('T')[0] : '',
       contractStartDateIso: opportunity.contractStartDateIso ? opportunity.contractStartDateIso.split('T')[0] : '',
+      deliveryLocationConstraint: opportunity.deliveryLocationConstraint ?? 'UNKNOWN',
       status: (opportunity.status as OpportunityStatus | undefined) ?? 'IDENTIFIED',
       outcomeComment: opportunity.outcomeComment || '',
       jurisdiction: opportunity.jurisdiction ?? '',
@@ -118,12 +121,28 @@ export const OpportunityHeaderEdit = ({
     onClearError();
   }, [opportunity, reset, onClearError]);
 
+  const [validationError, setValidationError] = useState<string | null>(null);
   const status = watch('status');
   const jurisdiction = watch('jurisdiction');
   const isTerminal = status === 'WON' || status === 'LOST' || status === 'NO_BID' || status === 'WITHDRAWN';
 
+  const onInvalid = (formErrors: typeof errors) => {
+    // Surface why the form refused to submit instead of failing silently.
+    console.error('[OpportunityHeaderEdit] validation blocked submit:', formErrors);
+    const fields = Object.keys(formErrors);
+    if (fields.length) {
+      const first = formErrors[fields[0] as keyof typeof formErrors];
+      setValidationError(`Cannot save — ${fields.join(', ')}: ${first?.message ?? 'invalid value'}`);
+    }
+  };
+
+  const handleValidSubmit = async (values: EditFormValues) => {
+    setValidationError(null);
+    await onSubmit(values);
+  };
+
   return (
-    <form id="opp-edit-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form id="opp-edit-form" onSubmit={handleSubmit(handleValidSubmit, onInvalid)} className="space-y-4">
       <div className="grid gap-1.5">
         <Label htmlFor="opp-title">Title *</Label>
         <Input id="opp-title" placeholder="Opportunity title" autoFocus {...register('title')} />
@@ -302,13 +321,44 @@ export const OpportunityHeaderEdit = ({
       </div>
 
       <div className="grid gap-1.5">
+        <Label htmlFor="opp-delivery-constraint">Team Location Requirement</Label>
+        <Controller
+          control={control}
+          name="deliveryLocationConstraint"
+          defaultValue={opportunity.deliveryLocationConstraint ?? 'UNKNOWN'}
+          render={({ field }) => (
+            <Select
+              value={field.value || opportunity.deliveryLocationConstraint || 'UNKNOWN'}
+              onValueChange={field.onChange}
+            >
+              <SelectTrigger id="opp-delivery-constraint">
+                <SelectValue placeholder="Select team location requirement" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="OFFSHORE_ALLOWED">Offshore delivery allowed</SelectItem>
+                <SelectItem value="US_ONLY">US-based team required</SelectItem>
+                <SelectItem value="UNKNOWN">Not determined</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        />
+        {opportunity.deliveryConstraintSource === 'AI_DETECTED' && (
+          <p className="text-xs text-muted-foreground">
+            Auto-detected from the solicitation (editable).
+            {opportunity.deliveryConstraintRationale ? ` ${opportunity.deliveryConstraintRationale}` : ''}
+          </p>
+        )}
+        <p className="text-xs text-muted-foreground">Controls whether generated cost proposals may price labor at offshore rates.</p>
+      </div>
+
+      <div className="grid gap-1.5">
         <Label htmlFor="opp-desc">Description</Label>
         <Textarea id="opp-desc" placeholder="Opportunity description" rows={3} {...register('description')} />
       </div>
 
-      {submitError && (
+      {(submitError || validationError) && (
         <Alert variant="destructive">
-          <AlertDescription>{submitError}</AlertDescription>
+          <AlertDescription>{submitError ?? validationError}</AlertDescription>
         </Alert>
       )}
     </form>

@@ -12,11 +12,13 @@ import {
 type EstimateItem = z.infer<typeof EstimateItemSchema>;
 import { apiResponse } from '@/helpers/api';
 import { nowIso } from '@/helpers/date';
-import { 
-  createCostEstimate, 
-  getLaborRatesByOrg, 
+import {
+  createCostEstimate,
+  getLaborRatesByOrg,
   getBOMItemsByOrg,
-  calculateEstimateTotals 
+  calculateEstimateTotals,
+  resolveRate,
+  resolveRateBasisForOpportunity,
 } from '@/helpers/pricing';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
@@ -40,20 +42,29 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     const userId = event.auth?.userId || 'unknown';
     const now = nowIso();
 
-    // Get labor rates for calculation
+    // Rate basis: explicit request value overrides; otherwise derive from the opportunity.
+    const basis = dto.rateBasis ?? await resolveRateBasisForOpportunity(dto.orgId, dto.projectId, dto.opportunityId);
     const laborRates = await getLaborRatesByOrg(dto.orgId);
-    const rateMap = new Map(laborRates.map(r => [r.position, r.fullyLoadedRate]));
+    const rateByPos = new Map(laborRates.map(r => [r.position, r]));
 
-    // Calculate labor costs
+    // Calculate labor costs, resolving each position against the requested rate basis.
+    // Track positions that fell back to onshore (OFFSHORE basis but no offshore rate on file)
+    // so the response can surface them rather than silently billing at the onshore rate.
+    const onshoreFallbackPositions: string[] = [];
     const laborCosts: EstimateItem[] = dto.laborItems.map(item => {
-      const rate = rateMap.get(item.position) || 0;
-      const totalCost = item.hours * rate;
+      const laborRate = rateByPos.get(item.position);
+      const resolved = laborRate
+        ? resolveRate(laborRate, basis)
+        : { rate: 0, basisUsed: 'ONSHORE' as const, fellBackToOnshore: false };
+      if (resolved.fellBackToOnshore) onshoreFallbackPositions.push(item.position);
+      const totalCost = item.hours * resolved.rate;
       return {
         category: 'LABOR',
         name: item.position,
         quantity: item.hours,
-        unitCost: rate,
+        unitCost: resolved.rate,
         totalCost,
+        rateBasis: resolved.basisUsed,
       };
     });
 
@@ -109,7 +120,13 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
 
     const result = await createCostEstimate(estimate);
 
-    return apiResponse(201, { estimate: result });
+    // Mirror the staffing-plan handler: surface the basis and any onshore fallbacks so the
+    // UI can warn instead of silently pricing offshore-requested positions at onshore rates.
+    return apiResponse(201, {
+      estimate: result,
+      rateBasis: basis,
+      ...(onshoreFallbackPositions.length > 0 ? { onshoreFallbackPositions } : {}),
+    });
   } catch (err: unknown) {
     console.error('Error in calculateEstimate handler:', err);
     return apiResponse(500, {

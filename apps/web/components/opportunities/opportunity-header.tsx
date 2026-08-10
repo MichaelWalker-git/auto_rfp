@@ -57,6 +57,7 @@ export const OpportunityHeader = () => {
     projectId,
     orgId,
     backUrl,
+    currentDeliveryConstraint: opportunity?.deliveryLocationConstraint,
     onSuccess: refetch,
   });
 

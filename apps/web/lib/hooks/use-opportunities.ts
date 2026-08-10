@@ -259,15 +259,18 @@ export function useOpportunity(projectId: string | null, oppId: string | null, o
       }
 
       const body = raw ? JSON.parse(raw) : {};
-      // lambda returns extra fields (questionFiles). Ignore them and validate the opportunity shape.
-      const parsed = OpportunityItemSchema.safeParse(body);
+      // lambda returns extra fields (questionFiles). Drop those, but validate with
+      // passthrough so persisted fields the currently-loaded schema doesn't yet know
+      // about (e.g. after a core rebuild) are NOT silently stripped on read-back.
+      const { questionFiles: _questionFiles, ...opportunityBody } = body;
+      const parsed = OpportunityItemSchema.passthrough().safeParse(opportunityBody);
       if (!parsed.success) {
         const err = new Error('Invalid opportunity payload') as Error & { details?: any };
         (err as any).details = parsed.error.flatten();
         throw err;
       }
 
-      return parsed.data;
+      return parsed.data as OpportunityItem;
     },
     { revalidateOnFocus: false, dedupingInterval: 30000 },
   );

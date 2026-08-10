@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { CreateLaborRateSchema, type CreateLaborRate, type LaborRate } from '@auto-rfp/core';
 import { apiResponse } from '@/helpers/api';
 import { nowIso } from '@/helpers/date';
-import { createLaborRate, calculateFullyLoadedRate } from '@/helpers/pricing';
+import { createLaborRate, calculateFullyLoadedRate, computeOffshoreFullyLoadedRate } from '@/helpers/pricing';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
@@ -27,13 +27,15 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     const userId = event.auth?.userId || 'unknown';
     const now = nowIso();
 
-    // Calculate fully loaded rate
+    // Calculate fully loaded rate (onshore + optional offshore)
     const fullyLoadedRate = calculateFullyLoadedRate(dto.baseRate, dto.overhead, dto.ga, dto.profit);
+    const offshoreFullyLoadedRate = computeOffshoreFullyLoadedRate(dto);
 
     const laborRate: LaborRate = {
       ...dto,
       laborRateId: uuidv4(),
       fullyLoadedRate,
+      ...(offshoreFullyLoadedRate !== undefined ? { offshoreFullyLoadedRate } : {}),
       createdAt: now,
       updatedAt: now,
       createdBy: userId,

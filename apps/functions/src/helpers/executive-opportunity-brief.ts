@@ -41,6 +41,53 @@ export function sha256(input: string) {
  * Keep prompts within safe limits (you can tune this).
  * For Bedrock, request limits vary by model; this is a practical guard.
  */
+/**
+ * Deterministic scan for EXPLICIT delivery-location language over the FULL solicitation text
+ * (run before truncation). This is more reliable and defensible than the LLM for unambiguous
+ * clauses like "OFFSHORE CONTRACTING PROHIBITED", which the model can miss inside a long,
+ * multi-field extraction prompt. Returns a definite constraint + the matched phrase, or null
+ * when no explicit language is found (in which case the LLM's judgment stands).
+ */
+export function scanDeliveryLocationConstraint(
+  text: string,
+): { constraint: 'US_ONLY' | 'OFFSHORE_ALLOWED'; rationale: string } | null {
+  if (!text) return null;
+
+  const findPhrase = (patterns: RegExp[]): string | null => {
+    for (const re of patterns) {
+      const m = re.exec(text);
+      if (m) {
+        const at = m.index;
+        return text.slice(Math.max(0, at - 20), at + 120).replace(/\s+/g, ' ').trim();
+      }
+    }
+    return null;
+  };
+
+  // US_ONLY wins on any explicit restriction (checked first — a prohibition is decisive).
+  const usOnly = findPhrase([
+    /offshore[\s\S]{0,40}?(?:prohibited|not\s+permitted|not\s+allowed|is\s+prohibited)/i,
+    /no\s+part\s+of[\s\S]{0,60}?performed\s+offshore/i,
+    /\bno\s+offshore\b/i,
+    /\bonshore\s+only\b/i,
+    /(?:work|services|performance)[\s\S]{0,40}?(?:must|shall)\s+be\s+performed\s+(?:in|within)\s+the\s+(?:united\s+states|u\.?s\.?|conus)/i,
+    /\bU\.?S\.?\s+citizens?\s+only\b/i,
+    /must\s+be\s+a\s+U\.?S\.?\s+citizen/i,
+    /\bno\s+foreign\s+nationals?\b/i,
+    /data\s+(?:must\s+)?(?:remain|reside|be\s+stored)[\s\S]{0,30}?(?:in|within)\s+the\s+united\s+states/i,
+  ]);
+  if (usOnly) return { constraint: 'US_ONLY', rationale: usOnly };
+
+  const offshoreAllowed = findPhrase([
+    /offshore[\s\S]{0,40}?(?:permitted|allowed|acceptable)/i,
+    /(?:remote|offshore|nearshore|global)\s+delivery\s+(?:is\s+)?(?:permitted|allowed|acceptable)/i,
+    /work\s+may\s+be\s+performed\s+(?:remotely|offshore|outside\s+the\s+united\s+states)/i,
+  ]);
+  if (offshoreAllowed) return { constraint: 'OFFSHORE_ALLOWED', rationale: offshoreAllowed };
+
+  return null;
+}
+
 export function truncateText(text: string, maxChars: number) {
   if (!text) return '';
   if (text.length <= maxChars) return text;

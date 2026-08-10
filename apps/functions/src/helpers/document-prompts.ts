@@ -947,6 +947,7 @@ YOUR TASK — Past Performance:
 YOUR TASK — Cost Proposal:
 1. FIRST, use the get_pricing_data tool to retrieve actual labor rates, cost estimates, staffing plans, and bid analysis from the pricing module.
 2. If pricing data is available, use the REAL figures (labor rates, cost breakdowns, staffing plans) in your document — do NOT use placeholders.
+2b. Check the RATE BASIS line from get_pricing_data. When basis is OFFSHORE, price labor using the OFFSHORE fully-loaded rates and state in the cost narrative that delivery is offshore/global-delivery-eligible per the solicitation. When basis is ONSHORE, use onshore rates. If a position has no offshore rate, use its onshore rate and note the exception. NEVER relabel onshore numbers as offshore.
 3. Present a detailed cost breakdown by labor category, ODCs, and period of performance.
 4. Provide a basis of estimate explaining your cost estimation methodology and assumptions.
 5. Justify all labor rates with supporting data (GSA schedule, market research, historical data).
@@ -1025,6 +1026,7 @@ YOUR TASK — Management Proposal:
 YOUR TASK — Price Volume:
 1. FIRST, use the get_pricing_data tool to retrieve actual labor rates, cost estimates, staffing plans, and bid analysis from the pricing module.
 2. If pricing data is available, use the REAL figures (labor rates, cost breakdowns, staffing plans) — do NOT use placeholders.
+2b. Check the RATE BASIS line from get_pricing_data. When basis is OFFSHORE, price labor using the OFFSHORE fully-loaded rates and state in the cost narrative that delivery is offshore/global-delivery-eligible per the solicitation. When basis is ONSHORE, use onshore rates. If a position has no offshore rate, use its onshore rate and note the exception. NEVER relabel onshore numbers as offshore.
 3. Present a complete price/cost volume with CLIN-level pricing breakdown.
 4. Provide basis of estimate with methodology, assumptions, and labor rate justification.
 5. Include escalation factors for multi-year contracts and ODC breakdown.

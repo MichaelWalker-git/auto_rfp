@@ -1,4 +1,4 @@
-import { sanitizeSummaryResponse } from './executive-opportunity-brief';
+import { sanitizeSummaryResponse, scanDeliveryLocationConstraint } from './executive-opportunity-brief';
 import { QuickSummarySchema } from '@auto-rfp/core';
 
 // Mock environment variables required by the module
@@ -54,6 +54,39 @@ jest.mock('./env', () => ({
     return envMap[key] ?? fallback ?? `mock-${key}`;
   }),
 }));
+
+describe('scanDeliveryLocationConstraint', () => {
+  it('detects the real SC "OFFSHORE CONTRACTING PROHIBITED" clause as US_ONLY', () => {
+    const text = 'Various terms and conditions apply. [07-7B115-1] OFFSHORE CONTRACTING PROHIBITED (FEB 2015): No part of the resulting contract from this solicitation may be performed offshore of the United States by persons located offshore.';
+    const r = scanDeliveryLocationConstraint(text);
+    expect(r?.constraint).toBe('US_ONLY');
+    expect(r?.rationale).toContain('OFFSHORE CONTRACTING PROHIBITED');
+  });
+
+  it('detects US-citizen-only language as US_ONLY', () => {
+    expect(scanDeliveryLocationConstraint('All personnel must be a U.S. citizen.')?.constraint).toBe('US_ONLY');
+    expect(scanDeliveryLocationConstraint('Staffing: US citizens only.')?.constraint).toBe('US_ONLY');
+  });
+
+  it('detects "work must be performed in the United States" as US_ONLY', () => {
+    expect(scanDeliveryLocationConstraint('All work shall be performed in the United States.')?.constraint).toBe('US_ONLY');
+  });
+
+  it('detects explicit offshore permission as OFFSHORE_ALLOWED', () => {
+    expect(scanDeliveryLocationConstraint('Offshore delivery is permitted for this engagement.')?.constraint).toBe('OFFSHORE_ALLOWED');
+    expect(scanDeliveryLocationConstraint('Work may be performed remotely.')?.constraint).toBe('OFFSHORE_ALLOWED');
+  });
+
+  it('prefers US_ONLY when both restriction and permission-like language appear', () => {
+    const text = 'Remote delivery is permitted. However, offshore contracting is prohibited.';
+    expect(scanDeliveryLocationConstraint(text)?.constraint).toBe('US_ONLY');
+  });
+
+  it('returns null when no explicit delivery-location language is present', () => {
+    expect(scanDeliveryLocationConstraint('The City seeks an EDMS with document storage and retrieval.')).toBeNull();
+    expect(scanDeliveryLocationConstraint('')).toBeNull();
+  });
+});
 
 describe('sanitizeSummaryResponse', () => {
   it('returns non-object values unchanged', () => {
