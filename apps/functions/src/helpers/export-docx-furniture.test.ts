@@ -182,3 +182,81 @@ describe('htmlToDocxBuffer — furniture images', () => {
     expect(names.some((n) => n.startsWith('word/media/'))).toBe(false);
   });
 });
+
+describe('htmlToDocxBuffer — furniture layout parity with PDF', () => {
+  const pngBytes = Buffer.concat([
+    Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex'),
+    (() => { const b = Buffer.alloc(8); b.writeUInt32BE(360, 0); b.writeUInt32BE(90, 4); return b; })(),
+    Buffer.alloc(150, 7),
+  ]);
+
+  const serveLogo = () => mockSend.mockResolvedValue({
+    Body: (async function* () { yield new Uint8Array(pngBytes); })(),
+  });
+
+  const headerXml = async (buf: Buffer): Promise<string[]> => {
+    const { names, xml: _all } = await docxParts(buf);
+    void _all;
+    const JSZipMod = (await import('jszip')).default;
+    const zip = await JSZipMod.loadAsync(buf);
+    return Promise.all(
+      names.filter((n) => /header\d*\.xml$/.test(n)).sort().map((n) => zip.files[n].async('string')),
+    );
+  };
+
+  it('keeps a logo and adjacent text in ONE paragraph, as the PDF renders them', async () => {
+    serveLogo();
+    const f = furniture({
+      header: {
+        enabled: true,
+        html: '<img src="s3key:org/logo.png"> ACME Federal Solutions',
+        align: 'CENTER',
+        heightIn: 0.6,
+      },
+    });
+    const buf = await htmlToDocxBuffer('<p>Body</p>', { furniture: f });
+
+    const withContent = (await headerXml(buf)).filter((x) => /<w:t[^>]*>/.test(x));
+    expect(withContent.length).toBeGreaterThan(0);
+    for (const xml of withContent) {
+      // Two paragraphs stacked the logo above the name in Word while the PDF put
+      // them side by side — the formats disagreed, breaking consistency.
+      expect((xml.match(/<w:p[ >]/g) ?? []).length).toBe(1);
+      expect(/<a:blip|<w:drawing/.test(xml)).toBe(true);
+      expect(xml).toContain('ACME Federal Solutions');
+    }
+  });
+
+  it('honours an explicit <br> as a real line break', async () => {
+    serveLogo();
+    const f = furniture({
+      header: { enabled: true, html: 'Line one<br>Line two', align: 'CENTER', heightIn: 0.6 },
+    });
+    const buf = await htmlToDocxBuffer('<p>Body</p>', { furniture: f });
+
+    const withContent = (await headerXml(buf)).filter((x) => /Line one/.test(x));
+    for (const xml of withContent) {
+      expect((xml.match(/<w:p[ >]/g) ?? []).length).toBe(2);
+    }
+  });
+
+  it('preserves text that precedes an image', async () => {
+    serveLogo();
+    const f = furniture({
+      header: {
+        enabled: true,
+        html: 'ACME <img src="s3key:org/logo.png"> Federal',
+        align: 'CENTER',
+        heightIn: 0.6,
+      },
+    });
+    const buf = await htmlToDocxBuffer('<p>Body</p>', { furniture: f });
+
+    const withContent = (await headerXml(buf)).filter((x) => /ACME/.test(x));
+    expect(withContent.length).toBeGreaterThan(0);
+    for (const xml of withContent) {
+      expect(xml).toContain('ACME');
+      expect(xml).toContain('Federal');
+    }
+  });
+});
