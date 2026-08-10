@@ -926,55 +926,33 @@ const buildFurnitureChildren = async (part: PageFurniture): Promise<Paragraph[]>
   // header into the body text. 96 DPI, matching MAX_IMAGE_WIDTH's basis.
   const maxBandHeightPx = Math.max(1, Math.round(part.heightIn * 96));
 
-  const paragraphs: Paragraph[] = [];
-  // Handle each block separately so an image and a caption don't collapse together.
-  const blocks = withImages.split(/<\/p>|<br\s*\/?>/i).filter((b) => b.trim());
-  const effectiveBlocks = blocks.length ? blocks : [withImages];
-
-  for (const block of effectiveBlocks) {
-    const imgTag = /<img[^>]*>/i.exec(block)?.[0];
-    if (imgTag) {
-      const { src, width: specifiedWidth } = parseImgTag(imgTag);
-      const img = src ? await fetchImageFromUrl(src) : null;
-      if (img) {
-        const aspect = img.naturalHeight / img.naturalWidth;
-        let width = Math.min(specifiedWidth ?? img.naturalWidth, MAX_IMAGE_WIDTH);
-        let height = Math.round(width * aspect);
-        if (height > maxBandHeightPx) {
-          height = maxBandHeightPx;
-          width = Math.max(1, Math.round(height / aspect));
-        }
-        paragraphs.push(new Paragraph({
-          children: [new ImageRun({
-            data: img.data,
-            transformation: { width, height },
-            type: img.type,
-          })],
-          alignment,
-          spacing: { before: 0, after: 0 },
-        }));
-      } else if (src) {
-        console.warn(`[export-docx] Furniture image could not be embedded: ${src.slice(0, 80)}`);
-      }
-      const withoutImg = block.replace(/<img[^>]*>/gi, '');
-      if (!withoutImg.replace(/<[^>]+>/g, '').trim()) continue;
+  /** Build an ImageRun sized to fit the furniture band, preserving aspect ratio. */
+  const imageRunFor = async (imgTag: string): Promise<ImageRun | null> => {
+    const { src, width: specifiedWidth } = parseImgTag(imgTag);
+    const img = src ? await fetchImageFromUrl(src) : null;
+    if (!img) {
+      if (src) console.warn(`[export-docx] Furniture image could not be embedded: ${src.slice(0, 80)}`);
+      return null;
     }
+    const aspect = img.naturalHeight / img.naturalWidth;
+    let width = Math.min(specifiedWidth ?? img.naturalWidth, MAX_IMAGE_WIDTH);
+    let height = Math.round(width * aspect);
+    if (height > maxBandHeightPx) {
+      height = maxBandHeightPx;
+      width = Math.max(1, Math.round(height / aspect));
+    }
+    return new ImageRun({ data: img.data, transformation: { width, height }, type: img.type });
+  };
 
+  /** Map one text fragment to runs, turning reserved tokens into live page fields. */
+  const runsForText = (text: string): TextRun[] => {
     const runs: TextRun[] = [];
     // Split on the reserved tokens, keeping them so each becomes a field run.
-    const segments = block.split(/(\{\{PAGE_NUMBER\}\}|\{\{TOTAL_PAGES\}\})/g);
-    for (const segment of segments) {
+    for (const segment of text.split(/(\{\{PAGE_NUMBER\}\}|\{\{TOTAL_PAGES\}\})/g)) {
       if (!segment) continue;
-      if (segment === '{{PAGE_NUMBER}}') {
+      if (segment === '{{PAGE_NUMBER}}' || segment === '{{TOTAL_PAGES}}') {
         runs.push(new TextRun({
-          children: [PageNumber.CURRENT],
-          font: FONT_FAMILY,
-          size: FONT_SIZES.small,
-          color: COLORS.muted,
-        }));
-      } else if (segment === '{{TOTAL_PAGES}}') {
-        runs.push(new TextRun({
-          children: [PageNumber.TOTAL_PAGES],
+          children: [segment === '{{PAGE_NUMBER}}' ? PageNumber.CURRENT : PageNumber.TOTAL_PAGES],
           font: FONT_FAMILY,
           size: FONT_SIZES.small,
           color: COLORS.muted,
@@ -983,9 +961,36 @@ const buildFurnitureChildren = async (part: PageFurniture): Promise<Paragraph[]>
         runs.push(...parseInlineHtml(segment));
       }
     }
+    return runs;
+  };
 
-    if (runs.length) {
-      paragraphs.push(new Paragraph({ children: runs, alignment, spacing: { before: 0, after: 0 } }));
+  const paragraphs: Paragraph[] = [];
+
+  // Split on explicit line breaks only. Images and adjacent text stay in the SAME
+  // paragraph so a logo sits beside the company name, as it does in the PDF —
+  // emitting the image as its own paragraph stacked them on two lines and made
+  // DOCX disagree with PDF, breaking cross-format consistency.
+  const lines = withImages.split(/<br\s*\/?>|<\/p>\s*<p[^>]*>/i);
+  const effectiveLines = lines.some((l) => l.trim()) ? lines : [withImages];
+
+  for (const line of effectiveLines) {
+    if (!line.trim()) continue;
+
+    const children: (TextRun | ImageRun)[] = [];
+    // Walk the line in order so text before and after an image keeps its position.
+    const parts = line.split(/(<img[^>]*>)/i);
+    for (const chunk of parts) {
+      if (!chunk) continue;
+      if (/^<img/i.test(chunk)) {
+        const run = await imageRunFor(chunk);
+        if (run) children.push(run);
+      } else {
+        children.push(...runsForText(chunk));
+      }
+    }
+
+    if (children.length) {
+      paragraphs.push(new Paragraph({ children, alignment, spacing: { before: 0, after: 0 } }));
     }
   }
 
