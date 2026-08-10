@@ -307,3 +307,43 @@ describe('pageContentHeightPx', () => {
     expect(pageContentHeightPx('letter', 6, 6)).toBeGreaterThan(0);
   });
 });
+
+describe('PDF template layout', () => {
+  /**
+   * These encode defects found by inspecting a rendered PDF, not by reasoning
+   * about the CSS — the unit tests were green while the header was visibly
+   * mis-rendered.
+   */
+  it('insets with padding, not margin, so centred content is not pushed off-page', async () => {
+    const t = await buildPdfFurnitureTemplates(furniture(), { showHeader: true, showFooter: false });
+    // `margin` on a `width: 100%` box made the container wider than the page and
+    // shifted centred furniture to the left.
+    expect(t.headerTemplate).toContain('padding: 0 1in');
+    expect(t.headerTemplate).toContain('box-sizing: border-box');
+    expect(t.headerTemplate).not.toMatch(/margin:\s*0\s+1in/);
+  });
+
+  it('middle-aligns images so a logo sits on the text baseline, not above it', async () => {
+    const t = await buildPdfFurnitureTemplates(furniture(), { showHeader: true, showFooter: false });
+    expect(t.headerTemplate).toContain('vertical-align: middle');
+  });
+
+  it('caps image height to the configured band', async () => {
+    const f = furniture({
+      header: { enabled: true, html: '<img src="x.png">', align: 'CENTER', heightIn: 0.5 },
+    });
+    const t = await buildPdfFurnitureTemplates(f, { showHeader: true, showFooter: false });
+    // 0.5in at 96 DPI — an uncapped logo would overflow into the body text.
+    expect(t.headerTemplate).toContain('max-height: 48px');
+  });
+
+  it('renders block children inline so "logo + name" is one line', async () => {
+    const t = await buildPdfFurnitureTemplates(furniture(), { showHeader: true, showFooter: false });
+    expect(t.headerTemplate).toMatch(/\.furniture-inline p[^{]*\{[^}]*display:\s*inline/);
+  });
+
+  it('avoids flexbox, which treated the injected <style> as a layout item', async () => {
+    const t = await buildPdfFurnitureTemplates(furniture(), { showHeader: true, showFooter: false });
+    expect(t.headerTemplate).not.toContain('display: flex');
+  });
+});

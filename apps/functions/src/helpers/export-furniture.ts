@@ -159,22 +159,44 @@ export const applyPdfPageTokens = (html: string): string =>
 /**
  * Wrap furniture HTML in the container Puppeteer expects.
  *
- * Two Puppeteer-specific traps handled here:
+ * Puppeteer-specific traps handled here, all confirmed by inspecting rendered PDFs:
  * 1. The default font-size inside header/footer templates is ~6pt, effectively
  *    unreadable, so an explicit size is mandatory.
  * 2. The template is laid out edge-to-edge, ignoring the page margin, so the
- *    horizontal padding has to be reapplied to line furniture up with the body.
+ *    horizontal inset has to be reapplied to line furniture up with the body.
+ *    It must be `padding`, not `margin`: with `width: 100%` a margin pushes the
+ *    box wider than the page, which shifted centred content off to the left.
+ * 3. An `<img>` is baseline-aligned by default, so a logo sat above the text it
+ *    was next to, with no gap. Inline children are centred as a flex row and
+ *    images are middle-aligned and height-capped to the band.
+ * 4. Block children (`<p>`) inside a flex row would each become their own line;
+ *    they are reset to inline so "logo + name" reads as one line.
  */
-const wrapPdfTemplate = (innerHtml: string, align: PageFurnitureAlignment): string => `<div style="
+const wrapPdfTemplate = (
+  innerHtml: string,
+  align: PageFurnitureAlignment,
+  heightIn: number,
+): string => {
+  const maxImgPx = Math.max(8, Math.round(heightIn * 96));
+  // Plain inline flow + `text-align`, not flexbox: a flex container treats the
+  // injected <style> element as a flex item, which knocked the real content off
+  // centre. Inline content honours `text-align` on the parent exactly.
+  return `<div style="
   -webkit-print-color-adjust: exact;
+  box-sizing: border-box;
   width: 100%;
-  margin: 0 ${BASE_MARGIN_IN}in;
+  padding: 0 ${BASE_MARGIN_IN}in;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   font-size: 9pt;
   line-height: 1.3;
   color: #6b7280;
   text-align: ${ALIGNMENT_TO_CSS[align]};
-">${innerHtml}</div>`;
+"><style>
+  .furniture-inline p, .furniture-inline div, .furniture-inline h1, .furniture-inline h2,
+  .furniture-inline h3, .furniture-inline h4 { display: inline; margin: 0; padding: 0; font-size: inherit; font-weight: inherit; }
+  .furniture-inline img { max-height: ${maxImgPx}px; width: auto; vertical-align: middle; margin: 0 6px 0 0; }
+</style><span class="furniture-inline">${innerHtml}</span></div>`;
+};
 
 /** Puppeteer renders its built-in furniture unless given an explicit empty template. */
 export const EMPTY_PDF_TEMPLATE = '<div></div>';
@@ -192,7 +214,7 @@ export const buildPdfFurnitureTemplates = async (
   const render = async (part: PageFurniture | undefined, show: boolean): Promise<string> => {
     if (!show || !part) return EMPTY_PDF_TEMPLATE;
     const withImages = await inlineFurnitureImages(part.html);
-    return wrapPdfTemplate(applyPdfPageTokens(withImages), part.align);
+    return wrapPdfTemplate(applyPdfPageTokens(withImages), part.align, part.heightIn);
   };
 
   return {
