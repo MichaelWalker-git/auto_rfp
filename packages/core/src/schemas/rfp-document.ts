@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TemplateFurnitureSchema } from './template';
 
 // ─── RFP Document Content ─────────────────────────────────────────────────────
 
@@ -326,6 +327,17 @@ export const RFPDocumentItemSchema = z.object({
    * Legacy documents may still have HTML inline in `content.content`.
    */
   htmlContentKey: z.string().nullable().optional(),
+  /** Template this document was generated from, when applicable. */
+  templateId: z.string().nullable().optional(),
+  /**
+   * Running header/footer copied forward from the source template at generation
+   * time. Exports run on documents, not templates, so without this snapshot the
+   * export path has no way to see the template's header/footer settings.
+   *
+   * Snapshotted rather than looked up so a later template edit cannot
+   * retroactively change an already-generated document.
+   */
+  furniture: TemplateFurnitureSchema.nullable().optional(),
   /** Generation error message when status is FAILED */
   generationError: z.string().nullable().optional(),
   /** Number of generation retry attempts (0 = first attempt, max 3) */

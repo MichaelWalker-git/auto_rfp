@@ -10,7 +10,7 @@ import {
   getLatestVersionNumber,
   saveVersionHtml,
 } from '@/helpers/rfp-document-version';
-import { type RFPDocumentContent } from '@auto-rfp/core';
+import { type RFPDocumentContent, type TemplateFurniture } from '@auto-rfp/core';
 import type { BedrockResponse, QaPair } from '@/types/document-generation';
 
 export type { QaPair };
@@ -168,6 +168,39 @@ export const resolveTemplateHtml = async (
   } catch (err) {
     console.error('Failed to load template HTML from S3:', err);
     return null;
+  }
+};
+
+/**
+ * Resolve the header/footer configuration for a generated document.
+ *
+ * Exports run on documents rather than templates, and an `RFPDocumentItem` has no
+ * link back to the template it came from, so the furniture has to be snapshotted
+ * onto the document at generation time or the export path can never see it.
+ *
+ * Snapshotting (rather than looking the template up at export time) also means a
+ * later template edit cannot retroactively restyle documents already produced.
+ *
+ * Uses the same template resolution as `resolveTemplateHtml` so the furniture
+ * always comes from the template that supplied the body.
+ */
+export const resolveTemplateFurniture = async (
+  orgId: string,
+  documentType: string,
+  templateId?: string,
+): Promise<{ templateId?: string; furniture?: TemplateFurniture }> => {
+  try {
+    const template = templateId
+      ? await getTemplate(orgId, templateId)
+      : await findBestTemplate(orgId, documentType);
+
+    if (!template) return {};
+    return { templateId: template.id, furniture: template.furniture };
+  } catch (err) {
+    // Never fail generation over furniture — a document without a header is far
+    // better than no document.
+    console.warn('Failed to resolve template furniture:', (err as Error)?.message);
+    return {};
   }
 };
 

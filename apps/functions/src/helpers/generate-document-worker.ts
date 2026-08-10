@@ -25,6 +25,7 @@ import {
   extractBedrockText,
   loadQaPairs,
   loadSolicitation,
+  resolveTemplateFurniture,
   resolveTemplateHtml,
   validateGeneratedContent,
   type QaPair,
@@ -977,9 +978,11 @@ export const processJobInner = async (job: Job): Promise<void> => {
   console.log(`Built macro values for documentId=${documentId}:`, Object.keys(macroValues));
 
   // ─── Step 4: Gather enrichment context + resolve template HTML in parallel ───
-  const [enrichedKbText, templateHtmlScaffold] = await Promise.all([
+  // The furniture lookup rides along here so it costs no extra wall-clock.
+  const [enrichedKbText, templateHtmlScaffold, templateFurniture] = await Promise.all([
     gatherAllContext({ projectId, orgId, opportunityId, solicitation, documentType }),
     resolveTemplateHtml(orgId, documentType, templateId, macroValues),
+    resolveTemplateFurniture(orgId, documentType, templateId),
   ]);
 
   if (templateHtmlScaffold) {
@@ -1356,6 +1359,10 @@ export const processJobInner = async (job: Job): Promise<void> => {
       title: finalDocument.title || getDocumentTypeLabel(documentType),
       name: finalDocument.title || getDocumentTypeLabel(documentType),
       htmlContentKey,
+      // Snapshot the template's header/footer onto the document — the export path
+      // reads it from here, having no access to the template itself.
+      ...(templateFurniture.templateId !== undefined && { templateId: templateFurniture.templateId }),
+      ...(templateFurniture.furniture !== undefined && { furniture: templateFurniture.furniture }),
     },
     updatedBy: 'system',
   });

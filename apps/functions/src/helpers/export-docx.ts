@@ -10,12 +10,16 @@ import {
   AlignmentType,
   BorderStyle,
   Document,
+  Footer,
+  Header,
   HeadingLevel,
   ImageRun,
   LevelFormat,
   Packer,
   PageBreak,
+  PageNumber,
   Paragraph,
+  SectionType,
   ShadingType,
   Tab,
   Table,
@@ -25,7 +29,15 @@ import {
   WidthType,
   convertInchesToTwip,
 } from 'docx';
+import { resolveFurnitureVisibility, type PageFurniture, type TemplateFurniture } from '@auto-rfp/core';
 import type { BuildExportHtmlOptions } from './export-html-builder';
+import {
+  hasSectionOverrides,
+  inlineFurnitureImages,
+  marginForFurniture,
+  splitIntoFurnitureSections,
+  TWIPS_PER_INCH,
+} from './export-furniture';
 // Note: extractHeadingsFromHtml, extractTocTitle, estimateHeadingPages, findTocPlaceholderInHtml
 // are no longer needed — DOCX now receives pre-expanded TOC HTML (same as PDF/HTML path).
 
@@ -887,6 +899,128 @@ const parseHtmlToDocxChildren = async (html: string): Promise<DocxChild[]> => {
   return children;
 };
 
+// ─── Page Furniture (running headers & footers) ───────────────────────────────
+
+const FURNITURE_ALIGNMENT = {
+  LEFT: AlignmentType.LEFT,
+  CENTER: AlignmentType.CENTER,
+  RIGHT: AlignmentType.RIGHT,
+} as const;
+
+/**
+ * Split furniture HTML into paragraphs, mapping page tokens to live Word fields.
+ *
+ * `{{PAGE_NUMBER}}` / `{{TOTAL_PAGES}}` become `PageNumber.CURRENT` /
+ * `PageNumber.TOTAL_PAGES` field runs rather than literal text, so the numbers
+ * stay correct when the document is repaginated in Word. Baking in a number at
+ * export time would freeze it at whatever the server measured.
+ *
+ * Images are inlined as data URIs first, because the shared image path skips any
+ * `src` still on the `s3key:` scheme — which would drop the logo with no error.
+ */
+const buildFurnitureChildren = async (part: PageFurniture): Promise<Paragraph[]> => {
+  const alignment = FURNITURE_ALIGNMENT[part.align];
+  const withImages = await inlineFurnitureImages(part.html);
+
+  // Cap furniture images to the band height so a full-size logo cannot push the
+  // header into the body text. 96 DPI, matching MAX_IMAGE_WIDTH's basis.
+  const maxBandHeightPx = Math.max(1, Math.round(part.heightIn * 96));
+
+  const paragraphs: Paragraph[] = [];
+  // Handle each block separately so an image and a caption don't collapse together.
+  const blocks = withImages.split(/<\/p>|<br\s*\/?>/i).filter((b) => b.trim());
+  const effectiveBlocks = blocks.length ? blocks : [withImages];
+
+  for (const block of effectiveBlocks) {
+    const imgTag = /<img[^>]*>/i.exec(block)?.[0];
+    if (imgTag) {
+      const { src, width: specifiedWidth } = parseImgTag(imgTag);
+      const img = src ? await fetchImageFromUrl(src) : null;
+      if (img) {
+        const aspect = img.naturalHeight / img.naturalWidth;
+        let width = Math.min(specifiedWidth ?? img.naturalWidth, MAX_IMAGE_WIDTH);
+        let height = Math.round(width * aspect);
+        if (height > maxBandHeightPx) {
+          height = maxBandHeightPx;
+          width = Math.max(1, Math.round(height / aspect));
+        }
+        paragraphs.push(new Paragraph({
+          children: [new ImageRun({
+            data: img.data,
+            transformation: { width, height },
+            type: img.type,
+          })],
+          alignment,
+          spacing: { before: 0, after: 0 },
+        }));
+      } else if (src) {
+        console.warn(`[export-docx] Furniture image could not be embedded: ${src.slice(0, 80)}`);
+      }
+      const withoutImg = block.replace(/<img[^>]*>/gi, '');
+      if (!withoutImg.replace(/<[^>]+>/g, '').trim()) continue;
+    }
+
+    const runs: TextRun[] = [];
+    // Split on the reserved tokens, keeping them so each becomes a field run.
+    const segments = block.split(/(\{\{PAGE_NUMBER\}\}|\{\{TOTAL_PAGES\}\})/g);
+    for (const segment of segments) {
+      if (!segment) continue;
+      if (segment === '{{PAGE_NUMBER}}') {
+        runs.push(new TextRun({
+          children: [PageNumber.CURRENT],
+          font: FONT_FAMILY,
+          size: FONT_SIZES.small,
+          color: COLORS.muted,
+        }));
+      } else if (segment === '{{TOTAL_PAGES}}') {
+        runs.push(new TextRun({
+          children: [PageNumber.TOTAL_PAGES],
+          font: FONT_FAMILY,
+          size: FONT_SIZES.small,
+          color: COLORS.muted,
+        }));
+      } else {
+        runs.push(...parseInlineHtml(segment));
+      }
+    }
+
+    if (runs.length) {
+      paragraphs.push(new Paragraph({ children: runs, alignment, spacing: { before: 0, after: 0 } }));
+    }
+  }
+
+  // A Header/Footer with no children at all is invalid OOXML; emit a blank line.
+  if (!paragraphs.length) paragraphs.push(new Paragraph({ children: [] }));
+  return paragraphs;
+};
+
+/**
+ * Build the `headers`/`footers` for one document section.
+ *
+ * A suppressed slot gets an explicitly empty `Header`/`Footer` rather than being
+ * omitted — omitting it makes Word inherit the previous section's furniture,
+ * which is the opposite of what a per-section "off" toggle means.
+ */
+const buildSectionFurniture = async (
+  furniture: TemplateFurniture | undefined,
+  visible: { showHeader: boolean; showFooter: boolean },
+): Promise<{ headers?: { default: Header }; footers?: { default: Footer } }> => {
+  const result: { headers?: { default: Header }; footers?: { default: Footer } } = {};
+  if (!furniture) return result;
+
+  result.headers = {
+    default: visible.showHeader
+      ? new Header({ children: await buildFurnitureChildren(furniture.header) })
+      : new Header({ children: [] }),
+  };
+  result.footers = {
+    default: visible.showFooter
+      ? new Footer({ children: await buildFurnitureChildren(furniture.footer) })
+      : new Footer({ children: [] }),
+  };
+  return result;
+};
+
 // ─── Document Builder ─────────────────────────────────────────────────────────
 
 /**
@@ -914,15 +1048,63 @@ export const htmlToDocxBuffer = async (
     pageSize = 'letter',
     creator = 'AutoRFP',
     description,
+    furniture,
   } = options;
-
-  // Parse HTML into docx elements (async — fetches images from URLs)
-  const children = await parseHtmlToDocxChildren(html);
 
   // Page dimensions in twips (1 inch = 1440 twips)
   const pageSizeConfig = pageSize === 'a4'
     ? { width: 11906, height: 16838 }  // A4: 210mm × 297mm
     : { width: 12240, height: 15840 }; // Letter: 8.5in × 11in
+
+  /**
+   * Build the document sections.
+   *
+   * A single section is used whenever possible, because splitting on page breaks
+   * changes how Word handles list numbering continuation and the native TOC.
+   * Only a per-section furniture override justifies the extra sections: they are
+   * the sole way OOXML can express "no header on the cover page", since each
+   * section owns its own header/footer definitions.
+   */
+  const buildSections = async () => {
+    const sectionMargin = (visible: { showHeader: boolean; showFooter: boolean }) => {
+      const { topIn, bottomIn } = marginForFurniture(furniture, visible);
+      return {
+        top: Math.round(topIn * TWIPS_PER_INCH),
+        right: TWIPS_PER_INCH,
+        bottom: Math.round(bottomIn * TWIPS_PER_INCH),
+        left: TWIPS_PER_INCH,
+      };
+    };
+
+    if (!hasSectionOverrides(furniture)) {
+      // Uniform furniture — one section, inline page breaks preserved as-is.
+      const visible = resolveFurnitureVisibility(furniture, 0);
+      return [{
+        properties: { page: { size: pageSizeConfig, margin: sectionMargin(visible) } },
+        ...(await buildSectionFurniture(furniture, visible)),
+        children: await parseHtmlToDocxChildren(html),
+      }];
+    }
+
+    // Per-section overrides — emit one real OOXML section per page-break group.
+    const htmlSections = splitIntoFurnitureSections(html);
+    const sections = [];
+    for (let i = 0; i < htmlSections.length; i++) {
+      const visible = resolveFurnitureVisibility(furniture, i);
+      sections.push({
+        properties: {
+          page: { size: pageSizeConfig, margin: sectionMargin(visible) },
+          // NEXT_PAGE reproduces the page break that splitting consumed.
+          ...(i > 0 ? { type: SectionType.NEXT_PAGE } : {}),
+        },
+        ...(await buildSectionFurniture(furniture, visible)),
+        children: await parseHtmlToDocxChildren(htmlSections[i]),
+      });
+    }
+    return sections;
+  };
+
+  const sections = await buildSections();
 
   const doc = new Document({
     creator,
@@ -1111,22 +1293,7 @@ export const htmlToDocxBuffer = async (
         },
       ],
     },
-    sections: [
-      {
-        properties: {
-          page: {
-            size: pageSizeConfig,
-            margin: {
-              top: 1440,    // 1 inch
-              right: 1440,
-              bottom: 1440,
-              left: 1440,
-            },
-          },
-        },
-        children,
-      },
-    ],
+    sections,
   });
 
   const buffer = await Packer.toBuffer(doc);

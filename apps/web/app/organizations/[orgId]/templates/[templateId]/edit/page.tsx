@@ -23,6 +23,7 @@ import { usePermission } from '@/components/permission-wrapper';
 import { usePresignUpload, usePresignDownload, uploadFileToS3 } from '@/lib/hooks/use-presign';
 import type { Editor } from '@tiptap/react';
 import { MacroInsertionBar } from '@/components/templates/MacroInsertionBar';
+import { TemplateFurniturePanel, useTemplateFurniture } from '@/features/template-furniture';
 
 const BUILT_IN_CATEGORIES = [
   { value: 'COVER_LETTER', label: 'Cover Letter' },
@@ -102,6 +103,8 @@ export default function EditTemplatePage() {
   const [name, setName] = useState(template?.name ?? '');
   const [category, setCategory] = useState(template?.category ?? '');
   const [content, setContent] = useState('');
+  const furnitureState = useTemplateFurniture();
+  const furnitureInitializedRef = useRef(false);
   const metadataInitializedRef = useRef(!!template);
 
   useEffect(() => {
@@ -110,6 +113,15 @@ export default function EditTemplatePage() {
     setName(template.name ?? '');
     setCategory(template.category ?? '');
   }, [template]);
+
+  // Hydrate the saved header/footer once, so later edits are not clobbered when
+  // SWR revalidates the template.
+  useEffect(() => {
+    if (!template || furnitureInitializedRef.current) return;
+    furnitureInitializedRef.current = true;
+    if (template.furniture) furnitureState.setFurniture(template.furniture);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [template?.id]);
 
   useEffect(() => {
     if (!template || contentInitializedRef.current) return;
@@ -228,6 +240,7 @@ export default function EditTemplatePage() {
         name: name.trim(),
         category,
         htmlContent: cleanContent,
+        furniture: furnitureState.toPayload(),
       });
 
       setLastSavedAt(new Date());
@@ -517,15 +530,27 @@ export default function EditTemplatePage() {
 
         {/* Right sidebar: Variables */}
         <div className="w-72 shrink-0 hidden lg:block">
-          <div className="sticky top-4">
+          <div className="sticky top-4 space-y-4">
             <MacroInsertionBar onInsert={insertMacro} disabled={isDisabled} />
+            <TemplateFurniturePanel
+              furnitureState={furnitureState}
+              bodyHtml={content}
+              disabled={isDisabled}
+              onUploadImage={handleUploadImageToS3}
+            />
           </div>
         </div>
       </div>
 
       {/* Mobile: show variables below editor */}
-      <div className="lg:hidden mt-6">
+      <div className="lg:hidden mt-6 space-y-4">
         <MacroInsertionBar onInsert={insertMacro} disabled={isDisabled} />
+        <TemplateFurniturePanel
+          furnitureState={furnitureState}
+          bodyHtml={content}
+          disabled={isDisabled}
+          onUploadImage={handleUploadImageToS3}
+        />
       </div>
 
       {/* Create Document Type Dialog */}

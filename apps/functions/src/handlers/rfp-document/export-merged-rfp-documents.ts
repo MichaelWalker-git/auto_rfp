@@ -21,6 +21,7 @@ import {
 } from '@/helpers/export';
 import { htmlToDocxBuffer } from '@/helpers/export-docx';
 import { htmlToPdfBuffer } from '@/helpers/export-pdf';
+import type { TemplateFurniture } from '@auto-rfp/core';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const REGION = requireEnv('REGION', 'us-east-1');
@@ -74,6 +75,7 @@ const doExportMerged = async (
     // Load each document's HTML in order
     const htmlParts: string[] = [];
     const titles: string[] = [];
+    let mergedFurniture: TemplateFurniture | undefined;
 
     for (const documentId of data.documentIds) {
       const doc = await getRFPDocument(data.projectId, data.opportunityId, documentId);
@@ -98,6 +100,13 @@ const doExportMerged = async (
       }
 
       if (!html?.trim()) continue;
+
+      // A merged export is one document, so it gets one header/footer. Take it
+      // from the first contributing document — mixing furniture mid-document is
+      // not expressible, and the alternative (dropping it) loses branding.
+      if (mergedFurniture === undefined) {
+        mergedFurniture = (doc as { furniture?: TemplateFurniture | null }).furniture ?? undefined;
+      }
 
       titles.push(title);
       htmlParts.push(preprocessHtml(html));
@@ -124,9 +133,9 @@ const doExportMerged = async (
 
     let buffer: Buffer;
     if (data.format === 'docx') {
-      buffer = await htmlToDocxBuffer(withToc, { title: mergedTitle, pageSize });
+      buffer = await htmlToDocxBuffer(withToc, { title: mergedTitle, pageSize, furniture: mergedFurniture });
     } else {
-      buffer = await htmlToPdfBuffer(withToc, { title: mergedTitle, pageSize });
+      buffer = await htmlToPdfBuffer(withToc, { title: mergedTitle, pageSize, furniture: mergedFurniture });
     }
 
     // Upload to S3

@@ -10,6 +10,7 @@ import {
   getLatestVersionNumber,
   saveVersionHtml,
 } from '@/helpers/rfp-document-version';
+import type { TemplateFurniture } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -132,6 +133,13 @@ export async function updateRFPDocumentMetadata(args: {
     pageImagesKey?: string;
     /** Number of generation retry attempts (0 = first attempt, max 3) */
     retryCount?: number;
+    /** Template the document was generated from. */
+    templateId?: string | null;
+    /**
+     * Header/footer snapshot copied from the source template. Exports read this
+     * from the document, since they never see the template.
+     */
+    furniture?: TemplateFurniture | null;
   };
   updatedBy: string;
 }): Promise<Record<string, any>> {
@@ -212,6 +220,16 @@ export async function updateRFPDocumentMetadata(args: {
     setParts.push('#retryCount = :retryCount');
     names['#retryCount'] = 'retryCount';
     values[':retryCount'] = args.updates.retryCount;
+  }
+  if (args.updates.templateId !== undefined) {
+    setParts.push('#templateId = :templateId');
+    names['#templateId'] = 'templateId';
+    values[':templateId'] = args.updates.templateId;
+  }
+  if (args.updates.furniture !== undefined) {
+    setParts.push('#furniture = :furniture');
+    names['#furniture'] = 'furniture';
+    values[':furniture'] = args.updates.furniture;
   }
 
   const res = await docClient.send(

@@ -76,6 +76,9 @@ const baseHandler = async (
       templateId: template.id,
       templateName: template.name,
       templateVersion: template.currentVersion,
+      // Returned so the caller can persist it on the document it creates —
+      // exports read furniture from the document, never from the template.
+      furniture: template.furniture,
     });
   } catch (err) {
     console.error('Error applying template:', err);
