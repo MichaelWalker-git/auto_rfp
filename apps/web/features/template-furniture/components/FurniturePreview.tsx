@@ -95,11 +95,17 @@ export const FurniturePreview = ({ value, onGetDownloadUrl, className }: Furnitu
     // so they cannot introduce markup. Same ordering as DocxFormEditor.
     const safe = DOMPurify.sanitize(html);
 
-    const withImages = safe.replace(S3_KEY_SRC_RE, (whole, key: string) => {
+    // An unresolved image must NOT keep an empty `src` — a browser renders that as
+    // its broken-image glyph (a "?" box), which reads as an error rather than a
+    // pending state. Swap the whole <img> for a styled span instead.
+    const withImages = safe.replace(/<img\b[^>]*src="s3key:([^"]+)"[^>]*>/g, (whole, key: string) => {
       const url = resolved[key];
-      if (url) return `src="${url}"`;
-      if (failedKeys[key]) return 'src="" data-furniture-img-failed="true"';
-      return 'src="" data-furniture-img-loading="true"';
+      if (url) return whole.replace(`src="s3key:${key}"`, `src="${url}"`);
+      const state = failedKeys[key] ? 'failed' : 'loading';
+      const title = failedKeys[key] ? 'Image could not be loaded' : 'Loading image…';
+      return `<span class="furniture-img-stub" data-state="${state}" title="${title}">${
+        failedKeys[key] ? 'image unavailable' : 'image…'
+      }</span>`;
     });
 
     return withImages.replace(MACRO_RE, (_whole, token: string) => {
@@ -144,13 +150,21 @@ export const FurniturePreview = ({ value, onGetDownloadUrl, className }: Furnitu
           width: auto;
           margin: 0 6px 0 0;
         }
-        .furniture-preview img[data-furniture-img-loading],
-        .furniture-preview img[data-furniture-img-failed] {
+        .furniture-preview .furniture-img-stub {
           display: inline-block;
-          width: 2.5rem;
-          height: 0.85rem;
+          vertical-align: middle;
+          margin: 0 6px 0 0;
+          padding: 0 4px;
           border: 1px dashed var(--border);
           border-radius: 2px;
+          font-size: 9px;
+          font-style: italic;
+          opacity: 0.7;
+        }
+        .furniture-preview .furniture-img-stub[data-state='failed'] {
+          border-color: var(--destructive);
+          color: var(--destructive);
+          opacity: 1;
         }
         .furniture-preview p,
         .furniture-preview div,
