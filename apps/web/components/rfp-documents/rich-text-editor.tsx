@@ -35,9 +35,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import type { TemplateFurniture } from '@auto-rfp/core';
-import { PageFurnitureOverlay } from '@/features/template-furniture/components/PageFurnitureOverlay';
-import { useResolvedFurnitureImages } from '@/features/template-furniture/hooks/useResolvedFurnitureImages';
 
 // ─── Page Size Configuration ──────────────────────────────────────────────────
 
@@ -698,21 +695,12 @@ const PageSheets = ({
   editorElement,
   pageSize,
   updateTrigger,
-  furniture,
-  resolvedFurnitureImages,
-  failedFurnitureImages,
 }: {
   editorElement: HTMLElement | null;
   pageSize: PageSize;
   updateTrigger: number;
-  /** Running header/footer to draw into each page's margins, Word-style. */
-  furniture?: TemplateFurniture;
-  resolvedFurnitureImages?: Record<string, string>;
-  failedFurnitureImages?: Record<string, true>;
 }) => {
   const [pageCount, setPageCount] = useState(1);
-  // Page index → 0-based furniture section, so per-section toggles apply here too.
-  const [pageSections, setPageSections] = useState<number[]>([]);
   const dims = PAGE_SIZES[pageSize];
   // Content area per page = total page height minus top and bottom margins
   const contentAreaHeight = dims.height - dims.paddingY * 2;
@@ -726,31 +714,7 @@ const PageSheets = ({
       const totalHeight = proseMirror.scrollHeight;
       // Subtract the initial top padding, then divide by content area per page
       const contentOnly = totalHeight - dims.paddingY;
-      const pages = Math.max(1, Math.ceil(contentOnly / contentAreaHeight));
-      setPageCount(pages);
-
-      // Map each page to its section by counting the page breaks above it. Uses
-      // measured offsets rather than the DOM order alone, because a break's page
-      // depends on where it actually falls.
-      const breaks = Array.from(
-        proseMirror.querySelectorAll('[data-page-break], .page-break-node'),
-      ).map((el) => {
-        let top = 0;
-        let cur = el as HTMLElement | null;
-        while (cur && cur !== proseMirror) {
-          top += cur.offsetTop;
-          cur = cur.offsetParent as HTMLElement | null;
-        }
-        return top;
-      });
-
-      const sections: number[] = [];
-      for (let page = 0; page < pages; page++) {
-        const pageEndsAt = dims.paddingY + (page + 1) * contentAreaHeight;
-        // Section = how many breaks start at or before this page.
-        sections.push(breaks.filter((b) => b < pageEndsAt).length);
-      }
-      setPageSections(sections);
+      setPageCount(Math.max(1, Math.ceil(contentOnly / contentAreaHeight)));
     };
 
     calculate();
@@ -800,22 +764,6 @@ const PageSheets = ({
             height: `${dims.height}px`,
           }}
         >
-          {/*
-            Running header/footer drawn into this page's margins, as Word and
-            Google Docs do. Decorative only — the parent sheet is
-            pointer-events:none, so this cannot affect editing or pagination.
-          */}
-          <PageFurnitureOverlay
-            furniture={furniture}
-            pageIndex={i}
-            totalPages={pageCount}
-            sectionIndex={pageSections[i] ?? 0}
-            paddingY={dims.paddingY}
-            paddingX={dims.paddingX}
-            resolved={resolvedFurnitureImages ?? {}}
-            failedKeys={failedFurnitureImages ?? {}}
-          />
-
           {/* Page number — bottom-right corner, inside the bottom margin area */}
           <div
             className="absolute select-none"
@@ -1263,11 +1211,6 @@ interface RichTextEditorProps {
   pageSize?: PageSize;
   /** Callback when user changes page size via toolbar */
   onPageSizeChange?: (size: PageSize) => void;
-  /**
-   * Running header/footer to draw into each simulated page's margins, the way
-   * Word and Google Docs display them. Decorative — never edited here.
-   */
-  furniture?: TemplateFurniture;
 }
 
 // ─── RichTextEditor ───────────────────────────────────────────────────────────
@@ -1288,7 +1231,6 @@ export const RichTextEditor = ({
   onEditorReady,
   pageSize: pageSizeProp,
   onPageSizeChange: onPageSizeChangeProp,
-  furniture,
 }: RichTextEditorProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
@@ -1309,14 +1251,6 @@ export const RichTextEditor = ({
 
   // Compute min height: at least one full page content area
   const effectiveMinHeight = minHeight ?? `${dims.height}px`;
-
-  // Presign the furniture images once here, so every page sheet reuses the same
-  // resolved URLs rather than each requesting its own.
-  const { resolved: resolvedFurnitureImages, failedKeys: failedFurnitureImages } =
-    useResolvedFurnitureImages([
-      furniture?.header.html ?? '',
-      furniture?.footer.html ?? '',
-    ]);
 
   const initializedRef = useRef(false);
 
@@ -1560,9 +1494,6 @@ export const RichTextEditor = ({
                   editorElement={editorContainerRef.current}
                   pageSize={pageSize}
                   updateTrigger={updateTrigger}
-                  furniture={furniture}
-                  resolvedFurnitureImages={resolvedFurnitureImages}
-                  failedFurnitureImages={failedFurnitureImages}
                 />
 
                 {/* Editor content */}
@@ -1593,51 +1524,6 @@ export const RichTextEditor = ({
       <UploadErrorDialog open={uploadErrorOpen} message={uploadErrorMsg} onClose={() => setUploadErrorOpen(false)} />
 
       <style>{`
-        /* ── In-page furniture overlay (running header / footer) ── */
-        .page-sheet .furniture-img-stub {
-          display: inline-block;
-          vertical-align: middle;
-          margin: 0 4px 0 0;
-          padding: 0 3px;
-          border: 1px dashed #cbd5e1;
-          border-radius: 2px;
-          font-size: 8px;
-          font-style: italic;
-          opacity: 0.7;
-        }
-        .page-sheet .furniture-chip {
-          display: inline-block;
-          padding: 0 3px;
-          border-radius: 2px;
-          background: rgba(99, 102, 241, 0.1);
-          color: #6366f1;
-          font-size: 8px;
-          font-weight: 500;
-          white-space: nowrap;
-        }
-        /*
-          Cap furniture images with an explicit px value from --furniture-img-max.
-          A percentage max-height resolved to none here because the band had no
-          definite height, so large logos rendered full-size and got clipped.
-        */
-        .page-sheet .furniture-band img {
-          display: inline-block;
-          vertical-align: middle;
-          max-height: var(--furniture-img-max, 48px);
-          max-width: 100%;
-          width: auto;
-          height: auto;
-          object-fit: contain;
-          margin: 0 4px 0 0;
-        }
-        /* Block children inline, so "logo + name" reads as one line as it does in the PDF. */
-        .page-sheet p,
-        .page-sheet div[style*="text-align"] > p {
-          display: inline;
-          margin: 0;
-          padding: 0;
-          font-size: inherit;
-        }
         /* ── Page sheet styling ── */
         .editor-page-wrapper .page-sheet {
           background: white;
