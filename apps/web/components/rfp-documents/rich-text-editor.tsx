@@ -1615,11 +1615,19 @@ export const RichTextEditor = ({
           font-weight: 500;
           white-space: nowrap;
         }
-        .page-sheet img {
+        /*
+          Cap furniture images with an explicit px value from --furniture-img-max.
+          A percentage max-height resolved to none here because the band had no
+          definite height, so large logos rendered full-size and got clipped.
+        */
+        .page-sheet .furniture-band img {
           display: inline-block;
           vertical-align: middle;
-          max-height: 100%;
+          max-height: var(--furniture-img-max, 48px);
+          max-width: 100%;
           width: auto;
+          height: auto;
+          object-fit: contain;
           margin: 0 4px 0 0;
         }
         /* Block children inline, so "logo + name" reads as one line as it does in the PDF. */
