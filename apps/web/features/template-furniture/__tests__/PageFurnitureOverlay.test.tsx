@@ -145,3 +145,45 @@ describe('PageFurnitureOverlay', () => {
     expect(container.innerHTML).not.toContain('{{COMPANY_NAME}}');
   });
 });
+
+describe('PageFurnitureOverlay — image containment', () => {
+  /**
+   * Regression guard for the "header image cuts off" report. The band previously
+   * set only `max-height`, and a percentage max-height on the child image resolves
+   * to `none` against an indefinite parent — so a large logo rendered at natural
+   * size and was clipped by overflow. The band needs a DEFINITE height plus an
+   * explicit px cap the image can actually honour.
+   */
+  const bandStyles = (container: HTMLElement): string[] =>
+    [...container.querySelectorAll('.furniture-band')].map((b) => b.getAttribute('style') ?? '');
+
+  it('gives the band a definite height, not just a max-height', () => {
+    const { container } = renderOverlay();
+    for (const style of bandStyles(container)) {
+      expect(style).toMatch(/(^|[^-])height:/);
+    }
+  });
+
+  it('publishes an explicit px image cap rather than a percentage', () => {
+    const { container } = renderOverlay();
+    // 0.5in default at 96 DPI.
+    for (const style of bandStyles(container)) {
+      expect(style).toContain('--furniture-img-max: 48px');
+    }
+  });
+
+  it('scales the cap with the configured band height', () => {
+    const { container } = renderOverlay({
+      furniture: furniture({
+        header: { enabled: true, html: '<p>H</p>', align: 'CENTER', heightIn: 1 },
+      }),
+    });
+    // Height (in) is the single knob that controls logo size.
+    expect(bandStyles(container).some((s) => s.includes('--furniture-img-max: 96px'))).toBe(true);
+  });
+
+  it('tags bands so the scoped image CSS can target them', () => {
+    const { container } = renderOverlay();
+    expect(container.querySelectorAll('.furniture-band').length).toBe(2);
+  });
+});

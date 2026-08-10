@@ -78,7 +78,10 @@ export const FurniturePreview = ({ value, onGetDownloadUrl, className }: Furnitu
           display: inline-block;
           vertical-align: middle;
           max-height: var(--furniture-img-max, 48px);
+          max-width: 100%;
           width: auto;
+          height: auto;
+          object-fit: contain;
           margin: 0 6px 0 0;
         }
         .furniture-preview .furniture-img-stub {

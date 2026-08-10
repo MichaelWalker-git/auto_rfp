@@ -3,7 +3,12 @@
 import type { PageFurniture, TemplateFurniture } from '@auto-rfp/core';
 import { renderFurnitureBandHtml } from '../lib/render-band';
 
-/** Shared styling for both bands, kept in one place so they cannot drift. */
+/**
+ * Shared styling for both bands, kept in one place so they cannot drift.
+ *
+ * `overflow-hidden` is a last-resort guard only — images are capped by an explicit
+ * px value below, so clipping should never be what limits them.
+ */
 const BAND_BASE = 'absolute select-none overflow-hidden text-[9px] leading-tight text-gray-400';
 
 interface BandProps {
@@ -37,12 +42,18 @@ const FurnitureBand = ({
 
   return (
     <div
-      className={BAND_BASE}
+      className={`${BAND_BASE} furniture-band`}
       style={{
         [edge]: `${offsetPx}px`,
         left: `${insetPx}px`,
         right: `${insetPx}px`,
-        maxHeight: `${maxHeightPx}px`,
+        // A DEFINITE height, not just max-height: a percentage max-height on the
+        // child image resolves to `none` against an indefinite parent, which is
+        // why large logos rendered full-size and were clipped by overflow.
+        height: `${maxHeightPx}px`,
+        // Consumed by the `.furniture-band img` rule as an explicit px cap. A px
+        // value cannot silently fail the way a percentage does.
+        ['--furniture-img-max' as string]: `${maxHeightPx}px`,
         textAlign: part.align.toLowerCase() as 'left' | 'center' | 'right',
       }}
       // Sanitised inside renderFurnitureBandHtml; chips/stubs are text-only spans.
