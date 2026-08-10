@@ -982,7 +982,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
   const [enrichedKbText, templateHtmlScaffold, templateFurniture] = await Promise.all([
     gatherAllContext({ projectId, orgId, opportunityId, solicitation, documentType }),
     resolveTemplateHtml(orgId, documentType, templateId, macroValues),
-    resolveTemplateFurniture(orgId, documentType, templateId),
+    resolveTemplateFurniture(orgId, documentType, templateId, macroValues),
   ]);
 
   if (templateHtmlScaffold) {
