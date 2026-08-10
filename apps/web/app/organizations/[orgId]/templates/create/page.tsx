@@ -270,6 +270,7 @@ export default function CreateTemplatePage() {
               onChange={setContent}
               disabled={isDisabled}
               minHeight="500px"
+              furniture={furnitureState.furniture}
               onUploadImageToS3={handleUploadImageToS3}
               onGetDownloadUrl={handleGetDownloadUrl}
               onUploadingChange={setIsImageUploading}
