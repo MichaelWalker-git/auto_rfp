@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Trash2, DollarSign, CalendarIcon, Upload, Pencil } from 'lucide-react';
+import { Plus, Trash2, DollarSign, CalendarIcon, Upload, Pencil, ChevronDown, ChevronRight } from 'lucide-react';
 import { mutate } from 'swr';
 import { ExtractionUploadDialog, ExtractionSourceBadge } from '@/components/extraction';
 import { PendingDraftsSection } from './PendingDraftsSection';
@@ -32,6 +32,10 @@ interface LaborRateManagerProps {
 
 const CreateFormSchema = CreateLaborRateSchema;
 type CreateFormData = z.input<typeof CreateFormSchema>;
+
+// Optional numeric field: blank/empty coerces to undefined (not NaN) so Zod's
+// `.optional()` passes when the offshore buildup is left blank.
+const optionalNumber = { setValueAs: (v: unknown) => (v === '' || v === null || v === undefined ? undefined : Number(v)) };
 
 const parseErrorMessage = (err: unknown): string => {
   if (err instanceof Error) {
@@ -53,6 +57,8 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
   const { drafts: laborRateDrafts, refresh: refreshDrafts } = useDrafts<'LABOR_RATE'>(orgId, { draftType: 'LABOR_RATE', status: 'DRAFT' });
   
   const [showForm, setShowForm] = useState(false);
+  const [showCreateOffshore, setShowCreateOffshore] = useState(false);
+  const [showEditOffshore, setShowEditOffshore] = useState(false);
   const [editingRate, setEditingRate] = useState<LaborRate | null>(null);
   const { toast } = useToast();
 
@@ -71,6 +77,7 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
       toast({ title: 'Success', description: 'Labor rate created successfully' });
       createForm.reset();
       setShowForm(false);
+      setShowCreateOffshore(false);
       mutate((key: string) => typeof key === 'string' && key.includes('/labor-rates'));
     } catch (err) {
       toast({ title: 'Error', description: parseErrorMessage(err), variant: 'destructive' });
@@ -80,7 +87,15 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
   const onEditSubmit = async (formData: UpdateLaborRate) => {
     if (!editingRate) return;
     try {
-      await updateRate(formData);
+      // If the rate previously had an offshore buildup and the user cleared the offshore base,
+      // send an explicit null so the handler wipes the buildup. (A blank maps to undefined,
+      // which JSON.stringify drops — the handler would then keep the stale offshore rate.)
+      const hadOffshore = editingRate.offshoreBaseRate != null || editingRate.offshoreFullyLoadedRate != null;
+      const payload: UpdateLaborRate = {
+        ...formData,
+        ...(hadOffshore && formData.offshoreBaseRate == null ? { offshoreBaseRate: null } : {}),
+      };
+      await updateRate(payload);
       toast({ title: 'Success', description: 'Labor rate updated successfully' });
       setEditingRate(null);
       editForm.reset();
@@ -92,9 +107,13 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
 
   const handleEdit = (rate: LaborRate) => {
     setEditingRate(rate);
+    setShowEditOffshore(rate.offshoreFullyLoadedRate != null || rate.offshoreBaseRate != null);
     editForm.reset({
       laborRateId: rate.laborRateId, orgId, position: rate.position,
       baseRate: rate.baseRate, overhead: rate.overhead, ga: rate.ga, profit: rate.profit,
+      offshoreBaseRate: rate.offshoreBaseRate, offshoreOverhead: rate.offshoreOverhead,
+      offshoreGa: rate.offshoreGa, offshoreProfit: rate.offshoreProfit,
+      offshoreRateJustification: rate.offshoreRateJustification,
       effectiveDate: rate.effectiveDate, expirationDate: rate.expirationDate,
       isActive: rate.isActive, rateJustification: rate.rateJustification,
     });
@@ -181,6 +200,39 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
                 <label className="text-sm font-medium">Rate Justification</label>
                 <Input {...createForm.register('rateJustification')} placeholder="GSA Schedule, market research..." />
               </div>
+
+              <div className="col-span-2 border-t pt-4">
+                <Button type="button" variant="ghost" size="sm" className="px-0" onClick={() => setShowCreateOffshore(v => !v)}>
+                  {showCreateOffshore ? <ChevronDown className="h-4 w-4 mr-1" /> : <ChevronRight className="h-4 w-4 mr-1" />}
+                  Offshore Rate (optional)
+                </Button>
+                <p className="text-xs text-muted-foreground">Non-US / global-delivery buildup. Used for opportunities that allow offshore delivery. Leave blank to price offshore work at the onshore rate.</p>
+              </div>
+              {showCreateOffshore && (
+                <>
+                  <div>
+                    <label className="text-sm font-medium">Offshore Base Rate ($/hr)</label>
+                    <Input {...createForm.register('offshoreBaseRate', optionalNumber)} type="number" step="0.01" placeholder="30.00" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Offshore Overhead (%)</label>
+                    <Input {...createForm.register('offshoreOverhead', optionalNumber)} type="number" step="0.1" placeholder="60" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Offshore G&A (%)</label>
+                    <Input {...createForm.register('offshoreGa', optionalNumber)} type="number" step="0.1" placeholder="10" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Offshore Profit (%)</label>
+                    <Input {...createForm.register('offshoreProfit', optionalNumber)} type="number" step="0.1" placeholder="10" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-sm font-medium">Offshore Rate Justification</label>
+                    <Input {...createForm.register('offshoreRateJustification')} placeholder="Delivery center, market benchmark..." />
+                  </div>
+                </>
+              )}
+
               <div className="col-span-2 flex gap-2 justify-end">
                 <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
                 <Button type="submit" disabled={isCreating}>{isCreating ? 'Creating...' : 'Create Rate'}</Button>
@@ -219,6 +271,7 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
                 <th className="text-right p-3 font-medium"><div className="flex items-center justify-end gap-0.5">G&A<LaborRateInfoPopover /></div></th>
                 <th className="text-right p-3 font-medium"><div className="flex items-center justify-end gap-0.5">Profit<LaborRateInfoPopover /></div></th>
                 <th className="text-right p-3 font-medium"><div className="flex items-center justify-end gap-0.5">Fully Loaded<LaborRateInfoPopover /></div></th>
+                <th className="text-right p-3 font-medium">Offshore FL</th>
                 <th className="text-center p-3 font-medium">Status</th>
                 <th className="text-right p-3 font-medium">Actions</th>
               </tr>
@@ -237,6 +290,11 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
                   <td className="p-3 text-right">{rate.ga}%</td>
                   <td className="p-3 text-right">{rate.profit}%</td>
                   <td className="p-3 text-right font-semibold text-primary">${rate.fullyLoadedRate.toFixed(2)}</td>
+                  <td className="p-3 text-right">
+                    {rate.offshoreFullyLoadedRate != null
+                      ? <span className="font-semibold text-primary">${rate.offshoreFullyLoadedRate.toFixed(2)}</span>
+                      : <Badge variant="outline" className="text-muted-foreground font-normal">No offshore rate</Badge>}
+                  </td>
                   <td className="p-3 text-center"><Badge variant={rate.isActive ? 'default' : 'secondary'}>{rate.isActive ? 'Active' : 'Inactive'}</Badge></td>
                   <td className="p-3 text-right space-x-1">
                     <PermissionButton requiredPermission="pricing:edit" variant="ghost" size="sm" onClick={() => handleEdit(rate)}><Pencil className="h-4 w-4" /></PermissionButton>
@@ -267,6 +325,24 @@ export const LaborRateManager = ({ orgId }: LaborRateManagerProps) => {
               <div><div className="flex items-center gap-1"><label className="text-sm font-medium">Profit (%)</label><LaborRateInfoPopover /></div><Input {...editForm.register('profit', { valueAsNumber: true })} type="number" step="0.1" /></div>
             </div>
             <div><label className="text-sm font-medium">Rate Justification</label><Input {...editForm.register('rateJustification')} /></div>
+
+            <div className="border-t pt-3">
+              <Button type="button" variant="ghost" size="sm" className="px-0" onClick={() => setShowEditOffshore(v => !v)}>
+                {showEditOffshore ? <ChevronDown className="h-4 w-4 mr-1" /> : <ChevronRight className="h-4 w-4 mr-1" />}
+                Offshore Rate (optional)
+              </Button>
+            </div>
+            {showEditOffshore && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div><label className="text-sm font-medium">Offshore Base Rate ($/hr)</label><Input {...editForm.register('offshoreBaseRate', optionalNumber)} type="number" step="0.01" /></div>
+                  <div><label className="text-sm font-medium">Offshore Overhead (%)</label><Input {...editForm.register('offshoreOverhead', optionalNumber)} type="number" step="0.1" /></div>
+                  <div><label className="text-sm font-medium">Offshore G&A (%)</label><Input {...editForm.register('offshoreGa', optionalNumber)} type="number" step="0.1" /></div>
+                  <div><label className="text-sm font-medium">Offshore Profit (%)</label><Input {...editForm.register('offshoreProfit', optionalNumber)} type="number" step="0.1" /></div>
+                </div>
+                <div><label className="text-sm font-medium">Offshore Rate Justification</label><Input {...editForm.register('offshoreRateJustification')} /></div>
+              </>
+            )}
             <DialogFooter><Button type="button" variant="outline" onClick={() => setEditingRate(null)}>Cancel</Button><Button type="submit" disabled={isUpdating}>{isUpdating ? 'Saving...' : 'Save Changes'}</Button></DialogFooter>
           </form>
         </DialogContent>

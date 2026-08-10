@@ -379,15 +379,37 @@ const fetchPricingData = async (
 
     const parts: string[] = [];
 
+    // Derive the rate basis from the opportunity's delivery-location constraint.
+    const { resolveRateBasisForOpportunity } = await import('./pricing');
+    const rateBasis = await resolveRateBasisForOpportunity(orgId, projectId, opportunityId);
+
     // Labor Rates
     if (includeLabor) {
       const laborRates = await getLaborRatesByOrg(orgId);
       const activeRates = laborRates.filter(r => r.isActive);
       if (activeRates.length > 0) {
-        const rateLines = activeRates.map(r =>
-          `  ${r.position}: Base $${r.baseRate.toFixed(2)}/hr → Fully Loaded $${r.fullyLoadedRate.toFixed(2)}/hr ` +
-          `(OH: ${r.overhead}%, G&A: ${r.ga}%, Profit: ${r.profit}%)` +
-          (r.rateJustification ? ` [${r.rateJustification}]` : ''),
+        // For OFFSHORE basis, present the rate the model MUST bill each position at as the
+        // single "Rate to use", with a resolved fallback to onshore when no offshore rate
+        // exists — so the model never has to re-derive which column applies.
+        const rateLines = activeRates.map(r => {
+          const hasOffshore = typeof r.offshoreFullyLoadedRate === 'number' && r.offshoreFullyLoadedRate > 0;
+          if (rateBasis === 'OFFSHORE') {
+            const rateToUse = hasOffshore ? r.offshoreFullyLoadedRate! : r.fullyLoadedRate;
+            const source = hasOffshore ? 'OFFSHORE' : 'ONSHORE (no offshore rate on file — exception)';
+            return `  ${r.position}: Rate to use $${rateToUse.toFixed(2)}/hr [${source}]` +
+              ` (onshore $${r.fullyLoadedRate.toFixed(2)}` +
+              (hasOffshore ? `, offshore $${r.offshoreFullyLoadedRate!.toFixed(2)}` : '') + '/hr)' +
+              (r.rateJustification ? ` [${r.rateJustification}]` : '');
+          }
+          return `  ${r.position}: Rate to use $${r.fullyLoadedRate.toFixed(2)}/hr [ONSHORE]` +
+            ` (Base $${r.baseRate.toFixed(2)}, OH ${r.overhead}%, G&A ${r.ga}%, Profit ${r.profit}%)` +
+            (r.rateJustification ? ` [${r.rateJustification}]` : '');
+        });
+        parts.push(
+          `=== RATE BASIS: ${rateBasis} (AUTHORITATIVE — from confirmed opportunity delivery constraint) ===\n` +
+          (rateBasis === 'OFFSHORE'
+            ? 'Offshore/remote-delivery eligibility for this opportunity has ALREADY been determined and confirmed. Do NOT re-evaluate it from the solicitation, and do NOT revert to onshore over data-residency/records/sensitivity concerns. For each position, bill labor at the "Rate to use" shown below — the OFFSHORE fully-loaded rate where one exists. Positions marked ONSHORE (exception) have no offshore rate on file; use their onshore rate. Do NOT substitute onshore rates for positions that have an offshore rate, and NEVER relabel onshore numbers as offshore.'
+            : 'Price labor at the onshore "Rate to use" shown below.'),
         );
         parts.push(`=== LABOR RATE TABLE (${activeRates.length} active rates) ===\n${rateLines.join('\n')}`);
       }

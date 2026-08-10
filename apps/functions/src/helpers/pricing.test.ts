@@ -1,7 +1,71 @@
-import { calculateFullyLoadedRate, calculateEstimateTotals, analyzePricingForBid } from './pricing';
-import type { CostEstimate } from '@auto-rfp/core';
+import { calculateFullyLoadedRate, calculateEstimateTotals, analyzePricingForBid, resolveRate, computeOffshoreFullyLoadedRate } from './pricing';
+import type { CostEstimate, LaborRate } from '@auto-rfp/core';
+
+const makeLaborRate = (overrides: Partial<LaborRate> = {}): LaborRate => ({
+  laborRateId: '11111111-1111-1111-1111-111111111111',
+  orgId: '22222222-2222-2222-2222-222222222222',
+  position: 'Engineer',
+  baseRate: 100,
+  overhead: 0,
+  ga: 0,
+  profit: 0,
+  fullyLoadedRate: 100,
+  effectiveDate: '2024-01-01T00:00:00.000Z',
+  isActive: true,
+  createdAt: '2024-01-01T00:00:00.000Z',
+  updatedAt: '2024-01-01T00:00:00.000Z',
+  createdBy: '33333333-3333-3333-3333-333333333333',
+  updatedBy: '33333333-3333-3333-3333-333333333333',
+  ...overrides,
+});
 
 describe('pricing helpers', () => {
+  describe('computeOffshoreFullyLoadedRate', () => {
+    it('computes from a complete offshore buildup', () => {
+      // 30 * 2 = 60 → 66 → 72.6
+      expect(computeOffshoreFullyLoadedRate({
+        offshoreBaseRate: 30, offshoreOverhead: 100, offshoreGa: 10, offshoreProfit: 10,
+      })).toBe(72.6);
+    });
+
+    it('computes from base alone, treating omitted markups as 0', () => {
+      expect(computeOffshoreFullyLoadedRate({ offshoreBaseRate: 30 })).toBe(30);
+      expect(computeOffshoreFullyLoadedRate({ offshoreBaseRate: 30, offshoreOverhead: 100 })).toBe(60);
+    });
+
+    it('returns undefined when no offshore base rate is provided', () => {
+      expect(computeOffshoreFullyLoadedRate({})).toBeUndefined();
+      expect(computeOffshoreFullyLoadedRate({ offshoreOverhead: 50, offshoreGa: 10 })).toBeUndefined();
+    });
+
+    it('returns undefined when offshore base rate is explicitly null (cleared)', () => {
+      expect(computeOffshoreFullyLoadedRate({ offshoreBaseRate: null })).toBeUndefined();
+      expect(computeOffshoreFullyLoadedRate({ offshoreBaseRate: null, offshoreOverhead: 100 })).toBeUndefined();
+    });
+  });
+
+  describe('resolveRate', () => {
+    it('returns the onshore rate for ONSHORE basis', () => {
+      const rate = makeLaborRate({ fullyLoadedRate: 150, offshoreFullyLoadedRate: 60 });
+      expect(resolveRate(rate, 'ONSHORE')).toEqual({ rate: 150, basisUsed: 'ONSHORE', fellBackToOnshore: false });
+    });
+
+    it('returns the offshore rate for OFFSHORE basis when present', () => {
+      const rate = makeLaborRate({ fullyLoadedRate: 150, offshoreFullyLoadedRate: 60 });
+      expect(resolveRate(rate, 'OFFSHORE')).toEqual({ rate: 60, basisUsed: 'OFFSHORE', fellBackToOnshore: false });
+    });
+
+    it('falls back to onshore for OFFSHORE basis when offshore rate is missing', () => {
+      const rate = makeLaborRate({ fullyLoadedRate: 150 });
+      expect(resolveRate(rate, 'OFFSHORE')).toEqual({ rate: 150, basisUsed: 'ONSHORE', fellBackToOnshore: true });
+    });
+
+    it('falls back to onshore when offshore rate is zero/invalid', () => {
+      const rate = makeLaborRate({ fullyLoadedRate: 150, offshoreFullyLoadedRate: 0 });
+      expect(resolveRate(rate, 'OFFSHORE').fellBackToOnshore).toBe(true);
+    });
+  });
+
   describe('calculateFullyLoadedRate', () => {
     it('should calculate correctly with standard rates', () => {
       // 50 * 1.5 (overhead 50%) = 75

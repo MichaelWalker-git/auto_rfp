@@ -97,4 +97,72 @@ describe('create-labor-rate handler', () => {
     // 110 * (1 + 10/100) = 121
     expect(parsed.laborRate.fullyLoadedRate).toBe(121);
   });
+
+  it('should compute offshoreFullyLoadedRate when the full offshore buildup is provided', async () => {
+    mockSend.mockResolvedValueOnce({});
+
+    const event = makeEvent({
+      orgId: '550e8400-e29b-41d4-a716-446655440000',
+      position: 'Offshore Engineer',
+      baseRate: 75,
+      overhead: 120,
+      ga: 12,
+      profit: 10,
+      offshoreBaseRate: 30,
+      offshoreOverhead: 100,
+      offshoreGa: 10,
+      offshoreProfit: 10,
+      effectiveDate: '2024-01-01T00:00:00.000Z',
+    });
+
+    const result = await baseHandler(event as never);
+    const parsed = JSON.parse(typeof result === 'string' ? result : (result as { body: string }).body);
+
+    expect((result as { statusCode: number }).statusCode).toBe(201);
+    // 30 * 2 = 60 → * 1.1 = 66 → * 1.1 = 72.6
+    expect(parsed.laborRate.offshoreFullyLoadedRate).toBe(72.6);
+  });
+
+  it('should compute offshoreFullyLoadedRate from base alone, treating blank markups as 0', async () => {
+    mockSend.mockResolvedValueOnce({});
+
+    const event = makeEvent({
+      orgId: '550e8400-e29b-41d4-a716-446655440000',
+      position: 'Partial Offshore',
+      baseRate: 75,
+      overhead: 120,
+      ga: 12,
+      profit: 10,
+      offshoreBaseRate: 30, // only base provided — markups default to 0
+      effectiveDate: '2024-01-01T00:00:00.000Z',
+    });
+
+    const result = await baseHandler(event as never);
+    const parsed = JSON.parse(typeof result === 'string' ? result : (result as { body: string }).body);
+
+    expect((result as { statusCode: number }).statusCode).toBe(201);
+    // 30 with 0/0/0 markups = 30
+    expect(parsed.laborRate.offshoreFullyLoadedRate).toBe(30);
+  });
+
+  it('should omit offshoreFullyLoadedRate when no offshore base rate is provided', async () => {
+    mockSend.mockResolvedValueOnce({});
+
+    const event = makeEvent({
+      orgId: '550e8400-e29b-41d4-a716-446655440000',
+      position: 'No Offshore',
+      baseRate: 75,
+      overhead: 120,
+      ga: 12,
+      profit: 10,
+      offshoreOverhead: 50, // markups without a base — not an offshore rate
+      effectiveDate: '2024-01-01T00:00:00.000Z',
+    });
+
+    const result = await baseHandler(event as never);
+    const parsed = JSON.parse(typeof result === 'string' ? result : (result as { body: string }).body);
+
+    expect((result as { statusCode: number }).statusCode).toBe(201);
+    expect(parsed.laborRate.offshoreFullyLoadedRate).toBeUndefined();
+  });
 });

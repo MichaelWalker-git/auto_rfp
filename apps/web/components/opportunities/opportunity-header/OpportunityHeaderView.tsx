@@ -43,6 +43,12 @@ export const OpportunityHeaderView = ({
         )}
         {opportunity.pscCode && <Badge variant="outline">PSC {opportunity.pscCode}</Badge>}
         {opportunity.setAside && <Badge variant="outline">{opportunity.setAside}</Badge>}
+        {opportunity.deliveryLocationConstraint === 'OFFSHORE_ALLOWED' && (
+          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Offshore delivery allowed</Badge>
+        )}
+        {opportunity.deliveryLocationConstraint === 'US_ONLY' && (
+          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">US-based team required</Badge>
+        )}
         {opportunity.solicitationNumber && (
           <Badge variant="outline">Solicitation {opportunity.solicitationNumber}</Badge>
         )}
