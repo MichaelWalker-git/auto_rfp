@@ -67,6 +67,17 @@ export const SolutionPlanCreateRequestSchema = SolutionPlanKeySchema;
 
 export type SolutionPlanCreateRequest = z.infer<typeof SolutionPlanCreateRequestSchema>;
 
+/**
+ * POST body for `init-solution-plan` — the key triple plus an explicit restart
+ * intent. Re-initializing a plan that is mid-run (GRILLING/GENERATING_SOT)
+ * requires `restart: true`; a silent re-init is refused with 409 (ADR-5).
+ */
+export const SolutionPlanInitRequestSchema = SolutionPlanKeySchema.extend({
+  restart: z.boolean().optional(),
+});
+
+export type SolutionPlanInitRequest = z.infer<typeof SolutionPlanInitRequestSchema>;
+
 // ─── Update request ─────────────────────────────────────────────────────────────
 
 /**

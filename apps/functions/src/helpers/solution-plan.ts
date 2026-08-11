@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import type {
   GrillingMessageDBItem,
+  GrillingMessageItem,
   GrillingMessageRole,
   GrillingToolCallSummary,
   SolutionPlanDBItem,
@@ -22,9 +23,9 @@ import type {
   SolutionPlanStatusPatch,
 } from '@auto-rfp/core';
 
-import { PK_NAME } from '@/constants/common';
+import { PK_NAME, SK_NAME } from '@/constants/common';
 import { GRILLING_MESSAGE_PK, SOLUTION_PLAN_PK } from '@/constants/solution-plan';
-import { getItem, putItem, queryAllBySkPrefix, updateItem } from './db';
+import { batchDeleteItems, getItem, putItem, queryAllBySkPrefix, updateItem } from './db';
 import { loadTextFromS3, uploadToS3 } from './s3';
 import { requireEnv } from './env';
 import { nowIso } from './date';
@@ -90,6 +91,51 @@ export const updateSolutionPlanStatus = async (
     status,
     ...patch,
   });
+
+/** Strip the single-table keys off a DB record → the pure domain item. */
+export const toSolutionPlanItem = (dbItem: SolutionPlanDBItem): SolutionPlanItem => {
+  const { [PK_NAME]: _pk, [SK_NAME]: _sk, ...item } = dbItem;
+  return item;
+};
+
+/**
+ * Persist a user edit of a READY plan's content (ADR-8): bump version +
+ * contentKey, set `isUserEdited`/`editedBy`, clear staleness. Both checks are
+ * DynamoDB conditions, so the write is atomic against races:
+ *  - status must still be READY — a concurrent re-init can't be clobbered
+ *  - version must still be `patch.version - 1` — two concurrent edits can't
+ *    both claim v{N+1} and silently drop one (ADR-11: versions never collide)
+ * Returns null when either condition fails (or the plan is missing).
+ */
+export const updateSolutionPlanContent = async (
+  key: SolutionPlanKey,
+  patch: { version: number; contentKey: string; editedBy?: string },
+): Promise<SolutionPlanDBItem | null> => {
+  try {
+    return await updateItem<SolutionPlanDBItem>(
+      SOLUTION_PLAN_PK,
+      buildSolutionPlanSk(key),
+      { ...patch, isUserEdited: true, isStale: false, staleReason: '' },
+      {
+        condition:
+          'attribute_exists(#pk) AND #status = :readyStatus AND #version = :expectedVersion',
+        conditionNames: { '#pk': PK_NAME, '#status': 'status', '#version': 'version' },
+        conditionValues: {
+          ':readyStatus': 'READY' satisfies SolutionPlanStatus,
+          ':expectedVersion': patch.version - 1,
+        },
+      },
+    );
+  } catch (err) {
+    if ((err as { name?: string })?.name === 'ConditionalCheckFailedException') {
+      console.log(
+        `[updateSolutionPlanContent] refused — plan missing or not READY (opportunityId=${key.opportunityId})`,
+      );
+      return null;
+    }
+    throw err;
+  }
+};
 
 /**
  * Mark a READY plan stale (ADR-3). No-op unless the plan exists AND its status
@@ -164,6 +210,31 @@ export const listGrillingMessages = async (
     GRILLING_MESSAGE_PK,
     buildGrillingMessageSkPrefix(solutionPlanId),
   );
+
+/** Strip the single-table keys off a transcript record → the pure domain item. */
+export const toGrillingMessageItem = (dbItem: GrillingMessageDBItem): GrillingMessageItem => {
+  const { [PK_NAME]: _pk, [SK_NAME]: _sk, ...item } = dbItem;
+  return item;
+};
+
+/**
+ * Wipe the full transcript of a plan (wipe-on-regenerate, ADR-2). Any message
+ * a zombie worker appends afterwards carries a superseded runId and is
+ * filtered out of every read (ADR-5). Returns the number of deleted messages.
+ */
+export const deleteGrillingMessages = async (solutionPlanId: string): Promise<number> => {
+  const messages = await listGrillingMessages(solutionPlanId);
+  if (!messages.length) return 0;
+
+  const { deleted, failed } = await batchDeleteItems(
+    messages.map((m) => ({ pk: GRILLING_MESSAGE_PK, sk: m[SK_NAME] })),
+  );
+  if (failed > 0) {
+    // Leftovers are invisible to reads (superseded runId) — log, don't fail the init
+    console.warn(`[deleteGrillingMessages] ${failed} message(s) failed to delete for plan ${solutionPlanId}`);
+  }
+  return deleted;
+};
 
 // ─── S3 HTML content ────────────────────────────────────────────────────────────
 

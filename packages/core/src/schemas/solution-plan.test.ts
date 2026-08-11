@@ -4,6 +4,7 @@ import {
   SolutionPlanStatusSchema,
   SolutionPlanKeySchema,
   SolutionPlanCreateRequestSchema,
+  SolutionPlanInitRequestSchema,
   SolutionPlanStatusPatchSchema,
   SolutionPlanUpdateRequestSchema,
   SolutionPlanItemSchema,
@@ -97,6 +98,40 @@ describe('SolutionPlanCreateRequestSchema', () => {
         orgId: '',
         projectId: 'proj-456',
         opportunityId: 'opp-789',
+      }).success
+    ).toBe(false);
+  });
+});
+
+describe('SolutionPlanInitRequestSchema', () => {
+  it('should accept the key triple without a restart flag', () => {
+    const { success, data } = SolutionPlanInitRequestSchema.safeParse({
+      orgId: 'org-123',
+      projectId: 'proj-456',
+      opportunityId: 'opp-789',
+    });
+    expect(success).toBe(true);
+    expect(data?.restart).toBeUndefined();
+  });
+
+  it('should accept an explicit restart intent', () => {
+    const { success, data } = SolutionPlanInitRequestSchema.safeParse({
+      orgId: 'org-123',
+      projectId: 'proj-456',
+      opportunityId: 'opp-789',
+      restart: true,
+    });
+    expect(success).toBe(true);
+    expect(data?.restart).toBe(true);
+  });
+
+  it('should reject a non-boolean restart flag', () => {
+    expect(
+      SolutionPlanInitRequestSchema.safeParse({
+        orgId: 'org-123',
+        projectId: 'proj-456',
+        opportunityId: 'opp-789',
+        restart: 'yes',
       }).success
     ).toBe(false);
   });
