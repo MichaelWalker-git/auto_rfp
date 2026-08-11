@@ -41,17 +41,29 @@ export const SOLUTION_PLAN_STATUS_LABELS: Record<SolutionPlanStatus, string> = {
   FAILED: 'Failed',
 };
 
-// ─── Create request ─────────────────────────────────────────────────────────────
+// ─── Key ────────────────────────────────────────────────────────────────────────
 
 /**
- * Incoming request body for initializing (or re-initializing) a solution plan.
- * Everything else — id, runId, status, version — is server-managed.
+ * The identifier triple that uniquely addresses a plan (one plan per
+ * opportunity). Travels together everywhere — SK builders, lookups, S3 keys —
+ * so it is a single named type rather than three loose parameters.
  */
-export const SolutionPlanCreateRequestSchema = z.object({
+export const SolutionPlanKeySchema = z.object({
   orgId: z.string().min(1, 'Organization ID is required'),
   projectId: z.string().min(1, 'Project ID is required'),
   opportunityId: z.string().min(1, 'Opportunity ID is required'),
 });
+
+export type SolutionPlanKey = z.infer<typeof SolutionPlanKeySchema>;
+
+// ─── Create request ─────────────────────────────────────────────────────────────
+
+/**
+ * Incoming request body for initializing (or re-initializing) a solution plan —
+ * exactly the key triple. Everything else — id, runId, status, version — is
+ * server-managed.
+ */
+export const SolutionPlanCreateRequestSchema = SolutionPlanKeySchema;
 
 export type SolutionPlanCreateRequest = z.infer<typeof SolutionPlanCreateRequestSchema>;
 
@@ -119,6 +131,27 @@ export const SolutionPlanItemSchema = SolutionPlanCreateRequestSchema.extend({
 });
 
 export type SolutionPlanItem = z.infer<typeof SolutionPlanItemSchema>;
+
+/**
+ * Fields a status transition may patch alongside `status` (e.g. `contentKey` +
+ * `version` on READY, `error` on FAILED). Identifiers and `status` itself are
+ * excluded — the transition helper sets `status` explicitly.
+ */
+export const SolutionPlanStatusPatchSchema = SolutionPlanItemSchema.pick({
+  isStale: true,
+  staleReason: true,
+  contentKey: true,
+  version: true,
+  isUserEdited: true,
+  editedBy: true,
+  grillingRounds: true,
+  grillingCompletedAt: true,
+  error: true,
+  updatedBy: true,
+  updatedByName: true,
+}).partial();
+
+export type SolutionPlanStatusPatch = z.infer<typeof SolutionPlanStatusPatchSchema>;
 
 // ─── DB record (domain entity + single-table keys) ──────────────────────────────
 

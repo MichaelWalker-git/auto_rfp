@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { PK_NAME, SK_NAME } from '../constants';
 import {
   SolutionPlanStatusSchema,
+  SolutionPlanKeySchema,
   SolutionPlanCreateRequestSchema,
+  SolutionPlanStatusPatchSchema,
   SolutionPlanUpdateRequestSchema,
   SolutionPlanItemSchema,
   SolutionPlanDBItemSchema,
@@ -36,6 +38,32 @@ describe('SolutionPlanStatusSchema', () => {
   it('should reject unknown statuses', () => {
     expect(() => SolutionPlanStatusSchema.parse('STALE')).toThrow();
     expect(() => SolutionPlanStatusSchema.parse('DONE')).toThrow();
+  });
+});
+
+describe('SolutionPlanKeySchema', () => {
+  it('should accept the identifier triple', () => {
+    const { success, data } = SolutionPlanKeySchema.safeParse({
+      orgId: 'org-123',
+      projectId: 'proj-456',
+      opportunityId: 'opp-789',
+    });
+    expect(success).toBe(true);
+    expect(data).toEqual({
+      orgId: 'org-123',
+      projectId: 'proj-456',
+      opportunityId: 'opp-789',
+    });
+  });
+
+  it.each(['orgId', 'projectId', 'opportunityId'])('should require %s', (field) => {
+    const key: Record<string, string> = {
+      orgId: 'org-123',
+      projectId: 'proj-456',
+      opportunityId: 'opp-789',
+    };
+    delete key[field];
+    expect(SolutionPlanKeySchema.safeParse(key).success).toBe(false);
   });
 });
 
@@ -100,6 +128,39 @@ describe('SolutionPlanUpdateRequestSchema', () => {
     });
     expect(success).toBe(true);
     expect(data).not.toHaveProperty('orgId');
+  });
+});
+
+describe('SolutionPlanStatusPatchSchema', () => {
+  it('should accept an empty patch (all fields optional)', () => {
+    expect(SolutionPlanStatusPatchSchema.safeParse({}).success).toBe(true);
+  });
+
+  it('should accept transition-related fields', () => {
+    const { success, data } = SolutionPlanStatusPatchSchema.safeParse({
+      contentKey: 'org/proj/opp/solution-plan/v2/solution-plan.html',
+      version: 2,
+      grillingCompletedAt: '2026-08-11T00:00:00.000Z',
+      error: 'synthesis timed out',
+    });
+    expect(success).toBe(true);
+    expect(data?.version).toBe(2);
+  });
+
+  it('should not allow patching status or identifiers', () => {
+    const { success, data } = SolutionPlanStatusPatchSchema.safeParse({
+      status: 'READY',
+      orgId: 'other-org',
+      version: 1,
+    });
+    expect(success).toBe(true);
+    expect(data).not.toHaveProperty('status');
+    expect(data).not.toHaveProperty('orgId');
+  });
+
+  it('should validate patched field types', () => {
+    expect(SolutionPlanStatusPatchSchema.safeParse({ version: -1 }).success).toBe(false);
+    expect(SolutionPlanStatusPatchSchema.safeParse({ isStale: 'yes' }).success).toBe(false);
   });
 });
 

@@ -17,18 +17,14 @@ import type {
   GrillingToolCallSummary,
   SolutionPlanDBItem,
   SolutionPlanItem,
+  SolutionPlanKey,
   SolutionPlanStatus,
+  SolutionPlanStatusPatch,
 } from '@auto-rfp/core';
 
-import { PK_NAME } from '../constants/common';
-import { GRILLING_MESSAGE_PK, SOLUTION_PLAN_PK } from '../constants/solution-plan';
-import {
-  deleteAllBySkPrefix,
-  getItem,
-  putItem,
-  queryAllBySkPrefix,
-  updateItem,
-} from './db';
+import { PK_NAME } from '@/constants/common';
+import { GRILLING_MESSAGE_PK, SOLUTION_PLAN_PK } from '@/constants/solution-plan';
+import { getItem, putItem, queryAllBySkPrefix, updateItem } from './db';
 import { loadTextFromS3, uploadToS3 } from './s3';
 import { requireEnv } from './env';
 import { nowIso } from './date';
@@ -41,11 +37,8 @@ const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
  * Plan SK: `{orgId}#{projectId}#{opportunityId}` — deterministic, so exactly
  * one plan exists per opportunity (init upserts the same key).
  */
-export const buildSolutionPlanSk = (
-  orgId: string,
-  projectId: string,
-  opportunityId: string,
-): string => `${orgId}#${projectId}#${opportunityId}`;
+export const buildSolutionPlanSk = (key: SolutionPlanKey): string =>
+  `${key.orgId}#${key.projectId}#${key.opportunityId}`;
 
 /** Zero-pad a round number so message SKs sort lexicographically (1 → "001"). */
 export const padGrillingRound = (round: number): string => String(round).padStart(3, '0');
@@ -72,61 +65,31 @@ export const buildGrillingMessageSkPrefix = (solutionPlanId: string): string =>
 // ─── Plan CRUD ──────────────────────────────────────────────────────────────────
 
 export const getSolutionPlanByOpportunity = async (
-  orgId: string,
-  projectId: string,
-  opportunityId: string,
+  key: SolutionPlanKey,
 ): Promise<SolutionPlanDBItem | null> =>
-  getItem<SolutionPlanDBItem>(
-    SOLUTION_PLAN_PK,
-    buildSolutionPlanSk(orgId, projectId, opportunityId),
-  );
+  getItem<SolutionPlanDBItem>(SOLUTION_PLAN_PK, buildSolutionPlanSk(key));
 
 /**
  * Upsert the full plan record (init/re-init path). The SK is derived from the
  * plan's own identifiers; passing an existing `createdAt` preserves it.
  */
 export const putSolutionPlan = async (plan: SolutionPlanItem): Promise<SolutionPlanDBItem> =>
-  putItem<SolutionPlanDBItem>(
-    SOLUTION_PLAN_PK,
-    buildSolutionPlanSk(plan.orgId, plan.projectId, plan.opportunityId),
-    plan,
-  );
-
-/** Fields the status-transition helper may patch alongside `status`. */
-export type SolutionPlanStatusPatch = Partial<
-  Pick<
-    SolutionPlanItem,
-    | 'isStale'
-    | 'staleReason'
-    | 'contentKey'
-    | 'version'
-    | 'isUserEdited'
-    | 'editedBy'
-    | 'grillingRounds'
-    | 'grillingCompletedAt'
-    | 'error'
-    | 'updatedBy'
-    | 'updatedByName'
-  >
->;
+  putItem<SolutionPlanDBItem>(SOLUTION_PLAN_PK, buildSolutionPlanSk(plan), plan);
 
 /**
  * Transition the plan's lifecycle status, optionally patching related fields
  * (e.g. `contentKey` + `version` on READY, `error` on FAILED).
  * Throws if the plan does not exist.
  */
-export const updateSolutionPlanStatus = async (args: {
-  orgId: string;
-  projectId: string;
-  opportunityId: string;
-  status: SolutionPlanStatus;
-  patch?: SolutionPlanStatusPatch;
-}): Promise<SolutionPlanDBItem> =>
-  updateItem<SolutionPlanDBItem>(
-    SOLUTION_PLAN_PK,
-    buildSolutionPlanSk(args.orgId, args.projectId, args.opportunityId),
-    { status: args.status, ...args.patch },
-  );
+export const updateSolutionPlanStatus = async (
+  key: SolutionPlanKey,
+  status: SolutionPlanStatus,
+  patch?: SolutionPlanStatusPatch,
+): Promise<SolutionPlanDBItem> =>
+  updateItem<SolutionPlanDBItem>(SOLUTION_PLAN_PK, buildSolutionPlanSk(key), {
+    status,
+    ...patch,
+  });
 
 /**
  * Mark a READY plan stale (ADR-3). No-op unless the plan exists AND its status
@@ -135,17 +98,15 @@ export const updateSolutionPlanStatus = async (args: {
  *
  * Returns the updated plan, or null when the guard made it a no-op.
  */
-export const markSolutionPlanStale = async (args: {
-  orgId: string;
-  projectId: string;
-  opportunityId: string;
-  reason: string;
-}): Promise<SolutionPlanDBItem | null> => {
+export const markSolutionPlanStale = async (
+  key: SolutionPlanKey,
+  reason: string,
+): Promise<SolutionPlanDBItem | null> => {
   try {
     return await updateItem<SolutionPlanDBItem>(
       SOLUTION_PLAN_PK,
-      buildSolutionPlanSk(args.orgId, args.projectId, args.opportunityId),
-      { isStale: true, staleReason: args.reason },
+      buildSolutionPlanSk(key),
+      { isStale: true, staleReason: reason },
       {
         condition: 'attribute_exists(#pk) AND #status = :readyStatus',
         conditionNames: { '#pk': PK_NAME, '#status': 'status' },
@@ -155,7 +116,7 @@ export const markSolutionPlanStale = async (args: {
   } catch (err) {
     if ((err as { name?: string })?.name === 'ConditionalCheckFailedException') {
       console.log(
-        `[markSolutionPlanStale] no-op — plan missing or not READY (opportunityId=${args.opportunityId})`,
+        `[markSolutionPlanStale] no-op — plan missing or not READY (opportunityId=${key.opportunityId})`,
       );
       return null;
     }
@@ -204,41 +165,25 @@ export const listGrillingMessages = async (
     buildGrillingMessageSkPrefix(solutionPlanId),
   );
 
-/** Wipe a plan's transcript (re-init starts a fresh interview, ADR-5). */
-export const deleteGrillingMessages = async (
-  solutionPlanId: string,
-): Promise<{ deleted: number; failed: number }> =>
-  deleteAllBySkPrefix(GRILLING_MESSAGE_PK, buildGrillingMessageSkPrefix(solutionPlanId));
-
 // ─── S3 HTML content ────────────────────────────────────────────────────────────
 
 /**
  * Versioned S3 key for the synthesized plan body. Old versions are kept —
  * generated documents reference the exact version they were built from (ADR-7).
  */
-export const buildSolutionPlanHtmlKey = (args: {
-  orgId: string;
-  projectId: string;
-  opportunityId: string;
-  version: number;
-}): string =>
-  `${args.orgId}/${args.projectId}/${args.opportunityId}/solution-plan/v${args.version}/solution-plan.html`;
+export const buildSolutionPlanHtmlKey = (key: SolutionPlanKey, version: number): string =>
+  `${key.orgId}/${key.projectId}/${key.opportunityId}/solution-plan/v${version}/solution-plan.html`;
 
 /** Upload one version of the plan HTML to S3 and return its key. */
-export const uploadSolutionPlanHtml = async (args: {
-  orgId: string;
-  projectId: string;
-  opportunityId: string;
-  version: number;
-  html: string;
-}): Promise<string> => {
-  const key = buildSolutionPlanHtmlKey(args);
-  if (!args.html || !args.html.trim()) {
-    throw new Error(`Cannot upload empty solution plan HTML (key: ${key})`);
-  }
+export const uploadSolutionPlanHtml = async (
+  key: SolutionPlanKey,
+  version: number,
+  html: string,
+): Promise<string> => {
+  const s3Key = buildSolutionPlanHtmlKey(key, version);
   // Buffer body ensures correct encoding — string Body can land empty in S3
-  await uploadToS3(DOCUMENTS_BUCKET, key, Buffer.from(args.html, 'utf-8'), 'text/html; charset=utf-8');
-  return key;
+  await uploadToS3(DOCUMENTS_BUCKET, s3Key, Buffer.from(html, 'utf-8'), 'text/html; charset=utf-8');
+  return s3Key;
 };
 
 /** Load the plan HTML for a stored `contentKey`. */

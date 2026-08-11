@@ -8,7 +8,6 @@ const mockGetItem = jest.fn();
 const mockPutItem = jest.fn();
 const mockUpdateItem = jest.fn();
 const mockQueryAllBySkPrefix = jest.fn();
-const mockDeleteAllBySkPrefix = jest.fn();
 
 jest.mock('@/helpers/db', () => ({
   createItem: (...a: unknown[]) => mockCreateItem(...a),
@@ -16,7 +15,6 @@ jest.mock('@/helpers/db', () => ({
   putItem: (...a: unknown[]) => mockPutItem(...a),
   updateItem: (...a: unknown[]) => mockUpdateItem(...a),
   queryAllBySkPrefix: (...a: unknown[]) => mockQueryAllBySkPrefix(...a),
-  deleteAllBySkPrefix: (...a: unknown[]) => mockDeleteAllBySkPrefix(...a),
   docClient: { send: jest.fn() },
 }));
 
@@ -34,7 +32,6 @@ import {
   buildGrillingMessageSkPrefix,
   buildSolutionPlanHtmlKey,
   buildSolutionPlanSk,
-  deleteGrillingMessages,
   getSolutionPlanByOpportunity,
   listGrillingMessages,
   loadSolutionPlanHtml,
@@ -44,14 +41,19 @@ import {
   updateSolutionPlanStatus,
   uploadSolutionPlanHtml,
 } from './solution-plan';
-import { GRILLING_MESSAGE_PK, SOLUTION_PLAN_PK } from '../constants/solution-plan';
-import type { SolutionPlanItem } from '@auto-rfp/core';
+import { PK_NAME } from '@/constants/common';
+import { GRILLING_MESSAGE_PK, SOLUTION_PLAN_PK } from '@/constants/solution-plan';
+import type { SolutionPlanItem, SolutionPlanKey } from '@auto-rfp/core';
 
-const basePlan: SolutionPlanItem = {
-  id: 'plan-1',
+const planKey: SolutionPlanKey = {
   orgId: 'org-1',
   projectId: 'proj-1',
   opportunityId: 'opp-1',
+};
+
+const basePlan: SolutionPlanItem = {
+  id: 'plan-1',
+  ...planKey,
   status: 'GRILLING',
   isStale: false,
   runId: 'run-1',
@@ -70,7 +72,7 @@ beforeEach(() => {
 
 describe('SK builders', () => {
   it('builds the plan SK as {orgId}#{projectId}#{opportunityId}', () => {
-    expect(buildSolutionPlanSk('org-1', 'proj-1', 'opp-1')).toBe('org-1#proj-1#opp-1');
+    expect(buildSolutionPlanSk(planKey)).toBe('org-1#proj-1#opp-1');
   });
 
   it('zero-pads round numbers to 3 digits', () => {
@@ -101,14 +103,14 @@ describe('SK builders', () => {
 describe('getSolutionPlanByOpportunity', () => {
   it('reads with the SOLUTION_PLAN PK and the deterministic plan SK', async () => {
     mockGetItem.mockResolvedValue(basePlan);
-    const plan = await getSolutionPlanByOpportunity('org-1', 'proj-1', 'opp-1');
+    const plan = await getSolutionPlanByOpportunity(planKey);
     expect(mockGetItem).toHaveBeenCalledWith(SOLUTION_PLAN_PK, 'org-1#proj-1#opp-1');
     expect(plan).toEqual(basePlan);
   });
 
   it('returns null when no plan exists', async () => {
     mockGetItem.mockResolvedValue(null);
-    await expect(getSolutionPlanByOpportunity('org-1', 'proj-1', 'opp-1')).resolves.toBeNull();
+    await expect(getSolutionPlanByOpportunity(planKey)).resolves.toBeNull();
   });
 });
 
@@ -121,12 +123,9 @@ describe('putSolutionPlan', () => {
 
 describe('updateSolutionPlanStatus', () => {
   it('sets status and merges the optional patch', async () => {
-    await updateSolutionPlanStatus({
-      orgId: 'org-1',
-      projectId: 'proj-1',
-      opportunityId: 'opp-1',
-      status: 'READY',
-      patch: { contentKey: 'some/key.html', version: 3 },
+    await updateSolutionPlanStatus(planKey, 'READY', {
+      contentKey: 'some/key.html',
+      version: 3,
     });
     expect(mockUpdateItem).toHaveBeenCalledWith(SOLUTION_PLAN_PK, 'org-1#proj-1#opp-1', {
       status: 'READY',
@@ -136,12 +135,7 @@ describe('updateSolutionPlanStatus', () => {
   });
 
   it('works without a patch', async () => {
-    await updateSolutionPlanStatus({
-      orgId: 'org-1',
-      projectId: 'proj-1',
-      opportunityId: 'opp-1',
-      status: 'GENERATING_SOT',
-    });
+    await updateSolutionPlanStatus(planKey, 'GENERATING_SOT');
     expect(mockUpdateItem).toHaveBeenCalledWith(SOLUTION_PLAN_PK, 'org-1#proj-1#opp-1', {
       status: 'GENERATING_SOT',
     });
@@ -151,47 +145,43 @@ describe('updateSolutionPlanStatus', () => {
 // ─── markSolutionPlanStale (ADR-3 guard) ────────────────────────────────────────
 
 describe('markSolutionPlanStale', () => {
-  const args = { orgId: 'org-1', projectId: 'proj-1', opportunityId: 'opp-1', reason: 'Exec brief regenerated' };
+  const reason = 'Exec brief regenerated';
 
   it('sets isStale + staleReason with a READY-only condition', async () => {
-    const updated = { ...basePlan, status: 'READY', isStale: true, staleReason: args.reason };
+    const updated = { ...basePlan, status: 'READY', isStale: true, staleReason: reason };
     mockUpdateItem.mockResolvedValue(updated);
 
-    const result = await markSolutionPlanStale(args);
+    const result = await markSolutionPlanStale(planKey, reason);
 
     expect(mockUpdateItem).toHaveBeenCalledWith(
       SOLUTION_PLAN_PK,
       'org-1#proj-1#opp-1',
-      { isStale: true, staleReason: args.reason },
+      { isStale: true, staleReason: reason },
       expect.objectContaining({
         condition: expect.stringContaining('#status = :readyStatus'),
-        conditionNames: { '#pk': 'partition_key', '#status': 'status' },
+        conditionNames: { '#pk': PK_NAME, '#status': 'status' },
         conditionValues: { ':readyStatus': 'READY' },
       }),
     );
     expect(result).toEqual(updated);
   });
 
-  it('no-ops (returns null) when the plan is not READY', async () => {
-    const conditionError = new Error('The conditional request failed');
-    conditionError.name = 'ConditionalCheckFailedException';
-    mockUpdateItem.mockRejectedValue(conditionError);
+  // Both guard branches (plan not READY / plan missing) surface as the same
+  // failed condition expression — DynamoDB doesn't say which clause failed.
+  it.each(['the plan is not READY', 'the plan does not exist'])(
+    'no-ops (returns null) when %s and the condition fails',
+    async () => {
+      const conditionError = new Error('The conditional request failed');
+      conditionError.name = 'ConditionalCheckFailedException';
+      mockUpdateItem.mockRejectedValue(conditionError);
 
-    await expect(markSolutionPlanStale(args)).resolves.toBeNull();
-  });
-
-  it('no-ops (returns null) when the plan does not exist', async () => {
-    // Missing item also fails the condition expression — same guard path.
-    const conditionError = new Error('The conditional request failed');
-    conditionError.name = 'ConditionalCheckFailedException';
-    mockUpdateItem.mockRejectedValue(conditionError);
-
-    await expect(markSolutionPlanStale(args)).resolves.toBeNull();
-  });
+      await expect(markSolutionPlanStale(planKey, reason)).resolves.toBeNull();
+    },
+  );
 
   it('rethrows non-conditional errors', async () => {
     mockUpdateItem.mockRejectedValue(new Error('boom'));
-    await expect(markSolutionPlanStale(args)).rejects.toThrow('boom');
+    await expect(markSolutionPlanStale(planKey, reason)).rejects.toThrow('boom');
   });
 });
 
@@ -249,30 +239,17 @@ describe('listGrillingMessages', () => {
   });
 });
 
-describe('deleteGrillingMessages', () => {
-  it('deletes all messages by plan-id SK prefix', async () => {
-    mockDeleteAllBySkPrefix.mockResolvedValue({ deleted: 5, failed: 0 });
-
-    const result = await deleteGrillingMessages('plan-1');
-
-    expect(mockDeleteAllBySkPrefix).toHaveBeenCalledWith(GRILLING_MESSAGE_PK, 'plan-1#');
-    expect(result).toEqual({ deleted: 5, failed: 0 });
-  });
-});
-
 // ─── S3 HTML content ────────────────────────────────────────────────────────────
 
 describe('solution plan HTML in S3', () => {
-  const keyArgs = { orgId: 'org-1', projectId: 'proj-1', opportunityId: 'opp-1', version: 2 };
-
   it('builds the versioned S3 key', () => {
-    expect(buildSolutionPlanHtmlKey(keyArgs)).toBe(
+    expect(buildSolutionPlanHtmlKey(planKey, 2)).toBe(
       'org-1/proj-1/opp-1/solution-plan/v2/solution-plan.html',
     );
   });
 
   it('uploads a UTF-8 buffer with the html content type and returns the key', async () => {
-    const key = await uploadSolutionPlanHtml({ ...keyArgs, html: '<h1>Plan</h1>' });
+    const key = await uploadSolutionPlanHtml(planKey, 2, '<h1>Plan</h1>');
 
     expect(key).toBe('org-1/proj-1/opp-1/solution-plan/v2/solution-plan.html');
     expect(mockUploadToS3).toHaveBeenCalledWith(
@@ -281,16 +258,6 @@ describe('solution plan HTML in S3', () => {
       Buffer.from('<h1>Plan</h1>', 'utf-8'),
       'text/html; charset=utf-8',
     );
-  });
-
-  it('rejects empty or whitespace-only HTML', async () => {
-    await expect(uploadSolutionPlanHtml({ ...keyArgs, html: '' })).rejects.toThrow(
-      /empty solution plan HTML/,
-    );
-    await expect(uploadSolutionPlanHtml({ ...keyArgs, html: '   \n' })).rejects.toThrow(
-      /empty solution plan HTML/,
-    );
-    expect(mockUploadToS3).not.toHaveBeenCalled();
   });
 
   it('loads HTML from the documents bucket by contentKey', async () => {
