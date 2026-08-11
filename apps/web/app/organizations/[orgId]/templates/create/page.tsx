@@ -43,6 +43,18 @@ const BUILT_IN_CATEGORIES = [
   { value: 'CUSTOM', label: 'Custom' },
 ];
 
+/**
+ * Detect the API silently discarding `furniture`.
+ *
+ * The deployed handler validates against a schema that predates this field, and Zod
+ * strips unknown keys — so the save succeeds, returns 200, and the header/footer is
+ * gone. Exactly the failure mode of the HigherGov `higherGovSearchId` bug: a silent
+ * drop that looks like success. Surface it rather than let a user discover it on
+ * reload.
+ */
+const furnitureWasDropped = (sent: unknown, saved: unknown): boolean =>
+  sent !== undefined && (saved === undefined || saved === null);
+
 export default function CreateTemplatePage() {
   const params = useParams();
   const router = useRouter();
@@ -117,15 +129,24 @@ export default function CreateTemplatePage() {
     try {
       const cleanContent = stripPresignedUrlsFromHtml(content);
 
-      await create({
+      const sentFurniture = furnitureState.toPayload();
+      const created = await create({
         orgId,
         name: name.trim(),
         category,
         htmlContent: cleanContent,
         // undefined when nothing is configured, so the template stays without
         // a header/footer rather than gaining an empty one.
-        furniture: furnitureState.toPayload(),
+        furniture: sentFurniture,
       });
+
+      if (furnitureWasDropped(sentFurniture, (created as { data?: { furniture?: unknown } })?.data?.furniture)) {
+        toast({
+          title: 'Header/footer was not saved',
+          description: 'The API discarded it — its schema needs updating. Everything else saved.',
+          variant: 'destructive',
+        });
+      }
 
       toast({
         title: 'Template created',

@@ -46,6 +46,18 @@ const BUILT_IN_CATEGORIES = [
   { value: 'CUSTOM', label: 'Custom' },
 ];
 
+/**
+ * Detect the API silently discarding `furniture`.
+ *
+ * The deployed handler validates against a schema that predates this field, and Zod
+ * strips unknown keys — so the save succeeds, returns 200, and the header/footer is
+ * gone. Exactly the failure mode of the HigherGov `higherGovSearchId` bug: a silent
+ * drop that looks like success. Surface it rather than let a user discover it on
+ * reload.
+ */
+const furnitureWasDropped = (sent: unknown, saved: unknown): boolean =>
+  sent !== undefined && (saved === undefined || saved === null);
+
 export default function EditTemplatePage() {
   const params = useParams();
   const router = useRouter();
@@ -236,12 +248,21 @@ export default function EditTemplatePage() {
       const contentWithUploadedImages = await uploadPendingImages(rawEditorHtml);
       const cleanContent = stripPresignedUrlsFromHtml(contentWithUploadedImages);
 
-      await update({
+      const sentFurniture = furnitureState.toPayload();
+      const updated = await update({
         name: name.trim(),
         category,
         htmlContent: cleanContent,
-        furniture: furnitureState.toPayload(),
+        furniture: sentFurniture,
       });
+
+      if (furnitureWasDropped(sentFurniture, (updated as { data?: { furniture?: unknown } })?.data?.furniture)) {
+        toast({
+          title: 'Header/footer was not saved',
+          description: 'The API discarded it — its schema needs updating. Everything else saved.',
+          variant: 'destructive',
+        });
+      }
 
       setLastSavedAt(new Date());
 
