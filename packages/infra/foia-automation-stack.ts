@@ -15,6 +15,11 @@ export interface FoiaAutomationStackProps extends cdk.StackProps {
   commonEnv: Record<string, string>;
   /** Documents bucket, read for the solicitation text scan. */
   documentsBucketName: string;
+  /**
+   * api.data.gov key for the FOIA.gov directory seeder. Optional — the API
+   * answers without one, just on a shared rate-limited quota.
+   */
+  foiaGovApiKey?: string;
 }
 
 /**
@@ -34,7 +39,7 @@ export class FoiaAutomationStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: FoiaAutomationStackProps) {
     super(scope, id, props);
 
-    const { stage, mainTable, commonEnv, documentsBucketName } = props;
+    const { stage, mainTable, commonEnv, documentsBucketName, foiaGovApiKey } = props;
 
     const functionName = `auto-rfp-foia-scan-${stage}`;
 
@@ -118,10 +123,77 @@ export class FoiaAutomationStack extends cdk.Stack {
       }),
     );
 
-    // 5. Output.
+    // ── 6. FOIA.gov directory seeder ────────────────────────────────────────
+    //
+    // Mirrors the published agency-component directory so the reconciler never
+    // calls an external API to choose a legal recipient. Monthly is ample: FOIA
+    // office addresses change on the order of years.
+    const seedFunctionName = `auto-rfp-foia-seed-components-${stage}`;
+
+    const seedLogGroup = new logs.LogGroup(this, 'FoiaSeedLogGroup', {
+      logGroupName: `/aws/lambda/${seedFunctionName}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    const seedLambda = new lambdaNodejs.NodejsFunction(this, 'FoiaSeedComponentsFn', {
+      functionName: seedFunctionName,
+      entry: path.join(
+        __dirname,
+        '../../apps/functions/src/handlers/foia/seed-foia-components.ts',
+      ),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      // ~614 components across 13 pages, each written with its two pointer rows.
+      timeout: cdk.Duration.minutes(10),
+      memorySize: 512,
+      role: lambdaRole,
+      environment: {
+        ...commonEnv,
+        // Optional: the seeder falls back to the shared public quota when unset.
+        ...(foiaGovApiKey ? { FOIA_GOV_API_KEY: foiaGovApiKey } : {}),
+      },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        externalModules: ['@aws-sdk/*', '@smithy/*'],
+      },
+    });
+
+    seedLambda.node.addDependency(seedLogGroup);
+
+    lambdaRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
+        resources: [
+          `arn:aws:logs:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:log-group:/aws/lambda/${seedFunctionName}:*`,
+        ],
+      }),
+    );
+
+    const seedRule = new events.Rule(this, 'FoiaSeedRule', {
+      ruleName: seedFunctionName,
+      description: 'Monthly refresh of the FOIA.gov agency-component directory',
+      // 04:00 UTC on the 1st — well clear of the daily 09:00 reconciler.
+      schedule: events.Schedule.cron({ minute: '0', hour: '4', day: '1' }),
+    });
+
+    seedRule.addTarget(
+      new targets.LambdaFunction(seedLambda, {
+        event: events.RuleTargetInput.fromObject({ detail: { dryRun: false } }),
+        retryAttempts: 1,
+      }),
+    );
+
+    // 7. Outputs.
     new cdk.CfnOutput(this, 'FoiaScanLambdaArn', {
       value: scanLambda.functionArn,
       description: 'Lambda ARN for the daily FOIA automation reconciler',
+    });
+
+    new cdk.CfnOutput(this, 'FoiaSeedLambdaArn', {
+      value: seedLambda.functionArn,
+      description: 'Lambda ARN for the monthly FOIA.gov directory seeder',
     });
   }
 }

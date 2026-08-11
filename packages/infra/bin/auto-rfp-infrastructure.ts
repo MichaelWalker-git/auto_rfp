@@ -280,6 +280,9 @@ const foiaAutomationStack = new FoiaAutomationStack(app, `AutoRfp-FoiaAutomation
   stage,
   mainTable: db.tableName,
   documentsBucketName: storage.documentsBucket.bucketName,
+  // Optional: the FOIA.gov API answers unauthenticated, so an unset key only
+  // means the seeder shares a rate-limited public quota.
+  foiaGovApiKey: process.env.FOIA_GOV_API_KEY || undefined,
   commonEnv: {
     STAGE: stage,
     DB_TABLE_NAME: db.tableName.tableName,
@@ -414,6 +417,9 @@ addLambdaSuppressions(auditStack, isProduction);
 
 addLambdaSuppressions(rfpLinearSyncStack, isProduction);
 addDynamoDBSuppressions(rfpLinearSyncStack, isProduction);
+
+addLambdaSuppressions(foiaAutomationStack, isProduction);
+addDynamoDBSuppressions(foiaAutomationStack, isProduction);
 
 console.log(`\n=📝 Note: After deployment, update Cognito callback URLs with the actual Amplify domain from the FrontendURL output if needed.`);
 console.log('=🔒 CDK NAG AWS Solutions Checks enabled for security compliance');
