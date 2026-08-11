@@ -7,6 +7,14 @@ import { computePageLayout, type LayoutBlock } from './pagination-layout';
 export interface PaginationOptions {
   /** Usable content height per page in CSS px (page height minus margins). */
   contentAreaPx: number;
+  /**
+   * Distance from one page's content top to the next — the FULL page height.
+   *
+   * This is what leaves a real gap between pages for the running header and footer.
+   * With pitch equal to `contentAreaPx` the pages butt together and a margin band
+   * lands on the previous page's text.
+   */
+  pitchPx: number;
   /** Debounce before recomputing, so typing does not thrash layout. */
   debounceMs: number;
 }
@@ -43,12 +51,13 @@ export const Pagination = Extension.create<PaginationOptions>({
     return {
       // Letter default: 1056px page − 2 × 72px margin.
       contentAreaPx: 912,
+      pitchPx: 1056,
       debounceMs: 200,
     };
   },
 
   addProseMirrorPlugins() {
-    const { contentAreaPx, debounceMs } = this.options;
+    const { contentAreaPx, pitchPx, debounceMs } = this.options;
 
     // Signature of the last computed spacer set. DecorationSet has no equality
     // method, and dispatching an identical set would re-enter the update handler
@@ -131,7 +140,7 @@ export const Pagination = Extension.create<PaginationOptions>({
       }
       const startOffsetPx = Math.max(0, first.top - leadingSpacer);
 
-      const { spacers } = computePageLayout(blocks, contentAreaPx, startOffsetPx);
+      const { spacers } = computePageLayout(blocks, { contentAreaPx, pitchPx, startOffsetPx });
       lastSignature = spacers.map((s) => `${s.pos}:${s.height}`).join('|');
       if (!spacers.length) return DecorationSet.empty;
 
