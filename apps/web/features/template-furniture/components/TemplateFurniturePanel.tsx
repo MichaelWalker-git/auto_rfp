@@ -116,10 +116,6 @@ export const TemplateFurniturePanel = ({
   return (
     <div className="space-y-2">
       <div className="text-sm font-semibold text-foreground">Header &amp; Footer</div>
-      <p className="text-xs text-muted-foreground">
-        Applied to every page of generated PDF, Word, and HTML output unless a section is switched
-        off below.
-      </p>
 
       <div className="space-y-1.5">
         <FurnitureGroup
@@ -157,23 +153,30 @@ export const TemplateFurniturePanel = ({
           />
         </FurnitureGroup>
 
-        <FurnitureGroup
-          title="Per-Section Visibility"
-          badge={
-            overrideCount
-              ? { label: `${overrideCount} override${overrideCount === 1 ? '' : 's'}`, tone: 'on' }
-              : undefined
-          }
-        >
-          <FurnitureSectionToggles
-            sections={sections}
-            visibility={sectionVisibility}
-            onChange={setSectionOverride}
-            disabled={disabled}
-            hasHeader={hasHeader}
-            hasFooter={hasFooter}
-          />
-        </FurnitureGroup>
+        {/*
+          Only offered once a page break has created a second section. With one
+          section there is nothing to vary, so the group would open onto an empty
+          box — previously papered over with an explanatory paragraph.
+        */}
+        {sections.length > 1 && (
+          <FurnitureGroup
+            title="Per-Section Visibility"
+            badge={
+              overrideCount
+                ? { label: `${overrideCount} override${overrideCount === 1 ? '' : 's'}`, tone: 'on' }
+                : undefined
+            }
+          >
+            <FurnitureSectionToggles
+              sections={sections}
+              visibility={sectionVisibility}
+              onChange={setSectionOverride}
+              disabled={disabled}
+              hasHeader={hasHeader}
+              hasFooter={hasFooter}
+            />
+          </FurnitureGroup>
+        )}
       </div>
     </div>
   );

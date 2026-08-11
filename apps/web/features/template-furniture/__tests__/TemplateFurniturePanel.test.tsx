@@ -36,18 +36,33 @@ const expandGroup = (name: 'Header' | 'Footer' | 'Per-Section Visibility') => {
 
 describe('TemplateFurniturePanel — collapsible structure', () => {
   it('renders a toggle button per group', () => {
-    render(<Harness />);
+    render(<Harness bodyHtml={COVER_BODY} />);
     for (const name of ['Header', 'Footer', 'Per-Section Visibility']) {
       expect(screen.getByRole('button', { name: new RegExp(`^${name}`, 'i') })).toBeInTheDocument();
     }
   });
 
   it('opens Header by default and leaves the others closed', () => {
-    render(<Harness />);
+    render(<Harness bodyHtml={COVER_BODY} />);
     // Matches the Insert Variables panel, where the first group is pre-expanded.
     expect(screen.getByRole('button', { name: /^Header/i })).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('button', { name: /^Footer/i })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByRole('button', { name: /^Per-Section/i })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('omits the per-section group entirely with only one section', () => {
+    // Nothing to vary, so the group would open onto an empty box. Previously that
+    // was papered over with an explanatory paragraph; now the row is simply absent.
+    render(<Harness bodyHtml="<p>Body</p>" />);
+    expect(screen.queryByRole('button', { name: /^Per-Section/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps the panel free of explanatory prose', () => {
+    // The heading plus each group's content summary carry the meaning; the two
+    // paragraphs that used to sit here were removed to declutter the sidebar.
+    render(<Harness bodyHtml={COVER_BODY} />);
+    expect(screen.queryByText(/applied to every page/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/insert a page break/i)).not.toBeInTheDocument();
   });
 
   it('only renders a group body once expanded', () => {
@@ -178,12 +193,6 @@ describe('TemplateFurniturePanel — content editing', () => {
 });
 
 describe('TemplateFurniturePanel — per-section visibility', () => {
-  it('prompts for a page break when the document has only one section', () => {
-    render(<Harness bodyHtml="<p>Body</p>" />);
-    expandGroup('Per-Section Visibility');
-    expect(screen.getByText(/insert a page break/i)).toBeInTheDocument();
-  });
-
   it('lists a row per page-break section, labelled by heading', () => {
     render(<Harness bodyHtml={COVER_BODY} />);
     expandGroup('Per-Section Visibility');

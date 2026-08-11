@@ -54,10 +54,10 @@ export const FurniturePreview = ({ value, className }: FurniturePreviewProps) =>
           Preview
         </span>
         {/*
-          The template canvas cannot show running furniture — ProseMirror is one
-          continuous text stream, so a page's "margin" is really the previous
-          page's body text. This strip is therefore the only place it is shown,
-          and it has to say that the band repeats.
+          The canvas does show the running band now (see PageFurnitureOverlay),
+          but only where the page grid leaves room. This strip stays as the
+          authoritative close-up — it is legible at any zoom and is the only place
+          an empty-but-enabled band is visible — so it still states the repeat.
         */}
         <span className="text-[9px] text-muted-foreground/70">repeats on every page</span>
       </div>

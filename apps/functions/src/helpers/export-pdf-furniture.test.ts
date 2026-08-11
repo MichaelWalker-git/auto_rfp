@@ -21,9 +21,11 @@
 
 const LOCAL_CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
+const mockSend = jest.fn();
+
 jest.mock('@aws-sdk/client-s3', () => ({
-  S3Client: jest.fn(() => ({ send: jest.fn() })),
-  GetObjectCommand: jest.fn(),
+  S3Client: jest.fn(() => ({ send: mockSend })),
+  GetObjectCommand: jest.fn((params) => ({ type: 'Get', params })),
   CopyObjectCommand: jest.fn(),
   DeleteObjectCommand: jest.fn(),
   DeleteObjectsCommand: jest.fn(),
@@ -150,5 +152,70 @@ describeIfChrome('htmlToPdfBuffer — page furniture', () => {
       furniture: furniture(),
     });
     expect(await pageCount(single)).toBe(1);
+  });
+
+  /**
+   * Acceptance criterion 3 — "images render correctly in generated output".
+   *
+   * The DOCX side proves this by finding a `word/media/` part, but the PDF side
+   * only asserted that base64 landed in the header TEMPLATE STRING. A regression
+   * anywhere downstream (Chromium refusing the data URI, the image being clipped
+   * out of the margin box) would leave those unit tests green while shipping a
+   * PDF with no logo. Reading the PDF object graph is the only check that can
+   * distinguish "inlined" from "actually drawn".
+   */
+  it('embeds a header logo in the PDF object graph, not just the template string', async () => {
+    // 2x2 PNG — small, but a real image Chromium will decode and draw.
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAACg/x8iAAAAFklEQVR4nGP8z8DAwMDAxMDAwMDAAAAcCAHtAI1cAAAAAElFTkSuQmCC',
+      'base64',
+    );
+    // The inliner consumes `Body` as an async iterable, so it must be a generator —
+    // and a FRESH one per call, since a generator is exhausted after one read and
+    // the render fetches once per section group. A `transformToByteArray` stub is
+    // silently swallowed by the inliner's catch, leaving the s3key placeholder in
+    // place, so the console is asserted clean below rather than trusting the render.
+    mockSend.mockImplementation(async () => ({
+      Body: (async function* () { yield new Uint8Array(png); })(),
+      ContentType: 'image/png',
+    }));
+
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    /** Count embedded raster images by their PDF XObject subtype. */
+    const imageCount = async (buf: Buffer): Promise<number> => {
+      const doc = await PDFDocument.load(buf);
+      let n = 0;
+      for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+        if (/\/Subtype\s*\/Image/.test(String(obj))) n += 1;
+      }
+      return n;
+    };
+
+    // A single-page body on purpose. `BODY` has two page breaks, which makes the
+    // renderer do three page-range passes and merge them; two of those per test
+    // pushed the suite over Chromium's 20s navigation timeout under parallel
+    // load. Whether the image is embedded does not depend on page count.
+    const ONE_PAGE = '<h1>Only</h1><p>text</p>';
+
+    const withLogo = await htmlToPdfBuffer(ONE_PAGE, {
+      title: 'T',
+      furniture: furniture({ header: { ...furniture().header, html: '<img src="s3key:org/logo.png"> ACME' } }),
+    });
+    const textOnly = await htmlToPdfBuffer(ONE_PAGE, { title: 'T', furniture: furniture() });
+
+    expect(mockSend).toHaveBeenCalled();
+    // The inliner reports a failed fetch via console.warn and carries on, so a
+    // broken mock would otherwise look like a pass.
+    expect(warn).not.toHaveBeenCalledWith(
+      expect.stringContaining('Failed to inline furniture image'),
+      expect.anything(),
+    );
+    warn.mockRestore();
+
+    // Text-only furniture is the control: without it, a PDF that happened to
+    // embed an image for any other reason would pass vacuously.
+    expect(await imageCount(textOnly)).toBe(0);
+    expect(await imageCount(withLogo)).toBeGreaterThan(0);
   });
 });

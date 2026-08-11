@@ -27,14 +27,9 @@ export const FurnitureSectionToggles = ({
   hasHeader,
   hasFooter,
 }: FurnitureSectionTogglesProps) => {
-  if (sections.length <= 1) {
-    return (
-      <p className="text-xs text-muted-foreground">
-        Insert a page break in the template to control the header and footer separately
-        for each part of the document (for example, to hide them on a cover page).
-      </p>
-    );
-  }
+  // Toggles are meaningless without a second section to differ from, and the panel
+  // hides the whole group in that case, so render nothing rather than an empty box.
+  if (sections.length <= 1) return null;
 
   return (
     <div className="space-y-2">
