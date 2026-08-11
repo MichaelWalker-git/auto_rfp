@@ -330,6 +330,10 @@ export const RFPDocumentItemSchema = z.object({
   generationError: z.string().nullable().optional(),
   /** Number of generation retry attempts (0 = first attempt, max 3) */
   retryCount: z.number().default(0).nullable().optional(),
+  /** ID of the Solution Plan injected during generation (ADR-7); absent when no plan was used. */
+  solutionPlanId: z.string().nullable().optional(),
+  /** Version of the Solution Plan at generation time — audit trail for which plan the doc reflects. */
+  solutionPlanVersion: z.number().int().nullable().optional(),
 });
 
 export type RFPDocumentItem = z.infer<typeof RFPDocumentItemSchema>;
