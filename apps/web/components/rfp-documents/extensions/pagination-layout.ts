@@ -48,12 +48,28 @@ export interface LayoutResult {
   pageCount: number;
 }
 
+export interface PageGeometry {
+  /**
+   * Usable content height per page — page height minus top and bottom margins.
+   * A block must fit inside this to avoid crossing into a margin.
+   */
+  contentAreaPx: number;
+  /**
+   * Distance from one page's content top to the next page's content top.
+   *
+   * Set this to the FULL page height, not `contentAreaPx`, to leave a real gap
+   * between pages for the running header and footer to occupy. With
+   * `pitchPx === contentAreaPx` the pages butt together with zero gap, so any
+   * margin band drawn there lands on the previous page's text — which is exactly
+   * why the first attempt at an in-canvas header had to be reverted.
+   */
+  pitchPx: number;
+  /** Where the first block's top sits relative to the page grid (the top margin). */
+  startOffsetPx: number;
+}
+
 /**
  * Decide where spacers belong so no block straddles a page boundary.
- *
- * @param blocks        Top-level blocks in document order, with measured heights.
- * @param contentAreaPx Usable content height per page (page height minus margins).
- * @param startOffsetPx Where the first block's top sits relative to the page grid.
  *
  * `startOffsetPx` is load-bearing and easy to miss. ProseMirror applies a single
  * top padding to the whole stream, so the first block begins at `paddingY`, not 0.
@@ -63,9 +79,19 @@ export interface LayoutResult {
  */
 export const computePageLayout = (
   blocks: readonly LayoutBlock[],
-  contentAreaPx: number,
-  startOffsetPx = 0,
+  geometry: PageGeometry | number,
+  startOffsetArg = 0,
 ): LayoutResult => {
+  // Accept the older (contentAreaPx, startOffsetPx) form so existing callers and
+  // tests keep working; pitch then defaults to the content area.
+  const g: PageGeometry =
+    typeof geometry === 'number'
+      ? { contentAreaPx: geometry, pitchPx: geometry, startOffsetPx: startOffsetArg }
+      : geometry;
+
+  const contentAreaPx = g.contentAreaPx;
+  const pitchPx = Number.isFinite(g.pitchPx) && g.pitchPx > 0 ? g.pitchPx : contentAreaPx;
+
   // A non-positive content area would make every division meaningless and could
   // loop; treat it as "no pagination".
   if (!Number.isFinite(contentAreaPx) || contentAreaPx <= 0) {
@@ -73,34 +99,40 @@ export const computePageLayout = (
   }
 
   const spacers: LayoutSpacer[] = [];
-  let y = Number.isFinite(startOffsetPx) ? Math.max(0, startOffsetPx) : 0;
+  const start = Number.isFinite(g.startOffsetPx) ? Math.max(0, g.startOffsetPx) : 0;
+  let y = start;
+
+  /** Content-area top of page i. */
+  const pageTop = (i: number) => start + i * pitchPx;
+  /** Which page a y-coordinate falls on, by content area. */
+  const pageOf = (v: number) => Math.max(0, Math.floor((v - start) / pitchPx));
 
   for (const block of blocks) {
     const height = Math.max(0, block.height);
 
     if (block.isExplicitBreak) {
-      // An explicit break advances to the start of the next page. Adding a spacer
+      // An explicit break advances to the next page's content top. Adding a spacer
       // as well would produce a double gap.
-      const currentPage = Math.floor(y / contentAreaPx);
-      y = (currentPage + 1) * contentAreaPx;
+      y = pageTop(pageOf(y) + 1);
       continue;
     }
 
-    const pageOfTop = Math.floor(y / contentAreaPx);
-    // `height - 1` so a block ending exactly on a boundary counts as fitting: a
-    // 100px block at y=0 with a 100px page occupies 0..99, i.e. one page.
-    const pageOfBottom = Math.floor((y + Math.max(0, height - 1)) / contentAreaPx);
+    const page = pageOf(y);
+    // Offset within this page's content area. `height - 1` so a block ending exactly
+    // on the boundary counts as fitting.
+    const withinPage = y - pageTop(page);
+    const overflows = withinPage + Math.max(0, height - 1) >= contentAreaPx;
 
-    if (pageOfTop !== pageOfBottom) {
-      // A block taller than a whole page can never fit anywhere, so pushing it
-      // would recurse forever. Place it and let it overflow — the same thing a
-      // real renderer does with an oversized image.
+    if (overflows) {
+      // A block taller than a whole content area can never fit, so pushing it would
+      // recurse forever. Place it and let it overflow, as a real renderer does with
+      // an oversized image.
       if (height > contentAreaPx) {
         y += height;
         continue;
       }
 
-      const gap = pageOfBottom * contentAreaPx - y;
+      const gap = pageTop(page + 1) - y;
       if (gap > 0) {
         spacers.push({ pos: block.pos, height: gap });
         y += gap;
@@ -112,7 +144,7 @@ export const computePageLayout = (
 
   return {
     spacers,
-    pageCount: Math.max(1, Math.ceil(y / contentAreaPx)),
+    pageCount: Math.max(1, pageOf(Math.max(start, y - 1)) + 1),
   };
 };
 

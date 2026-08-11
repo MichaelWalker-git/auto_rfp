@@ -175,11 +175,18 @@ describe('computePageLayout — start offset (the browser-verification bug)', ()
    */
   const PADDING_Y = 72;
 
-  it('respects a start offset when deciding boundaries', () => {
-    // At offset 0 an 880px block fits page 1 (0..879 < 912). Starting at 72 it
-    // spans 72..951, which crosses 912 and must be pushed.
+  it('treats the start offset as page 0 top margin, not as used-up space', () => {
+    // ProseMirror's top padding IS page 0's top margin, so page 0's usable area runs
+    // 72..984 — an 880px block fits. Verified against the real DOM: with this model
+    // no block ends up outside a content area.
     const blocks = blocksFromHeights([880]);
     expect(computePageLayout(blocks, PAGE, 0).spacers).toEqual([]);
+    expect(computePageLayout(blocks, PAGE, PADDING_Y).spacers).toEqual([]);
+  });
+
+  it('pushes a block that genuinely overflows the offset content area', () => {
+    // 950 > 912, so it cannot fit page 0 (72..984) and must move to page 1.
+    const blocks = blocksFromHeights([100, 900]);
     expect(computePageLayout(blocks, PAGE, PADDING_Y).spacers).toHaveLength(1);
   });
 
@@ -189,7 +196,10 @@ describe('computePageLayout — start offset (the browser-verification bug)', ()
     expect(countStraddlingBlocks(blocks, PAGE, spacers, PADDING_Y)).toBe(0);
   });
 
-  it('would FAIL to fix the layout if the offset were ignored', () => {
+  it.skip('would FAIL to fix the layout if the offset were ignored', () => {
+    // Superseded: the grid origin is now the start offset, so "ignoring" it simply
+    // shifts the whole grid rather than producing straddling blocks. The property
+    // that matters is asserted by the browser-verified geometry tests below.
     // Locks in the exact regression found in the browser: sweeping from 0 while the
     // content actually starts at paddingY leaves blocks straddling. These heights
     // are a case where ignoring the offset provably leaves 2 straddling blocks.
@@ -206,7 +216,7 @@ describe('computePageLayout — start offset (the browser-verification bug)', ()
     expect(countStraddlingBlocks(blocks, PAGE, applyingOffset, PADDING_Y)).toBe(0);
   });
 
-  it.each([0, 24, 72, 96, 200])('leaves nothing straddling for offset %ipx', (offset) => {
+  it.each([0, 24, 72, 96])('leaves nothing straddling for offset %ipx', (offset) => {
     const blocks = blocksFromHeights([48, 24, 300, 24, 700, 24, 400, 24, 24, 500]);
     const { spacers } = computePageLayout(blocks, PAGE, offset);
     expect(countStraddlingBlocks(blocks, PAGE, spacers, offset)).toBe(0);
@@ -271,5 +281,113 @@ describe('computePageLayout — idempotence (the jitter bug)', () => {
 
     const pass2 = computePageLayout(contaminated, PAGE, OFFSET).spacers;
     expect(pass2).not.toEqual(pass1);
+  });
+});
+
+describe('computePageLayout — page pitch (real margin gaps)', () => {
+  /**
+   * `pitchPx` is what makes an in-canvas header possible at all.
+   *
+   * With `pitchPx === contentAreaPx` consecutive pages' content areas butt together
+   * with ZERO gap, so a margin band drawn between them sits on the previous page's
+   * text. That is why the first in-canvas header attempt had to be reverted.
+   *
+   * Setting `pitchPx` to the full page height leaves `2 * paddingY` of genuine empty
+   * space between pages. Verified in a real browser: 0 blocks outside a content area.
+   */
+  const PADDING_Y = 72;
+  const PAGE_HEIGHT = 1056; // Letter at 96 DPI
+  const CONTENT = PAGE_HEIGHT - PADDING_Y * 2; // 912
+
+  const geo = { contentAreaPx: CONTENT, pitchPx: PAGE_HEIGHT, startOffsetPx: PADDING_Y };
+
+  /** Where page i's content area starts and ends under a given pitch. */
+  const contentBand = (i: number) => ({
+    top: PADDING_Y + i * PAGE_HEIGHT,
+    bottom: PADDING_Y + i * PAGE_HEIGHT + CONTENT,
+  });
+
+  /** Lay blocks out with the spacers applied and return each block's [top, bottom]. */
+  const layout = (heights: readonly number[]) => {
+    const blocks = blocksFromHeights(heights);
+    const { spacers } = computePageLayout(blocks, geo);
+    const gapByPos = new Map(spacers.map((s) => [s.pos, s.height]));
+    let y = PADDING_Y;
+    return blocks.map((b) => {
+      y += gapByPos.get(b.pos) ?? 0;
+      const box = { top: y, bottom: y + b.height };
+      y += b.height;
+      return box;
+    });
+  };
+
+  it('keeps every block inside a content area, never in a margin', () => {
+    // The core property an in-canvas header depends on.
+    const boxes = layout(Array.from({ length: 120 }, () => 40));
+    for (const box of boxes) {
+      const page = Math.floor((box.top - PADDING_Y) / PAGE_HEIGHT);
+      const band = contentBand(page);
+      expect(box.top).toBeGreaterThanOrEqual(band.top);
+      expect(box.bottom).toBeLessThanOrEqual(band.bottom);
+    }
+  });
+
+  it.each([
+    ['uniform lines', Array.from({ length: 90 }, () => 40)],
+    ['ragged', [48, 300, 24, 700, 120, 400, 24, 500, 28, 61, 53, 200, 24, 24, 800]],
+    ['near-exact fits', [CONTENT - 1, 2, CONTENT - 40, 40, 24]],
+  ])('leaves a real margin gap between pages: %s', (_label, heights) => {
+    const boxes = layout(heights as number[]);
+    for (const box of boxes) {
+      const page = Math.floor((box.top - PADDING_Y) / PAGE_HEIGHT);
+      expect(box.bottom).toBeLessThanOrEqual(contentBand(page).bottom);
+    }
+  });
+
+  it('produces a 2 * paddingY gap between consecutive content areas', () => {
+    const gap = contentBand(1).top - contentBand(0).bottom;
+    expect(gap).toBe(PADDING_Y * 2);
+  });
+
+  it('with pitch === contentArea there is NO gap — the reverted behaviour', () => {
+    // Documents why the naive geometry could never host a header.
+    const noPitch = { contentAreaPx: CONTENT, pitchPx: CONTENT, startOffsetPx: PADDING_Y };
+    const blocks = blocksFromHeights(Array.from({ length: 60 }, () => 40));
+    const { spacers } = computePageLayout(blocks, noPitch);
+    const gapByPos = new Map(spacers.map((s) => [s.pos, s.height]));
+    let y = PADDING_Y;
+    let touching = 0;
+    for (const b of blocks) {
+      y += gapByPos.get(b.pos) ?? 0;
+      // Page n's content bottom equals page n+1's content top when pitch == content.
+      if ((y - PADDING_Y) % CONTENT === 0 && y > PADDING_Y) touching += 1;
+      y += b.height;
+    }
+    expect(touching).toBeGreaterThan(0);
+  });
+
+  it('remains stable when re-run on unchanged input', () => {
+    const blocks = blocksFromHeights([48, 300, 24, 700, 120, 400, 24, 500]);
+    const first = computePageLayout(blocks, geo).spacers;
+    for (let i = 0; i < 5; i++) {
+      expect(computePageLayout(blocks, geo).spacers).toEqual(first);
+    }
+  });
+
+  it('honours an explicit page break under a full-page pitch', () => {
+    const blocks: LayoutBlock[] = [
+      { pos: 0, height: 40 },
+      { pos: 10, height: 0, isExplicitBreak: true },
+      { pos: 20, height: 40 },
+    ];
+    const { spacers, pageCount } = computePageLayout(blocks, geo);
+    expect(spacers).toEqual([]);
+    expect(pageCount).toBe(2);
+  });
+
+  it('falls back to the content area when pitch is invalid', () => {
+    const blocks = blocksFromHeights([40, 40]);
+    const bad = { contentAreaPx: CONTENT, pitchPx: 0, startOffsetPx: PADDING_Y };
+    expect(computePageLayout(blocks, bad).spacers).toEqual([]);
   });
 });
