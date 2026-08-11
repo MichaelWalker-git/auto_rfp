@@ -8,7 +8,7 @@ import type { DomainRoutes } from './types';
  * these routes init/poll/edit the plan. SOLUTION_PLAN_QUEUE_URL is in
  * commonEnv, so no per-route env is needed.
  */
-export function solutionPlanDomain(): DomainRoutes {
+export const solutionPlanDomain = (): DomainRoutes => {
   return {
     basePath: 'solution-plan',
     routes: [
@@ -45,4 +45,4 @@ export function solutionPlanDomain(): DomainRoutes {
       },
     ],
   };
-}
+};

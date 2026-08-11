@@ -12,7 +12,7 @@ import middy from '@middy/core';
 
 import { SolutionPlanKeySchema, SolutionPlanUpdateRequestSchema } from '@auto-rfp/core';
 
-import { apiResponse, getUserId } from '@/helpers/api';
+import { apiResponse, getUserId, parseJsonBody } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   getSolutionPlanByOpportunity,
@@ -32,8 +32,7 @@ import {
 const UpdateSolutionPlanBodySchema = SolutionPlanKeySchema.merge(SolutionPlanUpdateRequestSchema);
 
 export const updateSolutionPlan = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
-  const bodyJson = event.body ? JSON.parse(event.body) : {};
-  const { success, data, error } = UpdateSolutionPlanBodySchema.safeParse(bodyJson);
+  const { success, data, error } = UpdateSolutionPlanBodySchema.safeParse(parseJsonBody(event));
   if (!success) {
     return apiResponse(400, { message: 'Validation failed', issues: error.issues });
   }

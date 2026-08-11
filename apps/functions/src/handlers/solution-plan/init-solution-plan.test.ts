@@ -15,57 +15,27 @@ jest.mock('@/middleware/audit-middleware', () => ({
   setAuditContext: (...a: unknown[]) => mockSetAuditContext(...a),
 }));
 
-const mockGetPlan = jest.fn();
-const mockPutPlan = jest.fn();
-const mockDeleteMessages = jest.fn();
-jest.mock('@/helpers/solution-plan', () => ({
-  getSolutionPlanByOpportunity: (...a: unknown[]) => mockGetPlan(...a),
-  putSolutionPlan: (...a: unknown[]) => mockPutPlan(...a),
-  deleteGrillingMessages: (...a: unknown[]) => mockDeleteMessages(...a),
-}));
-
-const mockEnqueue = jest.fn();
-jest.mock('@/helpers/solution-plan-queue', () => ({
-  enqueueGrillingRound: (...a: unknown[]) => mockEnqueue(...a),
-}));
-
-const mockListQuestionFiles = jest.fn();
-jest.mock('@/helpers/questionFile', () => ({
-  listQuestionFilesByOpportunity: (...a: unknown[]) => mockListQuestionFiles(...a),
-  isExtractedQuestionFile: (status: string | undefined) => status === 'PROCESSED',
+const mockInitRun = jest.fn();
+jest.mock('@/helpers/solution-plan-init', () => ({
+  initSolutionPlanRun: (...a: unknown[]) => mockInitRun(...a),
 }));
 
 import { initSolutionPlan } from './init-solution-plan';
 
 const body = { orgId: 'org-1', projectId: 'proj-1', opportunityId: 'opp-1' };
 
-const makeEvent = (bodyJson: Record<string, unknown>) =>
-  ({
-    body: JSON.stringify(bodyJson),
-    auth: { userId: 'user-9' },
-  }) as never;
+const makeEvent = (rawBody: string) => ({ body: rawBody, auth: { userId: 'user-9' } }) as never;
 
-const readyPlan = {
-  id: 'plan-1',
-  ...body,
-  status: 'READY',
-  isStale: false,
-  runId: 'run-old',
-  contentKey: 'org-1/proj-1/opp-1/solution-plan/v2/solution-plan.html',
-  version: 2,
-  isUserEdited: true,
-  createdAt: '2026-08-01T00:00:00.000Z',
-  createdBy: 'user-1',
+const startedResult = {
+  outcome: 'STARTED',
+  plan: { id: 'plan-1', ...body, status: 'GRILLING', runId: 'run-new', version: 2 },
+  regenerated: true,
+  wipedMessages: 3,
 };
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockListQuestionFiles.mockResolvedValue({
-    items: [{ textFileKey: 'text/key.txt', status: 'PROCESSED' }],
-  });
-  mockGetPlan.mockResolvedValue(null);
-  mockPutPlan.mockImplementation((plan) => Promise.resolve(plan));
-  mockDeleteMessages.mockResolvedValue(0);
+  mockInitRun.mockResolvedValue(startedResult);
 });
 
 const statusOf = (res: unknown): number => (res as { statusCode: number }).statusCode;
@@ -74,137 +44,66 @@ const bodyOf = (res: unknown): Record<string, unknown> =>
 
 describe('init-solution-plan handler', () => {
   it('returns 400 when the body is invalid', async () => {
-    const res = await initSolutionPlan(makeEvent({ orgId: 'org-1' }));
+    const res = await initSolutionPlan(makeEvent(JSON.stringify({ orgId: 'org-1' })));
     expect(statusOf(res)).toBe(400);
-    expect(mockPutPlan).not.toHaveBeenCalled();
+    expect(mockInitRun).not.toHaveBeenCalled();
   });
 
-  it('returns 400 when no processed solicitation documents exist', async () => {
-    mockListQuestionFiles.mockResolvedValue({
-      items: [{ textFileKey: 'text/key.txt', status: 'UPLOADED' }],
-    });
-    const res = await initSolutionPlan(makeEvent(body));
+  it('returns 400 (not 500) when the body is malformed JSON', async () => {
+    const res = await initSolutionPlan(makeEvent('{not json'));
     expect(statusOf(res)).toBe(400);
-    expect(mockPutPlan).not.toHaveBeenCalled();
-    expect(mockEnqueue).not.toHaveBeenCalled();
+    expect(mockInitRun).not.toHaveBeenCalled();
   });
 
-  it('creates a fresh plan, wipes the transcript, and enqueues round 1', async () => {
-    const res = await initSolutionPlan(makeEvent(body));
+  it('passes the key, restart flag, and user to the init helper', async () => {
+    await initSolutionPlan(makeEvent(JSON.stringify({ ...body, restart: true })));
+    expect(mockInitRun).toHaveBeenCalledWith(body, { restart: true, userId: 'user-9' });
+  });
 
-    expect(statusOf(res)).toBe(202);
-    const put = mockPutPlan.mock.calls[0][0];
-    expect(put).toMatchObject({
-      ...body,
-      status: 'GRILLING',
-      isStale: false,
-      version: 0,
-      isUserEdited: false,
-      grillingRounds: 0,
-      createdBy: 'user-9',
-      updatedBy: 'user-9',
-    });
-    expect(put.id).toEqual(expect.any(String));
-    expect(put.runId).toEqual(expect.any(String));
+  it('maps NO_PROCESSED_FILES to 400', async () => {
+    mockInitRun.mockResolvedValue({ outcome: 'NO_PROCESSED_FILES' });
 
-    expect(mockDeleteMessages).toHaveBeenCalledWith(put.id);
-    expect(mockEnqueue).toHaveBeenCalledWith({
-      ...body,
-      solutionPlanId: put.id,
-      runId: put.runId,
-      round: 1,
-      phase: 'GRILL',
-    });
+    const res = await initSolutionPlan(makeEvent(JSON.stringify(body)));
+
+    expect(statusOf(res)).toBe(400);
+    expect(bodyOf(res).message).toMatch(/No processed solicitation documents/);
+  });
+
+  it('maps RUN_IN_PROGRESS to 409 with the plan status', async () => {
+    mockInitRun.mockResolvedValue({ outcome: 'RUN_IN_PROGRESS', solutionPlanStatus: 'GRILLING' });
+
+    const res = await initSolutionPlan(makeEvent(JSON.stringify(body)));
+
+    expect(statusOf(res)).toBe(409);
     expect(bodyOf(res)).toMatchObject({
+      code: 'SOLUTION_PLAN_RUN_IN_PROGRESS',
+      solutionPlanStatus: 'GRILLING',
+    });
+  });
+
+  it('maps STARTED to 202 with the run summary', async () => {
+    const res = await initSolutionPlan(makeEvent(JSON.stringify(body)));
+
+    expect(statusOf(res)).toBe(202);
+    expect(bodyOf(res)).toEqual({
       ok: true,
-      solutionPlanId: put.id,
-      runId: put.runId,
+      solutionPlanId: 'plan-1',
+      runId: 'run-new',
       status: 'GRILLING',
-      regenerated: false,
+      version: 2,
+      regenerated: true,
+      wipedMessages: 3,
     });
-  });
-
-  it('stamps the new runId BEFORE wiping the transcript (ADR-5 ordering)', async () => {
-    const order: string[] = [];
-    mockPutPlan.mockImplementation((plan) => {
-      order.push('put');
-      return Promise.resolve(plan);
-    });
-    mockDeleteMessages.mockImplementation(() => {
-      order.push('wipe');
-      return Promise.resolve(3);
-    });
-    mockEnqueue.mockImplementation(() => {
-      order.push('enqueue');
-      return Promise.resolve();
-    });
-
-    await initSolutionPlan(makeEvent(body));
-    expect(order).toEqual(['put', 'wipe', 'enqueue']);
-  });
-
-  it('regenerates a READY plan in place: same id, monotonic version, fresh runId', async () => {
-    mockGetPlan.mockResolvedValue(readyPlan);
-
-    const res = await initSolutionPlan(makeEvent(body));
-
-    expect(statusOf(res)).toBe(202);
-    const put = mockPutPlan.mock.calls[0][0];
-    expect(put.id).toBe('plan-1'); // one plan id per opportunity, forever (ADR-2)
-    expect(put.version).toBe(2); // never reset (ADR-11)
-    expect(put.runId).not.toBe('run-old');
-    expect(put.status).toBe('GRILLING');
-    expect(put.isUserEdited).toBe(false);
-    expect(put.contentKey).toBeUndefined(); // run-scoped fields reset
-    expect(put.createdAt).toBe('2026-08-01T00:00:00.000Z');
-    expect(put.createdBy).toBe('user-1');
-    expect(bodyOf(res)).toMatchObject({ regenerated: true });
-  });
-
-  it.each(['GRILLING', 'GENERATING_SOT'])(
-    'returns 409 when a run is in flight (%s) and restart is not set',
-    async (status) => {
-      mockGetPlan.mockResolvedValue({ ...readyPlan, status });
-
-      const res = await initSolutionPlan(makeEvent(body));
-
-      expect(statusOf(res)).toBe(409);
-      expect(bodyOf(res)).toMatchObject({
-        code: 'SOLUTION_PLAN_RUN_IN_PROGRESS',
-        solutionPlanStatus: status,
-      });
-      expect(mockPutPlan).not.toHaveBeenCalled();
-      expect(mockEnqueue).not.toHaveBeenCalled();
-    },
-  );
-
-  it('re-inits an in-flight run when restart: true is passed (ADR-5)', async () => {
-    mockGetPlan.mockResolvedValue({ ...readyPlan, status: 'GRILLING' });
-
-    const res = await initSolutionPlan(makeEvent({ ...body, restart: true }));
-
-    expect(statusOf(res)).toBe(202);
-    expect(mockPutPlan).toHaveBeenCalled();
-    expect(mockEnqueue).toHaveBeenCalled();
-  });
-
-  it('re-inits a FAILED plan without a restart flag (retry path)', async () => {
-    mockGetPlan.mockResolvedValue({ ...readyPlan, status: 'FAILED', error: 'boom' });
-
-    const res = await initSolutionPlan(makeEvent(body));
-
-    expect(statusOf(res)).toBe(202);
-    const put = mockPutPlan.mock.calls[0][0];
-    expect(put.error).toBeUndefined();
   });
 
   it('sets the audit context on the happy path', async () => {
-    await initSolutionPlan(makeEvent(body));
+    await initSolutionPlan(makeEvent(JSON.stringify(body)));
     expect(mockSetAuditContext).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
         action: 'AI_GENERATION_STARTED',
         resource: 'pipeline',
+        resourceId: 'plan-1',
         orgId: 'org-1',
       }),
     );

@@ -93,10 +93,14 @@ export const updateSolutionPlanStatus = async (
   });
 
 /** Strip the single-table keys off a DB record → the pure domain item. */
-export const toSolutionPlanItem = (dbItem: SolutionPlanDBItem): SolutionPlanItem => {
+const stripDbKeys = <TItem>(dbItem: TItem & Record<typeof PK_NAME | typeof SK_NAME, string>): TItem => {
   const { [PK_NAME]: _pk, [SK_NAME]: _sk, ...item } = dbItem;
-  return item;
+  // Rest-destructuring can't tell TS the remainder is exactly TItem
+  return item as TItem;
 };
+
+export const toSolutionPlanItem = (dbItem: SolutionPlanDBItem): SolutionPlanItem =>
+  stripDbKeys<SolutionPlanItem>(dbItem);
 
 /**
  * Persist a user edit of a READY plan's content (ADR-8): bump version +
@@ -212,10 +216,8 @@ export const listGrillingMessages = async (
   );
 
 /** Strip the single-table keys off a transcript record → the pure domain item. */
-export const toGrillingMessageItem = (dbItem: GrillingMessageDBItem): GrillingMessageItem => {
-  const { [PK_NAME]: _pk, [SK_NAME]: _sk, ...item } = dbItem;
-  return item;
-};
+export const toGrillingMessageItem = (dbItem: GrillingMessageDBItem): GrillingMessageItem =>
+  stripDbKeys<GrillingMessageItem>(dbItem);
 
 /**
  * Wipe the full transcript of a plan (wipe-on-regenerate, ADR-2). Any message

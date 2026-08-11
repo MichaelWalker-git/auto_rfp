@@ -75,6 +75,12 @@ describe('update-solution-plan handler', () => {
     expect(mockUploadHtml).not.toHaveBeenCalled();
   });
 
+  it('returns 400 (not 500) when the body is malformed JSON', async () => {
+    const res = await updateSolutionPlan({ body: '{not json', auth: { userId: 'user-9' } } as never);
+    expect(statusOf(res)).toBe(400);
+    expect(mockGetPlan).not.toHaveBeenCalled();
+  });
+
   it('returns 400 when htmlContent is empty', async () => {
     const res = await updateSolutionPlan(makeEvent({ ...key, htmlContent: '' }));
     expect(statusOf(res)).toBe(400);
