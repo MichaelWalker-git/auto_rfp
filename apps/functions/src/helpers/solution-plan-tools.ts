@@ -17,6 +17,22 @@ import type { ToolDefinition, ToolResult } from '@/types/tool';
 /** Max services per search_service_pricing call (batched — see tool description). */
 const MAX_PRICING_BATCH = 10;
 
+/** Cap on a transcript tool-call summary — one line for the UI, not the payload. */
+const TOOL_SUMMARY_CHAR_CAP = 200;
+
+/**
+ * One-line summary of a tool call for the grilling transcript UI. Lives next
+ * to the tool definitions because it encodes each tool's input shape: the
+ * shared DOCUMENT_TOOLS take `query`/`keywords`/`topic`, search_service_pricing
+ * takes `services`.
+ */
+export const summarizeToolInput = (toolInput: Record<string, unknown>): string => {
+  const interesting = toolInput.query ?? toolInput.keywords ?? toolInput.topic ?? toolInput.services;
+  if (interesting === undefined) return '';
+  const text = typeof interesting === 'string' ? interesting : JSON.stringify(interesting);
+  return text.length > TOOL_SUMMARY_CHAR_CAP ? text.slice(0, TOOL_SUMMARY_CHAR_CAP) : text;
+};
+
 // ─── Tool set ───────────────────────────────────────────────────────────────────
 
 /** DOCUMENT_TOOLS offered to the Tech Lead (ROADMAP §2). */

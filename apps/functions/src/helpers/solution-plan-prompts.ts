@@ -18,7 +18,7 @@ import type { GrillingMessageItem, GrillingMessageRole } from '@auto-rfp/core';
 /**
  * Literal token the Griller emits when the interview is complete. Honored only
  * from round 2 onward and only as the whole message / final line (ADR-13) —
- * see `shouldHonorTerminationToken` in solution-plan-worker.ts.
+ * see `shouldHonorTerminationToken` in griller-agent.ts.
  */
 export const INTERVIEW_COMPLETE_TOKEN = 'INTERVIEW_COMPLETE';
 
@@ -106,7 +106,7 @@ export const buildGrillerUserPrompt = (args: {
   parts.push(
     `═══ YOUR TURN — ROUND ${round} OF ${maxRounds} ═══`,
     isFinalRound
-      ? `This is the FINAL round. You MUST output the single token ${INTERVIEW_COMPLETE_TOKEN} as your entire message now. Do not ask any further questions.`
+      ? `This is the FINAL round — no further rounds follow. Ask your 1-3 most critical unresolved questions now; the interview ends after the Tech Lead answers them. Only if every coverage area is already concretely answered, output the single token ${INTERVIEW_COMPLETE_TOKEN} as your entire message instead.`
       : round === 1
         ? 'Open the interview: ask your 1-3 most important questions about the proposed solution for this opportunity.'
         : `Review the Tech Lead's answers above. Either drill into weak spots / uncovered areas with 1-3 new questions, or — if every coverage area is concretely answered — output the single token ${INTERVIEW_COMPLETE_TOKEN} as your entire message.`,

@@ -12,6 +12,7 @@ const mockProcessSynthesis = jest.fn();
 jest.mock('@/helpers/solution-plan-worker', () => ({
   processGrillingRound: (...a: unknown[]) => mockProcessGrillingRound(...a),
   processSynthesis: (...a: unknown[]) => mockProcessSynthesis(...a),
+  errorMessageOf: (err: unknown) => (err instanceof Error ? err.message : String(err)),
 }));
 
 import type { SQSEvent } from 'aws-lambda';

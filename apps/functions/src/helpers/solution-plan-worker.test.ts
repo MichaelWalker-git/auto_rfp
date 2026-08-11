@@ -56,6 +56,10 @@ jest.mock('@/helpers/db-tool-helpers', () => ({
 jest.mock('@/helpers/solution-plan-tools', () => ({
   SOLUTION_PLAN_TOOLS: [],
   executeSolutionPlanTool: jest.fn().mockResolvedValue({ tool_use_id: 'tu-1', content: 'ok' }),
+  summarizeToolInput: (toolInput: Record<string, unknown>) => {
+    const interesting = toolInput.query ?? toolInput.services;
+    return typeof interesting === 'string' ? interesting : JSON.stringify(interesting);
+  },
 }));
 
 import {
@@ -244,14 +248,53 @@ describe('processGrillingRound', () => {
     expect(mockEnqueue).not.toHaveBeenCalled();
   });
 
-  it('skips an already-processed round on SQS redelivery', async () => {
-    mockListMessages.mockResolvedValue([grillerMsg(1), techLeadMsg(1)]);
+  it('re-enqueues SYNTHESIZE when the plan is stuck in GENERATING_SOT for this run', async () => {
+    mockGetPlan.mockResolvedValue({ ...basePlan, status: 'GENERATING_SOT' });
 
     await processGrillingRound(message);
 
     expect(mockInvokeModel).not.toHaveBeenCalled();
     expect(mockAppendMessage).not.toHaveBeenCalled();
-    expect(mockEnqueue).not.toHaveBeenCalled();
+    expect(mockEnqueue).toHaveBeenCalledWith({ ...message, phase: 'SYNTHESIZE' });
+  });
+
+  it('re-drives the enqueue without re-running turns when a fully-processed round is redelivered', async () => {
+    mockListMessages.mockResolvedValue([grillerMsg(1), techLeadMsg(1)]);
+
+    await processGrillingRound(message);
+
+    // Both turns are reused — no model calls, no new messages — but the round
+    // still routes forward so a crash-before-enqueue never strands the plan.
+    expect(mockInvokeModel).not.toHaveBeenCalled();
+    expect(mockInvokeClaudeWithTools).not.toHaveBeenCalled();
+    expect(mockAppendMessage).not.toHaveBeenCalled();
+    expect(mockEnqueue).toHaveBeenCalledWith({ ...message, round: 2, phase: 'GRILL' });
+  });
+
+  it('resumes a half-completed round on redelivery: reuses the Griller turn, runs only the Tech Lead', async () => {
+    mockListMessages.mockResolvedValue([grillerMsg(1, 'Q1: What is the architecture?')]);
+
+    await processGrillingRound(message);
+
+    expect(mockInvokeModel).not.toHaveBeenCalled();
+    expect(mockInvokeClaudeWithTools).toHaveBeenCalledTimes(1);
+    // The reused Griller questions are handed to the Tech Lead turn
+    expect(mockInvokeClaudeWithTools.mock.calls[0][0].user).toContain('Q1: What is the architecture?');
+    expect(appendedRoles()).toEqual(['TECH_LEAD']);
+    expect(mockEnqueue).toHaveBeenCalledWith({ ...message, round: 2, phase: 'GRILL' });
+  });
+
+  it('completes the interview from a reused Griller termination turn on redelivery', async () => {
+    mockListMessages.mockResolvedValue([
+      grillerMsg(1), techLeadMsg(1), grillerMsg(2, 'INTERVIEW_COMPLETE'),
+    ]);
+
+    await processGrillingRound({ ...message, round: 2 });
+
+    expect(mockInvokeModel).not.toHaveBeenCalled();
+    expect(mockInvokeClaudeWithTools).not.toHaveBeenCalled();
+    expect(appendedRoles()).toEqual(['SYSTEM']);
+    expect(mockEnqueue).toHaveBeenCalledWith({ ...message, round: 2, phase: 'SYNTHESIZE' });
   });
 
   it('does NOT skip when the existing round messages belong to another run', async () => {

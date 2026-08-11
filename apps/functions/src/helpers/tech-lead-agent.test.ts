@@ -11,10 +11,10 @@ const mockExecuteSolutionPlanTool = jest.fn();
 jest.mock('@/helpers/solution-plan-tools', () => ({
   SOLUTION_PLAN_TOOLS: [{ name: 'search_knowledge_base' }],
   executeSolutionPlanTool: (...a: unknown[]) => mockExecuteSolutionPlanTool(...a),
-}));
-
-jest.mock('@/helpers/executive-opportunity-brief', () => ({
-  truncateText: (text: string, max: number) => (text.length > max ? text.slice(0, max) : text),
+  summarizeToolInput: (toolInput: Record<string, unknown>) => {
+    const interesting = toolInput.query ?? toolInput.services;
+    return typeof interesting === 'string' ? interesting : JSON.stringify(interesting);
+  },
 }));
 
 import { TechLeadAgent, type TechLeadTurnInput } from './tech-lead-agent';

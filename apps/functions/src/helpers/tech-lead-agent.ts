@@ -14,32 +14,26 @@
 
 import { z } from 'zod';
 
-import type { GrillingToolCallSummary } from '@auto-rfp/core';
+import type { GrillingToolCallSummary, SolutionPlanKey } from '@auto-rfp/core';
 
 import { invokeClaudeWithTools } from './bedrock-tool-loop';
-import { truncateText } from './executive-opportunity-brief';
 import {
   buildTechLeadSystemPrompt,
   buildTechLeadUserPrompt,
   type TranscriptEntry,
 } from './solution-plan-prompts';
-import { SOLUTION_PLAN_TOOLS, executeSolutionPlanTool } from './solution-plan-tools';
+import {
+  SOLUTION_PLAN_TOOLS,
+  executeSolutionPlanTool,
+  summarizeToolInput,
+} from './solution-plan-tools';
 
 const DEFAULT_MAX_TOKENS = 4000;
 const DEFAULT_MAX_TOOL_ROUNDS = 4;
-const TOOL_SUMMARY_CHAR_CAP = 200;
 
 const TechLeadResponseSchema = z.object({
   answer: z.string().min(1),
 });
-
-/** One-line summary of a tool call for the transcript UI — not the full payload. */
-const summarizeToolCall = (toolName: string, toolInput: Record<string, unknown>): string => {
-  const interesting = toolInput.query ?? toolInput.keywords ?? toolInput.topic ?? toolInput.services;
-  if (interesting === undefined) return '';
-  const text = typeof interesting === 'string' ? interesting : JSON.stringify(interesting);
-  return truncateText(text, TOOL_SUMMARY_CHAR_CAP);
-};
 
 export interface TechLeadAgentConfig {
   modelId: string;
@@ -48,12 +42,7 @@ export interface TechLeadAgentConfig {
 }
 
 /** Tenancy/entity scope the tool executors need. */
-export interface TechLeadToolContext {
-  orgId: string;
-  projectId: string;
-  opportunityId: string;
-  solutionPlanId: string;
-}
+export type TechLeadToolContext = SolutionPlanKey & { solutionPlanId: string };
 
 export interface TechLeadTurnInput {
   /** Compact opportunity context — the agent pulls detail via tools. */
@@ -92,7 +81,7 @@ export class TechLeadAgent {
       user: buildTechLeadUserPrompt({ opportunityPrimer, transcript, currentQuestions, round }),
       tools: SOLUTION_PLAN_TOOLS,
       toolExecutor: async (toolName, toolInput, toolUseId) => {
-        toolCalls.push({ toolName, summary: summarizeToolCall(toolName, toolInput) });
+        toolCalls.push({ toolName, summary: summarizeToolInput(toolInput) });
         return executeSolutionPlanTool({ toolName, toolInput, toolUseId, ...toolContext });
       },
       outputSchema: TechLeadResponseSchema,

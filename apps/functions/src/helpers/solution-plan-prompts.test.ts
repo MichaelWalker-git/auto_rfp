@@ -85,10 +85,15 @@ describe('buildGrillerUserPrompt', () => {
     expect(instruction).not.toContain(INTERVIEW_COMPLETE_TOKEN);
   });
 
-  it('forces the termination token on the final round', () => {
+  it('asks final questions on the last round instead of skipping its Q&A (ADR-13)', () => {
     const prompt = buildGrillerUserPrompt({ ...baseArgs, round: 4 });
     expect(prompt).toContain('FINAL round');
-    expect(prompt).toContain(`MUST output the single token ${INTERVIEW_COMPLETE_TOKEN}`);
+    expect(prompt).toContain('most critical unresolved questions');
+    // Termination is forced by the worker AFTER the final Tech Lead turn — the
+    // prompt must not pre-empt the final round's Q&A by demanding the token.
+    expect(prompt).not.toContain('MUST output the single token');
+    // The token stays available in case every area is already answered
+    expect(prompt).toContain(INTERVIEW_COMPLETE_TOKEN);
   });
 });
 

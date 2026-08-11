@@ -9,7 +9,8 @@
  *
  * Safety rails:
  *  - zombie-round protection: no-op when `message.runId ≠ plan.runId` (ADR-5)
- *  - idempotent on SQS redelivery: skip when the round's GRILLER message exists
+ *  - idempotent on SQS redelivery: a persisted turn is reused, not re-run, so
+ *    a redelivered round resumes from wherever the previous attempt died
  *  - termination token honored only from round 2 and only as the whole
  *    message / final line (ADR-13); the final round always terminates
  *  - catch-all sets status FAILED + `error`, then rethrows for the DLQ
@@ -17,14 +18,14 @@
 
 import { z } from 'zod';
 
-import type { SolutionPlanKey } from '@auto-rfp/core';
+import type { SolutionPlanItem, SolutionPlanKey } from '@auto-rfp/core';
 
 import { fetchExecutiveBriefAnalysis } from './db-tool-helpers';
 import { loadSolicitation } from './document-generation';
 import { requireEnv } from './env';
 import { nowIso } from './date';
 import { invokeClaudeJson, truncateText } from './executive-opportunity-brief';
-import { GrillerAgent, MIN_GRILLING_ROUNDS } from './griller-agent';
+import { GrillerAgent, MIN_GRILLING_ROUNDS, shouldHonorTerminationToken } from './griller-agent';
 import { TechLeadAgent } from './tech-lead-agent';
 import {
   appendGrillingMessage,
@@ -79,7 +80,16 @@ const planKeyFromMessage = (message: GrillingRoundMessage): SolutionPlanKey => (
   opportunityId: message.opportunityId,
 });
 
-const errorMessageOf = (err: unknown): string =>
+/** The transcript-identity triple shared by every appended grilling message. */
+const messageBase = (
+  message: GrillingRoundMessage,
+): Pick<GrillingRoundMessage, 'solutionPlanId' | 'runId' | 'round'> => ({
+  solutionPlanId: message.solutionPlanId,
+  runId: message.runId,
+  round: message.round,
+});
+
+export const errorMessageOf = (err: unknown): string =>
   err instanceof Error ? err.message : String(err);
 
 // ─── Shared context loading ─────────────────────────────────────────────────────
@@ -141,9 +151,7 @@ const markPlanFailed = async (
   try {
     await updateSolutionPlanStatus(key, 'FAILED', { error: errorMessage });
     await appendGrillingMessage({
-      solutionPlanId: message.solutionPlanId,
-      runId: message.runId,
-      round: message.round,
+      ...messageBase(message),
       role: 'SYSTEM',
       content: `${message.phase === 'SYNTHESIZE' ? 'Synthesis' : 'Grilling'} failed: ${errorMessage}`,
     });
@@ -155,6 +163,40 @@ const markPlanFailed = async (
   }
 };
 
+/**
+ * Shared guard rails for both phases: load the plan, drop the message when the
+ * plan is missing or belongs to another run (zombie, ADR-5), and on any
+ * processing error record FAILED + rethrow toward the DLQ.
+ */
+const withGuardedPlan = async (
+  message: GrillingRoundMessage,
+  label: string,
+  fn: (plan: SolutionPlanItem, key: SolutionPlanKey) => Promise<void>,
+): Promise<void> => {
+  const key = planKeyFromMessage(message);
+
+  const plan = await getSolutionPlanByOpportunity(key);
+  if (!plan) {
+    console.warn(
+      `[solution-plan-worker] no plan for opportunity ${message.opportunityId} — dropping ${label}`,
+    );
+    return;
+  }
+  if (plan.runId !== message.runId) {
+    console.log(
+      `[solution-plan-worker] zombie ${label} dropped: message run ${message.runId} ≠ plan run ${plan.runId} (ADR-5)`,
+    );
+    return;
+  }
+
+  try {
+    await fn(plan, key);
+  } catch (err) {
+    await markPlanFailed(key, message, err);
+    throw err;
+  }
+};
+
 // ─── Grilling round ─────────────────────────────────────────────────────────────
 
 /** Interview finished — mark the plan and hand off to synthesis. */
@@ -163,9 +205,7 @@ const completeInterview = async (
   message: GrillingRoundMessage,
 ): Promise<void> => {
   await appendGrillingMessage({
-    solutionPlanId: message.solutionPlanId,
-    runId: message.runId,
-    round: message.round,
+    ...messageBase(message),
     role: 'SYSTEM',
     content: `Interview complete after ${message.round} round(s). Synthesizing the solution plan…`,
   });
@@ -179,82 +219,84 @@ const completeInterview = async (
 /**
  * Process ONE grilling round: Griller turn → persist → (unless terminated)
  * Tech Lead turn with tools → persist → enqueue next round or SYNTHESIZE.
+ *
+ * Redelivery resumes instead of re-running: a turn already persisted for this
+ * round + run is reused, so a crash anywhere in the round (even between the
+ * last persist and the enqueue) never strands the plan in GRILLING.
  */
-export const processGrillingRound = async (message: GrillingRoundMessage): Promise<void> => {
-  const key = planKeyFromMessage(message);
-
-  const plan = await getSolutionPlanByOpportunity(key);
-  if (!plan) {
-    console.warn(`[solution-plan-worker] no plan for opportunity ${message.opportunityId} — dropping round`);
-    return;
-  }
-  if (plan.runId !== message.runId) {
-    console.log(
-      `[solution-plan-worker] zombie round dropped: message run ${message.runId} ≠ plan run ${plan.runId} (ADR-5)`,
-    );
-    return;
-  }
-  if (plan.status !== 'GRILLING') {
-    console.log(`[solution-plan-worker] plan status is ${plan.status}, not GRILLING — dropping round ${message.round}`);
-    return;
-  }
-
-  try {
-    const { solicitationText, execBriefText, runMessages } = await loadRoundContext(message);
-    const transcript: TranscriptEntry[] = runMessages.map(({ role, content }) => ({ role, content }));
-
-    // Idempotency on SQS redelivery: this round already ran for this run
-    const alreadyGrilled = runMessages.some(
-      (m) => m.round === message.round && m.role === 'GRILLER',
-    );
-    if (alreadyGrilled) {
-      console.log(`[solution-plan-worker] round ${message.round} already processed for run ${message.runId} — skipping redelivery`);
+export const processGrillingRound = async (message: GrillingRoundMessage): Promise<void> =>
+  withGuardedPlan(message, `round ${message.round}`, async (plan, key) => {
+    if (plan.status === 'GENERATING_SOT') {
+      // The interview already completed for this run but the SYNTHESIZE message
+      // may have been lost mid-crash — re-drive the handoff (synthesis itself
+      // skips when the plan is already READY).
+      console.log(
+        `[solution-plan-worker] plan already GENERATING_SOT for run ${message.runId} — re-enqueueing SYNTHESIZE`,
+      );
+      await enqueueGrillingRound({ ...message, phase: 'SYNTHESIZE' });
+      return;
+    }
+    if (plan.status !== 'GRILLING') {
+      console.log(
+        `[solution-plan-worker] plan status is ${plan.status}, not GRILLING — dropping round ${message.round}`,
+      );
       return;
     }
 
+    const { solicitationText, execBriefText, runMessages } = await loadRoundContext(message);
+    // Prior rounds only — the current round's own messages (present when a
+    // redelivery resumes a half-completed round) travel separately below.
+    const transcript: TranscriptEntry[] = runMessages
+      .filter((m) => m.round < message.round)
+      .map(({ role, content }) => ({ role, content }));
+    const roundMessages = runMessages.filter((m) => m.round === message.round);
+
     const maxRounds = resolveMaxRounds();
 
-    // ── Griller turn ──
-    const griller = new GrillerAgent({ modelId: resolveGrillerModelId() });
-    const grillerText = await griller.ask({
-      solicitationText,
-      execBriefText,
-      transcript,
-      round: message.round,
-      maxRounds,
-    });
-    await appendGrillingMessage({
-      solutionPlanId: message.solutionPlanId,
-      runId: message.runId,
-      round: message.round,
-      role: 'GRILLER',
-      content: grillerText,
-    });
+    // ── Griller turn (reused on redelivery) ──
+    const persistedGriller = roundMessages.find((m) => m.role === 'GRILLER');
+    let grillerText: string;
+    if (persistedGriller) {
+      console.log(
+        `[solution-plan-worker] round ${message.round} Griller turn already persisted for run ${message.runId} — resuming redelivery`,
+      );
+      grillerText = persistedGriller.content;
+    } else {
+      const griller = new GrillerAgent({ modelId: resolveGrillerModelId() });
+      grillerText = await griller.ask({
+        solicitationText,
+        execBriefText,
+        transcript,
+        round: message.round,
+        maxRounds,
+      });
+      await appendGrillingMessage({ ...messageBase(message), role: 'GRILLER', content: grillerText });
+    }
 
-    if (griller.isInterviewComplete(grillerText, message.round)) {
+    if (shouldHonorTerminationToken(grillerText, message.round)) {
       await completeInterview(key, message);
       return;
     }
 
-    // ── Tech Lead turn ──
-    const techLead = new TechLeadAgent({ modelId: resolveModelId() });
-    const { answer, toolCalls } = await techLead.answer({
-      opportunityPrimer: buildOpportunityPrimer(solicitationText, execBriefText),
-      transcript,
-      currentQuestions: grillerText,
-      round: message.round,
-      toolContext: { ...key, solutionPlanId: message.solutionPlanId },
-    });
-    await appendGrillingMessage({
-      solutionPlanId: message.solutionPlanId,
-      runId: message.runId,
-      round: message.round,
-      role: 'TECH_LEAD',
-      content: answer,
-      toolCalls: toolCalls.length ? toolCalls : undefined,
-    });
+    // ── Tech Lead turn (reused on redelivery) ──
+    if (!roundMessages.some((m) => m.role === 'TECH_LEAD')) {
+      const techLead = new TechLeadAgent({ modelId: resolveModelId() });
+      const { answer, toolCalls } = await techLead.answer({
+        opportunityPrimer: buildOpportunityPrimer(solicitationText, execBriefText),
+        transcript,
+        currentQuestions: grillerText,
+        round: message.round,
+        toolContext: { ...key, solutionPlanId: message.solutionPlanId },
+      });
+      await appendGrillingMessage({
+        ...messageBase(message),
+        role: 'TECH_LEAD',
+        content: answer,
+        toolCalls: toolCalls.length ? toolCalls : undefined,
+      });
 
-    await updateSolutionPlanStatus(key, 'GRILLING', { grillingRounds: message.round });
+      await updateSolutionPlanStatus(key, 'GRILLING', { grillingRounds: message.round });
+    }
 
     // Final round always terminates (ADR-13) — even without the token, the
     // Tech Lead's last answers are in the transcript and synthesis proceeds.
@@ -264,11 +306,7 @@ export const processGrillingRound = async (message: GrillingRoundMessage): Promi
     }
 
     await enqueueGrillingRound({ ...message, round: message.round + 1, phase: 'GRILL' });
-  } catch (err) {
-    await markPlanFailed(key, message, err);
-    throw err;
-  }
-};
+  });
 
 // ─── Synthesis ──────────────────────────────────────────────────────────────────
 
@@ -277,26 +315,15 @@ export const processGrillingRound = async (message: GrillingRoundMessage): Promi
  * to a fresh S3 version → plan READY. Version stays monotonic across
  * regenerations (ADR-11); a regenerate wipes user edits (ADR-4).
  */
-export const processSynthesis = async (message: GrillingRoundMessage): Promise<void> => {
-  const key = planKeyFromMessage(message);
+export const processSynthesis = async (message: GrillingRoundMessage): Promise<void> =>
+  withGuardedPlan(message, 'synthesis', async (plan, key) => {
+    if (plan.status === 'READY') {
+      console.log(
+        '[solution-plan-worker] plan already READY for this run — skipping synthesis redelivery',
+      );
+      return;
+    }
 
-  const plan = await getSolutionPlanByOpportunity(key);
-  if (!plan) {
-    console.warn(`[solution-plan-worker] no plan for opportunity ${message.opportunityId} — dropping synthesis`);
-    return;
-  }
-  if (plan.runId !== message.runId) {
-    console.log(
-      `[solution-plan-worker] zombie synthesis dropped: message run ${message.runId} ≠ plan run ${plan.runId} (ADR-5)`,
-    );
-    return;
-  }
-  if (plan.status === 'READY') {
-    console.log('[solution-plan-worker] plan already READY for this run — skipping synthesis redelivery');
-    return;
-  }
-
-  try {
     const { solicitationText, execBriefText, runMessages } = await loadRoundContext(message);
     const transcript: TranscriptEntry[] = runMessages.map(({ role, content }) => ({ role, content }));
     if (!transcript.some((m) => m.role === 'TECH_LEAD')) {
@@ -330,9 +357,7 @@ export const processSynthesis = async (message: GrillingRoundMessage): Promise<v
       error: '',
     });
     await appendGrillingMessage({
-      solutionPlanId: message.solutionPlanId,
-      runId: message.runId,
-      round: message.round,
+      ...messageBase(message),
       role: 'SYSTEM',
       content: `Solution plan v${version} synthesized: "${title}"`,
     });
@@ -340,8 +365,4 @@ export const processSynthesis = async (message: GrillingRoundMessage): Promise<v
     console.log(
       `[solution-plan-worker] plan ${message.solutionPlanId} READY — v${version}, ${html.length} chars`,
     );
-  } catch (err) {
-    await markPlanFailed(key, message, err);
-    throw err;
-  }
-};
+  });

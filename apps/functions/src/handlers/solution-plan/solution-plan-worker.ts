@@ -14,7 +14,11 @@ import type { SQSBatchResponse, SQSEvent } from 'aws-lambda';
 
 import { withSentryLambda } from '@/sentry-lambda';
 import { GrillingRoundMessageSchema } from '@/helpers/solution-plan-queue';
-import { processGrillingRound, processSynthesis } from '@/helpers/solution-plan-worker';
+import {
+  errorMessageOf,
+  processGrillingRound,
+  processSynthesis,
+} from '@/helpers/solution-plan-worker';
 
 /** Process one SQS record body. Exported for direct testing. */
 export const processSolutionPlanRecord = async (body: string): Promise<void> => {
@@ -52,7 +56,7 @@ export const baseHandler = async (event: SQSEvent): Promise<SQSBatchResponse> =>
     } catch (err) {
       console.error(
         `[solution-plan-worker-handler] record ${record.messageId} failed:`,
-        err instanceof Error ? err.message : String(err),
+        errorMessageOf(err),
       );
       batchItemFailures.push({ itemIdentifier: record.messageId });
     }

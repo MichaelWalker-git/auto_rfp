@@ -23,6 +23,7 @@ import {
   SOLUTION_PLAN_SHARED_TOOL_NAMES,
   SOLUTION_PLAN_TOOLS,
   executeSolutionPlanTool,
+  summarizeToolInput,
 } from './solution-plan-tools';
 
 const baseArgs = {
@@ -97,6 +98,26 @@ describe('executeSolutionPlanTool — search_service_pricing stub', () => {
     });
     expect(result.content).toContain('Service 10');
     expect(result.content).not.toContain('Service 11');
+  });
+});
+
+describe('summarizeToolInput', () => {
+  it('summarizes a query-shaped input as the query string', () => {
+    expect(summarizeToolInput({ query: 'ISO certifications' })).toBe('ISO certifications');
+  });
+
+  it('summarizes a services-shaped input as compact JSON', () => {
+    expect(summarizeToolInput({ services: [{ serviceName: 'Datadog' }] })).toBe(
+      '[{"serviceName":"Datadog"}]',
+    );
+  });
+
+  it('returns an empty string when no known field is present', () => {
+    expect(summarizeToolInput({ somethingElse: true })).toBe('');
+  });
+
+  it('caps the summary at 200 characters', () => {
+    expect(summarizeToolInput({ query: 'x'.repeat(500) })).toHaveLength(200);
   });
 });
 
