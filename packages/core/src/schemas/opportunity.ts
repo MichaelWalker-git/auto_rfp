@@ -11,6 +11,7 @@
 import { z } from 'zod';
 import { PK_NAME, SK_NAME } from '../constants';
 import { JurisdictionSchema } from './foia';
+import { FoiaAutomationStateSchema } from './foia-automation';
 import { WinDataSchema, LossDataSchema } from './outcome-detail';
 
 const flexibleDateSchema = z
@@ -354,6 +355,26 @@ export const OpportunityItemSchema = z.object({
   deliveryConstraintSource: z.enum(['AI_DETECTED', 'USER_SET']).nullish(),
   /** Short rationale for the detected constraint (quote/keyword from solicitation). */
   deliveryConstraintRationale: z.string().max(500).nullish(),
+
+  // ── FOIA automation ──
+  /**
+   * Denormalized mirror of the FOIA automation state, for badges in list and
+   * board views. The authoritative record is the FOIA_AUTOMATION item; this is
+   * written only by the backend and re-synced by the scanner on every pass.
+   * Omitted from OpportunityUpdateRequestSchema so clients cannot patch it.
+   */
+  foiaAutomationState: FoiaAutomationStateSchema.nullish(),
+  /**
+   * Explicit FOIA-office email for this solicitation. Tier 1 of the recipient
+   * fallback chain, and deliberately separate from `contactEmail` — the
+   * contracting officer is frequently not the FOIA office, and overloading one
+   * field would mean editing the CO contact silently redirects legal mail.
+   */
+  foiaContactEmail: z.string().nullish(),
+  /** Mailing address for the FOIA office, used in the letter header. */
+  foiaContactAddress: z.string().nullish(),
+  /** Name or office title of the FOIA contact. */
+  foiaContactName: z.string().nullish(),
 });
 
 export type OpportunityItem = z.infer<typeof OpportunityItemSchema>;
@@ -403,10 +424,14 @@ export type OpportunityCreateRequest = z.infer<typeof OpportunityCreateRequestSc
 
 /**
  * Partial patch for updating an opportunity. Identifiers are not patchable.
+ *
+ * `foiaAutomationState` is also omitted: it mirrors the FOIA_AUTOMATION record
+ * and is written only by the backend. Leaving it patchable would let any client
+ * with `opportunity:edit` fake "FOIA sent" on an opportunity.
  */
 export const OpportunityUpdateRequestSchema = OpportunityItemSchema
   .partial()
-  .omit({ orgId: true, projectId: true, oppId: true });
+  .omit({ orgId: true, projectId: true, oppId: true, foiaAutomationState: true });
 
 export type OpportunityUpdateRequest = z.infer<typeof OpportunityUpdateRequestSchema>;
 
@@ -437,6 +462,8 @@ export const OpportunityListItemSchema = z.object({
   createdAt:            z.string().nullish(),
   assigneeId:           z.string().nullish(),
   assigneeName:         z.string().nullish(),
+  /** Drives the FOIA badge in list/board views. */
+  foiaAutomationState:  FoiaAutomationStateSchema.nullish(),
 });
 
 export type OpportunityListItem = z.infer<typeof OpportunityListItemSchema>;

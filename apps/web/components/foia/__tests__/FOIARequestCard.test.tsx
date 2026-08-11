@@ -39,7 +39,7 @@ describe('FOIARequestCard', () => {
     projectId: 'proj-123',
     orgId: 'org-456',
     opportunityId: 'opp-789',
-    projectOutcomeStatus: 'LOST',
+    projectOutcomeStatus: 'WON',
     agencyName: 'Test Agency',
     solicitationNumber: 'SOL-123',
     contractTitle: 'IT Services Support',
@@ -57,13 +57,18 @@ describe('FOIARequestCard', () => {
   });
 
   describe('visibility', () => {
-    it('renders even when project outcome is not LOST', () => {
+    it('renders even when project outcome is not terminal', () => {
+      render(<FOIARequestCard {...defaultProps} projectOutcomeStatus="SUBMITTED" />);
+      expect(screen.getByText('FOIA Request')).toBeInTheDocument();
+    });
+
+    it('renders when project outcome is WON', () => {
       render(<FOIARequestCard {...defaultProps} projectOutcomeStatus="WON" />);
       expect(screen.getByText('FOIA Request')).toBeInTheDocument();
     });
 
     it('renders when project outcome is LOST', () => {
-      render(<FOIARequestCard {...defaultProps} />);
+      render(<FOIARequestCard {...defaultProps} projectOutcomeStatus="LOST" />);
       expect(screen.getByText('FOIA Request')).toBeInTheDocument();
     });
   });
@@ -92,13 +97,55 @@ describe('FOIARequestCard', () => {
       expect(screen.getByRole('button', { name: 'Create FOIA Request' })).toBeInTheDocument();
     });
 
-    it('opens dialog when Create FOIA Request button is clicked', () => {
-      render(<FOIARequestCard {...defaultProps} />);
+    it('opens dialog when Create FOIA Request button is clicked for WON outcome', () => {
+      render(<FOIARequestCard {...defaultProps} projectOutcomeStatus="WON" />);
 
       const button = screen.getByRole('button', { name: 'Create FOIA Request' });
       fireEvent.click(button);
 
       expect(screen.getByTestId('create-foia-dialog')).toBeInTheDocument();
+    });
+
+    it('opens dialog when Create FOIA Request button is clicked for LOST outcome', () => {
+      render(<FOIARequestCard {...defaultProps} projectOutcomeStatus="LOST" />);
+
+      const button = screen.getByRole('button', { name: 'Create FOIA Request' });
+      fireEvent.click(button);
+
+      expect(screen.getByTestId('create-foia-dialog')).toBeInTheDocument();
+    });
+
+    it('shows warning dialog when Create FOIA Request button is clicked for SUBMITTED outcome', () => {
+      render(<FOIARequestCard {...defaultProps} projectOutcomeStatus="SUBMITTED" />);
+
+      const button = screen.getByRole('button', { name: 'Create FOIA Request' });
+      fireEvent.click(button);
+
+      expect(screen.queryByTestId('create-foia-dialog')).not.toBeInTheDocument();
+      expect(screen.getByText('Mark the project outcome first')).toBeInTheDocument();
+      expect(screen.getByText(/can only be created for projects with a/)).toBeInTheDocument();
+      expect(screen.getByText('Won')).toBeInTheDocument();
+      expect(screen.getByText('Lost')).toBeInTheDocument();
+    });
+
+    it('shows warning dialog for NO_BID outcome', () => {
+      render(<FOIARequestCard {...defaultProps} projectOutcomeStatus="NO_BID" />);
+
+      const button = screen.getByRole('button', { name: 'Create FOIA Request' });
+      fireEvent.click(button);
+
+      expect(screen.queryByTestId('create-foia-dialog')).not.toBeInTheDocument();
+      expect(screen.getByText('Mark the project outcome first')).toBeInTheDocument();
+    });
+
+    it('shows warning dialog for WITHDRAWN outcome', () => {
+      render(<FOIARequestCard {...defaultProps} projectOutcomeStatus="WITHDRAWN" />);
+
+      const button = screen.getByRole('button', { name: 'Create FOIA Request' });
+      fireEvent.click(button);
+
+      expect(screen.queryByTestId('create-foia-dialog')).not.toBeInTheDocument();
+      expect(screen.getByText('Mark the project outcome first')).toBeInTheDocument();
     });
   });
 

@@ -178,6 +178,23 @@ export const FOIAAgencyInfoSchema = z.object({
 export type FOIAAgencyInfo = z.infer<typeof FOIAAgencyInfoSchema>;
 
 /**
+ * A document received back from the agency in response to a request.
+ * Stored in DOCUMENTS_BUCKET and downloaded via a presigned URL.
+ */
+export const FOIAResponseDocumentSchema = z.object({
+  s3Key: z.string().min(1),
+  fileName: z.string().min(1),
+  contentType: z.string().min(1),
+  sizeBytes: z.number().int().nonnegative().optional(),
+  /** Which of the requested document types this satisfies, if known. */
+  documentType: FOIADocumentTypeSchema.optional(),
+  uploadedAt: z.string().datetime({ offset: true }),
+  uploadedBy: z.string().min(1),
+});
+
+export type FOIAResponseDocument = z.infer<typeof FOIAResponseDocumentSchema>;
+
+/**
  * FOIA Request Item - the complete FOIA request record
  */
 export const FOIARequestItemSchema = z.object({
@@ -216,6 +233,34 @@ export const FOIARequestItemSchema = z.object({
   createdAt: z.string().datetime({ offset: true }),
   updatedAt: z.string().datetime({ offset: true }),
   createdBy: z.string().min(1),
+
+  // ── Lifecycle (added for automatic FOIA; all optional) ──
+  // NOTE: get-foia-requests returns raw DynamoDB items with no re-parse and the
+  // frontend types straight off this schema, so every field added here MUST stay
+  // optional or defaulted — a required field would break every existing record.
+  /**
+   * Whether a human or the automation composed this request.
+   * Optional rather than `.default()` so existing records (and the create
+   * handler, which does not set it) stay assignable to this type — a `.default()`
+   * would make the field required on the inferred output type.
+   */
+  origin: z.enum(['MANUAL', 'AUTOMATED']).optional(),
+  /** Which recipient-resolution tier produced `agencyFOIAEmail`. For audit. */
+  recipientSource: z
+    .enum(['OPP_FOIA_OVERRIDE', 'OPP_CONTACT', 'DOCUMENT_SEARCH', 'ORG_AGENCY_CONTACT', 'USER_PROVIDED'])
+    .optional(),
+  /** S3 key of the exact letter text that was sent. */
+  letterS3Key: z.string().optional(),
+  /** S3 key of the PDF rendition attached to the email. */
+  letterPdfS3Key: z.string().optional(),
+  /** S3 key of the .eml artifact, for the customer's own records. */
+  emlS3Key: z.string().optional(),
+  /** When the request was transmitted to the agency. */
+  sentAt: z.string().datetime({ offset: true }).optional(),
+  /** When the agency's response was received/recorded. */
+  responseReceivedAt: z.string().datetime({ offset: true }).optional(),
+  /** Documents received back from the agency, uploaded by a user. */
+  responseDocuments: z.array(FOIAResponseDocumentSchema).optional(),
 });
 
 export type FOIARequestItem = z.infer<typeof FOIARequestItemSchema>;
