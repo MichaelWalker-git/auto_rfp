@@ -1,0 +1,369 @@
+process.env.DB_TABLE_NAME = 'test-table';
+process.env.DOCUMENTS_BUCKET = 'test-bucket';
+process.env.REGION = 'us-east-1';
+
+jest.mock('@middy/core', () => {
+  const middy = (handler: unknown) => ({
+    use: jest.fn().mockReturnThis(),
+    handler,
+  });
+  return { __esModule: true, default: middy };
+});
+
+jest.mock('@/sentry-lambda', () => ({
+  withSentryLambda: (h: unknown) => h,
+}));
+
+jest.mock('@aws-sdk/client-dynamodb', () => ({
+  DynamoDBClient: jest.fn(() => ({})),
+}));
+
+jest.mock('@aws-sdk/lib-dynamodb', () => ({
+  DynamoDBDocumentClient: { from: jest.fn(() => ({ send: jest.fn() })) },
+  QueryCommand: jest.fn((params) => ({ type: 'Query', params })),
+  GetCommand: jest.fn((params) => ({ type: 'Get', params })),
+  PutCommand: jest.fn((params) => ({ type: 'Put', params })),
+  UpdateCommand: jest.fn((params) => ({ type: 'Update', params })),
+  DeleteCommand: jest.fn((params) => ({ type: 'Delete', params })),
+}));
+
+const mockListAllOrgIds = jest.fn();
+jest.mock('@/helpers/org', () => ({
+  listAllOrgIds: () => mockListAllOrgIds(),
+}));
+
+const mockListOpportunitiesByOrg = jest.fn();
+jest.mock('@/helpers/opportunity', () => ({
+  listOpportunitiesByOrg: (...a: unknown[]) => mockListOpportunitiesByOrg(...a),
+}));
+
+const mockGetSubmissionHistory = jest.fn();
+jest.mock('@/helpers/proposal-submission', () => ({
+  getSubmissionHistory: (...a: unknown[]) => mockGetSubmissionHistory(...a),
+}));
+
+const mockGetFoiaSettings = jest.fn();
+jest.mock('@/helpers/foia-settings', () => ({
+  getFoiaSettings: (...a: unknown[]) => mockGetFoiaSettings(...a),
+}));
+
+const mockGetFoiaAutomation = jest.fn();
+const mockUpsertFoiaAutomation = jest.fn();
+const mockSetFoiaAutomationState = jest.fn();
+const mockSyncOpportunityFoiaMarker = jest.fn();
+jest.mock('@/helpers/foia-automation', () => ({
+  getFoiaAutomation: (...a: unknown[]) => mockGetFoiaAutomation(...a),
+  upsertFoiaAutomation: (...a: unknown[]) => mockUpsertFoiaAutomation(...a),
+  setFoiaAutomationState: (...a: unknown[]) => mockSetFoiaAutomationState(...a),
+  syncOpportunityFoiaMarker: (...a: unknown[]) => mockSyncOpportunityFoiaMarker(...a),
+}));
+
+import { baseHandler } from './scan-foia-automation';
+
+const DAY = 24 * 60 * 60 * 1000;
+
+const buildOpp = (overrides: Record<string, unknown> = {}) => ({
+  partition_key: 'OPPORTUNITY',
+  sort_key: 'org-1#proj-1#opp-1',
+  orgId: 'org-1',
+  projectId: 'proj-1',
+  oppId: 'opp-1',
+  id: 'opp-1',
+  source: 'HIGHER_GOV',
+  title: 'Widget Support',
+  status: 'LOST',
+  responseDeadlineIso: new Date(Date.now() - 200 * DAY).toISOString(),
+  ...overrides,
+});
+
+const defaultSettings = {
+  orgId: 'org-1',
+  automationEnabled: true,
+  delayDays: 90,
+  mailScrapeEnabled: false,
+  approvalReminderDays: [3, 7],
+  stallAfterDays: 14,
+  defaultRequestedDocuments: ['SSDD'],
+  defaultFeeLimit: 0,
+  dailySendCap: 5,
+};
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockListAllOrgIds.mockResolvedValue(['org-1']);
+  mockGetFoiaSettings.mockResolvedValue({ ...defaultSettings });
+  mockListOpportunitiesByOrg.mockResolvedValue({ items: [buildOpp()] });
+  mockGetSubmissionHistory.mockResolvedValue([]);
+  mockGetFoiaAutomation.mockResolvedValue(null);
+  mockUpsertFoiaAutomation.mockResolvedValue({});
+  mockSetFoiaAutomationState.mockResolvedValue({});
+  mockSyncOpportunityFoiaMarker.mockResolvedValue(undefined);
+});
+
+describe('scan-foia-automation — scheduling', () => {
+  it('schedules a LOST opportunity from its response deadline', async () => {
+    const res = await baseHandler({});
+
+    expect(res.totals.scheduled).toBe(1);
+    expect(mockUpsertFoiaAutomation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: 'org-1',
+        projectId: 'proj-1',
+        oppId: 'opp-1',
+        state: 'SCHEDULED',
+        triggeredBy: 'TIMER',
+      }),
+    );
+  });
+
+  it('prefers the submission date over the response deadline', async () => {
+    const submittedAt = new Date(Date.UTC(2026, 0, 1)).toISOString();
+    mockGetSubmissionHistory.mockResolvedValue([
+      { status: 'SUBMITTED', submittedAt },
+    ]);
+
+    await baseHandler({});
+
+    const call = mockUpsertFoiaAutomation.mock.calls[0]![0] as { scheduledSendAt: string };
+    // 2026-01-01 + 90 days = 2026-04-01
+    expect(call.scheduledSendAt).toBe('2026-04-01T00:00:00.000Z');
+  });
+
+  it('also schedules a WON opportunity', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({ items: [buildOpp({ status: 'WON' })] });
+
+    const res = await baseHandler({});
+
+    expect(res.totals.scheduled).toBe(1);
+  });
+
+  it('honours a per-opportunity delay override', async () => {
+    const submittedAt = new Date(Date.UTC(2026, 0, 1)).toISOString();
+    mockGetSubmissionHistory.mockResolvedValue([{ status: 'SUBMITTED', submittedAt }]);
+    mockGetFoiaAutomation.mockResolvedValue({
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      oppId: 'opp-1',
+      state: 'SCHEDULED',
+      scheduledSendAt: null,
+      delayDaysOverride: 30,
+    });
+
+    await baseHandler({});
+
+    const call = mockSetFoiaAutomationState.mock.calls[0]![0] as {
+      patch: { scheduledSendAt: string };
+    };
+    // 30-day override, not the org's 90.
+    expect(call.patch.scheduledSendAt).toBe('2026-01-31T00:00:00.000Z');
+  });
+});
+
+describe('scan-foia-automation — not applicable', () => {
+  it('creates nothing for a non-terminal opportunity', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({
+      items: [buildOpp({ status: 'SUBMITTED' })],
+    });
+
+    const res = await baseHandler({});
+
+    // No record should be written just to say "nothing to do".
+    expect(mockUpsertFoiaAutomation).not.toHaveBeenCalled();
+    expect(res.totals.skipped).toBe(1);
+  });
+
+  it('marks NOT_APPLICABLE when there is no submission and no deadline', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({
+      items: [buildOpp({ responseDeadlineIso: null })],
+    });
+    mockGetFoiaAutomation.mockResolvedValue({
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      oppId: 'opp-1',
+      state: 'SCHEDULED',
+      scheduledSendAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    const res = await baseHandler({});
+
+    expect(res.totals.notApplicable).toBe(1);
+    expect(mockSetFoiaAutomationState).toHaveBeenCalledWith(
+      expect.objectContaining({ state: 'NOT_APPLICABLE' }),
+    );
+  });
+
+  it('skips an opportunity missing projectId or oppId', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({
+      items: [buildOpp({ oppId: undefined })],
+    });
+
+    const res = await baseHandler({});
+
+    expect(res.totals.skipped).toBe(1);
+    expect(mockUpsertFoiaAutomation).not.toHaveBeenCalled();
+  });
+});
+
+describe('scan-foia-automation — suppression', () => {
+  it('suppresses when every submission was withdrawn', async () => {
+    mockGetSubmissionHistory.mockResolvedValue([
+      { status: 'WITHDRAWN', submittedAt: '2026-01-01T00:00:00.000Z' },
+    ]);
+    mockGetFoiaAutomation.mockResolvedValue({
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      oppId: 'opp-1',
+      state: 'SCHEDULED',
+      scheduledSendAt: '2026-04-01T00:00:00.000Z',
+    });
+
+    const res = await baseHandler({});
+
+    expect(res.totals.suppressed).toBe(1);
+    expect(mockSetFoiaAutomationState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: 'SUPPRESSED',
+        patch: expect.objectContaining({
+          suppressedReason: 'Proposal submission was withdrawn',
+        }),
+      }),
+    );
+  });
+
+  it('still schedules when one submission is withdrawn but another is active', async () => {
+    mockGetSubmissionHistory.mockResolvedValue([
+      { status: 'WITHDRAWN', submittedAt: '2026-01-01T00:00:00.000Z' },
+      { status: 'SUBMITTED', submittedAt: '2026-02-01T00:00:00.000Z' },
+    ]);
+
+    const res = await baseHandler({});
+
+    expect(res.totals.scheduled).toBe(1);
+  });
+});
+
+describe('scan-foia-automation — states the reconciler must not touch', () => {
+  it.each(['AWAITING_APPROVAL', 'SENDING', 'SENT', 'BOUNCED', 'FAILED', 'STALLED', 'BLOCKED', 'SUPPRESSED', 'MANUAL_COMPLETED'])(
+    'leaves a %s record alone',
+    async (state) => {
+      mockGetFoiaAutomation.mockResolvedValue({
+        orgId: 'org-1',
+        projectId: 'proj-1',
+        oppId: 'opp-1',
+        state,
+        scheduledSendAt: '2020-01-01T00:00:00.000Z',
+      });
+
+      const res = await baseHandler({});
+
+      // Critically, a SENT record must never be rescheduled into another send.
+      expect(mockSetFoiaAutomationState).not.toHaveBeenCalled();
+      expect(mockUpsertFoiaAutomation).not.toHaveBeenCalled();
+      expect(res.totals.skipped).toBe(1);
+    },
+  );
+});
+
+describe('scan-foia-automation — idempotency', () => {
+  it('writes nothing when the stored record already matches the intent', async () => {
+    const submittedAt = new Date(Date.UTC(2026, 0, 1)).toISOString();
+    mockGetSubmissionHistory.mockResolvedValue([{ status: 'SUBMITTED', submittedAt }]);
+    mockGetFoiaAutomation.mockResolvedValue({
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      oppId: 'opp-1',
+      state: 'SCHEDULED',
+      scheduledSendAt: '2026-04-01T00:00:00.000Z',
+    });
+
+    const res = await baseHandler({});
+
+    expect(res.totals.unchanged).toBe(1);
+    expect(mockSetFoiaAutomationState).not.toHaveBeenCalled();
+  });
+});
+
+describe('scan-foia-automation — settings and scoping', () => {
+  it('skips an org with automation disabled', async () => {
+    mockGetFoiaSettings.mockResolvedValue({ ...defaultSettings, automationEnabled: false });
+
+    const res = await baseHandler({});
+
+    expect(mockListOpportunitiesByOrg).not.toHaveBeenCalled();
+    expect(res.totals.scheduled).toBe(0);
+  });
+
+  it('honours the single-org escape hatch without enumerating all orgs', async () => {
+    const res = await baseHandler({ detail: { orgId: 'org-9' } });
+
+    expect(mockListAllOrgIds).not.toHaveBeenCalled();
+    expect(mockGetFoiaSettings).toHaveBeenCalledWith('org-9');
+    expect(res.orgCount).toBe(1);
+  });
+
+  it('enumerates every org by default', async () => {
+    mockListAllOrgIds.mockResolvedValue(['org-1', 'org-2', 'org-3']);
+
+    const res = await baseHandler({});
+
+    expect(res.orgCount).toBe(3);
+  });
+});
+
+describe('scan-foia-automation — dry run', () => {
+  it('reports intended work without persisting anything', async () => {
+    const res = await baseHandler({ detail: { dryRun: true } });
+
+    expect(res.dryRun).toBe(true);
+    expect(res.totals.scheduled).toBe(1);
+    expect(mockUpsertFoiaAutomation).not.toHaveBeenCalled();
+    expect(mockSetFoiaAutomationState).not.toHaveBeenCalled();
+    expect(mockSyncOpportunityFoiaMarker).not.toHaveBeenCalled();
+  });
+});
+
+describe('scan-foia-automation — resilience', () => {
+  it('keeps going when one opportunity throws', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({
+      items: [
+        buildOpp({ oppId: 'opp-bad' }),
+        buildOpp({ oppId: 'opp-good' }),
+      ],
+    });
+    mockGetFoiaAutomation.mockImplementation((_o: string, _p: string, oppId: string) => {
+      if (oppId === 'opp-bad') throw new Error('dynamo exploded');
+      return Promise.resolve(null);
+    });
+
+    const res = await baseHandler({});
+
+    // The bad record is counted as an error, the good one still gets scheduled.
+    expect(res.totals.errors).toBe(1);
+    expect(res.totals.scheduled).toBe(1);
+  });
+
+  it('keeps going when a whole org throws', async () => {
+    mockListAllOrgIds.mockResolvedValue(['org-bad', 'org-good']);
+    mockGetFoiaSettings.mockImplementation((orgId: string) => {
+      if (orgId === 'org-bad') throw new Error('settings unavailable');
+      return Promise.resolve({ ...defaultSettings, orgId });
+    });
+
+    const res = await baseHandler({});
+
+    expect(res.ok).toBe(true);
+    expect(res.totals.errors).toBe(1);
+    expect(res.totals.scheduled).toBe(1);
+  });
+
+  it('does not fail the pass when the opportunity marker sync fails', async () => {
+    mockSyncOpportunityFoiaMarker.mockRejectedValue(new Error('opportunity gone'));
+
+    // syncOpportunityFoiaMarker is documented as best-effort, but the scanner
+    // must not depend on that promise resolving.
+    const res = await baseHandler({});
+
+    expect(res.ok).toBe(true);
+    expect(res.totals.errors + res.totals.scheduled).toBe(1);
+  });
+});

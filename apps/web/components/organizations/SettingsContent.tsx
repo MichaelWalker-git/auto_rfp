@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useOrganization } from '@/lib/hooks/use-api';
+import { FoiaAgencyContactsCard } from '@/components/foia';
 import { PageHeader } from '@/components/layout/page-header';
 import {
   OrganizationGeneralSettings,
@@ -10,6 +11,7 @@ import {
   OrganizationDangerZone,
   useOrganizationIcon,
   useUpdateOrganization,
+  FoiaAutomationSettings,
 } from '@/features/organization-settings';
 import { useToast } from '@/components/ui/use-toast';
 import type { OrganizationItem } from '@auto-rfp/core';
@@ -112,6 +114,10 @@ export const SettingsContent: React.FC<SettingsContentProps> = ({ orgId }) => {
         <OrganizationIntegrations orgId={orgId} />
 
         <OrganizationConfigurationLinks orgId={orgId} />
+
+        <FoiaAutomationSettings orgId={orgId} />
+
+        <FoiaAgencyContactsCard orgId={orgId} />
 
         <OrganizationGeneralSettings
           name={name}

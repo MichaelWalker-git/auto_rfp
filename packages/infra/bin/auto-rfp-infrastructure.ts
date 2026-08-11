@@ -15,6 +15,7 @@ import { CollaborationWebSocketStack } from '../collaboration-websocket-stack';
 import { AuditStack } from '../audit-stack';
 import { OpportunityEventsStack } from '../opportunity-events-stack';
 import { RfpLinearSyncStack } from '../rfp-linear-sync-stack';
+import { FoiaAutomationStack } from '../foia-automation-stack';
 import { RfpDigestStack } from '../rfp-digest-stack';
 import { RFP_SYNC_PROJECT_ID } from '@auto-rfp/core';
 import { AwsSolutionsChecks } from 'cdk-nag';
@@ -270,6 +271,27 @@ const rfpLinearSyncStack = new RfpLinearSyncStack(app, `AutoRfp-RfpLinearSync-${
 });
 
 rfpLinearSyncStack.addDependency(db);
+
+// Daily reconcile of automatic FOIA request scheduling (Level 2). Recomputes
+// the intended state for every eligible opportunity, so a missed run or a
+// changed setting self-corrects on the next pass.
+const foiaAutomationStack = new FoiaAutomationStack(app, `AutoRfp-FoiaAutomation-${stage}`, {
+  env,
+  stage,
+  mainTable: db.tableName,
+  documentsBucketName: storage.documentsBucket.bucketName,
+  commonEnv: {
+    STAGE: stage,
+    DB_TABLE_NAME: db.tableName.tableName,
+    REGION: env.region ?? 'us-east-1',
+    SENTRY_DSN: sentryDNS,
+    SENTRY_ENVIRONMENT: stage,
+    NODE_ENV: 'production',
+  },
+});
+
+foiaAutomationStack.addDependency(db);
+foiaAutomationStack.addDependency(storage);
 
 // Only deployed where a Linear key and Slack webhook are configured for the org.
 const rfpDigestOrgId = process.env.RFP_DIGEST_ORG_ID || '';

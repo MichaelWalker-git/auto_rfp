@@ -31,6 +31,46 @@ export function foiaDomain(): DomainRoutes {
         path: 'delete-foia-request',
         entry: lambdaEntry('foia/delete-foia-request.ts'),
       },
+      {
+        method: 'GET',
+        path: 'settings/{orgId}',
+        entry: lambdaEntry('foia/get-foia-settings.ts'),
+      },
+      {
+        method: 'PATCH',
+        path: 'settings/{orgId}',
+        entry: lambdaEntry('foia/update-foia-settings.ts'),
+      },
+      {
+        method: 'GET',
+        path: 'get-foia-automation',
+        entry: lambdaEntry('foia/get-foia-automation.ts'),
+      },
+      {
+        method: 'PATCH',
+        path: 'update-foia-automation',
+        entry: lambdaEntry('foia/update-foia-automation.ts'),
+      },
+      {
+        method: 'GET',
+        path: 'get-foia-agency-contacts',
+        entry: lambdaEntry('foia/get-foia-agency-contacts.ts'),
+      },
+      {
+        method: 'POST',
+        path: 'upsert-foia-agency-contact',
+        entry: lambdaEntry('foia/upsert-foia-agency-contact.ts'),
+      },
+      {
+        method: 'DELETE',
+        path: 'delete-foia-agency-contact',
+        entry: lambdaEntry('foia/delete-foia-agency-contact.ts'),
+      },
+      {
+        method: 'POST',
+        path: 'confirm-foia-recipient',
+        entry: lambdaEntry('foia/confirm-foia-recipient.ts'),
+      },
     ],
   };
 }
