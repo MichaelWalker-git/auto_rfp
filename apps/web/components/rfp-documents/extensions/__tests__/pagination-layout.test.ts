@@ -218,3 +218,58 @@ describe('computePageLayout — start offset (the browser-verification bug)', ()
     expect(computePageLayout(blocks, PAGE, Number.NaN).spacers).toEqual([]);
   });
 });
+
+describe('computePageLayout — idempotence (the jitter bug)', () => {
+  /**
+   * The extension re-measures after applying spacers. If the measured input reflects
+   * the spacers, the sweep sees already-correct content, removes them, then re-adds
+   * them next pass — measured in Chromium as `3 spacers → 0 → 3 → 0` forever, which
+   * is the text visibly moving up and down.
+   *
+   * The extension therefore measures INTRINSIC heights (subtracting any spacer
+   * between two blocks). These tests pin the property that makes that safe: the same
+   * intrinsic input must always produce the same output.
+   */
+  const PADDING_Y = 72;
+
+  it('produces the same spacers when re-run on unchanged intrinsic input', () => {
+    const blocks = blocksFromHeights(Array.from({ length: 80 }, () => 40));
+    const a = computePageLayout(blocks, PAGE, PADDING_Y).spacers;
+    const b = computePageLayout(blocks, PAGE, PADDING_Y).spacers;
+    const c = computePageLayout(blocks, PAGE, PADDING_Y).spacers;
+    expect(b).toEqual(a);
+    expect(c).toEqual(a);
+  });
+
+  it('is stable across many repeats for ragged content', () => {
+    const blocks = blocksFromHeights([48, 24, 300, 24, 700, 24, 400, 24, 120, 500, 28, 40]);
+    const first = computePageLayout(blocks, PAGE, PADDING_Y).spacers;
+    for (let i = 0; i < 10; i++) {
+      expect(computePageLayout(blocks, PAGE, PADDING_Y).spacers).toEqual(first);
+    }
+  });
+
+  it('would oscillate if heights included the applied spacers', () => {
+    // The failure mode, with a real case. Measuring raw offsetTop deltas folds an
+    // inserted spacer into the PRECEDING block's height, which changes the answer on
+    // the next pass. Measured in Chromium this alternated 7 spacers -> 0 -> 7 -> 0
+    // forever: the text visibly moving up and down once past page 1.
+    const OFFSET = 104; // the start offset actually measured in the browser
+    const intrinsic = blocksFromHeights([40, 120, 120, 40, 53, 120, 61, 300, 120, 28, 120, 28, 61, 53, 120, 40, 40, 300, 61, 120, 120, 61, 61, 300, 40, 40, 300, 40, 120, 61, 300, 28, 300, 28, 40, 120, 28, 53, 28, 53, 61, 120, 300, 61, 300, 61, 61, 300, 120, 61, 40, 53, 28, 28, 40, 61, 40, 53, 300, 61]);
+
+    const pass1 = computePageLayout(intrinsic, PAGE, OFFSET).spacers;
+    expect(pass1.length).toBeGreaterThan(0);
+
+    // A spacer inserted before block i sits between block i-1 and block i, so a raw
+    // delta attributes it to block i-1.
+    const gapByPos = new Map(pass1.map((sp) => [sp.pos, sp.height]));
+    const contaminated = intrinsic.map((b, i) => {
+      const nextPos = intrinsic[i + 1]?.pos;
+      const gap = nextPos === undefined ? 0 : gapByPos.get(nextPos) ?? 0;
+      return { ...b, height: b.height + gap };
+    });
+
+    const pass2 = computePageLayout(contaminated, PAGE, OFFSET).spacers;
+    expect(pass2).not.toEqual(pass1);
+  });
+});

@@ -55,22 +55,44 @@ export const Pagination = Extension.create<PaginationOptions>({
     // forever, so compare a cheap string instead.
     let lastSignature: string | null = null;
 
+    /** Height of any spacers currently sitting between two elements. */
+    const spacerHeightBetween = (from: HTMLElement, to: HTMLElement | null): number => {
+      let total = 0;
+      let node = from.nextElementSibling;
+      while (node && node !== to) {
+        if (node instanceof HTMLElement && node.hasAttribute(PAGINATION_SPACER_ATTR)) {
+          total += node.offsetHeight;
+        }
+        node = node.nextElementSibling;
+      }
+      return total;
+    };
+
     /**
      * Measure top-level blocks and hand them to the pure sweep.
      *
-     * Heights come from `offsetTop` DELTAS rather than
-     * `offsetHeight + marginTop + marginBottom`. Adjacent block margins COLLAPSE,
-     * so summing them double-counts: measured in Chromium, an h1 whose real advance
-     * was 61px computed as 85px, and the accumulated error silently shifted every
-     * boundary. Deltas are what the layout actually did.
+     * ## Heights are INTRINSIC, i.e. independent of the spacers already applied
      *
-     * Offsets are normalised so the first block starts at the container's padding —
-     * the same origin the page-sheet grid uses.
+     * This is what makes the layout stable. Measuring raw `offsetTop` deltas reads
+     * positions that already include the previous pass's spacers, so the input
+     * depends on the output: the sweep sees content as already correct, removes the
+     * spacers, then re-adds them next pass. Measured in Chromium, that alternated
+     * `3 spacers → 0 → 3 → 0` forever — the text visibly jittering up and down.
+     *
+     * Subtracting any intervening spacer height recovers the height the block would
+     * have with no pagination at all, which is a fixed point: same signature on
+     * every pass.
+     *
+     * ## Why deltas rather than offsetHeight + margins
+     *
+     * Adjacent block margins COLLAPSE, so summing `marginTop + marginBottom`
+     * double-counts — an h1 whose real advance was 61px computed as 85px, and the
+     * accumulated error shifted every boundary.
      */
     const measure = (view: EditorView): DecorationSet => {
       const { doc } = view.state;
 
-      interface Measured { pos: number; top: number; height: number; isBreak: boolean }
+      interface Measured { pos: number; dom: HTMLElement; top: number; height: number; isBreak: boolean }
       const measured: Measured[] = [];
 
       doc.forEach((node, offset) => {
@@ -78,6 +100,7 @@ export const Pagination = Extension.create<PaginationOptions>({
         if (!(dom instanceof HTMLElement)) return;
         measured.push({
           pos: offset,
+          dom,
           top: dom.offsetTop,
           height: dom.offsetHeight,
           isBreak: node.type.name === 'pageBreak',
@@ -86,21 +109,27 @@ export const Pagination = Extension.create<PaginationOptions>({
 
       if (!measured.length) return DecorationSet.empty;
 
-      // Height = distance to the next block's top, which absorbs collapsed margins
-      // exactly as the browser laid them out. The last block has no successor, so
-      // fall back to its own box height.
       const blocks: LayoutBlock[] = measured.map((m, i) => {
         const next = measured[i + 1];
         return {
           pos: m.pos,
-          height: next ? Math.max(0, next.top - m.top) : m.height,
+          height: next
+            ? Math.max(0, next.top - m.top - spacerHeightBetween(m.dom, next.dom))
+            : m.height,
           isExplicitBreak: m.isBreak,
         };
       });
 
-      // The page grid starts at 0 at the top of the padded container, so the first
-      // block's own offsetTop is the starting offset.
-      const startOffsetPx = measured[0].top;
+      // The first block's position must exclude any spacer above it too, or the
+      // start offset drifts by that height on every pass.
+      const first = measured[0];
+      let leadingSpacer = 0;
+      for (let node = first.dom.previousElementSibling; node; node = node.previousElementSibling) {
+        if (node instanceof HTMLElement && node.hasAttribute(PAGINATION_SPACER_ATTR)) {
+          leadingSpacer += node.offsetHeight;
+        }
+      }
+      const startOffsetPx = Math.max(0, first.top - leadingSpacer);
 
       const { spacers } = computePageLayout(blocks, contentAreaPx, startOffsetPx);
       lastSignature = spacers.map((s) => `${s.pos}:${s.height}`).join('|');
