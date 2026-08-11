@@ -51,17 +51,30 @@ const mockGetFoiaAutomation = jest.fn();
 const mockUpsertFoiaAutomation = jest.fn();
 const mockSetFoiaAutomationState = jest.fn();
 const mockSyncOpportunityFoiaMarker = jest.fn();
+const mockTransitionFoiaAutomationState = jest.fn();
 jest.mock('@/helpers/foia-automation', () => ({
   getFoiaAutomation: (...a: unknown[]) => mockGetFoiaAutomation(...a),
   upsertFoiaAutomation: (...a: unknown[]) => mockUpsertFoiaAutomation(...a),
   setFoiaAutomationState: (...a: unknown[]) => mockSetFoiaAutomationState(...a),
   syncOpportunityFoiaMarker: (...a: unknown[]) => mockSyncOpportunityFoiaMarker(...a),
+  transitionFoiaAutomationState: (...a: unknown[]) => mockTransitionFoiaAutomationState(...a),
+}));
+
+const mockPrepareFoiaRequest = jest.fn();
+jest.mock('@/helpers/foia-prepare', () => ({
+  prepareFoiaRequest: (...a: unknown[]) => mockPrepareFoiaRequest(...a),
 }));
 
 import { baseHandler } from './scan-foia-automation';
 
 const DAY = 24 * 60 * 60 * 1000;
 
+/**
+ * A LOST opportunity whose deadline is recent enough that a 90-day delay puts
+ * the schedule in the FUTURE — so the default fixture exercises scheduling
+ * without tripping the prepare path. Tests that want a due request override
+ * `responseDeadlineIso` with something older.
+ */
 const buildOpp = (overrides: Record<string, unknown> = {}) => ({
   partition_key: 'OPPORTUNITY',
   sort_key: 'org-1#proj-1#opp-1',
@@ -72,9 +85,12 @@ const buildOpp = (overrides: Record<string, unknown> = {}) => ({
   source: 'HIGHER_GOV',
   title: 'Widget Support',
   status: 'LOST',
-  responseDeadlineIso: new Date(Date.now() - 200 * DAY).toISOString(),
+  responseDeadlineIso: new Date(Date.now() - 10 * DAY).toISOString(),
   ...overrides,
 });
+
+/** Deadline old enough that anchor + 90 days is already past. */
+const overdueDeadline = () => new Date(Date.now() - 200 * DAY).toISOString();
 
 const defaultSettings = {
   orgId: 'org-1',
@@ -98,6 +114,15 @@ beforeEach(() => {
   mockUpsertFoiaAutomation.mockResolvedValue({});
   mockSetFoiaAutomationState.mockResolvedValue({});
   mockSyncOpportunityFoiaMarker.mockResolvedValue(undefined);
+  // Default: the conditional transition succeeds, and preparation produces a
+  // sendable request. Individual tests override these.
+  mockTransitionFoiaAutomationState.mockResolvedValue({ state: 'AWAITING_APPROVAL' });
+  mockPrepareFoiaRequest.mockResolvedValue({
+    status: 'PREPARED',
+    request: { foiaId: 'foia-1', agencyFOIAEmail: 'foia@army.mil', agencyFOIAAddress: 'addr' },
+    letter: 'Letter body',
+    artifacts: [],
+  });
 });
 
 describe('scan-foia-automation — scheduling', () => {
@@ -319,6 +344,129 @@ describe('scan-foia-automation — dry run', () => {
     expect(mockUpsertFoiaAutomation).not.toHaveBeenCalled();
     expect(mockSetFoiaAutomationState).not.toHaveBeenCalled();
     expect(mockSyncOpportunityFoiaMarker).not.toHaveBeenCalled();
+  });
+});
+
+describe('scan-foia-automation — preparing a due request', () => {
+  const dueOpp = () => buildOpp({ responseDeadlineIso: overdueDeadline() });
+
+  it('composes a due request and advances it to AWAITING_APPROVAL', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({ items: [dueOpp()] });
+
+    const res = await baseHandler({});
+
+    expect(res.totals.prepared).toBe(1);
+    expect(mockPrepareFoiaRequest).toHaveBeenCalledTimes(1);
+    expect(mockTransitionFoiaAutomationState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: 'SCHEDULED',
+        to: 'AWAITING_APPROVAL',
+        patch: expect.objectContaining({ foiaRequestId: 'foia-1' }),
+      }),
+    );
+  });
+
+  it('does not prepare a request whose schedule is still in the future', async () => {
+    // The default fixture is 10 days past deadline, so +90 days is not yet due.
+    const res = await baseHandler({});
+
+    expect(mockPrepareFoiaRequest).not.toHaveBeenCalled();
+    expect(res.totals.prepared).toBe(0);
+    expect(res.totals.scheduled).toBe(1);
+  });
+
+  it('blocks with the reason when preparation cannot resolve a recipient', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({ items: [dueOpp()] });
+    mockPrepareFoiaRequest.mockResolvedValue({
+      status: 'BLOCKED',
+      blockedReason: 'NEEDS_RECIPIENT',
+    });
+
+    const res = await baseHandler({});
+
+    expect(res.totals.blocked).toBe(1);
+    expect(mockTransitionFoiaAutomationState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: 'SCHEDULED',
+        to: 'BLOCKED',
+        patch: expect.objectContaining({ blockedReason: 'NEEDS_RECIPIENT' }),
+      }),
+    );
+  });
+
+  it('carries scan candidates onto the record so the UI can offer them', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({ items: [dueOpp()] });
+    mockPrepareFoiaRequest.mockResolvedValue({
+      status: 'BLOCKED',
+      blockedReason: 'NEEDS_CONFIRMATION',
+      recipientCandidates: [{ email: 'foia@army.mil', context: 'FOIA Officer', score: 12 }],
+    });
+
+    await baseHandler({});
+
+    const call = mockTransitionFoiaAutomationState.mock.calls[0]![0] as {
+      patch: { recipientCandidates?: unknown[] };
+    };
+    expect(call.patch.recipientCandidates).toHaveLength(1);
+  });
+
+  it('stamps becameDueAt so a post-window failure is distinguishable', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({ items: [dueOpp()] });
+
+    await baseHandler({});
+
+    const call = mockTransitionFoiaAutomationState.mock.calls[0]![0] as {
+      patch: { becameDueAt?: string };
+    };
+    expect(call.patch.becameDueAt).toBeTruthy();
+  });
+
+  it('treats a lost transition race as a no-op, not a success', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({ items: [dueOpp()] });
+    // Null means a concurrent scanner already advanced this record.
+    mockTransitionFoiaAutomationState.mockResolvedValue(null);
+
+    const res = await baseHandler({});
+
+    expect(res.totals.prepared).toBe(0);
+    expect(res.totals.blocked).toBe(0);
+    // Crucially, the opportunity marker is NOT re-synced off a race we lost.
+    expect(mockSyncOpportunityFoiaMarker).not.toHaveBeenCalledWith(
+      'org-1',
+      'proj-1',
+      'opp-1',
+      'AWAITING_APPROVAL',
+    );
+  });
+
+  it('never prepares a request that is already awaiting approval', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({ items: [dueOpp()] });
+    mockGetFoiaAutomation.mockResolvedValue({
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      oppId: 'opp-1',
+      state: 'AWAITING_APPROVAL',
+      scheduledSendAt: overdueDeadline(),
+    });
+
+    const res = await baseHandler({});
+
+    // AWAITING_APPROVAL is outside RECONCILABLE_STATES, so the record is skipped
+    // entirely — no second letter, no duplicate artifacts.
+    expect(mockPrepareFoiaRequest).not.toHaveBeenCalled();
+    expect(res.totals.skipped).toBe(1);
+  });
+
+  it('does not write anything on a dry run, but still reports the intent', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({ items: [dueOpp()] });
+
+    const res = await baseHandler({ detail: { dryRun: true } });
+
+    expect(res.totals.prepared).toBe(1);
+    expect(mockTransitionFoiaAutomationState).not.toHaveBeenCalled();
+    expect(mockPrepareFoiaRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ dryRun: true, skipDocumentScan: true }),
+    );
   });
 });
 

@@ -19,8 +19,10 @@ import {
   getFoiaAutomation,
   setFoiaAutomationState,
   syncOpportunityFoiaMarker,
+  transitionFoiaAutomationState,
   upsertFoiaAutomation,
 } from '@/helpers/foia-automation';
+import { prepareFoiaRequest } from '@/helpers/foia-prepare';
 
 /**
  * Daily reconciler for automatic FOIA requests (Level 2).
@@ -68,7 +70,24 @@ interface OrgScanResult {
   unchanged: number;
   skipped: number;
   errors: number;
+  /** Due requests composed and advanced to AWAITING_APPROVAL. */
+  prepared: number;
+  /** Due requests that need human input before they can proceed. */
+  blocked: number;
 }
+
+/** A zeroed result, so every construction site stays in sync. */
+const emptyResult = (orgId: string): OrgScanResult => ({
+  orgId,
+  scheduled: 0,
+  notApplicable: 0,
+  suppressed: 0,
+  unchanged: 0,
+  skipped: 0,
+  errors: 0,
+  prepared: 0,
+  blocked: 0,
+});
 
 /** What the reconciler decided an opportunity's automation should look like. */
 interface Intent {
@@ -139,21 +158,108 @@ const matchesIntent = (existing: FoiaAutomationDBItem | null, intent: Intent): b
   existing.state === intent.state &&
   (existing.scheduledSendAt ?? null) === intent.scheduledSendAt;
 
+/**
+ * True when a scheduled timestamp has arrived.
+ *
+ * A plain `<= now` comparison rather than a window match: an exact-window scanner
+ * silently skips anything it misses (a failed run, a clock skew), which for a
+ * months-long timer means the FOIA simply never fires. Treating "past due" as due
+ * makes a missed night self-correcting.
+ */
+const isDue = (scheduledSendAt: string | null, now: number = Date.now()): boolean => {
+  if (!scheduledSendAt) return false;
+  const due = new Date(scheduledSendAt).getTime();
+  return !Number.isNaN(due) && due <= now;
+};
+
+/**
+ * Composes a due request and advances it out of SCHEDULED.
+ *
+ * The conditional transition happens FIRST, moving the record to a transient
+ * PREPARING-equivalent before any artifact is written, so two overlapping scanner
+ * runs cannot both compose the same request. Only the run that wins the
+ * transition proceeds.
+ */
+const prepareDueAutomation = async (args: {
+  orgId: string;
+  projectId: string;
+  oppId: string;
+  opportunity: OpportunityDBItem;
+  settings: FoiaSettingsItem;
+  dryRun: boolean;
+}): Promise<'PREPARED' | 'BLOCKED' | 'SKIPPED'> => {
+  const { orgId, projectId, oppId, opportunity, settings, dryRun } = args;
+
+  const outcome = await prepareFoiaRequest({
+    orgId,
+    projectId,
+    oppId,
+    opportunity,
+    settings,
+    dryRun,
+    // The document scan reads S3 per opportunity; skip it on dry runs so a
+    // preview stays cheap and side-effect free.
+    skipDocumentScan: dryRun,
+  });
+
+  if (dryRun) {
+    return outcome.status === 'PREPARED' ? 'PREPARED' : 'BLOCKED';
+  }
+
+  if (outcome.status === 'BLOCKED') {
+    const moved = await transitionFoiaAutomationState({
+      orgId,
+      projectId,
+      oppId,
+      from: 'SCHEDULED',
+      to: 'BLOCKED',
+      patch: {
+        becameDueAt: nowIso(),
+        blockedReason: outcome.blockedReason,
+        missingFields: outcome.missingFields,
+        recipientCandidates: outcome.recipientCandidates,
+      },
+    });
+
+    if (!moved) return 'SKIPPED';
+
+    await syncOpportunityFoiaMarker(orgId, projectId, oppId, 'BLOCKED');
+    return 'BLOCKED';
+  }
+
+  const moved = await transitionFoiaAutomationState({
+    orgId,
+    projectId,
+    oppId,
+    from: 'SCHEDULED',
+    to: 'AWAITING_APPROVAL',
+    patch: {
+      becameDueAt: nowIso(),
+      blockedReason: null,
+      foiaRequestId: outcome.request.foiaId,
+      resolvedRecipientEmail: outcome.request.agencyFOIAEmail,
+      resolvedRecipientAddress: outcome.request.agencyFOIAAddress,
+      recipientSource: outcome.request.recipientSource,
+      artifacts: outcome.artifacts,
+    },
+  });
+
+  // A null transition means a concurrent run already advanced this record. The
+  // artifacts it wrote are keyed by that run's foiaId, so they are simply
+  // unreferenced — harmless, and cheaper than trying to unwind them.
+  if (!moved) return 'SKIPPED';
+
+  await syncOpportunityFoiaMarker(orgId, projectId, oppId, 'AWAITING_APPROVAL');
+  return 'PREPARED';
+};
+
 const reconcileOrg = async (args: {
   orgId: string;
   dryRun: boolean;
 }): Promise<OrgScanResult> => {
   const { orgId, dryRun } = args;
 
-  const result: OrgScanResult = {
-    orgId,
-    scheduled: 0,
-    notApplicable: 0,
-    suppressed: 0,
-    unchanged: 0,
-    skipped: 0,
-    errors: 0,
-  };
+  const result = emptyResult(orgId);
 
   const settings = await getFoiaSettings(orgId);
 
@@ -232,6 +338,24 @@ const reconcileOrg = async (args: {
       if (intent.state === 'SCHEDULED') result.scheduled += 1;
       else if (intent.state === 'SUPPRESSED') result.suppressed += 1;
       else result.notApplicable += 1;
+
+      // A scheduled request whose time has arrived gets composed now. This is a
+      // separate transition from scheduling on purpose: preparation writes a real
+      // FOIA record and S3 artifacts, so it must be reached through a conditional
+      // state change that cannot fire twice.
+      if (intent.state === 'SCHEDULED' && isDue(intent.scheduledSendAt)) {
+        const outcome = await prepareDueAutomation({
+          orgId,
+          projectId,
+          oppId,
+          opportunity,
+          settings,
+          dryRun,
+        });
+
+        if (outcome === 'PREPARED') result.prepared += 1;
+        else if (outcome === 'BLOCKED') result.blocked += 1;
+      }
     } catch (err) {
       result.errors += 1;
       console.error(
@@ -267,15 +391,7 @@ export const baseHandler = async (event: ScanEvent) => {
         `[foia-scan] org ${orgId}: scan failed:`,
         err instanceof Error ? err.message : String(err),
       );
-      results.push({
-        orgId,
-        scheduled: 0,
-        notApplicable: 0,
-        suppressed: 0,
-        unchanged: 0,
-        skipped: 0,
-        errors: 1,
-      });
+      results.push({ ...emptyResult(orgId), errors: 1 });
     }
   }
 
@@ -287,8 +403,19 @@ export const baseHandler = async (event: ScanEvent) => {
       unchanged: acc.unchanged + r.unchanged,
       skipped: acc.skipped + r.skipped,
       errors: acc.errors + r.errors,
+      prepared: acc.prepared + r.prepared,
+      blocked: acc.blocked + r.blocked,
     }),
-    { scheduled: 0, notApplicable: 0, suppressed: 0, unchanged: 0, skipped: 0, errors: 0 },
+    {
+      scheduled: 0,
+      notApplicable: 0,
+      suppressed: 0,
+      unchanged: 0,
+      skipped: 0,
+      errors: 0,
+      prepared: 0,
+      blocked: 0,
+    },
   );
 
   console.log(`[foia-scan] finished:`, JSON.stringify(totals));
@@ -300,7 +427,7 @@ export const baseHandler = async (event: ScanEvent) => {
     orgCount: orgIds.length,
     totals,
     results: results.filter(
-      (r) => r.scheduled || r.suppressed || r.notApplicable || r.errors,
+      (r) => r.scheduled || r.suppressed || r.notApplicable || r.errors || r.prepared || r.blocked,
     ),
   };
 };
