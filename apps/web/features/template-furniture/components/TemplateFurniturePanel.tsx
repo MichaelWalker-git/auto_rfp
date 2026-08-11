@@ -8,6 +8,25 @@ import type { UseTemplateFurnitureResult } from '../hooks/useTemplateFurniture';
 import { FurnitureEditor } from './FurnitureEditor';
 import { FurnitureSectionToggles } from './FurnitureSectionToggles';
 
+/**
+ * A compact, text-only summary of a band, shown on the collapsed group header.
+ *
+ * Replaces an `On`/`Off` badge, which was ambiguous: a user saw "Off" beside a
+ * ticked "Enable header" checkbox and reasonably went looking for a switch. Showing
+ * the actual content answers "is there a header, and what is it?" in one glance.
+ */
+const bandSummary = (html: string): string => {
+  const text = html
+    .replace(/<img[^>]*>/gi, '[image]')
+    .replace(/\{\{(\w+)\}\}/g, (_m, t: string) => `‹${String(t).replace(/_/g, ' ')}›`)
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.length > 28 ? `${text.slice(0, 28)}…` : text;
+};
+
 interface TemplateFurniturePanelProps {
   /** State from `useTemplateFurniture`. */
   furnitureState: UseTemplateFurnitureResult;
@@ -30,7 +49,7 @@ const FurnitureGroup = ({
   children,
 }: {
   title: string;
-  /** Short state hint, visible while collapsed (e.g. "On" / "Off"). */
+  /** Content summary shown while collapsed, so state is legible without expanding. */
   badge?: { label: string; tone: 'on' | 'off' };
   defaultOpen?: boolean;
   children: React.ReactNode;
@@ -50,7 +69,7 @@ const FurnitureGroup = ({
           {badge && (
             <span
               className={cn(
-                'rounded px-1.5 py-0.5 text-[10px] font-medium',
+                'max-w-[10rem] truncate rounded px-1.5 py-0.5 text-[10px] font-medium',
                 badge.tone === 'on'
                   ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
                   : 'bg-muted text-muted-foreground',
@@ -106,7 +125,11 @@ export const TemplateFurniturePanel = ({
         <FurnitureGroup
           title="Header"
           defaultOpen
-          badge={{ label: hasHeader ? 'On' : 'Off', tone: hasHeader ? 'on' : 'off' }}
+          badge={
+            hasHeader
+              ? { label: bandSummary(furniture.header.html), tone: 'on' }
+              : { label: 'empty', tone: 'off' }
+          }
         >
           <FurnitureEditor
             kind="header"
@@ -119,7 +142,11 @@ export const TemplateFurniturePanel = ({
 
         <FurnitureGroup
           title="Footer"
-          badge={{ label: hasFooter ? 'On' : 'Off', tone: hasFooter ? 'on' : 'off' }}
+          badge={
+            hasFooter
+              ? { label: bandSummary(furniture.footer.html), tone: 'on' }
+              : { label: 'empty', tone: 'off' }
+          }
         >
           <FurnitureEditor
             kind="footer"

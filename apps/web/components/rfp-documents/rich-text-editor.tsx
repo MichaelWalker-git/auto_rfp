@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { Pagination } from './extensions/pagination';
 
 // ─── Page Size Configuration ──────────────────────────────────────────────────
 
@@ -741,17 +742,23 @@ const PageSheets = ({
    * Each page sheet is positioned to show the full page (with margins) around
    * the content area boundary.
    */
-  const getPageTop = (i: number) => {
-    if (i === 0) return 0;
-    // Each subsequent page starts at the boundary minus the top margin
-    return dims.paddingY + i * contentAreaHeight - dims.paddingY;
-  };
+  /**
+   * Top of each page sheet.
+   *
+   * The Pagination extension inserts real spacers so no block crosses a content
+   * boundary, which means the content stream now advances by exactly
+   * contentAreaHeight per page. Sheets are therefore spaced by contentAreaHeight
+   * and drawn from the top of their own content area, minus the top margin.
+   *
+   * Previously this used the same spacing but sheets are `height` tall, so
+   * consecutive sheets overlapped by 2 * paddingY (144px for Letter) and a sheet's
+   * "margin" was really the previous page's text. The spacers are what make the
+   * margins genuine.
+   */
+  const getPageTop = (i: number) => (i === 0 ? 0 : i * contentAreaHeight);
 
-  // The boundary line position: where content for page i ends
-  const getBoundaryTop = (i: number) => {
-    // After page (i+1): top padding + (i+1) content areas
-    return dims.paddingY + (i + 1) * contentAreaHeight;
-  };
+  // The boundary line: where content for page i ends and the next page's begins.
+  const getBoundaryTop = (i: number) => dims.paddingY + (i + 1) * contentAreaHeight;
 
   return (
     <>
@@ -1281,6 +1288,8 @@ export const RichTextEditor = ({
       }),
       ResizableImage,
       PageBreak,
+      // Keeps body text from rendering across a simulated page boundary.
+      Pagination.configure({ contentAreaPx: PAGE_SIZES[pageSizeProp ?? 'letter'].height - PAGE_SIZES[pageSizeProp ?? 'letter'].paddingY * 2 }),
       TableOfContents,
       Table.configure({ resizable: true }),
       TableRow,

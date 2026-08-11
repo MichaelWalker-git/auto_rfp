@@ -64,18 +64,41 @@ describe('TemplateFurniturePanel — collapsible structure', () => {
     expect(screen.queryByLabelText('Header content')).not.toBeInTheDocument();
   });
 
-  it('shows Off badges while collapsed, so state is legible', () => {
+  it('marks an unconfigured band as empty while collapsed', () => {
     render(<Harness />);
     // Without this a user cannot tell a configured header from an empty one.
-    expect(screen.getAllByText('Off').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('empty').length).toBeGreaterThanOrEqual(2);
   });
 
-  it('flips the badge to On once content exists', () => {
+  it('summarises the actual content on the collapsed header', () => {
     render(<Harness />);
     fireEvent.change(screen.getByLabelText('Header content'), {
-      target: { value: '<p>ACME</p>' },
+      target: { value: '<p>ACME Corp</p>' },
     });
-    expect(screen.getByText('On')).toBeInTheDocument();
+    // Showing the content beats an "On" badge: the earlier On/Off wording read as a
+    // switch the user had failed to find. Scope to the group button, since the text
+    // also appears in the expanded preview strip below it.
+    const headerButton = screen.getByRole('button', { name: /^Header/i });
+    expect(headerButton).toHaveTextContent('ACME Corp');
+    expect(headerButton).not.toHaveTextContent('empty');
+  });
+
+  it('renders an image placeholder and macro chips in the summary', () => {
+    render(<Harness />);
+    fireEvent.change(screen.getByLabelText('Header content'), {
+      target: { value: '<img src="s3key:org/logo.png"> {{COMPANY_NAME}}' },
+    });
+    const headerButton = screen.getByRole('button', { name: /^Header/i });
+    expect(headerButton).toHaveTextContent('[image]');
+    expect(headerButton).toHaveTextContent('‹COMPANY NAME›');
+  });
+
+  it('truncates a long summary so the header row cannot break', () => {
+    render(<Harness />);
+    fireEvent.change(screen.getByLabelText('Header content'), {
+      target: { value: `<p>${'x'.repeat(200)}</p>` },
+    });
+    expect(screen.getByText(/…$/)).toBeInTheDocument();
   });
 
   it('summarises override count on the per-section group', () => {
