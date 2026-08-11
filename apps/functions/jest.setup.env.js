@@ -11,3 +11,4 @@ process.env.DIBBS_BASE_URL = process.env.DIBBS_BASE_URL || 'https://www.dibbs.bs
 process.env.PINECONE_API_KEY = process.env.PINECONE_API_KEY || 'test-pinecone-key';
 process.env.PINECONE_INDEX = process.env.PINECONE_INDEX || 'test-index';
 process.env.STAGE = process.env.STAGE || 'test';
+process.env.SOLUTION_PLAN_QUEUE_URL = process.env.SOLUTION_PLAN_QUEUE_URL || 'https://sqs.us-east-1.amazonaws.com/123456789/test-solution-plan-queue';
