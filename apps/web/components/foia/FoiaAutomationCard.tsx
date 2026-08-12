@@ -29,17 +29,21 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { FoiaAutomationBadge } from './FoiaAutomationBadge';
+import { FoiaStateSummary } from './FoiaStateSummary';
+import { FoiaSendControls } from './FoiaSendControls';
+import { FoiaDocumentsList } from './FoiaDocumentsList';
+import { FoiaResponseUpload } from './FoiaResponseUpload';
 import {
   useFoiaAutomation,
   useUpdateFoiaAutomation,
   useConfirmFoiaRecipient,
 } from '@/lib/hooks/use-foia-automation';
+import { useFOIARequests } from '@/lib/hooks/use-foia-requests';
 import {
-  FOIA_BLOCKED_REASON_LABELS,
   type FoiaAutomationItem,
   type FoiaRecipientCandidate,
 } from '@auto-rfp/core';
-import { Loader2, Clock, Ban, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Loader2, Clock, Ban, ExternalLink } from 'lucide-react';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -64,6 +68,11 @@ export const FoiaAutomationCard = ({
   const { automation, isLoading, refetch } = useFoiaAutomation(orgId, projectId, opportunityId);
   const { updateFoiaAutomation, isSaving: isUpdating } = useUpdateFoiaAutomation();
   const { confirmRecipient, isSaving: isConfirming } = useConfirmFoiaRecipient();
+  const { foiaRequests, isLoading: isLoadingRequests, refetch: refetchRequests } = useFOIARequests(
+    orgId,
+    projectId,
+    opportunityId
+  );
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isSnoozeOpen, setIsSnoozeOpen] = useState(false);
@@ -182,6 +191,15 @@ export const FoiaAutomationCard = ({
     ? new Date(automation.scheduledSendAt)
     : null;
 
+  const foiaRequest = automation.foiaRequestId
+    ? foiaRequests.find((r) => r.foiaId === automation.foiaRequestId) ?? null
+    : null;
+
+  const handleSendComplete = async () => {
+    await refetch();
+    await refetchRequests();
+  };
+
   return (
     <>
       <Card>
@@ -196,52 +214,13 @@ export const FoiaAutomationCard = ({
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* Scheduled send date */}
-          {automation.state === 'SCHEDULED' && scheduledDate && (
-            <div className="text-sm">
-              <p className="text-muted-foreground">
-                Scheduled to send on{' '}
-                <span className="font-medium text-foreground">
-                  {format(scheduledDate, 'MMMM d, yyyy')}
-                </span>
-              </p>
-            </div>
-          )}
+          {/* State summary */}
+          <FoiaStateSummary automation={automation} scheduledDate={scheduledDate} />
 
-          {/* AWAITING_APPROVAL */}
-          {automation.state === 'AWAITING_APPROVAL' && (
-            <div className="text-sm space-y-1">
-              <p className="font-medium">Awaiting approval from the configured approver.</p>
-              {automation.approvalRequestedAt && (
-                <p className="text-xs text-muted-foreground">
-                  Requested {format(new Date(automation.approvalRequestedAt), 'MMM d, yyyy')}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* STALLED */}
-          {automation.state === 'STALLED' && (
-            <div className="text-sm space-y-1">
-              <p className="font-medium text-orange-700">Approval is overdue.</p>
-              {automation.stalledAt && (
-                <p className="text-xs text-muted-foreground">
-                  Stalled since {format(new Date(automation.stalledAt), 'MMM d, yyyy')}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* BLOCKED */}
+          {/* BLOCKED — the reason itself is rendered by FoiaStateSummary above;
+              this block adds only the actions that resolve it. */}
           {automation.state === 'BLOCKED' && automation.blockedReason && (
             <div className="space-y-3">
-              <div className="flex items-start gap-2 text-sm">
-                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                <p className="text-muted-foreground">
-                  {FOIA_BLOCKED_REASON_LABELS[automation.blockedReason]}
-                </p>
-              </div>
-
               {/* NEEDS_CONFIRMATION — show candidate list */}
               {automation.blockedReason === 'NEEDS_CONFIRMATION' &&
                 automation.recipientCandidates &&
@@ -333,60 +312,51 @@ export const FoiaAutomationCard = ({
             </div>
           )}
 
-          {/* SENT */}
-          {automation.state === 'SENT' && automation.sentAt && (
-            <div className="text-sm text-muted-foreground">
-              Sent on {format(new Date(automation.sentAt), 'MMMM d, yyyy')}
-            </div>
+          {/* Send controls for AWAITING_APPROVAL and STALLED */}
+          {(automation.state === 'AWAITING_APPROVAL' || automation.state === 'STALLED') && (
+            <FoiaSendControls
+              orgId={orgId}
+              projectId={projectId}
+              opportunityId={opportunityId}
+              automation={automation}
+              foiaRequest={foiaRequest}
+              recipientEmail={automation.resolvedRecipientEmail ?? null}
+              onSendComplete={handleSendComplete}
+            />
           )}
 
-          {/* BOUNCED */}
-          {automation.state === 'BOUNCED' && (
-            <div className="text-sm space-y-1">
-              <p className="font-medium text-red-700">Email bounced.</p>
-              {automation.bounceReason && (
-                <p className="text-xs text-muted-foreground">{automation.bounceReason}</p>
-              )}
-            </div>
-          )}
-
-          {/* FAILED */}
-          {automation.state === 'FAILED' && (
-            <div className="text-sm space-y-1">
-              <p className="font-medium text-red-700">Send failed.</p>
-              {automation.lastError && (
-                <p className="text-xs text-muted-foreground">{automation.lastError}</p>
-              )}
-              {automation.attemptCount && (
-                <p className="text-xs text-muted-foreground">
-                  {automation.attemptCount} attempt{automation.attemptCount > 1 ? 's' : ''}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* MANUAL_COMPLETED */}
-          {automation.state === 'MANUAL_COMPLETED' && (
-            <div className="text-sm text-muted-foreground">
-              A human filed this request outside the app.
-            </div>
-          )}
-
-          {/* SUPPRESSED */}
-          {automation.state === 'SUPPRESSED' && (
-            <div className="text-sm text-muted-foreground">
-              Automation cancelled.
-              {automation.suppressedReason && (
-                <span className="block text-xs mt-1">{automation.suppressedReason}</span>
-              )}
-            </div>
-          )}
-
-          {/* Action controls */}
-          {(automation.state === 'SCHEDULED' ||
-            automation.state === 'BLOCKED' ||
+          {/* Documents list */}
+          {(automation.state === 'SENT' ||
             automation.state === 'AWAITING_APPROVAL' ||
-            automation.state === 'STALLED') && (
+            automation.state === 'STALLED' ||
+            automation.state === 'BOUNCED') && (
+            <div className="pt-4 border-t">
+              <FoiaDocumentsList
+                orgId={orgId}
+                projectId={projectId}
+                opportunityId={opportunityId}
+                artifacts={automation.artifacts}
+                responseDocuments={foiaRequest?.responseDocuments}
+                isLoading={isLoadingRequests}
+              />
+            </div>
+          )}
+
+          {/* Response upload (disabled due to backend limitation) */}
+          {automation.state === 'SENT' && automation.foiaRequestId && (
+            <div className="pt-2">
+              <FoiaResponseUpload
+                orgId={orgId}
+                projectId={projectId}
+                opportunityId={opportunityId}
+                foiaRequestId={automation.foiaRequestId}
+                onUploadComplete={refetchRequests}
+              />
+            </div>
+          )}
+
+          {/* Action controls for non-send states */}
+          {(automation.state === 'SCHEDULED' || automation.state === 'BLOCKED') && (
             <div className="flex flex-wrap gap-2 pt-2 border-t">
               <PermissionButton
                 requiredPermission="project:edit"

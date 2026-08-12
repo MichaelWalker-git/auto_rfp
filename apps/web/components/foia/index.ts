@@ -4,3 +4,7 @@ export { FOIALetterPreview } from './FOIALetterPreview';
 export { FoiaAutomationBadge } from './FoiaAutomationBadge';
 export { FoiaAutomationCard } from './FoiaAutomationCard';
 export { FoiaAgencyContactsCard } from './FoiaAgencyContactsCard';
+export { FoiaDocumentsList } from './FoiaDocumentsList';
+export { FoiaResponseUpload } from './FoiaResponseUpload';
+export { FoiaSendControls } from './FoiaSendControls';
+export { FoiaStateSummary } from './FoiaStateSummary';
