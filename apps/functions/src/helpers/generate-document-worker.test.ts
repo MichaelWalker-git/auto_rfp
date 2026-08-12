@@ -47,6 +47,10 @@ jest.mock('@/helpers/rfp-document', () => ({
   updateRFPDocumentMetadata: jest.fn(),
   getRFPDocument: jest.fn(),
 }));
+jest.mock('@/helpers/solution-plan', () => ({
+  getSolutionPlanByOpportunity: jest.fn(),
+  loadSolutionPlanHtml: jest.fn(),
+}));
 jest.mock('@/helpers/rfp-document-version', () => ({
   createVersion: jest.fn(),
   getLatestVersionNumber: jest.fn(),
@@ -73,9 +77,12 @@ import {
   generateWithTemplateSections,
   applyTemplateStylesToContent,
   extractDocumentTitle,
+  loadApprovedSolutionPlanContext,
   processJobInner,
+  SOLUTION_PLAN_TEXT_BUDGET,
   type Job,
 } from './generate-document-worker';
+import { getSolutionPlanByOpportunity, loadSolutionPlanHtml } from './solution-plan';
 import { generateDocumentSectionBySectionHtml } from './document-section-generator';
 import {
   buildSystemPromptForDocumentType,
@@ -436,6 +443,7 @@ describe('processJobInner — document prompt override wiring', () => {
     (getLatestVersionNumber as jest.Mock).mockResolvedValue(0);
     (saveVersionHtml as jest.Mock).mockResolvedValue('version-key');
     (createVersion as jest.Mock).mockResolvedValue(undefined);
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(null);
   });
 
   it('fetches fragments once and passes them to all builders (section-by-section strategy)', async () => {
@@ -459,6 +467,7 @@ describe('processJobInner — document prompt override wiring', () => {
       '[]',
       'kb text',
       'T-OVERRIDE',
+      null,
     );
   });
 
@@ -490,6 +499,7 @@ describe('processJobInner — document prompt override wiring', () => {
       '[]',
       'kb text',
       'T-OVERRIDE',
+      null,
     );
   });
 
@@ -517,6 +527,257 @@ describe('processJobInner — document prompt override wiring', () => {
       'solicitation text',
       '[]',
       'kb text',
+      null,
+      null,
+    );
+  });
+});
+
+describe('loadApprovedSolutionPlanContext', () => {
+  const key = { orgId: 'org-1', projectId: 'proj-1', opportunityId: 'opp-1' };
+
+  const readyPlan = {
+    id: 'plan-1',
+    orgId: 'org-1',
+    projectId: 'proj-1',
+    opportunityId: 'opp-1',
+    status: 'READY',
+    isStale: false,
+    runId: 'run-1',
+    contentKey: 'org-1/proj-1/opp-1/solution-plan/v3/solution-plan.html',
+    version: 3,
+    isUserEdited: false,
+  };
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('returns stripped plain text and the plan for a READY plan', async () => {
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(readyPlan);
+    (loadSolutionPlanHtml as jest.Mock).mockResolvedValue(
+      '<h2>Architecture</h2><p>Serverless&nbsp;three-tier   design.</p>',
+    );
+
+    const result = await loadApprovedSolutionPlanContext(key);
+
+    expect(result).not.toBeNull();
+    expect(result!.plan.id).toBe('plan-1');
+    expect(result!.plan.version).toBe(3);
+    expect(result!.text).toBe('Architecture Serverless three-tier design.');
+  });
+
+  it('decodes common HTML entities instead of leaking them into the prompt', async () => {
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(readyPlan);
+    (loadSolutionPlanHtml as jest.Mock).mockResolvedValue(
+      '<p>Design &amp; build &lt;5 services&gt; &quot;fast&quot; &#39;now&#39;</p>',
+    );
+
+    const result = await loadApprovedSolutionPlanContext(key);
+
+    expect(result!.text).toBe('Design & build <5 services> "fast" \'now\'');
+  });
+
+  it('injects a READY plan even when it is stale (staleness never blocks, ADR-3)', async () => {
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue({
+      ...readyPlan,
+      isStale: true,
+      staleReason: 'Executive brief regenerated',
+    });
+    (loadSolutionPlanHtml as jest.Mock).mockResolvedValue('<p>Plan body</p>');
+
+    const result = await loadApprovedSolutionPlanContext(key);
+
+    expect(result).not.toBeNull();
+    expect(result!.text).toBe('Plan body');
+  });
+
+  it('returns null when no plan exists', async () => {
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(null);
+
+    expect(await loadApprovedSolutionPlanContext(key)).toBeNull();
+    expect(loadSolutionPlanHtml).not.toHaveBeenCalled();
+  });
+
+  it.each(['GRILLING', 'GENERATING_SOT', 'FAILED'])(
+    'returns null when the plan status is %s',
+    async (status) => {
+      (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue({ ...readyPlan, status });
+
+      expect(await loadApprovedSolutionPlanContext(key)).toBeNull();
+      expect(loadSolutionPlanHtml).not.toHaveBeenCalled();
+    },
+  );
+
+  it('returns null when the plan has no contentKey', async () => {
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue({
+      ...readyPlan,
+      contentKey: undefined,
+    });
+
+    expect(await loadApprovedSolutionPlanContext(key)).toBeNull();
+  });
+
+  it('returns null when the plan HTML strips to empty text', async () => {
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(readyPlan);
+    (loadSolutionPlanHtml as jest.Mock).mockResolvedValue('<div><p>  </p></div>');
+
+    expect(await loadApprovedSolutionPlanContext(key)).toBeNull();
+  });
+
+  it('truncates oversized plan text to the budget and logs a warning with plan id + length', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const oversized = 'x'.repeat(SOLUTION_PLAN_TEXT_BUDGET + 500);
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(readyPlan);
+    (loadSolutionPlanHtml as jest.Mock).mockResolvedValue(`<p>${oversized}</p>`);
+
+    const result = await loadApprovedSolutionPlanContext(key);
+
+    expect(result!.text).toHaveLength(SOLUTION_PLAN_TEXT_BUDGET);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining(`planId=plan-1 length=${SOLUTION_PLAN_TEXT_BUDGET + 500}`),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('returns null instead of throwing when the S3 load fails (generation continues)', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(readyPlan);
+    (loadSolutionPlanHtml as jest.Mock).mockRejectedValue(new Error('S3 unavailable'));
+
+    expect(await loadApprovedSolutionPlanContext(key)).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('S3 unavailable'));
+    warnSpy.mockRestore();
+  });
+});
+
+describe('processJobInner — Solution Plan injection & version stamp (ADR-7)', () => {
+  const job: Job = {
+    orgId: 'org-1',
+    projectId: 'proj-1',
+    opportunityId: 'opp-1',
+    documentType: 'TECHNICAL_PROPOSAL',
+    documentId: 'doc-1',
+  };
+
+  const readyPlan = {
+    id: 'plan-1',
+    orgId: 'org-1',
+    projectId: 'proj-1',
+    opportunityId: 'opp-1',
+    status: 'READY',
+    isStale: false,
+    runId: 'run-1',
+    contentKey: 'org-1/proj-1/opp-1/solution-plan/v3/solution-plan.html',
+    version: 3,
+    isUserEdited: false,
+  };
+
+  const mockBuildUser = buildUserPromptForDocumentType as jest.MockedFunction<
+    typeof buildUserPromptForDocumentType
+  >;
+
+  const setupSingleShotSuccess = () => {
+    (resolveTemplateHtml as jest.Mock).mockResolvedValue(null);
+    (safeParseJsonFromModel as jest.Mock).mockReturnValue({
+      title: 'Technical Proposal',
+      htmlContent: '<h2>Approach</h2><p>Generated single-shot content body.</p>',
+    });
+    (invokeModel as jest.Mock).mockResolvedValue(
+      new TextEncoder().encode(
+        JSON.stringify({
+          stop_reason: 'end_turn',
+          content: [{ type: 'text', text: '{"title":"Technical Proposal"}' }],
+        }),
+      ),
+    );
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    (resolveDocumentPromptFragments as jest.Mock).mockResolvedValue({ guidance: null, task: null });
+    (buildSystemPromptForDocumentType as jest.Mock).mockReturnValue('sys prompt');
+    (buildSectionSystemPrompt as jest.Mock).mockReturnValue('section sys prompt');
+    mockBuildUser.mockReturnValue('user prompt');
+
+    (loadQaPairs as jest.Mock).mockResolvedValue([]);
+    (loadSolicitation as jest.Mock).mockResolvedValue('solicitation text');
+    (buildMacroValues as jest.Mock).mockResolvedValue({});
+    (gatherAllContext as jest.Mock).mockResolvedValue('kb text');
+
+    (uploadRFPDocumentHtml as jest.Mock).mockResolvedValue('html-key');
+    (updateRFPDocumentMetadata as jest.Mock).mockResolvedValue(undefined);
+    (getRFPDocument as jest.Mock).mockResolvedValue(null);
+    (getLatestVersionNumber as jest.Mock).mockResolvedValue(0);
+    (saveVersionHtml as jest.Mock).mockResolvedValue('version-key');
+    (createVersion as jest.Mock).mockResolvedValue(undefined);
+  });
+
+  it('threads the READY plan text into the user prompt and stamps id + version on save', async () => {
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(readyPlan);
+    (loadSolutionPlanHtml as jest.Mock).mockResolvedValue('<p>Approved plan body</p>');
+    setupSingleShotSuccess();
+
+    await processJobInner(job);
+
+    expect(mockBuildUser).toHaveBeenCalledWith(
+      'TECHNICAL_PROPOSAL',
+      'solicitation text',
+      '[]',
+      'kb text',
+      null,
+      'Approved plan body',
+    );
+
+    expect(updateRFPDocumentMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updates: expect.objectContaining({
+          htmlContentKey: 'html-key',
+          solutionPlanId: 'plan-1',
+          solutionPlanVersion: 3,
+        }),
+      }),
+    );
+  });
+
+  it('passes null plan text and stamps nothing when no plan exists', async () => {
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(null);
+    setupSingleShotSuccess();
+
+    await processJobInner(job);
+
+    expect(mockBuildUser).toHaveBeenCalledWith(
+      'TECHNICAL_PROPOSAL',
+      'solicitation text',
+      '[]',
+      'kb text',
+      null,
+      null,
+    );
+
+    const saveCall = (updateRFPDocumentMetadata as jest.Mock).mock.calls.find(
+      ([args]) => args.updates.htmlContentKey !== undefined,
+    );
+    expect(saveCall).toBeDefined();
+    expect(saveCall![0].updates).not.toHaveProperty('solutionPlanId');
+    expect(saveCall![0].updates).not.toHaveProperty('solutionPlanVersion');
+  });
+
+  it('passes null plan text when the plan is not READY (mid-grilling)', async () => {
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue({
+      ...readyPlan,
+      status: 'GRILLING',
+      contentKey: undefined,
+    });
+    setupSingleShotSuccess();
+
+    await processJobInner(job);
+
+    expect(mockBuildUser).toHaveBeenCalledWith(
+      'TECHNICAL_PROPOSAL',
+      'solicitation text',
+      '[]',
+      'kb text',
+      null,
       null,
     );
   });

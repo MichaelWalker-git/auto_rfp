@@ -175,3 +175,56 @@ describe('guidance/task overrides', () => {
     });
   });
 });
+
+describe('Approved Solution Plan injection (ADR-7)', () => {
+  const PLAN_TEXT = 'Architecture: three-tier serverless. Team: 4 engineers over 12 months.';
+
+  describe('buildUserPromptForDocumentType', () => {
+    it('inserts the SOURCE OF TRUTH block between Q&A and enrichment when plan text is provided', () => {
+      const prompt = buildUserPromptForDocumentType(
+        'TECHNICAL_PROPOSAL', 'solicitation text', 'qa text', 'kb text', null, PLAN_TEXT,
+      );
+
+      expect(prompt).toContain('APPROVED SOLUTION PLAN (SOURCE OF TRUTH)');
+      expect(prompt).toContain('OVERRIDES anything');
+      expect(prompt).toContain(PLAN_TEXT);
+      // Ordering: Q&A → solution plan → enrichment
+      const qaIdx = prompt.indexOf('QUESTIONS & ANSWERS');
+      const planIdx = prompt.indexOf('APPROVED SOLUTION PLAN (SOURCE OF TRUTH)');
+      const kbIdx = prompt.indexOf('ENRICHMENT CONTEXT');
+      expect(qaIdx).toBeGreaterThanOrEqual(0);
+      expect(planIdx).toBeGreaterThan(qaIdx);
+      expect(kbIdx).toBeGreaterThan(planIdx);
+    });
+
+    it('omits the block when plan text is absent, null, or blank', () => {
+      for (const planText of [undefined, null, '', '   ']) {
+        const prompt = buildUserPromptForDocumentType(
+          'TECHNICAL_PROPOSAL', 's', 'q', 'k', null, planText,
+        );
+        expect(prompt).not.toContain('APPROVED SOLUTION PLAN (SOURCE OF TRUTH)');
+      }
+    });
+
+    it('keeps the block when a task override is also supplied', () => {
+      const prompt = buildUserPromptForDocumentType(
+        'COST_PROPOSAL', 's', 'q', 'k', 'CUSTOM TASK', PLAN_TEXT,
+      );
+      expect(prompt).toContain('APPROVED SOLUTION PLAN (SOURCE OF TRUTH)');
+      expect(prompt).toContain('CUSTOM TASK');
+    });
+  });
+
+  describe('buildSystemPromptForDocumentType', () => {
+    it('always carries the solution-plan context-usage instruction', () => {
+      const prompt = buildSystemPromptForDocumentType('TECHNICAL_PROPOSAL');
+      expect(prompt).toContain('APPROVED SOLUTION PLAN (when present)');
+      expect(prompt).toContain('single source of truth');
+    });
+
+    it('keeps the instruction even when org guidance is overridden (non-overridable)', () => {
+      const prompt = buildSystemPromptForDocumentType('TECHNICAL_PROPOSAL', null, 'ORG GUIDANCE OVERRIDE');
+      expect(prompt).toContain('APPROVED SOLUTION PLAN (when present)');
+    });
+  });
+});

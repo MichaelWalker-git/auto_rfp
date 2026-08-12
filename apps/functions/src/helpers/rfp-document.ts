@@ -132,6 +132,10 @@ export async function updateRFPDocumentMetadata(args: {
     pageImagesKey?: string;
     /** Number of generation retry attempts (0 = first attempt, max 3) */
     retryCount?: number;
+    /** ID of the Solution Plan injected during generation (ADR-7) */
+    solutionPlanId?: string;
+    /** Version of the Solution Plan at generation time (ADR-7) */
+    solutionPlanVersion?: number;
   };
   updatedBy: string;
 }): Promise<Record<string, any>> {
@@ -212,6 +216,16 @@ export async function updateRFPDocumentMetadata(args: {
     setParts.push('#retryCount = :retryCount');
     names['#retryCount'] = 'retryCount';
     values[':retryCount'] = args.updates.retryCount;
+  }
+  if (args.updates.solutionPlanId !== undefined) {
+    setParts.push('#solutionPlanId = :solutionPlanId');
+    names['#solutionPlanId'] = 'solutionPlanId';
+    values[':solutionPlanId'] = args.updates.solutionPlanId;
+  }
+  if (args.updates.solutionPlanVersion !== undefined) {
+    setParts.push('#solutionPlanVersion = :solutionPlanVersion');
+    names['#solutionPlanVersion'] = 'solutionPlanVersion';
+    values[':solutionPlanVersion'] = args.updates.solutionPlanVersion;
   }
 
   const res = await docClient.send(
