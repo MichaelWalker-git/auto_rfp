@@ -7,6 +7,9 @@ import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as ses from 'aws-cdk-lib/aws-ses';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as path from 'path';
 
 export interface FoiaAutomationStackProps extends cdk.StackProps {
@@ -185,7 +188,98 @@ export class FoiaAutomationStack extends cdk.Stack {
       }),
     );
 
-    // 7. Outputs.
+    // ── 7. SES configuration set + bounce handling ──────────────────────────
+    //
+    // A dedicated set rather than the pre-existing `emails_sending`: that one is
+    // not the identity default and no code names it, so it carries no traffic —
+    // attaching destinations there would monitor nothing. This one is owned by
+    // CDK, so Dev/Test/prod get it identically.
+    //
+    // Bounce handling is what gates unattended sending. Without it a rejected
+    // statutory request is indistinguishable from a delivered one, and the FOIA
+    // deadline passes while the record says SENT.
+    const configurationSet = new ses.ConfigurationSet(this, 'FoiaConfigurationSet', {
+      configurationSetName: `auto-rfp-foia-${stage}`,
+      // Legal correspondence should not fall back to cleartext.
+      tlsPolicy: ses.ConfigurationSetTlsPolicy.REQUIRE,
+      reputationMetrics: true,
+    });
+
+    const bounceTopic = new sns.Topic(this, 'FoiaBounceTopic', {
+      topicName: `auto-rfp-foia-bounces-${stage}`,
+      displayName: 'AutoRFP FOIA bounces and complaints',
+    });
+
+    // Reject cleartext publishes (AwsSolutions-SNS3). A DENY with AnyPrincipal is
+    // the AWS-recommended pattern for forcing TLS, mirroring
+    // stale-content-detection-stack.ts.
+    bounceTopic.addToResourcePolicy(
+      new iam.PolicyStatement({
+        sid: 'EnforceSSL',
+        effect: iam.Effect.DENY,
+        principals: [new iam.AnyPrincipal()],
+        actions: ['sns:Publish'],
+        resources: [bounceTopic.topicArn],
+        conditions: { Bool: { 'aws:SecureTransport': 'false' } },
+      }),
+    );
+
+    configurationSet.addEventDestination('FoiaBounceEvents', {
+      destination: ses.EventDestination.snsTopic(bounceTopic),
+      events: [
+        ses.EmailSendingEvent.BOUNCE,
+        ses.EmailSendingEvent.COMPLAINT,
+        ses.EmailSendingEvent.REJECT,
+        // DELIVERY closes the loop: "accepted by SES" is not "reached the agency".
+        ses.EmailSendingEvent.DELIVERY,
+      ],
+    });
+
+    const bounceFunctionName = `auto-rfp-foia-ses-events-${stage}`;
+
+    const bounceLogGroup = new logs.LogGroup(this, 'FoiaSesEventsLogGroup', {
+      logGroupName: `/aws/lambda/${bounceFunctionName}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    lambdaRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents'],
+        resources: [
+          `arn:aws:logs:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:log-group:/aws/lambda/${bounceFunctionName}:*`,
+        ],
+      }),
+    );
+
+    const bounceLambda = new lambdaNodejs.NodejsFunction(this, 'FoiaSesEventsFn', {
+      functionName: bounceFunctionName,
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/foia/on-ses-event.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      role: lambdaRole,
+      environment: { ...commonEnv },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        externalModules: ['@aws-sdk/*', '@smithy/*'],
+      },
+    });
+
+    bounceLambda.node.addDependency(bounceLogGroup);
+    bounceTopic.addSubscription(new snsSubscriptions.LambdaSubscription(bounceLambda));
+
+    // Route Lambdas send FOIA mail, so they need the set name to reference it.
+    // Exported rather than injected: the API stack builds its own env.
+    new cdk.CfnOutput(this, 'FoiaSesConfigurationSetName', {
+      value: configurationSet.configurationSetName,
+      description: 'SES configuration set FOIA sends must name, so bounces are captured',
+      exportName: `AutoRfp-FoiaSesConfigSet-${stage}`,
+    });
+
+    // 8. Outputs.
     new cdk.CfnOutput(this, 'FoiaScanLambdaArn', {
       value: scanLambda.functionArn,
       description: 'Lambda ARN for the daily FOIA automation reconciler',

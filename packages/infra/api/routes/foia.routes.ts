@@ -68,6 +68,11 @@ export function foiaDomain(): DomainRoutes {
       },
       {
         method: 'POST',
+        path: 'send-foia-request',
+        entry: lambdaEntry('foia/send-foia-request.ts'),
+      },
+      {
+        method: 'POST',
         path: 'confirm-foia-recipient',
         entry: lambdaEntry('foia/confirm-foia-recipient.ts'),
       },
