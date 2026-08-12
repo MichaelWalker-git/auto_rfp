@@ -523,7 +523,7 @@ describe('scan-foia-automation — preparing a due request', () => {
     );
   });
 
-  it('goes to SENDING when the request IS auto-send eligible', async () => {
+  it('stores autoSendEligible but still goes to AWAITING_APPROVAL', async () => {
     mockListOpportunitiesByOrg.mockResolvedValue({ items: [dueOpp()] });
     mockPrepareFoiaRequest.mockResolvedValue({
       status: 'PREPARED',
@@ -536,16 +536,21 @@ describe('scan-foia-automation — preparing a due request', () => {
 
     await baseHandler({});
 
+    // The scanner NEVER enters SENDING — that state is owned exclusively by the
+    // send handler. Even when autoSendEligible is true, the scanner moves the
+    // record to AWAITING_APPROVAL and stores the eligibility flag for the
+    // downstream sender to consume.
     expect(mockTransitionFoiaAutomationState).toHaveBeenCalledWith(
-      expect.objectContaining({ to: 'SENDING' }),
+      expect.objectContaining({
+        to: 'AWAITING_APPROVAL',
+        patch: expect.objectContaining({ autoSendEligible: true }),
+      }),
     );
-    // The opportunity marker must mirror the state actually reached, not a
-    // hardcoded one.
     expect(mockSyncOpportunityFoiaMarker).toHaveBeenCalledWith(
       'org-1',
       'proj-1',
       'opp-1',
-      'SENDING',
+      'AWAITING_APPROVAL',
     );
   });
 
@@ -558,6 +563,148 @@ describe('scan-foia-automation — preparing a due request', () => {
     expect(mockTransitionFoiaAutomationState).not.toHaveBeenCalled();
     expect(mockPrepareFoiaRequest).toHaveBeenCalledWith(
       expect.objectContaining({ dryRun: true, skipDocumentScan: true }),
+    );
+  });
+});
+
+describe('scan-foia-automation — SENDING state hazard mitigation', () => {
+  /**
+   * These tests verify the fix for the latent bug where autoSendEligible=true
+   * would transition a record to SENDING with no code path to release it.
+   *
+   * The scanner is now a pure reconciler that NEVER enters SENDING. That state
+   * is owned exclusively by the send handler, which drives the full lifecycle:
+   * AWAITING_APPROVAL -> SENDING -> (SENT | FAILED). The scanner only moves
+   * records to AWAITING_APPROVAL and stores autoSendEligible for the downstream
+   * sender to consume.
+   */
+  const dueOpp = () => buildOpp({ responseDeadlineIso: overdueDeadline() });
+
+  it('never leaves a record in SENDING after a successful prepare', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({ items: [dueOpp()] });
+    mockPrepareFoiaRequest.mockResolvedValue({
+      status: 'PREPARED',
+      request: { foiaId: 'foia-1', agencyFOIAEmail: 'foia@army.mil', agencyFOIAAddress: 'addr' },
+      letter: 'L',
+      artifacts: [],
+      autoSendEligible: true,
+      recipientSource: 'FOIA_GOV',
+    });
+
+    await baseHandler({});
+
+    // Verify the scanner moved to AWAITING_APPROVAL, not SENDING.
+    const transitionCall = mockTransitionFoiaAutomationState.mock.calls[0]![0] as {
+      to: string;
+    };
+    expect(transitionCall.to).toBe('AWAITING_APPROVAL');
+
+    // Verify no state transition to SENDING ever happened.
+    const allTransitions = mockTransitionFoiaAutomationState.mock.calls;
+    for (const [call] of allTransitions) {
+      expect((call as { to: string }).to).not.toBe('SENDING');
+    }
+  });
+
+  it('never leaves a record in SENDING after a blocked prepare', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({ items: [dueOpp()] });
+    mockPrepareFoiaRequest.mockResolvedValue({
+      status: 'BLOCKED',
+      blockedReason: 'NEEDS_RECIPIENT',
+    });
+
+    await baseHandler({});
+
+    // Verify the scanner moved to BLOCKED, not SENDING.
+    const transitionCall = mockTransitionFoiaAutomationState.mock.calls[0]![0] as {
+      to: string;
+    };
+    expect(transitionCall.to).toBe('BLOCKED');
+
+    // Verify no state transition to SENDING ever happened.
+    const allTransitions = mockTransitionFoiaAutomationState.mock.calls;
+    for (const [call] of allTransitions) {
+      expect((call as { to: string }).to).not.toBe('SENDING');
+    }
+  });
+
+  it('never leaves a record in SENDING after a lost transition race', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({ items: [dueOpp()] });
+    mockPrepareFoiaRequest.mockResolvedValue({
+      status: 'PREPARED',
+      request: { foiaId: 'foia-1', agencyFOIAEmail: 'foia@army.mil', agencyFOIAAddress: 'addr' },
+      letter: 'L',
+      artifacts: [],
+      autoSendEligible: true,
+      recipientSource: 'FOIA_GOV',
+    });
+    // Simulate a concurrent scanner that already moved the record.
+    mockTransitionFoiaAutomationState.mockResolvedValue(null);
+
+    await baseHandler({});
+
+    // Verify no state transition to SENDING ever happened.
+    const allTransitions = mockTransitionFoiaAutomationState.mock.calls;
+    for (const [call] of allTransitions) {
+      expect((call as { to: string }).to).not.toBe('SENDING');
+    }
+  });
+
+  it('never transitions to SENDING on a dry run', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({ items: [dueOpp()] });
+    mockPrepareFoiaRequest.mockResolvedValue({
+      status: 'PREPARED',
+      request: { foiaId: 'foia-1', agencyFOIAEmail: 'foia@army.mil', agencyFOIAAddress: 'addr' },
+      letter: 'L',
+      artifacts: [],
+      autoSendEligible: true,
+      recipientSource: 'FOIA_GOV',
+    });
+
+    await baseHandler({ detail: { dryRun: true } });
+
+    // On a dry run, no state transitions happen at all.
+    expect(mockTransitionFoiaAutomationState).not.toHaveBeenCalled();
+  });
+
+  it('never attempts to send directly from the scanner', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({ items: [dueOpp()] });
+    mockPrepareFoiaRequest.mockResolvedValue({
+      status: 'PREPARED',
+      request: { foiaId: 'foia-1', agencyFOIAEmail: 'foia@army.mil', agencyFOIAAddress: 'addr' },
+      letter: 'L',
+      artifacts: [],
+      autoSendEligible: true,
+      recipientSource: 'FOIA_GOV',
+    });
+
+    await baseHandler({});
+
+    // The scanner prepares the request but never calls any send function.
+    // (There is no sendFoiaRequest mock in this file because the scanner never
+    // imports it.)
+    expect(mockPrepareFoiaRequest).toHaveBeenCalledTimes(1);
+    // Only the prepare happened, the send is left for a different mechanism.
+  });
+
+  it('still honors autoSendEligible=false by setting the flag to false', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({ items: [dueOpp()] });
+    mockPrepareFoiaRequest.mockResolvedValue({
+      status: 'PREPARED',
+      request: { foiaId: 'foia-1', agencyFOIAEmail: 'foia@army.mil', agencyFOIAAddress: 'addr' },
+      letter: 'L',
+      artifacts: [],
+      autoSendEligible: false,
+      recipientSource: 'OPP_CONTACT',
+    });
+
+    await baseHandler({});
+
+    expect(mockTransitionFoiaAutomationState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'AWAITING_APPROVAL',
+        patch: expect.objectContaining({ autoSendEligible: false }),
+      }),
     );
   });
 });

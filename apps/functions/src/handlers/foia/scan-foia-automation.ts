@@ -228,12 +228,23 @@ const prepareDueAutomation = async (args: {
     return 'BLOCKED';
   }
 
-  // A trusted recipient in an org that has enabled auto-send skips the approval
-  // gate. Everything else waits for a human — see `autoSendTrusted`, which stays
-  // off until the sending domain can pass DMARC at .gov/.mil.
-  const nextState: FoiaAutomationState = outcome.autoSendEligible
-    ? 'SENDING'
-    : 'AWAITING_APPROVAL';
+  /**
+   * The scanner NEVER enters SENDING — that state is owned exclusively by the
+   * send handler (send-foia-request.ts), which drives the conditional transition
+   * AWAITING_APPROVAL -> SENDING -> (SENT | FAILED). SENDING is a lock, not a
+   * resting state, and the scanner has no code path to release it.
+   *
+   * Unattended sends (when `autoSendEligible` is true) MUST be triggered by a
+   * separate mechanism: either an EventBridge rule polling for eligible requests,
+   * a webhook from the settings UI when the toggle is flipped, or a manual API
+   * call to the send handler. The scanner only ever transitions to
+   * AWAITING_APPROVAL — the record sits there until something invokes the send
+   * path.
+   *
+   * This keeps the scanner a pure reconciler and avoids stranding records in a
+   * lock forever if the downstream send mechanism is not wired up yet.
+   */
+  const nextState: FoiaAutomationState = 'AWAITING_APPROVAL';
 
   const moved = await transitionFoiaAutomationState({
     orgId,
@@ -252,6 +263,9 @@ const prepareDueAutomation = async (args: {
       // FoiaRecipientSource. Parsed back to the enum here.
       recipientSource: FoiaRecipientSourceSchema.safeParse(outcome.request.recipientSource).data,
       artifacts: outcome.artifacts,
+      // Store the eligibility decision so the downstream sender knows whether it
+      // needs a human click or can proceed unattended.
+      autoSendEligible: outcome.autoSendEligible,
     },
   });
 
@@ -262,9 +276,6 @@ const prepareDueAutomation = async (args: {
 
   await syncOpportunityFoiaMarker(orgId, projectId, oppId, nextState);
 
-  // SENDING is a lock, not a resting state. Reaching it here means the send path
-  // owns the record from now on; until that path exists, `autoSendTrusted`
-  // defaults off so nothing can land in SENDING and stall.
   return 'PREPARED';
 };
 

@@ -347,6 +347,16 @@ export const FoiaAutomationItemSchema = z.object({
   /** The FOIA request record this automation created, once prepared. */
   foiaRequestId: z.string().nullish(),
 
+  /**
+   * Whether this request may be transmitted without a human click.
+   *
+   * True only when the recipient came from a trusted source AND the org has
+   * enabled `autoSendTrusted` AND the award date provenance is verified. Set by
+   * the scanner when preparing the request; consumed by the send worker (once it
+   * exists) or by the UI to skip showing the approval screen.
+   */
+  autoSendEligible: z.boolean().nullish(),
+
   approvalId: z.string().nullish(),
   approvalRequestedAt: z.string().datetime({ offset: true }).nullish(),
   /** ISO timestamps of reminder emails already sent, to avoid re-sending. */
