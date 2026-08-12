@@ -79,9 +79,16 @@ const KNOWN_SENDER_DOMAINS = [
  */
 const AWARD_PATTERNS: ReadonlyArray<{ re: RegExp; label: string }> = [
   { re: /\baward(ed)?\s+(notice|notification)\b/i, label: 'award-notice' },
-  { re: /\bnotice\s+of\s+award\b/i, label: 'notice-of-award' },
+  // "Notification of Award" / "Notice of Award" — the real subject line, and the
+  // reverse word order of the pattern above. Matching only "award notice" missed
+  // the actual trigger this feature exists to catch.
+  { re: /\b(notice|notification)\s+of\s+award\b/i, label: 'notification-of-award' },
+  // The structured status block state agencies publish: "Status: Awarded".
+  { re: /\bstatus\s*:?\s*awarded\b/i, label: 'status-awarded' },
+  { re: /\baward\s+date\b\s*:?\s*\d/i, label: 'award-date-stated' },
   { re: /\bcontract\s+award(ed)?\b/i, label: 'contract-award' },
   { re: /\baward\s+has\s+been\s+(made|posted)\b/i, label: 'award-made' },
+  { re: /\bhas\s+been\s+awarded\s+to\b/i, label: 'awarded-to' },
   // The loss side of the same event.
   { re: /\bunsuccessful\s+offeror\b/i, label: 'unsuccessful-offeror' },
   { re: /\bnot\s+(been\s+)?selected\s+for\s+award\b/i, label: 'not-selected' },
@@ -228,9 +235,20 @@ export const isKnownSolicitationSender = (from: string): boolean => {
   return KNOWN_SENDER_DOMAINS.some((d) => lower.includes(d));
 };
 
-/** True when the sender looks like a government address. */
+/**
+ * True when the sender looks like a public body.
+ *
+ * `.edu` is included, and it is not an edge case: state universities, community
+ * college districts and school districts are a large share of this pipeline, and
+ * every real sample so far came from one (`ttuhsc.edu`, `sbcusd.k12.ca.us`).
+ * Restricting this to `.gov`/`.mil` made the classifier blind to the senders it
+ * most often sees. `.us` covers the `k12.*.us` districts.
+ *
+ * A public-body sender is only ever *evidence*, never permission: it raises how
+ * seriously a message is read, and nothing acts without an identifier as well.
+ */
 export const isGovernmentSender = (from: string): boolean =>
-  /@[^\s>]*\.(gov|mil)\b/i.test(from);
+  /@[^\s>]*\.(gov|mil|edu|us)\b/i.test(from);
 
 /**
  * Classifies a message using deterministic rules only.
@@ -364,11 +382,35 @@ export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMa
 /**
  * Whether a classification may change opportunity state without a human.
  *
- * The bar is deliberately high: a HIGH-confidence verdict plus an identifier we
- * can correlate. Everything else is surfaced for review.
+ * Two things are required: the message must be a trigger (an award or a
+ * cancellation — a reply never moves a schedule), and it must be tied to a
+ * specific procurement. Knowing *some* solicitation was cancelled is useless
+ * without knowing which one, and guessing would suppress the wrong FOIA.
+ *
+ * `hasExternalIdentifier` is how a caller contributes the second half. The
+ * classifier's own solicitation-number patterns are federal-shaped and match
+ * almost nothing in a real state and local pipeline — 11 of 360 stored numbers —
+ * so requiring them here would refuse every genuine state award notice. A
+ * correlation against a solicitation number we already hold is *stronger*
+ * evidence than parsing one out of the text, because it can only ever point at an
+ * opportunity that exists. The caller passes true once it has exactly one match.
  */
-export const canActAutomatically = (classified: ClassifiedMail): boolean =>
-  classified.confidence === 'HIGH' &&
-  (classified.classification === 'AWARD_NOTICE' ||
-    classified.classification === 'SOLICITATION_CANCELLED') &&
-  !!(classified.noticeId || classified.solicitationNumber);
+export const canActAutomatically = (
+  classified: ClassifiedMail,
+  options: { hasExternalIdentifier?: boolean } = {},
+): boolean => {
+  const isTrigger =
+    classified.classification === 'AWARD_NOTICE' ||
+    classified.classification === 'SOLICITATION_CANCELLED';
+
+  if (!isTrigger) return false;
+
+  const identified =
+    !!classified.noticeId || !!classified.solicitationNumber || !!options.hasExternalIdentifier;
+
+  if (!identified) return false;
+
+  // A phrase match plus an identifier is HIGH by construction; an external
+  // identifier supplies the same assurance the classifier's own would have.
+  return classified.confidence === 'HIGH' || !!options.hasExternalIdentifier;
+};
