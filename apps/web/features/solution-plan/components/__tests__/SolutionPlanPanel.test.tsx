@@ -69,7 +69,7 @@ const planState = (plan: SolutionPlanItem | null, over: Record<string, unknown> 
 });
 
 const renderPanel = () =>
-  render(<SolutionPlanPanel orgId="org-1" projectId="proj-1" oppId="opp-1" />);
+  render(<SolutionPlanPanel orgId="org-1" projectId="proj-1" opportunityId="opp-1" />);
 
 beforeEach(() => {
   jest.clearAllMocks();

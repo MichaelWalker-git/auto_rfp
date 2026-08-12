@@ -296,7 +296,7 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       {/* ── Solution Plan (Source of Truth, org-flagged) ──────────────── */}
       {solutionPlanEnabled && (
         <section id="solution-plan" className="scroll-mt-4">
-          <SolutionPlanPanel orgId={orgId} projectId={projectId} oppId={oppId} />
+          <SolutionPlanPanel orgId={orgId} projectId={projectId} opportunityId={oppId} />
         </section>
       )}
 

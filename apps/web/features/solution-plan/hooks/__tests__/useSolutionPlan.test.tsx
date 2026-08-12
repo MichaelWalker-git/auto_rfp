@@ -1,19 +1,9 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { SWRConfig } from 'swr';
 import { useSolutionPlan } from '../useSolutionPlan';
 import type { SolutionPlanItem } from '@auto-rfp/core';
+import { mockApiFetcher, swrWrapper as wrapper } from './test-utils';
 
-const mockApiFetcher = jest.fn();
-jest.mock('@/lib/hooks/api-helpers', () => ({
-  apiFetcher: (...args: unknown[]) => mockApiFetcher(...args),
-  apiMutate: jest.fn(),
-  buildApiUrl: (path: string, params?: Record<string, string>) =>
-    `https://api.test/${path}?${new URLSearchParams(params).toString()}`,
-}));
-
-const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>{children}</SWRConfig>
-);
+jest.mock('@/lib/hooks/api-helpers', () => require('./test-utils').apiHelpersMock);
 
 const plan = (over: Partial<SolutionPlanItem> = {}): SolutionPlanItem => ({
   id: 'plan-1',

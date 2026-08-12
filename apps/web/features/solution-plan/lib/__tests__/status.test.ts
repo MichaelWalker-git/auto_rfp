@@ -12,7 +12,8 @@ describe('canGenerateDocuments', () => {
   });
 
   it('keeps the gate open for a stale READY plan (ADR-3)', () => {
-    expect(canGenerateDocuments({ status: 'READY', isStale: true })).toBe(true);
+    const stalePlan = { status: 'READY' as const, isStale: true };
+    expect(canGenerateDocuments(stalePlan)).toBe(true);
   });
 
   it('blocks generation when there is no plan', () => {

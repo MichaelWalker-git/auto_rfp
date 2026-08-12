@@ -12,20 +12,17 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useConfirmDialog } from '@/components/ui/confirm-dialog';
-import { useToast } from '@/components/ui/use-toast';
 import PermissionWrapper from '@/components/permission-wrapper';
-import type { ApiError } from '@/lib/hooks/api-helpers';
 import { useSolutionPlan } from '../hooks/useSolutionPlan';
 import { useGrillingTranscript } from '../hooks/useGrillingTranscript';
-import { useInitSolutionPlan } from '../hooks/useInitSolutionPlan';
+import { useSolutionPlanActions } from '../hooks/useSolutionPlanActions';
 import { GrillingTranscriptView } from './GrillingTranscriptView';
 import { SolutionPlanStatusBadge } from './SolutionPlanStatusBadge';
 
 interface SolutionPlanPanelProps {
   orgId: string;
   projectId: string;
-  oppId: string;
+  opportunityId: string;
 }
 
 /**
@@ -33,62 +30,29 @@ interface SolutionPlanPanelProps {
  * shows the plan status, the live grilling transcript while a run is in
  * flight, and the Start / View & Edit / Regenerate / Retry actions.
  */
-export const SolutionPlanPanel = ({ orgId, projectId, oppId }: SolutionPlanPanelProps) => {
+export const SolutionPlanPanel = ({ orgId, projectId, opportunityId }: SolutionPlanPanelProps) => {
   const { plan, isRunning, isLoading, notFound, refresh } = useSolutionPlan(
     orgId,
     projectId,
-    oppId,
+    opportunityId,
   );
   const { messages, isLoading: isTranscriptLoading } = useGrillingTranscript(
     orgId,
     projectId,
-    oppId,
+    opportunityId,
     { enabled: isRunning },
   );
-  const { initSolutionPlan, isInitializing } = useInitSolutionPlan(orgId, projectId, oppId);
-  const { confirm, ConfirmDialog } = useConfirmDialog();
-  const { toast } = useToast();
+  const { startRun, regenerate, isInitializing, ConfirmDialog } = useSolutionPlanActions(
+    orgId,
+    projectId,
+    opportunityId,
+    { plan, refresh },
+  );
 
-  const editHref = `/organizations/${orgId}/projects/${projectId}/opportunities/${oppId}/solution-plan/edit`;
+  const editHref = `/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}/solution-plan/edit`;
 
-  const startRun = async (restart?: boolean) => {
-    try {
-      await initSolutionPlan(restart ? { restart: true } : undefined);
-      await refresh();
-    } catch (err) {
-      const apiError = err as ApiError;
-      if (apiError.status === 409) {
-        const restartConfirmed = await confirm({
-          title: 'A run is already in progress',
-          description:
-            'A Solution Plan run is already in progress for this opportunity. Abandon it and start over?',
-          confirmLabel: 'Restart run',
-          variant: 'destructive',
-        });
-        if (restartConfirmed) await startRun(true);
-        return;
-      }
-      toast({
-        title: 'Could not start the Solution Plan',
-        description: apiError.message,
-        variant: 'destructive',
-      });
-    }
-  };
-
-  // ADR-4: regenerating wipes the previous run — when the plan has manual
-  // edits the confirm dialog must say they are permanently lost.
-  const handleRegenerate = async () => {
-    const confirmed = await confirm({
-      title: 'Regenerate Solution Plan?',
-      description: plan?.isUserEdited
-        ? 'This plan contains manual edits. Regenerating runs a new interview and your manual edits will be permanently lost.'
-        : 'This runs a new interview and replaces the current plan.',
-      confirmLabel: 'Regenerate',
-      variant: plan?.isUserEdited ? 'destructive' : 'default',
-    });
-    if (confirmed) await startRun();
-  };
+  const handleStart = () => void startRun();
+  const handleRegenerate = () => void regenerate();
 
   const renderBody = () => {
     if (isLoading && !plan && !notFound) {
@@ -108,7 +72,7 @@ export const SolutionPlanPanel = ({ orgId, projectId, oppId }: SolutionPlanPanel
             the approved plan that document generation builds on.
           </p>
           <PermissionWrapper requiredPermission="proposal:create">
-            <Button onClick={() => void startRun()} disabled={isInitializing}>
+            <Button onClick={handleStart} disabled={isInitializing}>
               <Play className="mr-1.5 h-4 w-4" />
               Start Solution Plan
             </Button>
@@ -143,7 +107,7 @@ export const SolutionPlanPanel = ({ orgId, projectId, oppId }: SolutionPlanPanel
             </AlertDescription>
           </Alert>
           <PermissionWrapper requiredPermission="proposal:create">
-            <Button onClick={() => void startRun()} disabled={isInitializing}>
+            <Button onClick={handleStart} disabled={isInitializing}>
               <RefreshCw className="mr-1.5 h-4 w-4" />
               Retry
             </Button>
@@ -178,11 +142,7 @@ export const SolutionPlanPanel = ({ orgId, projectId, oppId }: SolutionPlanPanel
               </Link>
             </Button>
             <PermissionWrapper requiredPermission="proposal:create">
-              <Button
-                variant="outline"
-                onClick={() => void handleRegenerate()}
-                disabled={isInitializing}
-              >
+              <Button variant="outline" onClick={handleRegenerate} disabled={isInitializing}>
                 <RefreshCw className="mr-1.5 h-4 w-4" />
                 Regenerate
               </Button>

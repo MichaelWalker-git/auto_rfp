@@ -421,12 +421,53 @@ describe('API response schemas', () => {
     expect(success).toBe(true);
   });
 
+  it('SolutionPlanInitResponseSchema should reject a body missing runId', () => {
+    expect(
+      SolutionPlanInitResponseSchema.safeParse({
+        ok: true,
+        solutionPlanId: 'plan-123',
+        status: 'GRILLING',
+        version: 0,
+        regenerated: false,
+        wipedMessages: 0,
+      }).success
+    ).toBe(false);
+  });
+
+  it('SolutionPlanInitResponseSchema should reject an unknown status and negative counts', () => {
+    const valid = {
+      ok: true,
+      solutionPlanId: 'plan-123',
+      runId: 'run-abc',
+      status: 'GRILLING',
+      version: 0,
+      regenerated: false,
+      wipedMessages: 0,
+    };
+    expect(
+      SolutionPlanInitResponseSchema.safeParse({ ...valid, status: 'QUEUED' }).success
+    ).toBe(false);
+    expect(
+      SolutionPlanInitResponseSchema.safeParse({ ...valid, wipedMessages: -1 }).success
+    ).toBe(false);
+  });
+
   it('SolutionPlanResponseSchema should wrap a full plan item', () => {
     const { success } = SolutionPlanResponseSchema.safeParse({
       ok: true,
       plan: validItem,
     });
     expect(success).toBe(true);
+  });
+
+  it('SolutionPlanResponseSchema should reject a missing or invalid plan', () => {
+    expect(SolutionPlanResponseSchema.safeParse({ ok: true }).success).toBe(false);
+    expect(
+      SolutionPlanResponseSchema.safeParse({
+        ok: true,
+        plan: { ...validItem, status: 'PENDING' },
+      }).success
+    ).toBe(false);
   });
 
   it('SolutionPlanTranscriptResponseSchema should accept a message list', () => {
@@ -448,6 +489,31 @@ describe('API response schemas', () => {
     });
     expect(success).toBe(true);
     expect(data?.messages).toHaveLength(1);
+  });
+
+  it('SolutionPlanTranscriptResponseSchema should require messages and reject invalid ones', () => {
+    const envelope = {
+      ok: true,
+      solutionPlanId: 'plan-123',
+      runId: 'run-abc',
+      status: 'GRILLING',
+    };
+    expect(SolutionPlanTranscriptResponseSchema.safeParse(envelope).success).toBe(false);
+    expect(
+      SolutionPlanTranscriptResponseSchema.safeParse({
+        ...envelope,
+        messages: [
+          {
+            id: 'msg-1',
+            solutionPlanId: 'plan-123',
+            runId: 'run-abc',
+            round: 1,
+            role: 'USER',
+            content: 'hi',
+          },
+        ],
+      }).success
+    ).toBe(false);
   });
 
   it('SolutionPlanHtmlContentResponseSchema should require the html body', () => {
