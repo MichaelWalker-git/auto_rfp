@@ -317,12 +317,30 @@ const reconcileOrg = async (args: {
         continue;
       }
 
-      if (matchesIntent(existing, intent)) {
+      /**
+       * Idempotency gates the WRITE, not the pass.
+       *
+       * This used to `continue` here, which silently killed the entire Level 2
+       * timer. `decideIntent` is a pure recompute from inputs that do not change
+       * between nights, and `computeFoiaScheduledSendAt` is deterministic, so the
+       * recomputed intent is byte-identical to the stored record on every pass
+       * after the first. `matchesIntent` was therefore permanently true from the
+       * moment the record was written, and the due-check below — the thing that
+       * actually composes and sends the request — was reachable only on the one
+       * pass that changed the record. A request scheduled 90 days out was never
+       * prepared, on any night, ever.
+       *
+       * The reconciler's own comments assumed the opposite ("a missed night
+       * self-corrects within 24 hours"); it self-corrected nothing, precisely
+       * because nothing changed. The existing tests missed it because they stub
+       * `getFoiaAutomation` to null, exercising only the first pass.
+       */
+      const alreadyMatches = matchesIntent(existing, intent);
+      if (alreadyMatches) {
         result.unchanged += 1;
-        continue;
       }
 
-      if (!dryRun) {
+      if (!alreadyMatches && !dryRun) {
         if (existing) {
           await setFoiaAutomationState({
             orgId,
@@ -350,9 +368,13 @@ const reconcileOrg = async (args: {
         await syncOpportunityFoiaMarker(orgId, projectId, oppId, intent.state);
       }
 
-      if (intent.state === 'SCHEDULED') result.scheduled += 1;
-      else if (intent.state === 'SUPPRESSED') result.suppressed += 1;
-      else result.notApplicable += 1;
+      // Only count a state transition we actually made; an unchanged record was
+      // already tallied above and must not be double-counted.
+      if (!alreadyMatches) {
+        if (intent.state === 'SCHEDULED') result.scheduled += 1;
+        else if (intent.state === 'SUPPRESSED') result.suppressed += 1;
+        else result.notApplicable += 1;
+      }
 
       // A scheduled request whose time has arrived gets composed now. This is a
       // separate transition from scheduling on purpose: preparation writes a real

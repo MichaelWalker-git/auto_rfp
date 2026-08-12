@@ -13,10 +13,12 @@ const ACCEPTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/svg
 
 interface OrganizationGeneralSettingsProps {
   name: string;
+  legalName: string;
   iconUrl: string;
   isUploadingIcon: boolean;
   isSaving: boolean;
   onNameChange: (name: string) => void;
+  onLegalNameChange: (legalName: string) => void;
   onIconUpload: (file: File) => void;
   onIconRemove: () => void;
   onSubmit: (event: React.FormEvent) => void;
@@ -24,10 +26,12 @@ interface OrganizationGeneralSettingsProps {
 
 export const OrganizationGeneralSettings: React.FC<OrganizationGeneralSettingsProps> = ({
   name,
+  legalName,
   iconUrl,
   isUploadingIcon,
   isSaving,
   onNameChange,
+  onLegalNameChange,
   onIconUpload,
   onIconRemove,
   onSubmit,
@@ -145,6 +149,28 @@ export const OrganizationGeneralSettings: React.FC<OrganizationGeneralSettingsPr
               placeholder="Enter organization name"
               required
             />
+          </div>
+
+          {/* Registered legal entity, when it differs from the trading name */}
+          <div className="space-y-1.5">
+            <Label
+              htmlFor="legalName"
+              className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+            >
+              Legal Entity Name
+            </Label>
+            <Input
+              id="legalName"
+              className="h-9 text-sm"
+              value={legalName}
+              onChange={(e) => onLegalNameChange(e.target.value)}
+              placeholder="Leave blank if the same as above"
+            />
+            <p className="text-xs text-muted-foreground">
+              Used on public-records requests. Agencies index a procurement file under the name on
+              the bid, so if you bid as a registered entity and trade under another name, entering
+              both here stops a request coming back &ldquo;no record found&rdquo;.
+            </p>
           </div>
 
           {/* Save button */}

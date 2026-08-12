@@ -273,6 +273,25 @@ describe('real subject lines from the monitored mailbox', () => {
     expect(r.classification).toBe('FOIA_RESPONSE');
   });
 
+  it('does not read our own generated letter as an agency reply', () => {
+    // Regression: "responsive records" appears three times in our own template,
+    // and matching that phrase alone made every outbound letter classify as a
+    // FOIA_RESPONSE — which would mark a request answered that was never sent.
+    // Reply markers must describe what only an agency does: attach records,
+    // report having located them, or acknowledge receipt of ours.
+    const ourLetterBody = [
+      'This is a request under the Texas Public Information Act (PIA).',
+      'This request pertains to Solicitation No. RFP 739-SL3722874.',
+      'I will pay reasonable statutory charges for responsive records.',
+      'I request that responsive records be provided in electronic format.',
+    ].join('\n');
+
+    const r = real('Texas Public Information Act Request — RFP 739-SL3722874', ourLetterBody);
+
+    expect(r.classification).toBe('OUR_OWN_REQUEST');
+    expect(r.confidence).toBe('HIGH');
+  });
+
   it('recognises the California response letter wording', () => {
     const r = real(
       'Public Records Act Request – 26-528 – IFB C25910004',

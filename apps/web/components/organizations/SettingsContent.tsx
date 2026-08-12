@@ -24,6 +24,7 @@ export const SettingsContent: React.FC<SettingsContentProps> = ({ orgId }) => {
   const [organization, setOrganization] = useState<OrganizationItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [name, setName] = useState('');
+  const [legalName, setLegalName] = useState('');
   const { toast } = useToast();
 
   const { data: orgData, isLoading: isOrgLoading, isError: isOrgError, mutate } = useOrganization(orgId);
@@ -45,6 +46,7 @@ export const SettingsContent: React.FC<SettingsContentProps> = ({ orgId }) => {
     if (orgData) {
       setOrganization(orgData);
       setName(orgData.name || '');
+      setLegalName(orgData.legalName || '');
       // Load icon via presigned URL if org has an iconKey
       const orgIconKey = orgData.iconKey;
       if (orgIconKey) {
@@ -78,6 +80,9 @@ export const SettingsContent: React.FC<SettingsContentProps> = ({ orgId }) => {
 
     const updatedOrg = await updateOrganization({
       name,
+      // Trimmed to empty means "same as the trading name"; the letter builder
+      // treats an empty legal name as absent rather than as a distinct entity.
+      legalName: legalName.trim() || undefined,
       iconKey: iconS3Key || undefined,
     });
 
@@ -121,10 +126,12 @@ export const SettingsContent: React.FC<SettingsContentProps> = ({ orgId }) => {
 
         <OrganizationGeneralSettings
           name={name}
+          legalName={legalName}
           iconUrl={iconUrl}
           isUploadingIcon={isUploadingIcon}
           isSaving={isSaving}
           onNameChange={setName}
+          onLegalNameChange={setLegalName}
           onIconUpload={handleIconUpload}
           onIconRemove={handleRemoveIcon}
           onSubmit={handleUpdateOrganization}

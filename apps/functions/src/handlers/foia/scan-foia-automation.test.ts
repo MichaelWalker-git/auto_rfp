@@ -306,6 +306,55 @@ describe('scan-foia-automation — idempotency', () => {
     expect(res.totals.unchanged).toBe(1);
     expect(mockSetFoiaAutomationState).not.toHaveBeenCalled();
   });
+
+  it('still prepares a past-due record it has nothing to rewrite', async () => {
+    /**
+     * Regression, and the one that mattered most: idempotency used to `continue`,
+     * so the due-check never ran on any pass after the first. Because
+     * `decideIntent` recomputes the same timestamp every night, a record was
+     * "unchanged" from the moment it was written — and a request scheduled 90 days
+     * out was therefore never prepared, on any night, ever. The whole Level 2
+     * timer was dead.
+     *
+     * The rest of the suite stubs `getFoiaAutomation` to null, which only ever
+     * exercises the first pass. This seeds exactly what the first pass persists.
+     */
+    const submittedAt = new Date(Date.UTC(2026, 0, 1)).toISOString();
+    mockGetSubmissionHistory.mockResolvedValue([{ status: 'SUBMITTED', submittedAt }]);
+    mockGetFoiaAutomation.mockResolvedValue({
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      oppId: 'opp-1',
+      state: 'SCHEDULED',
+      // 90 days after submittedAt — what computeFoiaScheduledSendAt produces,
+      // and comfortably in the past relative to the test clock.
+      scheduledSendAt: '2026-04-01T00:00:00.000Z',
+    });
+    const res = await baseHandler({});
+
+    expect(res.totals.unchanged).toBe(1);
+    // Nothing to rewrite, but the request is due and must be composed.
+    expect(res.totals.prepared).toBe(1);
+    expect(mockPrepareFoiaRequest).toHaveBeenCalledTimes(1);
+    expect(mockSetFoiaAutomationState).not.toHaveBeenCalled();
+  });
+
+  it('does not double-count an unchanged record as a new transition', async () => {
+    const submittedAt = new Date(Date.UTC(2026, 0, 1)).toISOString();
+    mockGetSubmissionHistory.mockResolvedValue([{ status: 'SUBMITTED', submittedAt }]);
+    mockGetFoiaAutomation.mockResolvedValue({
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      oppId: 'opp-1',
+      state: 'SCHEDULED',
+      scheduledSendAt: '2026-04-01T00:00:00.000Z',
+    });
+
+    const res = await baseHandler({});
+
+    expect(res.totals.unchanged).toBe(1);
+    expect(res.totals.scheduled).toBe(0);
+  });
 });
 
 describe('scan-foia-automation — settings and scoping', () => {

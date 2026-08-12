@@ -129,8 +129,20 @@ const FOIA_RESPONSE_PATTERNS: ReadonlyArray<{ re: RegExp; label: string }> = [
   { re: /^\s*(?:re|fwd|fw)?\s*:?\s*response\s*[:\-–]/i, label: 'response-subject' },
   { re: /\b(?:in\s+)?(?:further\s+)?response\s+to\s+your\b/i, label: 'in-response-to-your' },
   { re: /\b(?:is\s+in\s+)?receipt\s+of\s+your\b[^.]{0,60}\brequest\b/i, label: 'receipt-of-your-request' },
+  // Only an agency says it is *providing* records; our own letter asks for them.
+  // A bare "responsive records" match is not enough — that phrase appears three
+  // times in our own template, which made every outbound letter classify as an
+  // agency reply and would have marked requests answered that were never sent.
+  {
+    re: /\b(?:see\s+the\s+)?attached\s+responsive\s+(documents|records)\b/i,
+    label: 'attached-responsive-records',
+  },
+  {
+    re: /\b(?:has|have)\s+(?:been\s+)?located\b[^.]{0,40}\b(responsive|record)/i,
+    label: 'records-located',
+  },
+  { re: /\bno\s+(?:record|documents)\b[^.]{0,60}\b(?:was|were)\s+located\b/i, label: 'no-records-located' },
   { re: /\brequest\s*#?\s*[\w-]+\s+has\s+been\s+(closed|completed|fulfilled)\b/i, label: 'request-closed' },
-  { re: /\bresponsive\s+(documents|records)\b/i, label: 'responsive-records' },
   // "PRA 26-528 - Response - 07.17.26". No \b before the separator: between a
   // space and a hyphen there is no word boundary, so anchoring one there never
   // matched the real subject line.

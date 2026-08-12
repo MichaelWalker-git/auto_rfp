@@ -41,6 +41,29 @@ export interface DeriveFoiaRequestResult {
 }
 
 /**
+ * Renders the requester's company as an agency will need to search for it.
+ *
+ * Returns "<legal> dba <trading>" when the two differ — the form a California
+ * agency itself used when replying — and the single name otherwise. Never
+ * duplicates a name that is the same in both fields, and tolerates either being
+ * absent, since `legalName` is optional and most organizations trade under their
+ * registered name.
+ */
+export const buildCompanyName = (
+  tradingName: string | undefined,
+  legalName: string | undefined,
+): string => {
+  const trading = tradingName?.trim() ?? '';
+  const legal = legalName?.trim() ?? '';
+
+  if (!legal) return trading;
+  if (!trading) return legal;
+  if (legal.toLowerCase() === trading.toLowerCase()) return trading;
+
+  return `${legal} dba ${trading}`;
+};
+
+/**
  * Picks the award date for the letter.
  *
  * Preference order matters legally: a records request filed before award is
@@ -128,7 +151,14 @@ export const deriveFoiaRequest = async (args: {
     feeLimit: settings.defaultFeeLimit,
 
     // Our side of the request.
-    companyName: organization?.name ?? '',
+    //
+    // Names both the legal entity and the trading name when they differ, because
+    // the agency indexes the procurement file under whatever the bid was filed
+    // as. Real responses for one company show "Interesting Interests dba Horus
+    // Technology", "Interesting Interests Inc." and "Horus Technology" all in
+    // use; asking under only one risks a "no record located" reply that reflects
+    // the search string rather than the facts.
+    companyName: buildCompanyName(organization?.name, organization?.legalName),
     // Only meaningful on a loss — on a win we are the awardee, and naming
     // ourselves in the letter's "awarded to" clause would read as nonsense.
     awardeeName: opportunity.lossData?.winningContractor ?? undefined,

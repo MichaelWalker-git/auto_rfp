@@ -29,7 +29,7 @@ jest.mock('@/helpers/foia-recipient', () => ({
 
 import type { FoiaSettingsItem, OpportunityDBItem } from '@auto-rfp/core';
 
-import { deriveFoiaRequest, resolveAwardDate } from './foia-derive';
+import { buildCompanyName, deriveFoiaRequest, resolveAwardDate } from './foia-derive';
 
 const buildOpp = (overrides: Record<string, unknown> = {}) =>
   ({
@@ -284,5 +284,33 @@ describe('deriveFoiaRequest — blocking', () => {
     expect(mockResolveFoiaRecipient).toHaveBeenCalledWith(
       expect.objectContaining({ skipDocumentScan: true }),
     );
+  });
+});
+
+describe('buildCompanyName', () => {
+  it('names both forms when they differ', () => {
+    // The exact form a California agency used when replying to this company.
+    expect(buildCompanyName('Horus Technology', 'Interesting Interests')).toBe(
+      'Interesting Interests dba Horus Technology',
+    );
+  });
+
+  it('does not duplicate a name that is the same in both fields', () => {
+    expect(buildCompanyName('Acme Corp', 'Acme Corp')).toBe('Acme Corp');
+    expect(buildCompanyName('Acme Corp', 'acme corp')).toBe('Acme Corp');
+  });
+
+  it('falls back to whichever name exists', () => {
+    expect(buildCompanyName('Horus Technology', undefined)).toBe('Horus Technology');
+    expect(buildCompanyName(undefined, 'Interesting Interests')).toBe('Interesting Interests');
+    expect(buildCompanyName('Horus Technology', '')).toBe('Horus Technology');
+    expect(buildCompanyName('  ', 'Interesting Interests')).toBe('Interesting Interests');
+  });
+
+  it('returns empty when neither is set, so the missing-fields guard fires', () => {
+    // companyName is a required letter field; an empty value must block the send
+    // rather than produce a letter from a nameless requester.
+    expect(buildCompanyName(undefined, undefined)).toBe('');
+    expect(buildCompanyName('', '')).toBe('');
   });
 });
