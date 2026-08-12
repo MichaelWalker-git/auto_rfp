@@ -220,9 +220,36 @@ describe('readResponseOutcome — what the agency actually did', () => {
     );
   });
 
-  it('reads a denial', () => {
-    expect(outcome('The requested records are exempt from disclosure and have been withheld.')).toBe(
+  it('reads a denial the agency states about itself', () => {
+    expect(outcome('We are withholding the remaining records under Government Code 6254.')).toBe(
       'DENIED',
+    );
+    expect(outcome('Your request is denied in its entirety.')).toBe('DENIED');
+    expect(outcome('The records are exempt from disclosure under the deliberative process privilege.')).toBe('DENIED');
+  });
+
+  it('does not read our own letter\'s exemption clause as a denial', () => {
+    /**
+     * Found on the first real forwarded message. Our request letter asks the
+     * agency to "identify the specific exemption claimed for each withheld
+     * portion" — quoted back in every forwarded reply. A bare `withheld` match
+     * fired on that, labelling a response that ATTACHED a contractor ranking, a
+     * notice of selection and a competitor proposal as DENIED.
+     */
+    const ourClause =
+      'If any portion of a requested record is withheld as exempt, please identify ' +
+      'the specific exemption claimed for each withheld portion.';
+
+    expect(outcome(ourClause)).toBe('ACKNOWLEDGED');
+    // And with records attached, it is unambiguously a production.
+    expect(outcome(ourClause, ['Contractor Ranking.xlsx'])).toBe('RECORDS_RECEIVED');
+  });
+
+  it('treats a redacted attachment as records received, not a denial', () => {
+    // Redaction is partial disclosure. Agencies redact routinely, so reading it as
+    // a denial would mislabel a large share of real replies.
+    expect(outcome('Please see the attached.', ['Terra Compliance, LLC_Redacted.pdf'])).toBe(
+      'RECORDS_RECEIVED',
     );
   });
 

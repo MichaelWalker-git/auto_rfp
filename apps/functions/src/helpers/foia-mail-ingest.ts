@@ -94,15 +94,38 @@ export const readResponseOutcome = (args: {
     return 'NO_RECORDS_LOCATED';
   }
 
-  if (
-    /\b(?:withheld|denied|exempt from disclosure)\b/i.test(bodyText) ||
-    /\breferred\b[^.]{0,60}\battorney general\b/i.test(bodyText)
-  ) {
-    return 'DENIED';
-  }
-
+  /**
+   * Records produced. Checked BEFORE denial, deliberately.
+   *
+   * Our own request letter asks the agency to "identify the specific exemption
+   * claimed for each withheld portion" — so a bare `withheld` match fires on the
+   * quoted original in any forwarded reply, not on anything the agency said. That
+   * mislabelled a real California response as DENIED when it had in fact attached
+   * a contractor ranking, a notice of selection and a competitor's proposal.
+   *
+   * Attachments are the strongest available evidence and cannot be produced by
+   * quoted text, so they settle it first. Redaction is partial disclosure, not
+   * denial: a `_Redacted` filename means records arrived.
+   */
   if (attachmentNames.length > 0 || /\battached\s+responsive\b/i.test(bodyText)) {
     return 'RECORDS_RECEIVED';
+  }
+
+  /**
+   * A denial, stated by the agency about what it is doing.
+   *
+   * Every pattern requires the agency as the actor — "we are withholding", "the
+   * request is denied", "records are exempt". The passive and conditional forms
+   * that appear in our own letter ("if any portion is withheld") cannot match.
+   */
+  if (
+    /\b(?:we|the\s+\w+)\s+(?:are|is|has|have)\s+(?:withholding|withheld)\b/i.test(bodyText) ||
+    /\b(?:your\s+)?request\s+(?:is|has\s+been)\s+denied\b/i.test(bodyText) ||
+    /\brecords?\s+(?:are|is)\s+exempt\s+from\s+disclosure\b/i.test(bodyText) ||
+    /\bwe\s+(?:have\s+)?referred\b[^.]{0,60}\battorney general\b/i.test(bodyText) ||
+    /\bdenying\s+(?:your\s+)?request\b/i.test(bodyText)
+  ) {
+    return 'DENIED';
   }
 
   return 'ACKNOWLEDGED';
