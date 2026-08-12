@@ -23,6 +23,15 @@ export const MAIL_CLASSIFICATIONS = [
   'SOLICITATION_CANCELLED',
   /** An agency replying to a FOIA request we sent. */
   'FOIA_RESPONSE',
+  /**
+   * A records request *we* sent, seen from the monitored mailbox.
+   *
+   * The mailbox is the reply-to on outbound requests, so it receives its own
+   * traffic. Without this class those copies fall through to UNRELATED, which is
+   * safe but throws away the useful signal that a request went out — and risks a
+   * future rule treating our own letter's award wording as an award notice.
+   */
+  'OUR_OWN_REQUEST',
   /** Solicitation-related but not one of the above. */
   'OTHER_SOLICITATION',
   /** Not relevant to any opportunity. */
@@ -88,12 +97,60 @@ const CANCELLED_PATTERNS: ReadonlyArray<{ re: RegExp; label: string }> = [
   { re: /\bwithdrawn\b[^.]{0,30}\bsolicitation\b/i, label: 'withdrawn' },
 ];
 
+/**
+ * Records-request subject lines as they are actually written.
+ *
+ * Every one of these is taken from real correspondence in this mailbox. The
+ * original patterns here assumed federal "FOIA" vocabulary and matched none of
+ * them: state work says "Public Records Act Request", "Texas Public Information
+ * Act Request", or just "PRA 26-528 - Response". Requiring the word FOIA made
+ * the classifier blind to the majority of the traffic it exists to read.
+ */
+const RECORDS_REQUEST_PATTERNS: ReadonlyArray<{ re: RegExp; label: string }> = [
+  // Named statutes, federal and state. "Act Request" is the invariant.
+  {
+    re: /\b(freedom\s+of\s+information|public\s+records|public\s+information|open\s+records|right[\s-]to[\s-]know)\s+act\s+request\b/i,
+    label: 'records-act-request',
+  },
+  // Bare acronym plus a tracking number: "PRA 26-528", "PIA 2026-004".
+  { re: /\b(FOIA|PRA|CPRA|PIA|OPRA|FOIL|APRA|GRAMA)\b[\s#:-]*\d{2,4}[-–]\d{2,6}\b/i, label: 'acronym-tracking' },
+  { re: /\b(public|open)\s+records\s+request\b/i, label: 'records-request' },
+  { re: /\b(freedom\s+of\s+information|public\s+information)\s+act\b/i, label: 'records-act' },
+];
+
 /** Agencies replying to a request we filed. */
 const FOIA_RESPONSE_PATTERNS: ReadonlyArray<{ re: RegExp; label: string }> = [
   { re: /\bFOIA\s+(request|case|control)\s*(number|no\.?|#)/i, label: 'foia-case-number' },
   { re: /\byour\s+(FOIA|freedom\s+of\s+information)\s+request\b/i, label: 'your-foia-request' },
   { re: /\backnowledg(e|ing|ement|ment)\b[^.]{0,40}\bFOIA\b/i, label: 'foia-acknowledgement' },
   { re: /\b(public|open)\s+records\s+request\b[^.]{0,40}\b(received|acknowledg)/i, label: 'records-request-received' },
+  // Real reply shapes: "PRA 26-528 - Response - 07.17.26",
+  // "Response: RFP No. 26-16, ...", "your ... request #26-112 has been closed."
+  { re: /^\s*(?:re|fwd|fw)?\s*:?\s*response\s*[:\-–]/i, label: 'response-subject' },
+  { re: /\b(?:in\s+)?(?:further\s+)?response\s+to\s+your\b/i, label: 'in-response-to-your' },
+  { re: /\b(?:is\s+in\s+)?receipt\s+of\s+your\b[^.]{0,60}\brequest\b/i, label: 'receipt-of-your-request' },
+  { re: /\brequest\s*#?\s*[\w-]+\s+has\s+been\s+(closed|completed|fulfilled)\b/i, label: 'request-closed' },
+  { re: /\bresponsive\s+(documents|records)\b/i, label: 'responsive-records' },
+  // "PRA 26-528 - Response - 07.17.26". No \b before the separator: between a
+  // space and a hyphen there is no word boundary, so anchoring one there never
+  // matched the real subject line.
+  {
+    re: /\b(?:FOIA|PRA|CPRA|PIA|OPRA|FOIL|APRA|GRAMA)\b[^.\n]{0,24}[-–:]\s*response\b/i,
+    label: 'acronym-response',
+  },
+];
+
+/**
+ * Our own outbound request, echoed back by the mailbox.
+ *
+ * Distinguished from an agency reply by the absence of reply markers: an outbound
+ * request names a statute but does not say "Response", "receipt of your", or
+ * quote a tracking number the agency assigned.
+ */
+const OUTBOUND_MARKERS: ReadonlyArray<{ re: RegExp; label: string }> = [
+  { re: /\bthis\s+(email|letter)\s+constitutes\s+a\s+formal\s+request\b/i, label: 'formal-request-body' },
+  { re: /\bplease\s+confirm\s+receipt\s+of\s+this\s+request\b/i, label: 'please-confirm-receipt' },
+  { re: /\bthis\s+is\s+a\s+request\s+under\b/i, label: 'request-under' },
 ];
 
 /**
@@ -116,11 +173,31 @@ const SOLICITATION_NUMBER_PATTERNS: ReadonlyArray<RegExp> = [
 /** SAM.gov notice ids are 32-character hex. */
 const NOTICE_ID_PATTERN = /\b([0-9a-f]{32})\b/i;
 
-/** FOIA tracking numbers as agencies typically format them. */
+/**
+ * Tracking numbers as agencies actually issue them.
+ *
+ * The federal-style patterns below (2026-ARMY-01234) are real but rare in this
+ * pipeline. What real state and municipal agencies send is much terser and was
+ * matched by none of the original patterns: "PRA 26-528", "PRA 2026-278",
+ * "request #26-112", "Public Records Act Request – 26-528 – IFB C25910004".
+ *
+ * The short numeric forms are only recognised next to a records-request acronym
+ * or the word "request", because a bare "26-528" is indistinguishable from a
+ * date, a line item, or a solicitation number.
+ */
 const TRACKING_NUMBER_PATTERNS: ReadonlyArray<RegExp> = [
-  /\b(?:FOIA|case|control|request)\s*(?:number|no\.?|#)\s*:?\s*([A-Z0-9][A-Z0-9\-/]{4,24})\b/i,
+  // Acronym-anchored: "PRA 26-528", "FOIA 2026-278", "PIA #26-112".
+  /\b(?:FOIA|PRA|CPRA|PIA|OPRA|FOIL|APRA|GRAMA)\b[\s#:.-]*(\d{2,4}[-–]\d{2,6})\b/i,
+  // Federal agency style: 2026-ARMY-01234 / NAVY-2026-004567.
   /\b(\d{4}-[A-Z]{2,6}-\d{4,6})\b/,
   /\b([A-Z]{2,6}-\d{4}-\d{4,6})\b/,
+  // "request #26-112", "request number 26-528", "Request No. 2026-278", and the
+  // en-dash form agencies use in subject lines: "Request – 26-528 – IFB C...".
+  // The separator class must include both dash characters; agencies use en
+  // dashes freely and a hyphen-only class silently missed every one.
+  /\brequest\s*(?:number|no\.?|#)?\s*[:#\-–]?\s*(\d{2,4}[-–]\d{2,6})\b/i,
+  // Generic labelled form, last so the specific ones win.
+  /\b(?:case|control)\s*(?:number|no\.?|#)\s*:?\s*([A-Z0-9][A-Z0-9\-/]{4,24})\b/i,
 ];
 
 const matchFirst = (text: string, patterns: ReadonlyArray<RegExp>): string | undefined => {
@@ -160,6 +237,8 @@ export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMa
     patterns.filter((p) => p.re.test(haystack)).map((p) => p.label);
 
   const foiaHits = hit(FOIA_RESPONSE_PATTERNS);
+  const recordsHits = hit(RECORDS_REQUEST_PATTERNS);
+  const outboundHits = hit(OUTBOUND_MARKERS);
   const cancelledHits = hit(CANCELLED_PATTERNS);
   const awardHits = hit(AWARD_PATTERNS);
 
@@ -177,14 +256,39 @@ export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMa
   const confidenceFor = (hits: string[]): 'HIGH' | 'MEDIUM' =>
     hits.length > 0 && hasIdentifier ? 'HIGH' : 'MEDIUM';
 
-  // FOIA responses are checked first: an agency's reply about a request that
+  /**
+   * Our own outbound request, before anything else.
+   *
+   * The monitored mailbox is the reply-to on every request we send, so it sees
+   * its own traffic. Our letters name a statute and describe an award, which is
+   * precisely the wording the award and records rules look for — so this must be
+   * settled first or we would classify our own mail as an agency's.
+   *
+   * A reply marker outranks an outbound marker, because agencies quote the
+   * original request in full: "in further response to your Public Records Act
+   * request ... in which you request: '...'" carries both.
+   */
+  if (outboundHits.length > 0 && foiaHits.length === 0) {
+    return {
+      classification: 'OUR_OWN_REQUEST',
+      confidence: 'HIGH',
+      matchedOn: [...matchedOn, ...outboundHits, ...recordsHits],
+      ...(noticeId ? { noticeId } : {}),
+      ...(solicitationNumber ? { solicitationNumber } : {}),
+      ...(trackingNumber ? { trackingNumber } : {}),
+    };
+  }
+
+  // FOIA responses are checked next: an agency's reply about a request that
   // mentions the underlying award would otherwise read as an award notice.
   if (foiaHits.length > 0) {
     return {
       classification: 'FOIA_RESPONSE',
-      // A tracking number is the identifier that matters for a reply.
-      confidence: trackingNumber ? 'HIGH' : 'MEDIUM',
-      matchedOn: [...matchedOn, ...foiaHits],
+      // A tracking number is the identifier that matters for a reply; a
+      // correlatable solicitation number serves the same purpose, and many
+      // agencies quote only that ("Response: RFP No. 26-16, ...").
+      confidence: trackingNumber || solicitationNumber ? 'HIGH' : 'MEDIUM',
+      matchedOn: [...matchedOn, ...foiaHits, ...recordsHits],
       ...(noticeId ? { noticeId } : {}),
       ...(solicitationNumber ? { solicitationNumber } : {}),
       ...(trackingNumber ? { trackingNumber } : {}),
@@ -210,6 +314,24 @@ export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMa
       matchedOn: [...matchedOn, ...awardHits],
       ...(noticeId ? { noticeId } : {}),
       ...(solicitationNumber ? { solicitationNumber } : {}),
+    };
+  }
+
+  /**
+   * Names a records statute but carries neither reply nor outbound markers.
+   *
+   * Most likely our own request seen without its body (a forwarded subject line
+   * only). Recorded as our own rather than as an agency reply, since misfiling it
+   * as a response would mark a request answered that never was.
+   */
+  if (recordsHits.length > 0) {
+    return {
+      classification: 'OUR_OWN_REQUEST',
+      confidence: 'MEDIUM',
+      matchedOn: [...matchedOn, ...recordsHits],
+      ...(noticeId ? { noticeId } : {}),
+      ...(solicitationNumber ? { solicitationNumber } : {}),
+      ...(trackingNumber ? { trackingNumber } : {}),
     };
   }
 

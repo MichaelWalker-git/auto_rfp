@@ -221,6 +221,70 @@ describe('identifier extraction', () => {
   });
 });
 
+describe('real subject lines from the monitored mailbox', () => {
+  // Verbatim from the Google Group. Every one of these classified as UNRELATED
+  // before the records-statute patterns existed, because the original rules
+  // assumed federal "FOIA" vocabulary and this pipeline is mostly state work.
+  const real = (subject: string, body = '') =>
+    classifyMailDeterministic({ from: 'someone@agency.gov', subject, body });
+
+  it.each([
+    'Freedom of Information Act Request – Solicitation No. 5400028096, DNR Website and Hosting',
+    'California Public Records Act Request – IFB C25910004, Lifeguard Dispatch Software Services',
+    'Texas Public Information Act Request — RFP 739-SL3722874, Student Prospect Digital Profile Solution',
+  ])('recognises our own outbound request: %s', (subject) => {
+    const r = real(`Fwd: ${subject}`);
+
+    expect(r.classification).toBe('OUR_OWN_REQUEST');
+    // Our own letter names a statute and describes an award — never a trigger.
+    expect(canActAutomatically(r)).toBe(false);
+  });
+
+  it('classifies a terse agency reply and pulls the tracking number', () => {
+    const r = real('Fwd: PRA 26-528 - Response - 07.17.26');
+
+    expect(r.classification).toBe('FOIA_RESPONSE');
+    expect(r.trackingNumber).toBe('26-528');
+    expect(r.confidence).toBe('HIGH');
+  });
+
+  it('classifies a "Response:" subject as a reply', () => {
+    const r = real('Fwd: Response: RFP No. 26-16, AI-Powered Student Attendance Platform (07.09.26)');
+
+    expect(r.classification).toBe('FOIA_RESPONSE');
+  });
+
+  it('classifies a portal closure notice and pulls its request number', () => {
+    const r = real('Fwd: Your City of Piedmont, CA public records request #26-112 has been closed.');
+
+    expect(r.classification).toBe('FOIA_RESPONSE');
+    expect(r.trackingNumber).toBe('26-112');
+  });
+
+  it('treats an agency reply quoting our request as a reply, not as ours', () => {
+    // Agencies quote the original in full, so both marker sets fire. The reply
+    // marker must win, or a delivered response would look like an unsent request.
+    const r = real(
+      'RE: Texas Public Information Act Request — RFP 739-SL3722874',
+      'Texas Tech University is in receipt of your open records request below. ' +
+        'Pursuant to said request, please see the attached responsive documents.',
+    );
+
+    expect(r.classification).toBe('FOIA_RESPONSE');
+  });
+
+  it('recognises the California response letter wording', () => {
+    const r = real(
+      'Public Records Act Request – 26-528 – IFB C25910004',
+      'This letter is in further response to your Public Records Act ("PRA"), received ' +
+        'request via e-mail on July 9, 2026, in which you request: ...',
+    );
+
+    expect(r.classification).toBe('FOIA_RESPONSE');
+    expect(r.trackingNumber).toBe('26-528');
+  });
+});
+
 describe('unrelated mail', () => {
   it('ignores ordinary commercial mail', () => {
     const r = classifyMailDeterministic(
