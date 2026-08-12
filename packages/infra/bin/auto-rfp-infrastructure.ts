@@ -287,7 +287,6 @@ const foiaAutomationStack = new FoiaAutomationStack(app, `AutoRfp-FoiaAutomation
   // Required: the reconciler can now send unattended, and the send helper reads
   // this at module load — unset would crash the Lambda on cold start.
   sesFromEmail: 'noreply@horustech.dev',
-  sesConfigurationSet: `auto-rfp-foia-${stage.toLowerCase()}`,
   commonEnv: {
     STAGE: stage,
     DB_TABLE_NAME: db.tableName.tableName,

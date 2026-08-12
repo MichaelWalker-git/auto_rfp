@@ -30,8 +30,6 @@ export interface FoiaAutomationStackProps extends cdk.StackProps {
    * reads it at module load — an unset value crashes the Lambda on import.
    */
   sesFromEmail: string;
-  /** Configuration set that routes bounce and complaint events. */
-  sesConfigurationSet?: string;
 }
 
 /**
@@ -58,7 +56,6 @@ export class FoiaAutomationStack extends cdk.Stack {
       documentsBucketName,
       foiaGovApiKey,
       sesFromEmail,
-      sesConfigurationSet,
     } = props;
 
     const functionName = `auto-rfp-foia-scan-${stage}`;
@@ -144,7 +141,18 @@ export class FoiaAutomationStack extends cdk.Stack {
          * not just the send.
          */
         SES_FROM_EMAIL: sesFromEmail,
-        ...(sesConfigurationSet ? { FOIA_SES_CONFIGURATION_SET: sesConfigurationSet } : {}),
+        /**
+         * FOIA_SES_CONFIGURATION_SET is set below, from the construct itself —
+         * see `scanLambda.addEnvironment`.
+         *
+         * There used to be a prop for it, passed in from `bin/`. That prop and the
+         * construct derived the same name independently and drifted on casing
+         * ("auto-rfp-foia-dev" vs "auto-rfp-foia-Dev"). SES configuration-set names
+         * are case-sensitive, so `SendRawEmail` was rejected outright — every
+         * unattended send would have failed while the human-approved path kept
+         * working, which is the hardest kind of failure to notice. The prop is gone;
+         * reading the created resource's own name makes the drift unreproducible.
+         */
       },
       bundling: {
         minify: true,
@@ -251,6 +259,19 @@ export class FoiaAutomationStack extends cdk.Stack {
       tlsPolicy: ses.ConfigurationSetTlsPolicy.REQUIRE,
       reputationMetrics: true,
     });
+
+    /**
+     * Wire the created set's real name into the reconciler.
+     *
+     * Done here rather than in the environment block above because the construct
+     * does not exist yet at that point. Using `configurationSet.configurationSetName`
+     * rather than re-deriving the string is the point: the two derivations had
+     * already drifted on casing, and SES rejects a mismatched name outright.
+     */
+    scanLambda.addEnvironment(
+      'FOIA_SES_CONFIGURATION_SET',
+      configurationSet.configurationSetName,
+    );
 
     const bounceTopic = new sns.Topic(this, 'FoiaBounceTopic', {
       topicName: `auto-rfp-foia-bounces-${stage}`,
