@@ -292,6 +292,41 @@ describe('real subject lines from the monitored mailbox', () => {
     expect(r.confidence).toBe('HIGH');
   });
 
+  it('does not read our letter\'s document list as an award announcement', () => {
+    /**
+     * From the real archive. Our request itemises "the notice of award and the
+     * awarded contract value" as a record to produce — indistinguishable from an
+     * agency announcing an award unless the request context is read. This one was
+     * classified AWARD_NOTICE, which is the class that can move a FOIA schedule.
+     */
+    const r = real(
+      'California Public Records Act Request – IFB C25910004, Lifeguard Dispatch Software Services',
+      'Pursuant to the California Public Records Act, the undersigned requests copies of the ' +
+        'following public records: 1. The bid tabulation. 4. The notice of award and the awarded ' +
+        'contract value (total bid amount and any Standard Agreement).',
+    );
+
+    expect(r.classification).toBe('OUR_OWN_REQUEST');
+  });
+
+  it('reads an agency reply about a cancellation as a reply, not a trigger', () => {
+    /**
+     * Also from the real archive, and the more dangerous of the two. This is the
+     * agency ANSWERING a request we filed, and mentioning that the solicitation was
+     * cancelled. Classified as SOLICITATION_CANCELLED it would suppress the
+     * automation off the agency's own reply — silently, since a suppression has no
+     * later correction.
+     */
+    const r = real(
+      '[External] Freedom of Information Act Request – Solicitation No. 5400028096, DNR Website and Hosting',
+      'Our office has received your request regarding Solicitation #5400028096. This ' +
+        'solicitation was cancelled after opening but before award with the intent to resolicit.',
+    );
+
+    expect(r.classification).toBe('FOIA_RESPONSE');
+    expect(canActAutomatically(r)).toBe(false);
+  });
+
   it('recognises the California response letter wording', () => {
     const r = real(
       'Public Records Act Request – 26-528 – IFB C25910004',

@@ -155,6 +155,12 @@ const FOIA_RESPONSE_PATTERNS: ReadonlyArray<{ re: RegExp; label: string }> = [
     label: 'no-records-located',
   },
   { re: /\brequest\s*#?\s*[\w-]+\s+has\s+been\s+(closed|completed|fulfilled)\b/i, label: 'request-closed' },
+  // Real agency reply openings. Without these, a reply that happens to explain a
+  // cancellation was classified as a CANCELLATION TRIGGER — which would suppress
+  // the automation off the agency's own answer to a request we already filed.
+  { re: /\bour\s+office\s+has\s+received\s+your\b/i, label: 'office-received-your' },
+  { re: /\b(?:we|this\s+office)\s+(?:have|has)\s+received\s+your\s+(?:request|records)\b/i, label: 'we-received-your-request' },
+  { re: /\byour\s+request\s+regarding\b/i, label: 'your-request-regarding' },
   // "PRA 26-528 - Response - 07.17.26". No \b before the separator: between a
   // space and a hyphen there is no word boundary, so anchoring one there never
   // matched the real subject line.
@@ -175,6 +181,34 @@ const OUTBOUND_MARKERS: ReadonlyArray<{ re: RegExp; label: string }> = [
   { re: /\bthis\s+(email|letter)\s+constitutes\s+a\s+formal\s+request\b/i, label: 'formal-request-body' },
   { re: /\bplease\s+confirm\s+receipt\s+of\s+this\s+request\b/i, label: 'please-confirm-receipt' },
   { re: /\bthis\s+is\s+a\s+request\s+under\b/i, label: 'request-under' },
+  /**
+   * Broader markers, added after real letters matched none of the three above.
+   *
+   * Two genuine outbound requests in the archive carried only "pursuant to the
+   * ... Act" and "on behalf of" — so the outbound gate never fired and both were
+   * read as agency triggers instead. One became an AWARD_NOTICE purely because the
+   * letter *asks for* "the notice of award" as a document.
+   */
+  { re: /\bpursuant\s+to\b[^.]{0,80}\bAct\b/i, label: 'pursuant-to-act' },
+  { re: /\bon\s+behalf\s+of\b[^.]{0,60}\b(?:proposer|offeror|bidder|company|firm)\b/i, label: 'on-behalf-of-bidder' },
+  { re: /\bthe\s+undersigned\b/i, label: 'the-undersigned' },
+  { re: /\brequest\s+production\s+of\s+the\s+following\b/i, label: 'request-production' },
+  { re: /\bcopies\s+of\s+the\s+following\s+public\s+records\b/i, label: 'copies-of-following' },
+];
+
+/**
+ * Phrases that mean a document is being ASKED FOR, not announced.
+ *
+ * Our own letter itemises "the notice of award and the awarded contract value" as
+ * a record to produce. Read without context that is indistinguishable from an
+ * agency announcing an award — and it caused exactly that misread on a real
+ * request. Award and cancellation phrases appearing inside a numbered request list
+ * are therefore discounted.
+ */
+const REQUEST_CONTEXT_MARKERS: ReadonlyArray<RegExp> = [
+  /\b(?:request|requests|requesting|provide|produce|copies)\b[^.]{0,120}\bnotice\s+of\s+award\b/i,
+  /\bnotice\s+of\s+award\b[^.]{0,80}\b(?:and\s+the\s+awarded\s+contract\s+value|contract\/PO\s+number)\b/i,
+  /\ball\s+(?:individual\s+)?evaluat(?:or|ion)\b/i,
 ];
 
 /**
@@ -274,8 +308,19 @@ export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMa
   const foiaHits = hit(FOIA_RESPONSE_PATTERNS);
   const recordsHits = hit(RECORDS_REQUEST_PATTERNS);
   const outboundHits = hit(OUTBOUND_MARKERS);
-  const cancelledHits = hit(CANCELLED_PATTERNS);
-  const awardHits = hit(AWARD_PATTERNS);
+
+  /**
+   * A message that itemises records to produce is a request, not an announcement.
+   *
+   * Discounting award and cancellation hits here is what stops our own letter's
+   * "the notice of award and the awarded contract value" line from reading as an
+   * agency announcing an award. Records-request wording is left intact, since that
+   * is genuinely what the message is.
+   */
+  const isRequestContext = REQUEST_CONTEXT_MARKERS.some((re) => re.test(haystack));
+
+  const cancelledHits = isRequestContext ? [] : hit(CANCELLED_PATTERNS);
+  const awardHits = isRequestContext ? [] : hit(AWARD_PATTERNS);
 
   const noticeId = NOTICE_ID_PATTERN.exec(haystack)?.[1];
   const solicitationNumber = matchFirst(haystack, SOLICITATION_NUMBER_PATTERNS);
