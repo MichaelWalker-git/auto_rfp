@@ -49,7 +49,46 @@ export const validateLetterFields = (request: DBFOIARequestItem): string[] => {
 export interface LetterJurisdictionContext {
   jurisdiction?: 'FEDERAL' | 'STATE';
   state?: string;
+  /**
+   * Whether we hold a submission record proving this company bid on this
+   * solicitation.
+   *
+   * This governs a factual assertion in a statutory filing, so it is passed in
+   * explicitly rather than assumed. Both outcomes are real: on one Texas
+   * solicitation the agency replied "no record of Horus Technology's
+   * participation in this solicitation was located" — the letter had claimed to
+   * be from a proposer — while on a California IFB the abstract of bids lists
+   * the company as bidder 3 of 3. A single hardcoded sentence is wrong roughly
+   * half the time, and it is wrong in the direction of misrepresenting the
+   * requester to a government agency.
+   *
+   * Undefined means unknown, which is treated the same as false: claim nothing.
+   */
+  hasVerifiedSubmission?: boolean;
 }
+
+/**
+ * The paragraph establishing who is asking and why.
+ *
+ * Under the federal FOIA and every state records act, *any person* may request
+ * records — standing as a disappointed bidder is never required to obtain them.
+ * So the unverifiable version of this claim buys nothing and risks everything:
+ * an automated system asserting it at scale would misstate the requester's
+ * bidding history to an agency, in the customer's name, without anyone reading
+ * it first.
+ *
+ * When a submission is on record we say so, because it is true and it helps the
+ * agency locate the file. When it is not, we state the interest we can actually
+ * substantiate — that the requester is a prospective contractor seeking the
+ * procurement record — and let the statute supply the entitlement.
+ */
+const resolveInterestParagraph = (args: {
+  companyName: string;
+  hasVerifiedSubmission?: boolean;
+}): string =>
+  args.hasVerifiedSubmission
+    ? `My company, ${args.companyName}, submitted a proposal in response to the above-referenced solicitation and was not selected for award.`
+    : `My company, ${args.companyName}, is a prospective contractor with a commercial interest in the conduct and outcome of this procurement. This request is made under the statutory right of any person to obtain public records; no claim of bidder status is asserted.`;
 
 /**
  * Formats a date string into a human-readable format for letters.
@@ -126,17 +165,37 @@ export const generateFOIALetter = (
     ? `${numberedDocuments}\n${customDocuments}`
     : numberedDocuments;
 
-  // Build the "pertains to" line
+  /**
+   * "on or about" is doing real work here. The award date is often derived from
+   * an outcome record rather than an agency announcement, and on one real
+   * timeline the response deadline preceded the actual award by 107 days — so a
+   * precise claim would frequently be wrong. Hedged phrasing keeps the letter
+   * accurate while still giving the records officer enough to find the file.
+   */
   const pertainsLine = `This request pertains to Solicitation No. ${request.solicitationNumber}, titled ${request.contractTitle}, awarded on or about ${formatDateForLetter(request.awardDate)}.`;
 
-  // Build the company/offeror paragraph
-  const companyClause = `My company, ${request.companyName}, submitted a proposal`;
+  const interestParagraph = resolveInterestParagraph({
+    companyName: request.companyName,
+    hasVerifiedSubmission: jurisdictionContext.hasVerifiedSubmission,
+  });
+
   const awardeeClause = request.awardeeName ? ` The contract was awarded to ${request.awardeeName}.` : '';
 
-  // Fee limit line — always included
+  /**
+   * Fees.
+   *
+   * The previous default asked for a *waiver*, which a commercial requester is
+   * generally not entitled to — a fee waiver turns on public interest, not on
+   * wanting the records. Asserting entitlement to one weakens the letter and
+   * invites a denial on fee grounds before anyone reads the substance.
+   *
+   * Asking for a written cost estimate first is both accurate and what the
+   * statutes contemplate, and it is what the practitioner's own successful
+   * letter did. Both real agencies then waived duplication costs unprompted.
+   */
   const feeLine = request.feeLimit > 0
-    ? `\nI am willing to pay up to $${request.feeLimit.toFixed(2)} in fees associated with this request. Please contact me before incurring any costs in excess of this amount.\n`
-    : '\nI request a fee waiver for this request. If a fee waiver is not granted, please contact me before incurring any costs.\n';
+    ? `\nI will pay reasonable charges for responsive records up to $${request.feeLimit.toFixed(2)}. Please provide a written cost estimate before incurring any costs in excess of that amount.\n`
+    : '\nI will pay reasonable statutory charges for responsive records. Please provide a written cost estimate before incurring any costs.\n';
 
   return `${today}
 
@@ -151,7 +210,7 @@ ${requestSentence}
 
 ${pertainsLine}
 
-I am submitting this request on behalf of an unsuccessful offeror on the above-referenced solicitation. ${companyClause} in response to this solicitation and was not selected for award.${awardeeClause}
+${interestParagraph}${awardeeClause}
 
 I request that a copy of the following documents be provided to me:
 

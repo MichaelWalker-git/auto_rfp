@@ -85,10 +85,57 @@ export type StateName = z.infer<typeof StateNameSchema>;
 export const STATE_NAMES = StateNameSchema.options;
 
 /**
- * Resolve the public-records law name for a given state.
+ * USPS two-letter codes to the state names {@link STATE_RECORDS_LAWS} is keyed
+ * on. Procurement feeds and solicitation documents overwhelmingly carry the
+ * code, not the spelled-out name, so a name-only lookup silently fails on real
+ * data and the letter falls back to federal FOIA framing — the wrong statute
+ * for a state, county, university or school-district solicitation.
  */
-export const getStateRecordsLaw = (state: string): string | undefined =>
-  (STATE_RECORDS_LAWS as Record<string, string>)[state];
+const STATE_CODE_TO_NAME: Record<string, keyof typeof STATE_RECORDS_LAWS> = {
+  AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California',
+  CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia',
+  HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa',
+  KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland',
+  MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi',
+  MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada',
+  NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York',
+  NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma',
+  OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina',
+  SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont',
+  VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin',
+  WY: 'Wyoming', DC: 'Washington, D.C.',
+};
+
+/**
+ * Resolves the state name for a code or name, in any casing.
+ *
+ * Returns undefined rather than guessing: an unrecognised value must fall
+ * through to federal framing, not to an arbitrary state's statute.
+ */
+export const normalizeStateName = (state: string): keyof typeof STATE_RECORDS_LAWS | undefined => {
+  const trimmed = (state ?? '').trim();
+  if (!trimmed) return undefined;
+
+  const upper = trimmed.toUpperCase();
+  if (upper.length === 2) return STATE_CODE_TO_NAME[upper];
+
+  // "D.C." and "DC" both appear in practice.
+  if (/^D\.?\s*C\.?$/i.test(trimmed)) return 'Washington, D.C.';
+
+  const titled = trimmed.toLowerCase();
+  const match = (Object.keys(STATE_RECORDS_LAWS) as Array<keyof typeof STATE_RECORDS_LAWS>).find(
+    (name) => name.toLowerCase() === titled,
+  );
+  return match;
+};
+
+/**
+ * Resolve the public-records law name for a given state, by name or USPS code.
+ */
+export const getStateRecordsLaw = (state: string): string | undefined => {
+  const name = normalizeStateName(state);
+  return name ? STATE_RECORDS_LAWS[name] : undefined;
+};
 
 /**
  * FOIA Document Types that can be requested
