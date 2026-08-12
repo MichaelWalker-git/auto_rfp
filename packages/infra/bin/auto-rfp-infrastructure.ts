@@ -284,6 +284,10 @@ const foiaAutomationStack = new FoiaAutomationStack(app, `AutoRfp-FoiaAutomation
   // Optional: the FOIA.gov API answers unauthenticated, so an unset key only
   // means the seeder shares a rate-limited public quota.
   foiaGovApiKey: process.env.FOIA_GOV_API_KEY || undefined,
+  // Required: the reconciler can now send unattended, and the send helper reads
+  // this at module load — unset would crash the Lambda on cold start.
+  sesFromEmail: 'noreply@horustech.dev',
+  sesConfigurationSet: `auto-rfp-foia-${stage.toLowerCase()}`,
   commonEnv: {
     STAGE: stage,
     DB_TABLE_NAME: db.tableName.tableName,

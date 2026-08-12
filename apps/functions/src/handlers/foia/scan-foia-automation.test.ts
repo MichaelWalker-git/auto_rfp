@@ -1,6 +1,8 @@
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.DOCUMENTS_BUCKET = 'test-bucket';
 process.env.REGION = 'us-east-1';
+// foia-dispatch imports foia-send, which reads this at module load.
+process.env.SES_FROM_EMAIL = 'noreply@horustech.dev';
 
 jest.mock('@middy/core', () => {
   const middy = (handler: unknown) => ({
@@ -65,6 +67,11 @@ jest.mock('@/helpers/foia-prepare', () => ({
   prepareFoiaRequest: (...a: unknown[]) => mockPrepareFoiaRequest(...a),
 }));
 
+const mockDispatchFoiaRequest = jest.fn();
+jest.mock('@/helpers/foia-dispatch', () => ({
+  dispatchFoiaRequest: (...a: unknown[]) => mockDispatchFoiaRequest(...a),
+}));
+
 import { baseHandler } from './scan-foia-automation';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -122,6 +129,11 @@ beforeEach(() => {
     request: { foiaId: 'foia-1', agencyFOIAEmail: 'foia@army.mil', agencyFOIAAddress: 'addr' },
     letter: 'Letter body',
     artifacts: [],
+  });
+  mockDispatchFoiaRequest.mockResolvedValue({
+    status: 'SENT',
+    messageId: 'ses-1',
+    recipient: 'foia@army.mil',
   });
 });
 
@@ -752,5 +764,97 @@ describe('scan-foia-automation — resilience', () => {
 
     expect(res.ok).toBe(true);
     expect(res.totals.errors + res.totals.scheduled).toBe(1);
+  });
+});
+
+describe('scan-foia-automation — unattended send', () => {
+  /** A due request that preparation judged eligible to send without a human. */
+  const givenAutoSendEligible = () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({
+      items: [buildOpp({ responseDeadlineIso: overdueDeadline() })],
+    });
+    mockPrepareFoiaRequest.mockResolvedValue({
+      status: 'PREPARED',
+      request: { foiaId: 'foia-1', agencyFOIAEmail: 'foia@army.mil', agencyFOIAAddress: 'addr' },
+      letter: 'Letter body',
+      artifacts: [{ kind: 'LETTER_TXT', s3Key: 'k.txt' }],
+      autoSendEligible: true,
+    });
+  };
+
+  it('transmits an eligible request instead of leaving it for a human', async () => {
+    // Three independent conditions produced autoSendEligible: a trusted recipient,
+    // the org opting in, and an award date we can substantiate. Computing that and
+    // then doing nothing with it would leave the feature half-built.
+    givenAutoSendEligible();
+
+    const res = await baseHandler({});
+
+    expect(mockDispatchFoiaRequest).toHaveBeenCalledTimes(1);
+    expect(res.totals.sent).toBe(1);
+  });
+
+  it('does not send a request that needs approval', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({
+      items: [buildOpp({ responseDeadlineIso: overdueDeadline() })],
+    });
+    mockPrepareFoiaRequest.mockResolvedValue({
+      status: 'PREPARED',
+      request: { foiaId: 'foia-1', agencyFOIAEmail: 'foia@army.mil', agencyFOIAAddress: 'addr' },
+      letter: 'Letter body',
+      artifacts: [],
+      autoSendEligible: false,
+    });
+
+    const res = await baseHandler({});
+
+    expect(mockDispatchFoiaRequest).not.toHaveBeenCalled();
+    expect(res.totals.prepared).toBe(1);
+    expect(res.totals.sent).toBe(0);
+  });
+
+  it('never sends on a dry run', async () => {
+    givenAutoSendEligible();
+
+    await baseHandler({ detail: { dryRun: true } });
+
+    expect(mockDispatchFoiaRequest).not.toHaveBeenCalled();
+  });
+
+  it('counts a failed auto-send as prepared, not sent', async () => {
+    // Dispatch releases the lock on failure, so the request is sitting in
+    // AWAITING_APPROVAL — exactly a request waiting for a human, which is the
+    // right fallback rather than a scan error.
+    givenAutoSendEligible();
+    mockDispatchFoiaRequest.mockResolvedValue({
+      status: 'FAILED',
+      error: 'SES throttled',
+      exhausted: false,
+    });
+
+    const res = await baseHandler({});
+
+    expect(res.totals.sent).toBe(0);
+    expect(res.totals.prepared).toBe(1);
+    expect(res.totals.errors).toBe(0);
+  });
+
+  it('passes the opportunity jurisdiction through for the fallback render', async () => {
+    givenAutoSendEligible();
+    mockListOpportunitiesByOrg.mockResolvedValue({
+      items: [
+        buildOpp({
+          responseDeadlineIso: overdueDeadline(),
+          jurisdiction: 'STATE',
+          state: 'TX',
+        }),
+      ],
+    });
+
+    await baseHandler({});
+
+    expect(mockDispatchFoiaRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ jurisdiction: 'STATE', state: 'TX', sentBy: 'system' }),
+    );
   });
 });

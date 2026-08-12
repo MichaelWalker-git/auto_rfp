@@ -23,6 +23,15 @@ export interface FoiaAutomationStackProps extends cdk.StackProps {
    * answers without one, just on a shared rate-limited quota.
    */
   foiaGovApiKey?: string;
+  /**
+   * Verified SES sender for outbound FOIA mail.
+   *
+   * Required because the reconciler can now send unattended, and the send helper
+   * reads it at module load — an unset value crashes the Lambda on import.
+   */
+  sesFromEmail: string;
+  /** Configuration set that routes bounce and complaint events. */
+  sesConfigurationSet?: string;
 }
 
 /**
@@ -42,7 +51,15 @@ export class FoiaAutomationStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: FoiaAutomationStackProps) {
     super(scope, id, props);
 
-    const { stage, mainTable, commonEnv, documentsBucketName, foiaGovApiKey } = props;
+    const {
+      stage,
+      mainTable,
+      commonEnv,
+      documentsBucketName,
+      foiaGovApiKey,
+      sesFromEmail,
+      sesConfigurationSet,
+    } = props;
 
     const functionName = `auto-rfp-foia-scan-${stage}`;
 
@@ -74,6 +91,27 @@ export class FoiaAutomationStack extends cdk.Stack {
       }),
     );
 
+    /**
+     * Send outbound FOIA mail.
+     *
+     * The reconciler transmits requests whose recipient came from a trusted source
+     * in an org that opted in, so it needs the same SES grant as the approval
+     * handler. Scoped to identities and configuration sets in this account —
+     * `SendRawEmail` is required because the letter goes out as MIME with the PDF
+     * attached, and the configuration set is what routes bounces back, without
+     * which a rejected statutory request looks delivered.
+     */
+    lambdaRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'SESFoiaAutoSend',
+        actions: ['ses:SendEmail', 'ses:SendRawEmail'],
+        resources: [
+          `arn:aws:ses:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:identity/*`,
+          `arn:aws:ses:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:configuration-set/*`,
+        ],
+      }),
+    );
+
     // 2. Log group with controlled retention.
     const logGroup = new logs.LogGroup(this, 'FoiaAutomationLogGroup', {
       logGroupName: `/aws/lambda/${functionName}`,
@@ -98,6 +136,15 @@ export class FoiaAutomationStack extends cdk.Stack {
       environment: {
         ...commonEnv,
         DOCUMENTS_BUCKET: documentsBucketName,
+        /**
+         * Required, not optional: the reconciler now transmits auto-send-eligible
+         * requests itself, and `helpers/foia-send` reads this at MODULE LOAD. An
+         * unset value throws during import, which would crash the Lambda on cold
+         * start before any reconciliation happened — taking down Level 2 entirely,
+         * not just the send.
+         */
+        SES_FROM_EMAIL: sesFromEmail,
+        ...(sesConfigurationSet ? { FOIA_SES_CONFIGURATION_SET: sesConfigurationSet } : {}),
       },
       bundling: {
         minify: true,

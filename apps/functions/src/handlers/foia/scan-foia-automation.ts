@@ -24,6 +24,7 @@ import {
   upsertFoiaAutomation,
 } from '@/helpers/foia-automation';
 import { prepareFoiaRequest } from '@/helpers/foia-prepare';
+import { dispatchFoiaRequest } from '@/helpers/foia-dispatch';
 
 /**
  * Daily reconciler for automatic FOIA requests (Level 2).
@@ -75,6 +76,8 @@ interface OrgScanResult {
   prepared: number;
   /** Due requests that need human input before they can proceed. */
   blocked: number;
+  /** Requests transmitted unattended, with no human click. */
+  sent: number;
 }
 
 /** A zeroed result, so every construction site stays in sync. */
@@ -88,6 +91,7 @@ const emptyResult = (orgId: string): OrgScanResult => ({
   errors: 0,
   prepared: 0,
   blocked: 0,
+  sent: 0,
 });
 
 /** What the reconciler decided an opportunity's automation should look like. */
@@ -188,7 +192,7 @@ const prepareDueAutomation = async (args: {
   opportunity: OpportunityDBItem;
   settings: FoiaSettingsItem;
   dryRun: boolean;
-}): Promise<'PREPARED' | 'BLOCKED' | 'SKIPPED'> => {
+}): Promise<'PREPARED' | 'SENT' | 'BLOCKED' | 'SKIPPED'> => {
   const { orgId, projectId, oppId, opportunity, settings, dryRun } = args;
 
   const outcome = await prepareFoiaRequest({
@@ -229,20 +233,18 @@ const prepareDueAutomation = async (args: {
   }
 
   /**
-   * The scanner NEVER enters SENDING — that state is owned exclusively by the
-   * send handler (send-foia-request.ts), which drives the conditional transition
-   * AWAITING_APPROVAL -> SENDING -> (SENT | FAILED). SENDING is a lock, not a
-   * resting state, and the scanner has no code path to release it.
+   * Every prepared request lands in AWAITING_APPROVAL first, including the ones
+   * eligible to send unattended.
    *
-   * Unattended sends (when `autoSendEligible` is true) MUST be triggered by a
-   * separate mechanism: either an EventBridge rule polling for eligible requests,
-   * a webhook from the settings UI when the toggle is flipped, or a manual API
-   * call to the send handler. The scanner only ever transitions to
-   * AWAITING_APPROVAL — the record sits there until something invokes the send
-   * path.
+   * The scanner must never *rest* a record in SENDING, because SENDING is a lock
+   * and an interrupted pass would strand it there — indistinguishable from a send
+   * in progress, while the statutory deadline goes by. So preparation and
+   * transmission are separate transitions: this one records that the request is
+   * ready and whether it may go unattended, and `dispatchFoiaRequest` below claims
+   * the lock only when it is about to call SES, and releases it on every path.
    *
-   * This keeps the scanner a pure reconciler and avoids stranding records in a
-   * lock forever if the downstream send mechanism is not wired up yet.
+   * The practical benefit is that a crash between the two leaves a record a human
+   * can see and act on, rather than a lock nothing can open.
    */
   const nextState: FoiaAutomationState = 'AWAITING_APPROVAL';
 
@@ -275,6 +277,35 @@ const prepareDueAutomation = async (args: {
   if (!moved) return 'SKIPPED';
 
   await syncOpportunityFoiaMarker(orgId, projectId, oppId, nextState);
+
+  /**
+   * Send now, if this request has earned it.
+   *
+   * Three independent conditions had to hold for `autoSendEligible`: the recipient
+   * came from a trusted source, the org opted in, and the award date is one we can
+   * substantiate. With all three, a human click adds nothing a human would catch.
+   *
+   * Dispatch owns the lock end to end, so a failure here lands in FAILED or back in
+   * AWAITING_APPROVAL — never in SENDING. A failed unattended send is therefore
+   * exactly a request waiting for a human, which is the right fallback.
+   */
+  if (outcome.autoSendEligible && !dryRun) {
+    const dispatched = await dispatchFoiaRequest({
+      automation: { ...(moved as FoiaAutomationDBItem), artifacts: outcome.artifacts },
+      ...(opportunity.jurisdiction ? { jurisdiction: opportunity.jurisdiction } : {}),
+      ...(opportunity.state ? { state: opportunity.state } : {}),
+      sentBy: 'system',
+    });
+
+    if (dispatched.status === 'SENT') return 'SENT';
+
+    // Not an error for the scan: the request is prepared and visible, and a human
+    // can send it. Logged so an unattended failure is never silent.
+    console.warn(
+      `[foia-scan] auto-send did not complete for ${orgId}/${projectId}/${oppId}:`,
+      dispatched.status === 'FAILED' ? dispatched.error : dispatched.reason,
+    );
+  }
 
   return 'PREPARED';
 };
@@ -402,6 +433,7 @@ const reconcileOrg = async (args: {
         });
 
         if (outcome === 'PREPARED') result.prepared += 1;
+        else if (outcome === 'SENT') result.sent += 1;
         else if (outcome === 'BLOCKED') result.blocked += 1;
       }
     } catch (err) {
@@ -452,6 +484,7 @@ export const baseHandler = async (event: ScanEvent) => {
       skipped: acc.skipped + r.skipped,
       errors: acc.errors + r.errors,
       prepared: acc.prepared + r.prepared,
+      sent: acc.sent + r.sent,
       blocked: acc.blocked + r.blocked,
     }),
     {
@@ -463,6 +496,7 @@ export const baseHandler = async (event: ScanEvent) => {
       errors: 0,
       prepared: 0,
       blocked: 0,
+      sent: 0,
     },
   );
 
@@ -475,7 +509,8 @@ export const baseHandler = async (event: ScanEvent) => {
     orgCount: orgIds.length,
     totals,
     results: results.filter(
-      (r) => r.scheduled || r.suppressed || r.notApplicable || r.errors || r.prepared || r.blocked,
+      (r) =>
+        r.scheduled || r.suppressed || r.notApplicable || r.errors || r.prepared || r.blocked || r.sent,
     ),
   };
 };
