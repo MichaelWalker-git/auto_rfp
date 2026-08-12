@@ -245,10 +245,15 @@ export const FOIARequestItemSchema = z.object({
    * would make the field required on the inferred output type.
    */
   origin: z.enum(['MANUAL', 'AUTOMATED']).optional(),
-  /** Which recipient-resolution tier produced `agencyFOIAEmail`. For audit. */
-  recipientSource: z
-    .enum(['OPP_FOIA_OVERRIDE', 'OPP_CONTACT', 'DOCUMENT_SEARCH', 'ORG_AGENCY_CONTACT', 'USER_PROVIDED'])
-    .optional(),
+  /**
+   * Which recipient-resolution tier produced `agencyFOIAEmail`. For audit —
+   * "why did this letter go there" must be answerable months later.
+   *
+   * Typed as a plain string rather than importing FoiaRecipientSourceSchema:
+   * ./foia-automation already imports from this file, so the reverse would be a
+   * circular import. The resolver validates the value on the way in.
+   */
+  recipientSource: z.string().optional(),
   /** S3 key of the exact letter text that was sent. */
   letterS3Key: z.string().optional(),
   /** S3 key of the PDF rendition attached to the email. */

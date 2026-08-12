@@ -343,6 +343,13 @@ export const OpportunityItemSchema = z.object({
   sourceUrl: z.string().nullish(),
   /** HigherGov unique opportunity key (used for dedup and re-fetch) */
   higherGovOppKey: z.string().nullish(),
+  /**
+   * HigherGov agency key for the issuing office. Present in the import payload
+   * and previously discarded; retained so the FOIA recipient resolver can walk
+   * the agency hierarchy — HigherGov stores a leaf office ("NPS Midwest Region")
+   * that is not itself a FOIA component, but its parent department is.
+   */
+  higherGovAgencyKey: z.string().nullish(),
   /** HigherGov AI-generated summary — proprietary enrichment */
   higherGovAiSummary: z.string().nullish(),
   /** Decision/award date — when the awarding agency will announce the winner */

@@ -1,6 +1,7 @@
 import middy from '@middy/core';
 
 import {
+  FoiaRecipientSourceSchema,
   computeFoiaScheduledSendAt,
   isFoiaEligibleStatus,
   type FoiaAutomationDBItem,
@@ -239,7 +240,10 @@ const prepareDueAutomation = async (args: {
       foiaRequestId: outcome.request.foiaId,
       resolvedRecipientEmail: outcome.request.agencyFOIAEmail,
       resolvedRecipientAddress: outcome.request.agencyFOIAAddress,
-      recipientSource: outcome.request.recipientSource,
+      // Widened to `string` on FOIARequestItemSchema to avoid a circular import;
+      // the value originates from the resolver, which only ever sets a real
+      // FoiaRecipientSource. Parsed back to the enum here.
+      recipientSource: FoiaRecipientSourceSchema.safeParse(outcome.request.recipientSource).data,
       artifacts: outcome.artifacts,
     },
   });

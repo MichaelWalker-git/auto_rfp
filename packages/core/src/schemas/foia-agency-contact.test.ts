@@ -7,22 +7,35 @@ import {
   FoiaAgencyContactUpdateRequestSchema,
   normalizeAgencyKey,
 } from './foia-agency-contact';
+import { normalizeAgencyTitle } from './foia-component';
 
 describe('normalizeAgencyKey', () => {
   it('collapses the common spellings of one agency to a single key', () => {
-    // These are all real-world variants of the same agency from solicitation feeds.
+    // Real-world variants from solicitation feeds — including the expanded
+    // "Department" spelling, so a directory entry confirmed against one feed's
+    // wording still matches another's.
     const variants = [
       'DEPT OF THE ARMY',
       'Dept. of the Army',
       '  dept of the army ',
       'Dept  of  the  Army',
       'DEPT. OF THE ARMY.',
+      'Department of the Army',
+      'DEPARTMENT OF THE ARMY',
     ];
 
     const keys = new Set(variants.map(normalizeAgencyKey));
 
     expect(keys.size).toBe(1);
-    expect([...keys][0]).toBe('DEPT OF THE ARMY');
+    expect([...keys][0]).toBe('DEPARTMENT OF THE ARMY');
+  });
+
+  it('matches the FOIA.gov matcher byte-for-byte', () => {
+    // The directory key and the component match key must agree, or a confirmed
+    // address silently stops applying when the feed changes its wording.
+    for (const name of ['DEPT OF THE NAVY', 'STATE, DEPARTMENT OF', 'U.S. Coast Guard']) {
+      expect(normalizeAgencyKey(name)).toBe(normalizeAgencyTitle(name));
+    }
   });
 
   it('uppercases', () => {
@@ -31,12 +44,12 @@ describe('normalizeAgencyKey', () => {
     );
   });
 
-  it('strips punctuation but keeps word separation', () => {
-    expect(normalizeAgencyKey('U.S. Dept. of Energy')).toBe('U S DEPT OF ENERGY');
+  it('strips punctuation and folds U.S. to a single token', () => {
+    expect(normalizeAgencyKey('U.S. Dept. of Energy')).toBe('US DEPARTMENT OF ENERGY');
   });
 
   it('collapses runs of whitespace including tabs and newlines', () => {
-    expect(normalizeAgencyKey('DEPT\tOF\nTHE  NAVY')).toBe('DEPT OF THE NAVY');
+    expect(normalizeAgencyKey('DEPT\tOF\nTHE  NAVY')).toBe('DEPARTMENT OF THE NAVY');
   });
 
   it('trims leading and trailing whitespace', () => {

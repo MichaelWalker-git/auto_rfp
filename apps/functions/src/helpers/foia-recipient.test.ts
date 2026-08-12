@@ -30,6 +30,19 @@ jest.mock('@/helpers/foia-doc-scan', () => ({
   scanSolicitationsForFoiaContact: (...args: unknown[]) => mockScanSolicitations(...args),
 }));
 
+const mockMatchStoredComponent = jest.fn();
+const mockGetFoiaComponent = jest.fn();
+jest.mock('@/helpers/foia-component', () => ({
+  matchStoredFoiaComponent: (...a: unknown[]) => mockMatchStoredComponent(...a),
+  getFoiaComponent: (...a: unknown[]) => mockGetFoiaComponent(...a),
+}));
+
+const mockResolveAgencyHierarchy = jest.fn();
+jest.mock('@/helpers/highergov-agency', () => ({
+  resolveAgencyHierarchy: (...a: unknown[]) => mockResolveAgencyHierarchy(...a),
+  orderHierarchyForMatching: (levels: string[]) => [...levels].reverse(),
+}));
+
 import type { OpportunityDBItem } from '@auto-rfp/core';
 
 import { isSendableRecipient, resolveFoiaRecipient } from './foia-recipient';
@@ -53,8 +66,15 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockGetAgencyContact.mockReset();
   mockScanSolicitations.mockReset();
+  mockMatchStoredComponent.mockReset();
+  mockGetFoiaComponent.mockReset();
+  mockResolveAgencyHierarchy.mockReset();
   mockGetAgencyContact.mockResolvedValue(null);
   mockScanSolicitations.mockResolvedValue([]);
+  // Default: the FOIA.gov directory has nothing for this agency.
+  mockMatchStoredComponent.mockResolvedValue({ matched: false, refusal: 'NO_MATCH' });
+  mockGetFoiaComponent.mockResolvedValue(null);
+  mockResolveAgencyHierarchy.mockResolvedValue(null);
 });
 
 describe('resolveFoiaRecipient — tier 1 (opportunity FOIA override)', () => {
@@ -112,8 +132,8 @@ describe('resolveFoiaRecipient — tier 1 (opportunity FOIA override)', () => {
   });
 });
 
-describe('resolveFoiaRecipient — tier 2 (imported point of contact)', () => {
-  it('uses contactEmail when there is no FOIA override', async () => {
+describe('resolveFoiaRecipient — the contracting-officer contact', () => {
+  it('uses contactEmail once the trusted tiers come up empty', async () => {
     const result = await resolveFoiaRecipient({
       orgId: 'org-1',
       opportunity: buildOpportunity({
@@ -125,7 +145,165 @@ describe('resolveFoiaRecipient — tier 2 (imported point of contact)', () => {
     expect(result.email).toBe('contracting.officer@army.mil');
     expect(result.name).toBe('Jane Roe');
     expect(result.source).toBe('OPP_CONTACT');
-    expect(mockGetAgencyContact).not.toHaveBeenCalled();
+  });
+
+  it('is UNTRUSTED, so it can never be auto-sent', async () => {
+    const result = await resolveFoiaRecipient({
+      orgId: 'org-1',
+      opportunity: buildOpportunity({ contactEmail: 'contracting.officer@army.mil' }),
+    });
+
+    // The contracting officer is usually not the FOIA office. Useful as a
+    // fallback a human reviews; wrong to mail unattended.
+    expect(result.isTrusted).toBe(false);
+  });
+
+  it('loses to a FOIA.gov match', async () => {
+    mockMatchStoredComponent.mockResolvedValue({
+      matched: true,
+      componentId: 'army',
+      tier: 'HIERARCHY_SEGMENT',
+    });
+    mockGetFoiaComponent.mockResolvedValue({
+      componentId: 'army',
+      title: 'Department of the Army',
+      isActive: true,
+      emails: ['foia@army.mil'],
+      submissionAddress: { addressLine1: '9301 Chapek Rd', locality: 'Fort Belvoir' },
+    });
+
+    const result = await resolveFoiaRecipient({
+      orgId: 'org-1',
+      opportunity: buildOpportunity({ contactEmail: 'contracting.officer@army.mil' }),
+    });
+
+    // The agency's own published FOIA mailbox beats the contracting officer.
+    expect(result.email).toBe('foia@army.mil');
+    expect(result.source).toBe('FOIA_GOV');
+    expect(result.isTrusted).toBe(true);
+  });
+});
+
+describe('resolveFoiaRecipient — FOIA.gov directory', () => {
+  const armyComponent = {
+    componentId: 'army',
+    title: 'Department of the Army',
+    isActive: true,
+    emails: ['foia@army.mil'],
+    submissionAddress: { addressLine1: '9301 Chapek Rd', locality: 'Fort Belvoir' },
+    submissionWebUrl: null,
+  };
+
+  it('resolves and marks the result trusted', async () => {
+    mockMatchStoredComponent.mockResolvedValue({ matched: true, componentId: 'army', tier: 'EXACT_TITLE' });
+    mockGetFoiaComponent.mockResolvedValue(armyComponent);
+
+    const result = await resolveFoiaRecipient({
+      orgId: 'org-1',
+      opportunity: buildOpportunity(),
+    });
+
+    expect(result.email).toBe('foia@army.mil');
+    expect(result.address).toBe('9301 Chapek Rd, Fort Belvoir');
+    expect(result.foiaComponentId).toBe('army');
+    expect(result.submissionMethod).toBe('EMAIL');
+    expect(result.isTrusted).toBe(true);
+  });
+
+  it('blocks for portal submission when the component has no mailbox', async () => {
+    mockMatchStoredComponent.mockResolvedValue({ matched: true, componentId: 'gsa', tier: 'EXACT_TITLE' });
+    mockGetFoiaComponent.mockResolvedValue({
+      componentId: 'gsa',
+      title: 'General Services Administration',
+      isActive: true,
+      emails: [],
+      submissionWebUrl: 'https://gsa.gov/foia',
+      submissionAddress: null,
+    });
+
+    const result = await resolveFoiaRecipient({
+      orgId: 'org-1',
+      opportunity: buildOpportunity(),
+    });
+
+    expect(result.blockedReason).toBe('AGENCY_REQUIRES_PORTAL');
+    expect(result.webPortalUrl).toBe('https://gsa.gov/foia');
+    expect(result.email).toBeUndefined();
+  });
+
+  it('will not use an upstream-inactive component', async () => {
+    mockMatchStoredComponent.mockResolvedValue({ matched: true, componentId: 'old', tier: 'EXACT_TITLE' });
+    mockGetFoiaComponent.mockResolvedValue({
+      ...armyComponent,
+      componentId: 'old',
+      isActive: false,
+    });
+
+    const result = await resolveFoiaRecipient({
+      orgId: 'org-1',
+      opportunity: buildOpportunity(),
+    });
+
+    // A decommissioned mailbox swallows the request silently.
+    expect(result.email).toBeUndefined();
+    expect(result.blockedReason).toBe('AGENCY_REQUIRES_PORTAL');
+  });
+
+  it('asks for an agency match when the name is ambiguous', async () => {
+    mockMatchStoredComponent.mockResolvedValue({ matched: false, refusal: 'TITLE_AMBIGUOUS' });
+
+    const result = await resolveFoiaRecipient({
+      orgId: 'org-1',
+      opportunity: buildOpportunity({ organizationName: 'Office of Inspector General' }),
+    });
+
+    expect(result.blockedReason).toBe('NEEDS_AGENCY_MATCH');
+  });
+
+  it('walks the HigherGov hierarchy for a leaf office', async () => {
+    // "NPS Midwest Region" is not a FOIA component; the National Park Service is.
+    mockMatchStoredComponent
+      .mockResolvedValueOnce({ matched: false, refusal: 'NO_MATCH' })
+      .mockResolvedValueOnce({ matched: true, componentId: 'nps', tier: 'EXACT_TITLE' });
+    mockResolveAgencyHierarchy.mockResolvedValue({
+      agencyKey: '1294',
+      levels: ['Department of the Interior', 'National Park Service', 'NPS Midwest Region'],
+      fetchedAt: '2026-08-11T00:00:00.000Z',
+    });
+    mockGetFoiaComponent.mockResolvedValue({
+      componentId: 'nps',
+      title: 'National Park Service',
+      isActive: true,
+      emails: ['npsfoia@nps.gov'],
+      submissionAddress: null,
+      submissionWebUrl: null,
+    });
+
+    const result = await resolveFoiaRecipient({
+      orgId: 'org-1',
+      opportunity: buildOpportunity({
+        organizationName: 'NPS Midwest Region',
+        higherGovAgencyKey: '1294',
+      }),
+      higherGovConfig: { baseUrl: 'https://www.highergov.com/api-external', apiKey: 'k' },
+    });
+
+    expect(result.email).toBe('npsfoia@nps.gov');
+    expect(result.source).toBe('HIGHERGOV_HIERARCHY');
+    expect(result.isTrusted).toBe(true);
+    // Most-specific-first: a sub-agency's own FOIA office beats its department's.
+    const [, candidates] = mockMatchStoredComponent.mock.calls[1]! as [unknown, string[]];
+    expect(candidates[0]).toBe('NPS Midwest Region');
+    expect(candidates[2]).toBe('Department of the Interior');
+  });
+
+  it('does not attempt a hierarchy walk without a HigherGov config', async () => {
+    await resolveFoiaRecipient({
+      orgId: 'org-1',
+      opportunity: buildOpportunity({ higherGovAgencyKey: '1294' }),
+    });
+
+    expect(mockResolveAgencyHierarchy).not.toHaveBeenCalled();
   });
 });
 

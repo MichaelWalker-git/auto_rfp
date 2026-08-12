@@ -39,13 +39,13 @@ describe('foia-agency-contact helpers', () => {
       const call = mockSend.mock.calls[0][0];
       expect(call.type).toBe('Get');
       // normalizeAgencyKey strips punctuation, uppercases, collapses whitespace
-      expect(call.params.Key.sort_key).toBe('org-1#DEPT OF THE ARMY');
+      expect(call.params.Key.sort_key).toBe('org-1#DEPARTMENT OF THE ARMY');
     });
 
     it('performs exact key match', async () => {
       const agencyContact = {
         partition_key: 'ORG_AGENCY_CONTACT',
-        sort_key: 'org-1#DEPT OF THE ARMY',
+        sort_key: 'org-1#DEPARTMENT OF THE ARMY',
         orgId: 'org-1',
         agencyName: 'Dept. of the Army',
         agencyKey: 'DEPT OF THE ARMY',
@@ -84,7 +84,7 @@ describe('foia-agency-contact helpers', () => {
       // All should produce the same normalized SK
       const calls = mockSend.mock.calls.map((c) => c[0].params.Key.sort_key);
       expect(new Set(calls).size).toBe(1);
-      expect(calls[0]).toBe('org-1#DEPT OF THE ARMY');
+      expect(calls[0]).toBe('org-1#DEPARTMENT OF THE ARMY');
     });
 
     it('does NOT fuzzy match sibling agencies', async () => {
@@ -94,8 +94,8 @@ describe('foia-agency-contact helpers', () => {
       await getAgencyContact('org-1', 'Dept of the Air Force');
 
       const call = mockSend.mock.calls[0][0];
-      expect(call.params.Key.sort_key).toBe('org-1#DEPT OF THE AIR FORCE');
-      expect(call.params.Key.sort_key).not.toBe('org-1#DEPT OF THE ARMY');
+      expect(call.params.Key.sort_key).toBe('org-1#DEPARTMENT OF THE AIR FORCE');
+      expect(call.params.Key.sort_key).not.toBe('org-1#DEPARTMENT OF THE ARMY');
     });
   });
 });

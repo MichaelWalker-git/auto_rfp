@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { PK_NAME, SK_NAME } from '../constants';
 import { JurisdictionSchema } from './foia';
+import { normalizeAgencyTitle } from './foia-component';
 
 /**
  * An organization's own directory of agency FOIA / public-records contacts.
@@ -14,9 +15,11 @@ import { JurisdictionSchema } from './foia';
 /**
  * Normalizes an agency name into a stable directory key.
  *
- * Solicitation feeds spell the same agency many ways ("DEPT OF THE ARMY",
- * "Dept. of the Army", "  dept of the army "), so the key is uppercased with
- * punctuation stripped and whitespace collapsed.
+ * Delegates to `normalizeAgencyTitle` so the org directory and the FOIA.gov
+ * matcher agree byte-for-byte. They must: this is the lookup key for an address a
+ * human confirmed, and a weaker normalizer here would mean a user who confirmed
+ * "DEPT OF THE ARMY" gets asked again for "Department of the Army" — the saved
+ * answer silently stops applying.
  *
  * Matching is intentionally EXACT on this key — no fuzzy or token-similarity
  * fallback. Sibling components often have near-identical names, and a fuzzy hit
@@ -24,12 +27,7 @@ import { JurisdictionSchema } from './foia';
  * falls through and asks the user instead.
  */
 export const normalizeAgencyKey = (agencyName: string): string =>
-  agencyName
-    .normalize('NFKD')
-    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toUpperCase();
+  normalizeAgencyTitle(agencyName.normalize('NFKD'));
 
 // ─── 1. Create request ────────────────────────────────────────────────────────
 

@@ -43,6 +43,12 @@ export const FoiaBlockedReasonSchema = z.enum([
   'NEEDS_RECIPIENT',
   /** The document scan found candidate addresses; a human must pick one. */
   'NEEDS_CONFIRMATION',
+  /**
+   * We could not tell which agency this office belongs to. Distinct from
+   * NEEDS_RECIPIENT: the UI answers this with an agency picker over the FOIA.gov
+   * directory rather than an email field.
+   */
+  'NEEDS_AGENCY_MATCH',
   /** The agency is on file but does not accept email submissions. */
   'AGENCY_REQUIRES_PORTAL',
   /** `validateLetterFields` found gaps that could not be derived. */
@@ -70,9 +76,44 @@ export const FoiaRecipientSourceSchema = z.enum([
   'ORG_AGENCY_CONTACT',
   /** Typed in by a user in response to a block. */
   'USER_PROVIDED',
+  /** Matched against the mirrored FOIA.gov agency-component directory. */
+  'FOIA_GOV',
+  /** Matched via a HigherGov agency hierarchy walk, then FOIA.gov. */
+  'HIGHERGOV_HIERARCHY',
 ]);
 
 export type FoiaRecipientSource = z.infer<typeof FoiaRecipientSourceSchema>;
+
+/**
+ * Recipient sources whose address may be transmitted without a human clicking
+ * approve.
+ *
+ * The distinction is provenance, not confidence score. These four are either
+ * published by the government itself (FOIA.gov, directly or via a hierarchy
+ * walk) or were entered/confirmed by a person:
+ *
+ *  - FOIA_GOV / HIGHERGOV_HIERARCHY — the agency's own published FOIA mailbox
+ *  - ORG_AGENCY_CONTACT — a human confirmed this agency's address previously
+ *  - OPP_FOIA_OVERRIDE / USER_PROVIDED — a human typed it for this opportunity
+ *
+ * Deliberately excluded:
+ *  - DOCUMENT_SEARCH — a regex hit in solicitation text, i.e. an inference
+ *  - OPP_CONTACT — the contracting officer from the feed, who is usually NOT the
+ *    FOIA office; fine as a fallback a human eyeballs, wrong to mail unattended
+ */
+export const TRUSTED_FOIA_RECIPIENT_SOURCES = [
+  'FOIA_GOV',
+  'HIGHERGOV_HIERARCHY',
+  'ORG_AGENCY_CONTACT',
+  'OPP_FOIA_OVERRIDE',
+  'USER_PROVIDED',
+] as const satisfies readonly FoiaRecipientSource[];
+
+/** Whether an address from this source may be sent without human approval. */
+export const isTrustedFoiaRecipientSource = (
+  source: FoiaRecipientSource | null | undefined,
+): boolean =>
+  !!source && (TRUSTED_FOIA_RECIPIENT_SOURCES as readonly string[]).includes(source);
 
 /** What caused the automation to be scheduled or advanced. */
 export const FoiaTriggerSchema = z.enum(['TIMER', 'AWARD_EMAIL', 'MANUAL']);
@@ -113,6 +154,7 @@ export const FOIA_AUTOMATION_STATE_COLORS: Record<FoiaAutomationState, string> =
 export const FOIA_BLOCKED_REASON_LABELS: Record<FoiaBlockedReason, string> = {
   NEEDS_RECIPIENT: 'No FOIA contact could be found for this agency. Add one to continue.',
   NEEDS_CONFIRMATION: 'Possible FOIA contacts were found in the solicitation. Confirm which to use.',
+  NEEDS_AGENCY_MATCH: 'Select which agency handles records requests for this office.',
   AGENCY_REQUIRES_PORTAL: 'This agency does not accept email requests. Submit via its portal.',
   MISSING_LETTER_FIELDS: 'The request is missing information needed to generate the letter.',
   NO_APPROVER: 'No approver is configured for this organization.',
