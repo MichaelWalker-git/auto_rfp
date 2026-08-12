@@ -20,6 +20,7 @@ import {
   buildMailScanSk,
   claimInboundMessage,
   decideInboundMail,
+  readResponseOutcome,
   toCorrelationCandidates,
 } from './foia-mail-ingest';
 import type { OpportunityDBItem } from '@auto-rfp/core';
@@ -177,6 +178,108 @@ describe('decideInboundMail — refusals', () => {
 
     expect(result.action).toBe('RESPONSE_ATTACHED');
     expect(result.attachmentNames).toEqual(['Evaluation Sheet.pdf']);
+  });
+});
+
+describe('readResponseOutcome — what the agency actually did', () => {
+  const outcome = (bodyText: string, attachmentNames: string[] = []) =>
+    readResponseOutcome({
+      classification: { classification: 'FOIA_RESPONSE', confidence: 'HIGH', matchedOn: [] },
+      bodyText,
+      attachmentNames,
+    });
+
+  it('reads the real "no record located" reply', () => {
+    // Verbatim from TTUHSC. This fact exists only in the reply text — it is how we
+    // learn the agency has no record of us bidding a solicitation we believed we
+    // bid, and nothing downstream can reconstruct it later.
+    expect(
+      outcome("Please note that no record of Horus Technology's participation in this solicitation was located."),
+    ).toBe('NO_RECORDS_LOCATED');
+  });
+
+  it('prefers "no records located" over attached records', () => {
+    // A reply can produce partial records while stating none were found for us.
+    // The second fact is the one that matters.
+    expect(
+      outcome('Please see the attached responsive documents. However, no records were located for your firm.', [
+        'Evaluation.pdf',
+      ]),
+    ).toBe('NO_RECORDS_LOCATED');
+  });
+
+  it('reads records received from an attachment', () => {
+    expect(outcome('Attached please find the responsive records.', ['Recommendation.pdf'])).toBe(
+      'RECORDS_RECEIVED',
+    );
+  });
+
+  it('reads records received from the wording alone', () => {
+    expect(outcome('Pursuant to said request, please see the attached responsive documents.')).toBe(
+      'RECORDS_RECEIVED',
+    );
+  });
+
+  it('reads a denial', () => {
+    expect(outcome('The requested records are exempt from disclosure and have been withheld.')).toBe(
+      'DENIED',
+    );
+  });
+
+  it('reads a Texas AG referral as a denial', () => {
+    // Under the TPIA an agency withholding must refer to the Attorney General, so
+    // a referral is the shape a denial takes in that jurisdiction.
+    expect(
+      outcome('We have referred this matter to the Texas Attorney General for a ruling.'),
+    ).toBe('DENIED');
+  });
+
+  it('falls back to acknowledged when nothing has been produced yet', () => {
+    expect(outcome('We have received your request and are processing it.')).toBe('ACKNOWLEDGED');
+  });
+});
+
+describe('decideInboundMail — response outcomes', () => {
+  it('records the outcome on an attached reply', () => {
+    const result = decideInboundMail({
+      from: 'Barclay.White@ttuhsc.edu',
+      subject: 'RE: Texas Public Information Act Request — RFP 739-SL3722874',
+      raw: raw([
+        'Content-Type: text/plain',
+        '',
+        'Texas Tech University is in receipt of your open records request below. ' +
+          "Please note that no record of Horus Technology's participation in this solicitation was located.",
+      ]),
+      candidates: KNOWN,
+    });
+
+    expect(result.action).toBe('RESPONSE_ATTACHED');
+    expect(result.responseOutcome).toBe('NO_RECORDS_LOCATED');
+  });
+
+  it('records an outcome even when the reply cannot be correlated', () => {
+    // Still worth knowing what happened; a human links it to an opportunity.
+    const result = decideInboundMail({
+      from: 'records@dgs.ca.gov',
+      subject: 'PRA 26-528 - Response - 07.17.26',
+      raw: raw(['Content-Type: text/plain', '', 'Please see the attached responsive documents.']),
+      candidates: KNOWN,
+    });
+
+    expect(result.action).toBe('FLAGGED_FOR_REVIEW');
+    expect(result.responseOutcome).toBe('RECORDS_RECEIVED');
+  });
+
+  it('does not set an outcome on an award notice', () => {
+    // An award notice is a trigger, not a reply — it says nothing about records.
+    const result = decide(
+      'solicitations@ttuhsc.edu',
+      'Notification of Award: RFP 739-SL3722874',
+      'Status: Awarded Award Date 1/29/2026',
+    );
+
+    expect(result.action).toBe('AWARD_RECORDED');
+    expect(result.responseOutcome).toBeUndefined();
   });
 });
 

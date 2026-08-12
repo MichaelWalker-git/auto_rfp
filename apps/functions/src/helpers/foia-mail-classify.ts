@@ -148,7 +148,12 @@ const FOIA_RESPONSE_PATTERNS: ReadonlyArray<{ re: RegExp; label: string }> = [
     re: /\b(?:has|have)\s+(?:been\s+)?located\b[^.]{0,40}\b(responsive|record)/i,
     label: 'records-located',
   },
-  { re: /\bno\s+(?:record|documents)\b[^.]{0,60}\b(?:was|were)\s+located\b/i, label: 'no-records-located' },
+  // Singular and plural both: agencies write "no record ... was located" and "no
+  // records were located" interchangeably, and a singular-only pattern misses half.
+  {
+    re: /\bno\s+(?:records?|documents?)\b[^.]{0,60}\b(?:was|were)\s+(?:located|found|identified)\b/i,
+    label: 'no-records-located',
+  },
   { re: /\brequest\s*#?\s*[\w-]+\s+has\s+been\s+(closed|completed|fulfilled)\b/i, label: 'request-closed' },
   // "PRA 26-528 - Response - 07.17.26". No \b before the separator: between a
   // space and a hyphen there is no word boundary, so anchoring one there never

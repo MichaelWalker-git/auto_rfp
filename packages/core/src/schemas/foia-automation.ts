@@ -37,6 +37,53 @@ export const FoiaAutomationStateSchema = z.enum([
 
 export type FoiaAutomationState = z.infer<typeof FoiaAutomationStateSchema>;
 
+/**
+ * What came back from the agency — a different axis from the request lifecycle.
+ *
+ * `FoiaAutomationState` says where the request is (scheduled, sent, bounced);
+ * this says what the agency did about it. `SENT` tells you nothing about whether
+ * records arrived.
+ *
+ * Recorded at ingestion because most of it is observable nowhere else.
+ * `NO_RECORDS_LOCATED` in particular exists only in the agency's reply — it is
+ * how we learn a solicitation we thought we bid was one the agency has no record
+ * of us bidding, which happened on a real request. If ingestion does not capture
+ * it as it arrives, nothing downstream can reconstruct it later.
+ */
+export const FoiaResponseOutcomeSchema = z.enum([
+  /** The agency produced responsive documents. */
+  'RECORDS_RECEIVED',
+  /** The agency searched and found no record of our participation. */
+  'NO_RECORDS_LOCATED',
+  /** Withheld in whole or in part, or referred to an AG for a ruling. */
+  'DENIED',
+  /** The agency acknowledged the request but has not yet produced anything. */
+  'ACKNOWLEDGED',
+]);
+
+export type FoiaResponseOutcome = z.infer<typeof FoiaResponseOutcomeSchema>;
+
+/**
+ * Why an automation was suppressed.
+ *
+ * `SUPPRESSED` alone conflates causes that mean opposite things: a cancelled
+ * solicitation is an outcome of the procurement, while a user opting out is a
+ * choice about our own process. Anything counting cancellations needs to tell
+ * them apart, and the distinction is only known at the moment of suppression.
+ */
+export const FoiaSuppressionReasonSchema = z.enum([
+  /** The agency cancelled the solicitation; no award will follow. */
+  'SOLICITATION_CANCELLED',
+  /** We withdrew our proposal. */
+  'PROPOSAL_WITHDRAWN',
+  /** A user turned automation off for this opportunity. */
+  'USER_CANCELLED',
+  /** The opportunity is no longer eligible (status moved away from WON/LOST). */
+  'NO_LONGER_ELIGIBLE',
+]);
+
+export type FoiaSuppressionReason = z.infer<typeof FoiaSuppressionReasonSchema>;
+
 /** Why a due automation could not proceed. */
 export const FoiaBlockedReasonSchema = z.enum([
   /** All recipient resolution tiers came up empty. */
@@ -314,7 +361,26 @@ export const FoiaAutomationItemSchema = z.object({
   lastAttemptAt: z.string().datetime({ offset: true }).nullish(),
   lastError: z.string().nullish(),
 
+  /** Human-readable note. Kept for display; prefer `suppressionReason` to count on. */
   suppressedReason: z.string().nullish(),
+  /**
+   * Typed cause of suppression. Distinguishes an agency cancelling a solicitation
+   * from a user opting out — opposite meanings that `SUPPRESSED` alone conflates,
+   * and only knowable at the moment of suppression.
+   */
+  suppressionReason: FoiaSuppressionReasonSchema.nullish(),
+
+  /**
+   * What the agency did about the request, as opposed to where the request is.
+   *
+   * Set from the agency's reply at ingestion. `NO_RECORDS_LOCATED` is observable
+   * nowhere else — it is how we learn the agency has no record of us bidding a
+   * solicitation we believed we bid, which happened on a real request.
+   */
+  responseOutcome: FoiaResponseOutcomeSchema.nullish(),
+  responseReceivedAt: z.string().datetime({ offset: true }).nullish(),
+  /** The agency's own tracking number, for following up by reference. */
+  agencyTrackingNumber: z.string().nullish(),
 
   artifacts: z.array(FoiaArtifactSchema).optional(),
 

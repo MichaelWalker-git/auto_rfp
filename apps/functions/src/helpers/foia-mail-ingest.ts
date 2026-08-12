@@ -1,4 +1,8 @@
-import type { FoiaAwardDateProvenance, OpportunityDBItem } from '@auto-rfp/core';
+import type {
+  FoiaAwardDateProvenance,
+  FoiaResponseOutcome,
+  OpportunityDBItem,
+} from '@auto-rfp/core';
 
 import { FOIA_MAIL_SCAN_PK, FOIA_MAIL_SCAN_TTL_DAYS } from '@/constants/foia';
 import { createItem } from '@/helpers/db';
@@ -54,7 +58,55 @@ export interface MailIngestResult {
   /** Populated when correlation was ambiguous — why we refused. */
   ambiguousMatches?: CorrelationMatch[];
   attachmentNames: string[];
+  /**
+   * What the agency did, when this was a reply.
+   *
+   * Captured here because most of it is observable nowhere else — an agency saying
+   * it found no record of our participation exists only in the reply text, and
+   * nothing downstream can reconstruct it later.
+   */
+  responseOutcome?: FoiaResponseOutcome;
 }
+
+/**
+ * Reads what the agency actually did from a reply.
+ *
+ * Ordered by how much it forecloses. "No records located" is checked before
+ * "records attached", because a reply can produce partial records while stating
+ * that none were found for us — and the second fact is the one that matters, since
+ * it means we never bid the solicitation we thought we did.
+ */
+export const readResponseOutcome = (args: {
+  classification: ClassifiedMail;
+  bodyText: string;
+  attachmentNames: readonly string[];
+}): FoiaResponseOutcome => {
+  const { bodyText, attachmentNames } = args;
+
+  // Both singular and plural: agencies write "no record ... was located" and "no
+  // records were located" interchangeably, and a singular-only pattern silently
+  // misses half of them.
+  if (
+    /\bno\s+(?:records?|documents?|responsive\s+records?)\b[^.]{0,80}\b(?:was|were)\s+(?:located|found|identified)\b/i.test(
+      bodyText,
+    )
+  ) {
+    return 'NO_RECORDS_LOCATED';
+  }
+
+  if (
+    /\b(?:withheld|denied|exempt from disclosure)\b/i.test(bodyText) ||
+    /\breferred\b[^.]{0,60}\battorney general\b/i.test(bodyText)
+  ) {
+    return 'DENIED';
+  }
+
+  if (attachmentNames.length > 0 || /\battached\s+responsive\b/i.test(bodyText)) {
+    return 'RECORDS_RECEIVED';
+  }
+
+  return 'ACKNOWLEDGED';
+};
 
 /** The ledger row proving a message was seen, so redelivery cannot double-apply. */
 export interface FoiaMailScanLedgerItem {
@@ -160,13 +212,20 @@ export const decideInboundMail = (args: {
         ? { ...base, action: 'SUPPRESSED', match: single }
         : { ...base, action: 'FLAGGED_FOR_REVIEW', ...(single ? { match: single } : {}) };
 
-    case 'FOIA_RESPONSE':
+    case 'FOIA_RESPONSE': {
       // A reply is never a trigger — it cannot move a schedule. Attaching it needs
       // only a correlation, since the worst case is a document on the wrong
       // opportunity rather than a request sent to the wrong agency.
+      const responseOutcome = readResponseOutcome({
+        classification,
+        bodyText: text,
+        attachmentNames,
+      });
+
       return single
-        ? { ...base, action: 'RESPONSE_ATTACHED', match: single }
-        : { ...base, action: 'FLAGGED_FOR_REVIEW' };
+        ? { ...base, action: 'RESPONSE_ATTACHED', match: single, responseOutcome }
+        : { ...base, action: 'FLAGGED_FOR_REVIEW', responseOutcome };
+    }
 
     case 'OUR_OWN_REQUEST':
       return { ...base, action: 'OWN_REQUEST_LOGGED', ...(single ? { match: single } : {}) };
