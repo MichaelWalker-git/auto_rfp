@@ -1201,6 +1201,17 @@ ${stylingSection}`;
 
 // ─── User Prompt Builder ──────────────────────────────────────────────────────
 
+/** Context blocks assembled into the user prompt by {@link buildUserPromptForDocumentType}. */
+export interface UserPromptContext {
+  solicitation: string;
+  qaText: string;
+  enrichedKbText: string;
+  /** Org-level task override; falls back to the type-specific default when null/undefined. */
+  taskOverride?: string | null;
+  /** Approved Solution Plan plain text (ADR-7); block omitted when null/undefined/blank. */
+  solutionPlanText?: string | null;
+}
+
 /**
  * Build a tailored user prompt for a specific document type.
  * Each document type gets focused task instructions that direct the model
@@ -1208,12 +1219,9 @@ ${stylingSection}`;
  */
 export const buildUserPromptForDocumentType = (
   documentType: string,
-  solicitation: string,
-  qaText: string,
-  enrichedKbText: string,
-  taskOverride?: string | null,
-  solutionPlanText?: string | null,
+  context: UserPromptContext,
 ): string => {
+  const { solicitation, qaText, enrichedKbText, taskOverride, solutionPlanText } = context;
   const typeLabel =
     RFP_DOCUMENT_TYPES[documentType as keyof typeof RFP_DOCUMENT_TYPES] ??
     humanizeDocumentType(documentType);

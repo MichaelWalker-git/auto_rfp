@@ -82,7 +82,11 @@ describe('builders use the same defaults exposed by the accessors', () => {
   });
 
   it('buildUserPromptForDocumentType emits the COST_PROPOSAL default task', () => {
-    const prompt = buildUserPromptForDocumentType('COST_PROPOSAL', 'solicitation', 'qa', 'kb');
+    const prompt = buildUserPromptForDocumentType('COST_PROPOSAL', {
+      solicitation: 'solicitation',
+      qaText: 'qa',
+      enrichedKbText: 'kb',
+    });
     expect(prompt).toContain(getDefaultTask('COST_PROPOSAL'));
   });
 });
@@ -145,13 +149,12 @@ describe('guidance/task overrides', () => {
 
   describe('buildUserPromptForDocumentType', () => {
     it('substitutes only the task fragment, keeping context sections intact', () => {
-      const prompt = buildUserPromptForDocumentType(
-        'COST_PROPOSAL',
-        'solicitation text',
-        'qa text',
-        'kb text',
-        TASK_OVERRIDE,
-      );
+      const prompt = buildUserPromptForDocumentType('COST_PROPOSAL', {
+        solicitation: 'solicitation text',
+        qaText: 'qa text',
+        enrichedKbText: 'kb text',
+        taskOverride: TASK_OVERRIDE,
+      });
 
       expect(prompt).toContain(TASK_OVERRIDE);
       expect(prompt).not.toContain(getDefaultTask('COST_PROPOSAL'));
@@ -165,12 +168,21 @@ describe('guidance/task overrides', () => {
     });
 
     it('falls back to the type-specific default task when the override is null', () => {
-      const prompt = buildUserPromptForDocumentType('COST_PROPOSAL', 's', 'q', 'k', null);
+      const prompt = buildUserPromptForDocumentType('COST_PROPOSAL', {
+        solicitation: 's',
+        qaText: 'q',
+        enrichedKbText: 'k',
+        taskOverride: null,
+      });
       expect(prompt).toContain(getDefaultTask('COST_PROPOSAL'));
     });
 
     it('falls back to generic DEFAULT_TASK for unknown types without an override', () => {
-      const prompt = buildUserPromptForDocumentType('MY_CUSTOM_TYPE', 's', 'q', 'k');
+      const prompt = buildUserPromptForDocumentType('MY_CUSTOM_TYPE', {
+        solicitation: 's',
+        qaText: 'q',
+        enrichedKbText: 'k',
+      });
       expect(prompt).toContain('YOUR TASK — My Custom Type:');
     });
   });
@@ -181,9 +193,12 @@ describe('Approved Solution Plan injection (ADR-7)', () => {
 
   describe('buildUserPromptForDocumentType', () => {
     it('inserts the SOURCE OF TRUTH block between Q&A and enrichment when plan text is provided', () => {
-      const prompt = buildUserPromptForDocumentType(
-        'TECHNICAL_PROPOSAL', 'solicitation text', 'qa text', 'kb text', null, PLAN_TEXT,
-      );
+      const prompt = buildUserPromptForDocumentType('TECHNICAL_PROPOSAL', {
+        solicitation: 'solicitation text',
+        qaText: 'qa text',
+        enrichedKbText: 'kb text',
+        solutionPlanText: PLAN_TEXT,
+      });
 
       expect(prompt).toContain('APPROVED SOLUTION PLAN (SOURCE OF TRUTH)');
       expect(prompt).toContain('OVERRIDES anything');
@@ -199,17 +214,24 @@ describe('Approved Solution Plan injection (ADR-7)', () => {
 
     it('omits the block when plan text is absent, null, or blank', () => {
       for (const planText of [undefined, null, '', '   ']) {
-        const prompt = buildUserPromptForDocumentType(
-          'TECHNICAL_PROPOSAL', 's', 'q', 'k', null, planText,
-        );
+        const prompt = buildUserPromptForDocumentType('TECHNICAL_PROPOSAL', {
+          solicitation: 's',
+          qaText: 'q',
+          enrichedKbText: 'k',
+          solutionPlanText: planText,
+        });
         expect(prompt).not.toContain('APPROVED SOLUTION PLAN (SOURCE OF TRUTH)');
       }
     });
 
     it('keeps the block when a task override is also supplied', () => {
-      const prompt = buildUserPromptForDocumentType(
-        'COST_PROPOSAL', 's', 'q', 'k', 'CUSTOM TASK', PLAN_TEXT,
-      );
+      const prompt = buildUserPromptForDocumentType('COST_PROPOSAL', {
+        solicitation: 's',
+        qaText: 'q',
+        enrichedKbText: 'k',
+        taskOverride: 'CUSTOM TASK',
+        solutionPlanText: PLAN_TEXT,
+      });
       expect(prompt).toContain('APPROVED SOLUTION PLAN (SOURCE OF TRUTH)');
       expect(prompt).toContain('CUSTOM TASK');
     });

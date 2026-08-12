@@ -461,14 +461,13 @@ describe('processJobInner — document prompt override wiring', () => {
 
     expect(mockBuildSystem).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', templateHtml, 'G-OVERRIDE');
     expect(mockBuildSection).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', 'G-OVERRIDE');
-    expect(mockBuildUser).toHaveBeenCalledWith(
-      'TECHNICAL_PROPOSAL',
-      'solicitation text',
-      '[]',
-      'kb text',
-      'T-OVERRIDE',
-      null,
-    );
+    expect(mockBuildUser).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', {
+      solicitation: 'solicitation text',
+      qaText: '[]',
+      enrichedKbText: 'kb text',
+      taskOverride: 'T-OVERRIDE',
+      solutionPlanText: null,
+    });
   });
 
   it('passes the guidance override to the single-shot system prompt (no template)', async () => {
@@ -493,14 +492,13 @@ describe('processJobInner — document prompt override wiring', () => {
     for (const call of mockBuildSystem.mock.calls) {
       expect(call[2]).toBe('G-OVERRIDE');
     }
-    expect(mockBuildUser).toHaveBeenCalledWith(
-      'TECHNICAL_PROPOSAL',
-      'solicitation text',
-      '[]',
-      'kb text',
-      'T-OVERRIDE',
-      null,
-    );
+    expect(mockBuildUser).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', {
+      solicitation: 'solicitation text',
+      qaText: '[]',
+      enrichedKbText: 'kb text',
+      taskOverride: 'T-OVERRIDE',
+      solutionPlanText: null,
+    });
   });
 
   it('passes null fragments through when no overrides exist (defaults apply in builders)', async () => {
@@ -522,14 +520,13 @@ describe('processJobInner — document prompt override wiring', () => {
     await processJobInner(job);
 
     expect(mockBuildSystem).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', null, null);
-    expect(mockBuildUser).toHaveBeenCalledWith(
-      'TECHNICAL_PROPOSAL',
-      'solicitation text',
-      '[]',
-      'kb text',
-      null,
-      null,
-    );
+    expect(mockBuildUser).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', {
+      solicitation: 'solicitation text',
+      qaText: '[]',
+      enrichedKbText: 'kb text',
+      taskOverride: null,
+      solutionPlanText: null,
+    });
   });
 });
 
@@ -607,20 +604,22 @@ describe('loadApprovedSolutionPlanContext', () => {
     },
   );
 
-  it('returns null when the plan has no contentKey', async () => {
+  it('throws when a READY plan has no contentKey (SoT must not be silently skipped)', async () => {
     (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue({
       ...readyPlan,
       contentKey: undefined,
     });
 
-    expect(await loadApprovedSolutionPlanContext(key)).toBeNull();
+    await expect(loadApprovedSolutionPlanContext(key)).rejects.toThrow(
+      'READY but has no contentKey',
+    );
   });
 
-  it('returns null when the plan HTML strips to empty text', async () => {
+  it('throws when a READY plan HTML strips to empty text', async () => {
     (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(readyPlan);
     (loadSolutionPlanHtml as jest.Mock).mockResolvedValue('<div><p>  </p></div>');
 
-    expect(await loadApprovedSolutionPlanContext(key)).toBeNull();
+    await expect(loadApprovedSolutionPlanContext(key)).rejects.toThrow('content is empty');
   });
 
   it('truncates oversized plan text to the budget and logs a warning with plan id + length', async () => {
@@ -638,14 +637,11 @@ describe('loadApprovedSolutionPlanContext', () => {
     warnSpy.mockRestore();
   });
 
-  it('returns null instead of throwing when the S3 load fails (generation continues)', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  it('propagates an S3 load failure for a READY plan so the job retries/fails instead of generating without the SoT', async () => {
     (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(readyPlan);
     (loadSolutionPlanHtml as jest.Mock).mockRejectedValue(new Error('S3 unavailable'));
 
-    expect(await loadApprovedSolutionPlanContext(key)).toBeNull();
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('S3 unavailable'));
-    warnSpy.mockRestore();
+    await expect(loadApprovedSolutionPlanContext(key)).rejects.toThrow('S3 unavailable');
   });
 });
 
@@ -719,14 +715,13 @@ describe('processJobInner — Solution Plan injection & version stamp (ADR-7)', 
 
     await processJobInner(job);
 
-    expect(mockBuildUser).toHaveBeenCalledWith(
-      'TECHNICAL_PROPOSAL',
-      'solicitation text',
-      '[]',
-      'kb text',
-      null,
-      'Approved plan body',
-    );
+    expect(mockBuildUser).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', {
+      solicitation: 'solicitation text',
+      qaText: '[]',
+      enrichedKbText: 'kb text',
+      taskOverride: null,
+      solutionPlanText: 'Approved plan body',
+    });
 
     expect(updateRFPDocumentMetadata).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -739,20 +734,40 @@ describe('processJobInner — Solution Plan injection & version stamp (ADR-7)', 
     );
   });
 
+  it('threads the plan-bearing user prompt into section-by-section mode via initialUserPrompt (T8)', async () => {
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(readyPlan);
+    (loadSolutionPlanHtml as jest.Mock).mockResolvedValue('<p>Approved plan body</p>');
+    (resolveTemplateHtml as jest.Mock).mockResolvedValue(
+      '<h1>Technical Proposal</h1><h2>Approach</h2><p>[CONTENT: write the approach]</p>',
+    );
+    mockBuildUser.mockReturnValue('user prompt with plan block');
+    const realBody = `<h2>Approach</h2><p>${'Our technical approach is comprehensive. '.repeat(10)}</p>`;
+    mockSectionGen.mockResolvedValue(['<p>Intro paragraph with substance.</p>', realBody]);
+
+    await processJobInner(job);
+
+    expect(mockBuildUser).toHaveBeenCalledWith(
+      'TECHNICAL_PROPOSAL',
+      expect.objectContaining({ solutionPlanText: 'Approved plan body' }),
+    );
+    expect(mockSectionGen).toHaveBeenCalledWith(
+      expect.objectContaining({ initialUserPrompt: 'user prompt with plan block' }),
+    );
+  });
+
   it('passes null plan text and stamps nothing when no plan exists', async () => {
     (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(null);
     setupSingleShotSuccess();
 
     await processJobInner(job);
 
-    expect(mockBuildUser).toHaveBeenCalledWith(
-      'TECHNICAL_PROPOSAL',
-      'solicitation text',
-      '[]',
-      'kb text',
-      null,
-      null,
-    );
+    expect(mockBuildUser).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', {
+      solicitation: 'solicitation text',
+      qaText: '[]',
+      enrichedKbText: 'kb text',
+      taskOverride: null,
+      solutionPlanText: null,
+    });
 
     const saveCall = (updateRFPDocumentMetadata as jest.Mock).mock.calls.find(
       ([args]) => args.updates.htmlContentKey !== undefined,
@@ -772,13 +787,12 @@ describe('processJobInner — Solution Plan injection & version stamp (ADR-7)', 
 
     await processJobInner(job);
 
-    expect(mockBuildUser).toHaveBeenCalledWith(
-      'TECHNICAL_PROPOSAL',
-      'solicitation text',
-      '[]',
-      'kb text',
-      null,
-      null,
-    );
+    expect(mockBuildUser).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', {
+      solicitation: 'solicitation text',
+      qaText: '[]',
+      enrichedKbText: 'kb text',
+      taskOverride: null,
+      solutionPlanText: null,
+    });
   });
 });

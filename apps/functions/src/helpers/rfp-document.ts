@@ -1,5 +1,6 @@
 import { PutCommand, QueryCommand, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { v4 as uuidv4 } from 'uuid';
+import type { RFPDocumentItem } from '@auto-rfp/core';
 import { requireEnv } from './env';
 import { docClient } from './db';
 import { uploadToS3, loadTextFromS3 } from './s3';
@@ -112,33 +113,46 @@ export async function listRFPDocumentsByProject(args: {
 }
 
 // ─── Update Metadata ───
-export async function updateRFPDocumentMetadata(args: {
+
+/** Fields patchable via {@link updateRFPDocumentMetadata}; drives both the type and the update expression. */
+const UPDATABLE_METADATA_FIELDS = [
+  'name',
+  'description',
+  'documentType',
+  'content',
+  'status',
+  'title',
+  'editHistory',
+  'htmlContentKey',
+  'generationError',
+  'signatureStatus',
+  'formFields',
+  'pageImagesKey',
+  'retryCount',
+  'solutionPlanId',
+  'solutionPlanVersion',
+] as const;
+
+type UpdatableMetadataField = (typeof UPDATABLE_METADATA_FIELDS)[number];
+
+/**
+ * Patchable metadata, derived from the core Zod schema. `formFields` and
+ * `pageImagesKey` are worker-internal attributes not on the core item schema.
+ */
+type RFPDocumentMetadataUpdates = Partial<
+  Pick<RFPDocumentItem, Exclude<UpdatableMetadataField, 'formFields' | 'pageImagesKey'>>
+> & {
+  formFields?: unknown;
+  pageImagesKey?: string;
+};
+
+export const updateRFPDocumentMetadata = async (args: {
   projectId: string;
   opportunityId: string;
   documentId: string;
-  updates: {
-    name?: string;
-    description?: string | null;
-    documentType?: string;
-    content?: Record<string, any> | null;
-    status?: string | null;
-    title?: string | null;
-    editHistory?: Record<string, any>[];
-    /** S3 key for the HTML content — replaces storing HTML inline in DynamoDB. Pass null to clear. */
-    htmlContentKey?: string | null;
-    generationError?: string;
-    signatureStatus?: string;
-    formFields?: unknown;
-    pageImagesKey?: string;
-    /** Number of generation retry attempts (0 = first attempt, max 3) */
-    retryCount?: number;
-    /** ID of the Solution Plan injected during generation (ADR-7) */
-    solutionPlanId?: string;
-    /** Version of the Solution Plan at generation time (ADR-7) */
-    solutionPlanVersion?: number;
-  };
+  updates: RFPDocumentMetadataUpdates;
   updatedBy: string;
-}): Promise<Record<string, any>> {
+}): Promise<RFPDocumentItem> => {
   const sk = buildRFPDocumentSK(args.projectId, args.opportunityId, args.documentId);
   const now = nowIso();
 
@@ -147,85 +161,17 @@ export async function updateRFPDocumentMetadata(args: {
     '#updatedAt': 'updatedAt',
     '#updatedBy': 'updatedBy',
   };
-  const values: Record<string, any> = {
+  const values: Record<string, unknown> = {
     ':now': now,
     ':updatedBy': args.updatedBy,
   };
 
-  if (args.updates.name !== undefined) {
-    setParts.push('#name = :name');
-    names['#name'] = 'name';
-    values[':name'] = args.updates.name;
-  }
-  if (args.updates.description !== undefined) {
-    setParts.push('#description = :description');
-    names['#description'] = 'description';
-    values[':description'] = args.updates.description;
-  }
-  if (args.updates.documentType !== undefined) {
-    setParts.push('#documentType = :documentType');
-    names['#documentType'] = 'documentType';
-    values[':documentType'] = args.updates.documentType;
-  }
-  if (args.updates.content !== undefined) {
-    setParts.push('#content = :content');
-    names['#content'] = 'content';
-    values[':content'] = args.updates.content;
-  }
-  if (args.updates.status !== undefined) {
-    setParts.push('#status = :status');
-    names['#status'] = 'status';
-    values[':status'] = args.updates.status;
-  }
-  if (args.updates.title !== undefined) {
-    setParts.push('#title = :title');
-    names['#title'] = 'title';
-    values[':title'] = args.updates.title;
-  }
-  if (args.updates.editHistory !== undefined) {
-    setParts.push('#editHistory = :editHistory');
-    names['#editHistory'] = 'editHistory';
-    values[':editHistory'] = args.updates.editHistory;
-  }
-  if (args.updates.htmlContentKey !== undefined) {
-    setParts.push('#htmlContentKey = :htmlContentKey');
-    names['#htmlContentKey'] = 'htmlContentKey';
-    values[':htmlContentKey'] = args.updates.htmlContentKey;
-  }
-  if (args.updates.generationError !== undefined) {
-    setParts.push('#generationError = :generationError');
-    names['#generationError'] = 'generationError';
-    values[':generationError'] = args.updates.generationError;
-  }
-  if (args.updates.signatureStatus !== undefined) {
-    setParts.push('#signatureStatus = :signatureStatus');
-    names['#signatureStatus'] = 'signatureStatus';
-    values[':signatureStatus'] = args.updates.signatureStatus;
-  }
-  if (args.updates.formFields !== undefined) {
-    setParts.push('#formFields = :formFields');
-    names['#formFields'] = 'formFields';
-    values[':formFields'] = args.updates.formFields;
-  }
-  if (args.updates.pageImagesKey !== undefined) {
-    setParts.push('#pageImagesKey = :pageImagesKey');
-    names['#pageImagesKey'] = 'pageImagesKey';
-    values[':pageImagesKey'] = args.updates.pageImagesKey;
-  }
-  if (args.updates.retryCount !== undefined) {
-    setParts.push('#retryCount = :retryCount');
-    names['#retryCount'] = 'retryCount';
-    values[':retryCount'] = args.updates.retryCount;
-  }
-  if (args.updates.solutionPlanId !== undefined) {
-    setParts.push('#solutionPlanId = :solutionPlanId');
-    names['#solutionPlanId'] = 'solutionPlanId';
-    values[':solutionPlanId'] = args.updates.solutionPlanId;
-  }
-  if (args.updates.solutionPlanVersion !== undefined) {
-    setParts.push('#solutionPlanVersion = :solutionPlanVersion');
-    names['#solutionPlanVersion'] = 'solutionPlanVersion';
-    values[':solutionPlanVersion'] = args.updates.solutionPlanVersion;
+  for (const field of UPDATABLE_METADATA_FIELDS) {
+    const value = args.updates[field];
+    if (value === undefined) continue;
+    setParts.push(`#${field} = :${field}`);
+    names[`#${field}`] = field;
+    values[`:${field}`] = value;
   }
 
   const res = await docClient.send(
@@ -239,8 +185,8 @@ export async function updateRFPDocumentMetadata(args: {
     }),
   );
 
-  return res.Attributes as Record<string, any>;
-}
+  return res.Attributes as RFPDocumentItem;
+};
 
 // ─── Soft Delete ───
 export async function softDeleteRFPDocument(args: {

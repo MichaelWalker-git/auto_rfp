@@ -31,6 +31,8 @@ import {
 } from '@/helpers/document-generation';
 import { getTemplate, findBestTemplate, loadTemplateHtml, replaceMacros, buildMacroValues } from '@/helpers/template';
 import { getSolutionPlanByOpportunity, loadSolutionPlanHtml } from '@/helpers/solution-plan';
+import { stripHtmlToText } from '@/helpers/html-text';
+import { errorMessageOf } from '@/helpers/error';
 import { uploadRFPDocumentHtml, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
 import {
   createVersion,
@@ -827,7 +829,7 @@ export const generateSingleShot = async (args: {
       }
     }
   } catch (parseErr) {
-    console.warn(`[single-shot] safeParseJsonFromModel failed: ${(parseErr as Error).message}. Wrapping raw text as HTML.`);
+    console.warn(`[single-shot] safeParseJsonFromModel failed: ${errorMessageOf(parseErr)}. Wrapping raw text as HTML.`);
     modelJson = { title: getDocumentTypeLabel(documentType), htmlContent: rawText };
   }
 
@@ -911,53 +913,47 @@ export interface SolutionPlanContext {
 /**
  * Load the approved Solution Plan for injection into document generation (ADR-7).
  *
- * Returns null when no plan exists, the plan is not READY, or loading fails —
- * generation proceeds without the source-of-truth block in those cases. A
- * READY-but-stale plan IS injected: staleness only surfaces a UI warning, it
- * never blocks generation (ADR-3).
+ * Returns null only when there is no READY plan — generation legitimately
+ * proceeds without the source-of-truth block. A READY-but-stale plan IS
+ * injected: staleness only surfaces a UI warning, it never blocks generation
+ * (ADR-3). When a READY plan exists but its content cannot be loaded, this
+ * THROWS: generating a document without the plan that "overrides anything"
+ * would silently violate the SoT contract and produce an unstamped document,
+ * so the job must retry/fail instead (processJob handles retry + FAILED).
  */
 export const loadApprovedSolutionPlanContext = async (
   key: SolutionPlanKey,
 ): Promise<SolutionPlanContext | null> => {
-  try {
-    const plan = await getSolutionPlanByOpportunity(key);
-    if (!plan || plan.status !== 'READY' || !plan.contentKey) return null;
+  const plan = await getSolutionPlanByOpportunity(key);
+  if (!plan || plan.status !== 'READY') return null;
 
-    const html = await loadSolutionPlanHtml(plan.contentKey);
-    // Tags become spaces (not '' like compliance-review-html's stripHtml, which
-    // would merge words across element boundaries), then common entities decode.
-    let text = html
-      .replace(/<[^>]*>/g, ' ')   // Strip HTML tags
-      .replace(/&nbsp;/gi, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/\s+/g, ' ')       // Collapse whitespace
-      .trim();
-
-    if (!text) {
-      console.warn(`[worker] Solution Plan ${plan.id} has empty content (contentKey=${plan.contentKey}) — skipping injection`);
-      return null;
-    }
-
-    if (text.length > SOLUTION_PLAN_TEXT_BUDGET) {
-      // Truncation is a safety net — synthesis targets ~10k chars (ADR-6), so
-      // firing means the plan is oversized and worth investigating.
-      console.warn(
-        `[worker] Solution Plan text truncated: planId=${plan.id} length=${text.length} exceeds budget=${SOLUTION_PLAN_TEXT_BUDGET}`,
-      );
-      text = text.slice(0, SOLUTION_PLAN_TEXT_BUDGET);
-    }
-
-    return { plan, text };
-  } catch (err) {
-    console.warn(
-      `[worker] Failed to load Solution Plan for injection (opportunityId=${key.opportunityId}): ${(err as Error).message}`,
+  if (!plan.contentKey) {
+    throw new Error(
+      `Solution Plan ${plan.id} is READY but has no contentKey — cannot inject the source of truth`,
     );
-    return null;
   }
+
+  const html = await loadSolutionPlanHtml(plan.contentKey);
+  // Tags become spaces (not '' like compliance-review-html's stripHtml, which
+  // would merge words across element boundaries).
+  let text = stripHtmlToText(html);
+
+  if (!text) {
+    throw new Error(
+      `Solution Plan ${plan.id} content is empty (contentKey=${plan.contentKey}) — cannot inject the source of truth`,
+    );
+  }
+
+  if (text.length > SOLUTION_PLAN_TEXT_BUDGET) {
+    // Truncation is a safety net — synthesis targets ~10k chars (ADR-6), so
+    // firing means the plan is oversized and worth investigating.
+    console.warn(
+      `[worker] Solution Plan text truncated: planId=${plan.id} length=${text.length} exceeds budget=${SOLUTION_PLAN_TEXT_BUDGET}`,
+    );
+    text = text.slice(0, SOLUTION_PLAN_TEXT_BUDGET);
+  }
+
+  return { plan, text };
 };
 
 // ─── Process Job (Core Logic) ─────────────────────────────────────────────────
@@ -1091,7 +1087,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
         }
       }
     } catch (err) {
-      console.warn(`[worker] Failed to load original template HTML: ${(err as Error).message}`);
+      console.warn(`[worker] Failed to load original template HTML: ${errorMessageOf(err)}`);
     }
   }
 
@@ -1102,14 +1098,13 @@ export const processJobInner = async (job: Job): Promise<void> => {
   const systemPrompt = buildSystemPromptForDocumentType(documentType, templateHtmlScaffold, fragments.guidance);
   // The solution-plan block rides inside the user prompt, so section-by-section
   // mode receives it too (the section generator prepends `initialUserPrompt`).
-  const userPrompt = buildUserPromptForDocumentType(
-    documentType,
+  const userPrompt = buildUserPromptForDocumentType(documentType, {
     solicitation,
-    JSON.stringify(qaPairs),
+    qaText: JSON.stringify(qaPairs),
     enrichedKbText,
-    fragments.task,
-    solutionPlanContext?.text ?? null,
-  );
+    taskOverride: fragments.task,
+    solutionPlanText: solutionPlanContext?.text ?? null,
+  });
 
   console.log(`Prompt sizes: system=${systemPrompt.length}, user=${userPrompt.length}, solicitation=${solicitation.length}, qaPairs=${qaPairs.length}, enrichedKb=${enrichedKbText.length}`);
 
@@ -1406,7 +1401,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
     });
     console.log(`[worker] HTML uploaded to S3: ${htmlContentKey} (${htmlContent.length} chars)`);
   } catch (err) {
-    const msg = `Failed to upload HTML to S3: ${(err as Error).message}`;
+    const msg = `Failed to upload HTML to S3: ${errorMessageOf(err)}`;
     console.error(`[worker] ${msg}`);
     await updateRFPDocumentMetadata({
       projectId, opportunityId, documentId,
@@ -1475,7 +1470,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
     console.log(`[worker] Created version ${newVersionNumber} for document ${documentId}`);
   } catch (versionErr) {
     // Version creation is non-critical — log but don't fail the generation
-    console.error('[worker] Failed to create version snapshot:', (versionErr as Error).message);
+    console.error('[worker] Failed to create version snapshot:', errorMessageOf(versionErr));
   }
 
   console.log(`[worker] Document generation complete for documentId=${documentId}`);
