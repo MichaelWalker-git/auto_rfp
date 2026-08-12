@@ -14,8 +14,9 @@
  */
 import { z } from 'zod';
 import {
-  RFP_DOCUMENT_TYPES,
+  SOLUTION_PLAN_GATE_EXEMPT_DOCUMENT_TYPES,
   SolutionPlanStatusSchema,
+  isSolutionPlanGatedDocumentType,
   type RFPDocumentType,
   type SolutionPlanKey,
 } from '@auto-rfp/core';
@@ -28,18 +29,12 @@ import { listRFPDocumentsByProject } from '@/helpers/rfp-document';
 export const SOLUTION_PLAN_GATING_ENV = 'SOLUTION_PLAN_GATING';
 export const SOLUTION_PLAN_GATING_OFF = 'off';
 
-/** Document types that never require a Solution Plan. */
-export const GATE_EXEMPT_DOCUMENT_TYPES = [
-  'CLARIFYING_QUESTIONS',
-  'QUESTIONS_AND_ANSWERS',
-  'QUESTIONNAIRE',
-] as const satisfies readonly (keyof typeof RFP_DOCUMENT_TYPES)[];
-
-const EXEMPT_TYPES: ReadonlySet<string> = new Set(GATE_EXEMPT_DOCUMENT_TYPES);
+/** Document types that never require a Solution Plan (defined in core, shared with the web gate UI). */
+export const GATE_EXEMPT_DOCUMENT_TYPES = SOLUTION_PLAN_GATE_EXEMPT_DOCUMENT_TYPES;
 
 /** True when the document type requires a READY Solution Plan (custom types are gated). */
 export const isGatedDocumentType = (documentType: RFPDocumentType): boolean =>
-  !EXEMPT_TYPES.has(documentType);
+  isSolutionPlanGatedDocumentType(documentType);
 
 /** Gate verdict; `solutionPlanStatus` is null when no plan exists for the opportunity. */
 export const SolutionPlanGateResultSchema = z.object({

@@ -18,6 +18,7 @@ import {
 import type { RFPDocumentContent } from '@auto-rfp/core';
 import PermissionWrapper from '@/components/permission-wrapper';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { useSolutionPlanGate, SOLUTION_PLAN_GATE_BLOCKED_LABEL } from '@/features/solution-plan';
 import { RichTextEditor } from '@/components/rfp-documents/rich-text-editor';
 
 type Props = {
@@ -49,6 +50,15 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
 
   const { currentOrganization } = useCurrentOrganization();
   const orgId = currentOrganization?.id;
+
+  // Solution Plan gate (T12): this modal generates a TECHNICAL_PROPOSAL (the
+  // server default), which is a gated type. Server enforces the same rule (T9).
+  const { isDocumentTypeBlocked } = useSolutionPlanGate(
+    orgId,
+    projectId,
+    opportunityId,
+  );
+  const isGateBlocked = isDocumentTypeBlocked('TECHNICAL_PROPOSAL');
 
   const { trigger: triggerGenerate, isMutating: isEnqueuing, error: enqueueError } = useGenerateRFPDocument(orgId);
   const { trigger: triggerUpdate, isMutating: isUpdating } = useUpdateRFPDocument(orgId);
@@ -100,6 +110,12 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
   }, [enqueueError, isPollingError, pollingError]);
 
   const startGeneration = useCallback(async () => {
+    if (isGateBlocked) {
+      setLocalError(
+        'A ready Solution Plan is required before generating a proposal. Create one from the Solution Plan section of the opportunity page.',
+      );
+      return;
+    }
     setProposal(undefined);
     setHtmlContent('');
     setLocalError(null);
@@ -118,7 +134,7 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Failed to start generation');
     }
-  }, [triggerGenerate, projectId, opportunityId]);
+  }, [isGateBlocked, triggerGenerate, projectId, opportunityId]);
 
   const handleOpen = () => {
     setOpen(true);
@@ -177,7 +193,13 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
   return (
     <>
       <PermissionWrapper requiredPermission="proposal:create">
-        <Button onClick={handleOpen} disabled={isMutating} variant="outline" className="gap-1">
+        <Button
+          onClick={handleOpen}
+          disabled={isMutating || isGateBlocked}
+          title={isGateBlocked ? SOLUTION_PLAN_GATE_BLOCKED_LABEL : undefined}
+          variant="outline"
+          className="gap-1"
+        >
           {isMutating && !proposal ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -232,7 +254,14 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
           {!proposal && !isMutating && (
             <div className="flex-1 flex flex-col items-center justify-center gap-3">
               <p className="text-sm text-muted-foreground">No proposal generated yet.</p>
-              <Button size="sm" onClick={handleRegenerate}>Generate</Button>
+              <Button
+                size="sm"
+                onClick={handleRegenerate}
+                disabled={isGateBlocked}
+                title={isGateBlocked ? SOLUTION_PLAN_GATE_BLOCKED_LABEL : undefined}
+              >
+                Generate
+              </Button>
             </div>
           )}
 
@@ -302,7 +331,7 @@ export const GenerateRFPDocumentModal: React.FC<Props> = ({
 
           {/* Footer */}
           <div className="shrink-0 pt-3 flex justify-between items-center gap-2">
-            <Button variant="outline" onClick={handleRegenerate} disabled={isMutating || isSaving || hasBeenSaved} title={hasBeenSaved ? 'Document already saved. Export instead.' : 'Regenerate from AI'}>
+            <Button variant="outline" onClick={handleRegenerate} disabled={isMutating || isSaving || hasBeenSaved || isGateBlocked} title={hasBeenSaved ? 'Document already saved. Export instead.' : isGateBlocked ? SOLUTION_PLAN_GATE_BLOCKED_LABEL : 'Regenerate from AI'}>
               Regenerate from AI
             </Button>
             <Button onClick={handleSave} disabled={!canSave || isSaving}>

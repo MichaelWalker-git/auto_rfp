@@ -19,6 +19,8 @@ import {
   SolutionPlanResponseSchema,
   SolutionPlanTranscriptResponseSchema,
   SolutionPlanHtmlContentResponseSchema,
+  SOLUTION_PLAN_GATE_EXEMPT_DOCUMENT_TYPES,
+  isSolutionPlanGatedDocumentType,
   type SolutionPlanItem,
   type SolutionPlanListItem,
 } from './solution-plan';
@@ -60,6 +62,21 @@ describe('SolutionPlanErrorCodeSchema', () => {
   it('should reject unknown codes', () => {
     expect(() => SolutionPlanErrorCodeSchema.parse('SOLUTION_PLAN_STALE')).toThrow();
     expect(() => SolutionPlanErrorCodeSchema.parse('')).toThrow();
+  });
+});
+
+describe('isSolutionPlanGatedDocumentType', () => {
+  it.each([...SOLUTION_PLAN_GATE_EXEMPT_DOCUMENT_TYPES])('should exempt %s', (documentType) => {
+    expect(isSolutionPlanGatedDocumentType(documentType)).toBe(false);
+  });
+
+  it('should gate built-in proposal types', () => {
+    expect(isSolutionPlanGatedDocumentType('COST_PROPOSAL')).toBe(true);
+    expect(isSolutionPlanGatedDocumentType('TECHNICAL_PROPOSAL')).toBe(true);
+  });
+
+  it('should gate custom document types', () => {
+    expect(isSolutionPlanGatedDocumentType('MY_CUSTOM_TYPE')).toBe(true);
   });
 });
 

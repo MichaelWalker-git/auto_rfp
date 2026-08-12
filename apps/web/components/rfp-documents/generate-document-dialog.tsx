@@ -21,9 +21,15 @@ import {
   RFP_DOCUMENT_TYPES,
   useGenerateRFPDocument,
   useCustomDocumentTypes,
+  isSolutionPlanRequiredError,
 } from '@/lib/hooks/use-rfp-documents';
 import { useGetExecutiveBriefByProject } from '@/lib/hooks/use-executive-brief';
 import { useCurrentOrganization } from '@/context/organization-context';
+import {
+  useSolutionPlanGate,
+  SolutionPlanGateCallout,
+  SOLUTION_PLAN_GATE_BLOCKED_LABEL,
+} from '@/features/solution-plan';
 import PermissionWrapper from '@/components/permission-wrapper';
 import { TemplateSelector } from './template-selector';
 import type { RequiredOutputDocument } from '@auto-rfp/core';
@@ -88,6 +94,14 @@ export const GenerateDocumentDialog = ({
   const { customTypes } = useCustomDocumentTypes(currentOrganization?.id ?? null);
   const { trigger: fetchBrief, data: briefData } = useGetExecutiveBriefByProject(orgId);
   const { toast } = useToast();
+
+  // Solution Plan gate (T12): gated doc types require a READY plan; exempt
+  // types (Q&A-style) stay generatable. Server enforces the same rule (T9).
+  const { isGateActive, isDocumentTypeBlocked } = useSolutionPlanGate(
+    orgId,
+    projectId,
+    opportunityId,
+  );
 
   // Fetch required docs from brief when dialog opens (if not provided via props)
   useEffect(() => {
@@ -165,10 +179,13 @@ export const GenerateDocumentDialog = ({
   const buildDefaults = useCallback(() => {
     const map = new Map<string, DocSelection>();
     for (const row of allRows) {
-      map.set(row.key, { checked: row.isRequired, templateId: '' });
+      map.set(row.key, {
+        checked: row.isRequired && !isDocumentTypeBlocked(row.key),
+        templateId: '',
+      });
     }
     return map;
-  }, [allRows]);
+  }, [allRows, isDocumentTypeBlocked]);
 
   const [selections, setSelections] = useState<Map<string, DocSelection>>(buildDefaults);
 
@@ -181,9 +198,16 @@ export const GenerateDocumentDialog = ({
     prevOpenRef.current = open;
   }, [open, buildDefaults]);
 
+  // A row is effectively checked only while its type isn't gate-blocked —
+  // covers the gate resolving asynchronously after selections were built.
+  const isRowChecked = useCallback(
+    (key: string) => (selections.get(key)?.checked ?? false) && !isDocumentTypeBlocked(key),
+    [selections, isDocumentTypeBlocked],
+  );
+
   const checkedCount = useMemo(
-    () => Array.from(selections.values()).filter((s) => s.checked).length,
-    [selections],
+    () => allRows.filter((row) => isRowChecked(row.key)).length,
+    [allRows, isRowChecked],
   );
 
   const updateSelection = (key: string, updates: Partial<DocSelection>) => {
@@ -201,7 +225,7 @@ export const GenerateDocumentDialog = ({
     setSelections((prev) => {
       const next = new Map(prev);
       for (const [key, val] of next) {
-        next.set(key, { ...val, checked });
+        next.set(key, { ...val, checked: checked && !isDocumentTypeBlocked(key) });
       }
       return next;
     });
@@ -211,14 +235,14 @@ export const GenerateDocumentDialog = ({
     setSelections((prev) => {
       const next = new Map(prev);
       for (const [key, val] of next) {
-        next.set(key, { ...val, checked: requiredKeys.has(key) });
+        next.set(key, { ...val, checked: requiredKeys.has(key) && !isDocumentTypeBlocked(key) });
       }
       return next;
     });
   };
 
   const handleGenerate = async () => {
-    const toGenerate = allRows.filter((r) => selections.get(r.key)?.checked);
+    const toGenerate = allRows.filter((r) => isRowChecked(r.key));
     if (toGenerate.length === 0) return;
 
     setIsGenerating(true);
@@ -242,7 +266,7 @@ export const GenerateDocumentDialog = ({
       setOpen(false);
     } catch (err) {
       toast({
-        title: 'Generation failed',
+        title: isSolutionPlanRequiredError(err) ? 'Solution Plan required' : 'Generation failed',
         description: err instanceof Error ? err.message : 'Failed to start generation',
         variant: 'destructive',
       });
@@ -252,7 +276,11 @@ export const GenerateDocumentDialog = ({
   };
 
   const hasRequired = requiredKeys.size > 0;
-  const allChecked = checkedCount === allRows.length;
+  const selectableCount = useMemo(
+    () => allRows.filter((row) => !isDocumentTypeBlocked(row.key)).length,
+    [allRows, isDocumentTypeBlocked],
+  );
+  const allChecked = selectableCount > 0 && checkedCount === selectableCount;
 
   return (
     <PermissionWrapper requiredPermission="proposal:create">
@@ -270,6 +298,16 @@ export const GenerateDocumentDialog = ({
               Select document types to generate and choose a template for each.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Solution Plan gate callout (T12) */}
+          {isGateActive && (
+            <SolutionPlanGateCallout
+              orgId={orgId}
+              projectId={projectId}
+              opportunityId={opportunityId}
+              onNavigate={() => setOpen(false)}
+            />
+          )}
 
           {/* Quick filters */}
           <div className="flex items-center gap-2">
@@ -302,7 +340,8 @@ export const GenerateDocumentDialog = ({
           <div className="space-y-1 max-h-96 overflow-y-auto pr-1">
             {allRows.map((row) => {
               const sel = selections.get(row.key);
-              const isChecked = sel?.checked ?? false;
+              const isBlocked = isDocumentTypeBlocked(row.key);
+              const isChecked = isRowChecked(row.key);
 
               return (
                 <div
@@ -311,6 +350,7 @@ export const GenerateDocumentDialog = ({
                 >
                   <Checkbox
                     checked={isChecked}
+                    disabled={isBlocked}
                     onCheckedChange={(checked) =>
                       updateSelection(row.key, { checked: !!checked })
                     }
@@ -318,10 +358,17 @@ export const GenerateDocumentDialog = ({
                   />
                   <Label
                     htmlFor={`gen-${row.key}`}
-                    className="text-sm font-medium cursor-pointer flex-1 min-w-0 truncate"
+                    className={`text-sm font-medium flex-1 min-w-0 truncate ${
+                      isBlocked ? 'cursor-not-allowed text-muted-foreground' : 'cursor-pointer'
+                    }`}
                   >
                     {row.label}
                   </Label>
+                  {isBlocked && (
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 text-muted-foreground">
+                      Requires Solution Plan
+                    </Badge>
+                  )}
                   {row.isRequired && (
                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
                       Required

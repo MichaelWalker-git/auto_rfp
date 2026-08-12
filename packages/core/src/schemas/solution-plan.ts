@@ -11,6 +11,7 @@
 
 import { z } from 'zod';
 import { PK_NAME, SK_NAME } from '../constants';
+import { RFP_DOCUMENT_TYPES } from './rfp-document';
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 
@@ -108,6 +109,27 @@ export const SolutionPlanErrorCodeSchema = z.enum([
 ]);
 
 export type SolutionPlanErrorCode = z.infer<typeof SolutionPlanErrorCodeSchema>;
+
+// ─── Generation gate ────────────────────────────────────────────────────────────
+
+/**
+ * Document types that never require a Solution Plan (Q&A-style exports).
+ * Shared by the server-side generation gate (T9) and the frontend gating UI
+ * (T12) so both always agree on what is exempt.
+ */
+export const SOLUTION_PLAN_GATE_EXEMPT_DOCUMENT_TYPES = [
+  'CLARIFYING_QUESTIONS',
+  'QUESTIONS_AND_ANSWERS',
+  'QUESTIONNAIRE',
+] as const satisfies readonly (keyof typeof RFP_DOCUMENT_TYPES)[];
+
+const GATE_EXEMPT_TYPES: ReadonlySet<string> = new Set(
+  SOLUTION_PLAN_GATE_EXEMPT_DOCUMENT_TYPES,
+);
+
+/** True when the document type requires a READY Solution Plan (custom types are gated). */
+export const isSolutionPlanGatedDocumentType = (documentType: string): boolean =>
+  !GATE_EXEMPT_TYPES.has(documentType);
 
 // ─── Item (pure domain entity) ──────────────────────────────────────────────────
 
