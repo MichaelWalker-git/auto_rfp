@@ -3,7 +3,7 @@ import type { FoiaArtifact } from '@auto-rfp/core';
 import type { DBFOIARequestItem } from '@/types/project-outcome';
 import { nowIso } from '@/helpers/date';
 import { requireEnv } from '@/helpers/env';
-import { uploadToS3 } from '@/helpers/s3';
+import { getFileBufferFromS3, uploadToS3 } from '@/helpers/s3';
 
 /**
  * Persists the exact artifacts of a FOIA request to S3.
@@ -74,6 +74,35 @@ export const persistFoiaLetterText = async (args: {
     sizeBytes: Buffer.byteLength(letter, 'utf8'),
     createdAt: nowIso(),
   };
+};
+
+/**
+ * Reads back the letter text that was persisted at preparation time.
+ *
+ * This is what makes "approve" mean something. Re-rendering the letter at send
+ * time would transmit whatever the template produces *now*, which is not
+ * necessarily what the approver read: the letter's content depends on
+ * `hasVerifiedSubmission`, award-date provenance, org name, requester contact and
+ * the state-law lookup, and any of those can change between preparation and
+ * sending. A template edit or a corrected org record would silently alter a
+ * statutory filing after a human signed off on different words.
+ *
+ * Returns null when no text artifact exists — the caller decides whether that is
+ * fatal. It is not always: a request prepared before artifacts were persisted has
+ * nothing to read back, and refusing to send it would be worse than re-rendering.
+ */
+export const readFoiaLetterText = async (
+  artifacts: readonly FoiaArtifact[] | undefined,
+): Promise<string | null> => {
+  const textArtifact = artifacts?.find((a) => a.kind === 'LETTER_TXT');
+  if (!textArtifact) return null;
+
+  const buffer = await getFileBufferFromS3(DOCUMENTS_BUCKET, textArtifact.s3Key);
+  const text = buffer.toString('utf8');
+
+  // An empty object is a failed upload, not an empty letter. Treat it as absent so
+  // the caller falls back rather than sending a blank statutory request.
+  return text.trim().length > 0 ? text : null;
 };
 
 /**

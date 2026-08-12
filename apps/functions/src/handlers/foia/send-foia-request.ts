@@ -22,7 +22,7 @@ import {
   syncOpportunityFoiaMarker,
   transitionFoiaAutomationState,
 } from '@/helpers/foia-automation';
-import { buildFoiaSubject } from '@/helpers/foia-artifacts';
+import { buildFoiaSubject, readFoiaLetterText } from '@/helpers/foia-artifacts';
 import { generateFOIALetter } from '@/helpers/foia-letter';
 import { sendFoiaRequest } from '@/helpers/foia-send';
 import { buildNotification, sendNotification } from '@/helpers/send-notification';
@@ -109,10 +109,40 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
   }
 
   const isStateRequest = opportunity?.item?.jurisdiction === 'STATE';
-  const letter = generateFOIALetter(request, {
-    jurisdiction: opportunity?.item?.jurisdiction,
-    state: opportunity?.item?.state ?? undefined,
+
+  /**
+   * Send the bytes that were approved, not a fresh render.
+   *
+   * The letter's content depends on `hasVerifiedSubmission`, award-date provenance,
+   * the org's name and legal entity, the requester contact and the state-law
+   * lookup. Any of those can change between preparation and sending, so
+   * re-rendering would transmit whatever the template produces now — which is not
+   * necessarily what the approver read. A template edit or a corrected org record
+   * would silently alter a statutory filing after a human signed off on different
+   * words, and the persisted artifact would no longer be evidence of what was sent.
+   *
+   * Falls back to rendering when no artifact exists: requests prepared before
+   * artifacts were persisted have nothing to read back, and refusing to send those
+   * would be worse than re-rendering them.
+   */
+  const approvedLetter = await readFoiaLetterText(automation.artifacts).catch((err) => {
+    console.warn(
+      '[send-foia] could not read the approved letter, falling back to a render:',
+      (err as Error).message,
+    );
+    return null;
   });
+
+  const letter =
+    approvedLetter ??
+    generateFOIALetter(request, {
+      jurisdiction: opportunity?.item?.jurisdiction,
+      state: opportunity?.item?.state ?? undefined,
+      // Only reachable on the legacy path above. Re-derived rather than assumed,
+      // so a fallback render never silently claims bidder status.
+      hasVerifiedSubmission: false,
+    });
+
   const subject = buildFoiaSubject({ request, isStateRequest });
 
   try {

@@ -49,7 +49,11 @@ const mockSend = jest.fn();
 jest.mock('@/helpers/foia-send', () => ({ sendFoiaRequest: (...a: unknown[]) => mockSend(...a) }));
 
 jest.mock('@/helpers/foia-letter', () => ({ generateFOIALetter: () => 'Dear FOIA Officer, ...' }));
-jest.mock('@/helpers/foia-artifacts', () => ({ buildFoiaSubject: () => 'FOIA Request — X' }));
+const mockReadFoiaLetterText = jest.fn();
+jest.mock('@/helpers/foia-artifacts', () => ({
+  buildFoiaSubject: () => 'FOIA Request — X',
+  readFoiaLetterText: (...a: unknown[]) => mockReadFoiaLetterText(...a),
+}));
 
 const mockGetOpportunity = jest.fn();
 jest.mock('@/helpers/opportunity', () => ({
@@ -106,6 +110,8 @@ beforeEach(() => {
   mockSend.mockResolvedValue({ messageId: 'ses-1', recipient: 'foia@army.mil', attached: [] });
   mockSyncMarker.mockResolvedValue(undefined);
   mockUpdateRequest.mockResolvedValue({});
+  // Default: the approved letter is on file, which is the normal case.
+  mockReadFoiaLetterText.mockResolvedValue('APPROVED LETTER BYTES');
 });
 
 describe('send-foia-request — happy path', () => {
@@ -243,7 +249,9 @@ describe('send-foia-request — dry run', () => {
 
     expect(res.statusCode).toBe(200);
     expect(parse(res).dryRun).toBe(true);
-    expect(parse(res).letter).toContain('Dear FOIA Officer');
+    // The approved bytes, not a re-render — a preview of anything else would mean
+    // approving something other than what gets sent.
+    expect(parse(res).letter).toBe('APPROVED LETTER BYTES');
     expect(mockSend).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }));
   });
 
@@ -255,5 +263,66 @@ describe('send-foia-request — dry run', () => {
       expect.objectContaining({ from: 'SENDING', to: 'AWAITING_APPROVAL' }),
     );
     expect(mockTransition).not.toHaveBeenCalledWith(expect.objectContaining({ to: 'SENT' }));
+  });
+});
+
+describe('send-foia-request — transmits the approved bytes', () => {
+  it('sends the persisted letter, not a fresh render', async () => {
+    /**
+     * The letter's content depends on hasVerifiedSubmission, award-date
+     * provenance, the org's legal name, the requester contact and the state-law
+     * lookup. Re-rendering at send time would transmit whatever the template
+     * produces now, which is not necessarily what the approver read — so a
+     * template edit could silently alter a statutory filing after sign-off.
+     */
+    await baseHandler(event());
+
+    expect(mockSend).toHaveBeenCalledWith(
+      expect.objectContaining({ letter: 'APPROVED LETTER BYTES' }),
+    );
+    expect(mockSend).not.toHaveBeenCalledWith(
+      expect.objectContaining({ letter: 'Dear FOIA Officer, ...' }),
+    );
+  });
+
+  it('reads the letter from the automation record artifacts', async () => {
+    const artifacts = [{ kind: 'LETTER_TXT', s3Key: 'k.txt' }];
+    mockGetAutomation.mockResolvedValue({ ...automation(), artifacts });
+
+    await baseHandler(event());
+
+    expect(mockReadFoiaLetterText).toHaveBeenCalledWith(artifacts);
+  });
+
+  it('falls back to a render when no artifact exists', async () => {
+    // Requests prepared before artifacts were persisted have nothing to read
+    // back; refusing to send those would be worse than re-rendering.
+    mockReadFoiaLetterText.mockResolvedValue(null);
+
+    const res = await baseHandler(event());
+
+    expect(res.statusCode).toBe(200);
+    expect(mockSend).toHaveBeenCalledWith(
+      expect.objectContaining({ letter: 'Dear FOIA Officer, ...' }),
+    );
+  });
+
+  it('falls back to a render when S3 is unreadable, rather than stranding the lock', async () => {
+    // SENDING is a lock. An unreadable artifact must not leave the record stuck.
+    mockReadFoiaLetterText.mockRejectedValue(new Error('access denied'));
+
+    const res = await baseHandler(event());
+
+    expect(res.statusCode).toBe(200);
+    expect(mockSend).toHaveBeenCalled();
+  });
+
+  it('returns the approved letter from a dry run', async () => {
+    // The preview must show what would actually be sent, or approving it means
+    // approving something else.
+    const res = await baseHandler(event({ dryRun: true }));
+    const body = JSON.parse(res.body as string);
+
+    expect(body.letter).toBe('APPROVED LETTER BYTES');
   });
 });
