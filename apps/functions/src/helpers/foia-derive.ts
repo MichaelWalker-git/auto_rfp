@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 
 import type {
+  FoiaAwardDateProvenance,
   FoiaBlockedReason,
   FoiaRecipientCandidate,
   FoiaRecipientSource,
@@ -14,6 +15,13 @@ import { getOrganizationById } from '@/helpers/org';
 import { getOrgPrimaryContact } from '@/helpers/org-contact';
 import { validateLetterFields } from '@/helpers/foia-letter';
 import { resolveFoiaRecipient } from '@/helpers/foia-recipient';
+import { getSubmissionHistory } from '@/helpers/proposal-submission';
+
+/** An award date together with how much it can be trusted. */
+export interface ResolvedAwardDate {
+  date: string | undefined;
+  provenance: FoiaAwardDateProvenance | undefined;
+}
 
 /**
  * Composes a FOIA request record without a human filling in a form.
@@ -38,6 +46,14 @@ export interface DeriveFoiaRequestResult {
   recipientSource?: FoiaRecipientSource;
   /** Portal URL to show when the agency refuses email. */
   webPortalUrl?: string;
+  /**
+   * Whether a submission record proves this company bid on this solicitation.
+   *
+   * Threaded out so the letter can decide whether to claim bidder status. Not
+   * stored on the request: it is evidence about the moment of composition, and
+   * re-deriving it later could contradict the letter that was actually sent.
+   */
+  hasVerifiedSubmission?: boolean;
 }
 
 /**
@@ -64,31 +80,48 @@ export const buildCompanyName = (
 };
 
 /**
- * Picks the award date for the letter.
+ * Picks the award date for the letter, and says where it came from.
  *
- * Preference order matters legally: a records request filed before award is
- * routinely denied as premature, so we use the most authoritative date we have.
- * The letter template already hedges with "on or about", which keeps the wording
- * honest when the date is inferred from the response deadline.
+ * The provenance is the point. This used to return a bare string, which meant the
+ * letter could not tell a recorded award from a forecast or a bid deadline — and it
+ * asserted "awarded on or about <date>" either way. On a real Texas solicitation
+ * that rendered "awarded on or about October 13, 2025" against a true award of
+ * 2026-01-29: a factual claim in a statutory filing, 108 days wrong.
+ *
+ * Order is by evidential strength, not by which field is most often populated.
+ * A recorded outcome outranks `decisionDateIso`, which the opportunity schema
+ * defines as a *forecast* of when the agency will announce — the deadline-alert
+ * scanner treats it as strictly future, so it is not evidence an award happened.
+ * The response deadline is last and is only ever a floor.
+ *
+ * Callers must branch on provenance: a records request filed before award is
+ * routinely denied as premature, so an unverified date must not be asserted as an
+ * award and must not trigger an unattended send.
  */
-export const resolveAwardDate = (opportunity: OpportunityDBItem): string | undefined => {
-  const candidates = [
-    opportunity.decisionDateIso,
-    opportunity.winData?.awardDate,
-    opportunity.lossData?.lossDate,
-    opportunity.outcomeDate,
-    opportunity.responseDeadlineIso,
+export const resolveAwardDate = (opportunity: OpportunityDBItem): ResolvedAwardDate => {
+  const candidates: ReadonlyArray<{
+    value: string | undefined | null;
+    provenance: FoiaAwardDateProvenance;
+  }> = [
+    // Recorded outcomes — an award (or loss) actually happened and was written down.
+    { value: opportunity.winData?.awardDate, provenance: 'RECORDED_AWARD' },
+    { value: opportunity.lossData?.lossDate, provenance: 'RECORDED_AWARD' },
+    { value: opportunity.outcomeDate, provenance: 'RECORDED_OUTCOME' },
+    // A forecast of the announcement date, not evidence of an announcement.
+    { value: opportunity.decisionDateIso, provenance: 'FORECAST' },
+    // When responses were due. Says nothing about whether an award followed.
+    { value: opportunity.responseDeadlineIso, provenance: 'RESPONSE_DEADLINE' },
   ];
 
-  for (const candidate of candidates) {
-    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+  for (const { value, provenance } of candidates) {
+    if (typeof value === 'string' && value.trim().length > 0) {
       // The letter formatter accepts a bare YYYY-MM-DD as well as a full ISO
       // timestamp; normalizing to the date part keeps the rendered letter clean.
-      return candidate.slice(0, 10);
+      return { date: value.slice(0, 10), provenance };
     }
   }
 
-  return undefined;
+  return { date: undefined, provenance: undefined };
 };
 
 /**
@@ -109,11 +142,25 @@ export const deriveFoiaRequest = async (args: {
 }): Promise<DeriveFoiaRequestResult> => {
   const { orgId, projectId, oppId, opportunity, settings, skipDocumentScan } = args;
 
-  const [organization, primaryContact, recipient] = await Promise.all([
+  const [organization, primaryContact, recipient, submissions] = await Promise.all([
     getOrganizationById(orgId).catch(() => null),
     getOrgPrimaryContact(orgId).catch(() => null),
     resolveFoiaRecipient({ orgId, opportunity, skipDocumentScan }),
+    // Evidence for the letter's bidder-status claim. A lookup failure must read as
+    // "unknown", never as "yes" — an unavailable table cannot be grounds for
+    // asserting a fact about the customer's bidding history to an agency.
+    getSubmissionHistory(orgId, projectId, oppId).catch(() => []),
   ]);
+
+  /**
+   * Whether we hold evidence this company actually bid.
+   *
+   * A withdrawn submission does not count: the letter claims a proposal was
+   * submitted and not selected, which is not true of a bid that was pulled.
+   */
+  const hasVerifiedSubmission = submissions.some(
+    (s) => typeof s?.submittedAt === 'string' && s.submittedAt.length > 0 && s.status !== 'WITHDRAWN',
+  );
 
   // A recipient we cannot use is the most common block, and it is actionable —
   // surface it before worrying about any other missing field.
@@ -127,6 +174,7 @@ export const deriveFoiaRequest = async (args: {
 
   const now = nowIso();
   const foiaId = uuidv4();
+  const awardDate = resolveAwardDate(opportunity);
 
   const request: DBFOIARequestItem = {
     partition_key: '',
@@ -162,7 +210,8 @@ export const deriveFoiaRequest = async (args: {
     // Only meaningful on a loss — on a win we are the awardee, and naming
     // ourselves in the letter's "awarded to" clause would read as nonsense.
     awardeeName: opportunity.lossData?.winningContractor ?? undefined,
-    awardDate: resolveAwardDate(opportunity) ?? '',
+    awardDate: awardDate.date ?? '',
+    awardDateProvenance: awardDate.provenance,
 
     // Requester — the org's proposal signatory.
     requesterName: primaryContact?.name ?? '',
@@ -185,5 +234,5 @@ export const deriveFoiaRequest = async (args: {
     return { blockedReason: 'MISSING_LETTER_FIELDS', missingFields };
   }
 
-  return { request, recipientSource: recipient.source };
+  return { request, recipientSource: recipient.source, hasVerifiedSubmission };
 };

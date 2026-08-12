@@ -86,6 +86,10 @@ const derivedRequest = {
   agencyFOIAAddress: '1000 Army Pentagon',
   solicitationNumber: 'W912-24-R-0001',
   recipientSource: 'ORG_AGENCY_CONTACT',
+  // A recorded award. Auto-send requires this: without it we do not know an award
+  // happened, and a request filed pre-award is routinely denied as premature.
+  awardDate: '2026-01-29',
+  awardDateProvenance: 'RECORDED_AWARD',
 };
 
 const baseArgs = { orgId: 'org-1', projectId: 'proj-1', oppId: 'opp-1', opportunity, settings };
@@ -169,6 +173,64 @@ describe('prepareFoiaRequest — happy path', () => {
 });
 
 describe('prepareFoiaRequest — auto-send gate', () => {
+  it.each([
+    ['RESPONSE_DEADLINE', 'the response deadline'],
+    ['FORECAST', 'a predicted announcement date'],
+    [undefined, 'no provenance at all'],
+  ])('refuses auto-send when the award date came from %s', async (provenance) => {
+    /**
+     * The premature-filing guard. An unverified date means we do not know an award
+     * happened — on a real solicitation the response deadline preceded the true
+     * award by 108 days, so the timer would have fired before there was anything
+     * to ask about. A human may still send; the machine may not.
+     */
+    mockDeriveFoiaRequest.mockResolvedValue({
+      request: { ...derivedRequest, awardDateProvenance: provenance },
+      recipientSource: 'FOIA_GOV',
+    });
+
+    const outcome = await prepareFoiaRequest({
+      ...baseArgs,
+      settings: { ...settings, autoSendTrusted: true },
+    });
+
+    if (outcome.status !== 'PREPARED') throw new Error('expected PREPARED');
+    // Still prepared and downloadable — just not sent unattended.
+    expect(outcome.autoSendEligible).toBe(false);
+  });
+
+  it('allows auto-send once an award is actually on record', async () => {
+    mockDeriveFoiaRequest.mockResolvedValue({
+      request: { ...derivedRequest, awardDateProvenance: 'RECORDED_AWARD' },
+      recipientSource: 'FOIA_GOV',
+    });
+
+    const outcome = await prepareFoiaRequest({
+      ...baseArgs,
+      settings: { ...settings, autoSendTrusted: true },
+    });
+
+    if (outcome.status !== 'PREPARED') throw new Error('expected PREPARED');
+    expect(outcome.autoSendEligible).toBe(true);
+  });
+
+  it('passes the verified-submission flag through to the letter', async () => {
+    // Regression: this flag existed but had no caller, so every letter took the
+    // neutral branch and the honest one was dead code.
+    mockDeriveFoiaRequest.mockResolvedValue({
+      request: derivedRequest,
+      recipientSource: 'FOIA_GOV',
+      hasVerifiedSubmission: true,
+    });
+
+    await prepareFoiaRequest(baseArgs);
+
+    expect(mockGenerateFOIALetter).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ hasVerifiedSubmission: true }),
+    );
+  });
+
   it('is not eligible when the org has not opted in, even for a trusted source', async () => {
     mockDeriveFoiaRequest.mockResolvedValue({
       request: derivedRequest,

@@ -242,6 +242,47 @@ export const FOIAResponseDocumentSchema = z.object({
 export type FOIAResponseDocument = z.infer<typeof FOIAResponseDocumentSchema>;
 
 /**
+ * Evidential strength of the award date on a FOIA request.
+ *
+ * Ordered strongest to weakest. The distinction is load-bearing: only the recorded
+ * values are evidence that an award actually happened, and a request filed before
+ * award is routinely denied as premature. `FORECAST` is the opportunity's
+ * *predicted* announcement date, and `RESPONSE_DEADLINE` only says when bids were
+ * due — asserting either as an award date puts a false statement in a statutory
+ * filing.
+ */
+export const FOIA_AWARD_DATE_PROVENANCES = [
+  /** An award or loss was recorded against the opportunity. */
+  'RECORDED_AWARD',
+  /** A dated outcome was recorded, without an explicit award date. */
+  'RECORDED_OUTCOME',
+  /** A predicted announcement date. Not evidence of an award. */
+  'FORECAST',
+  /** When responses were due. Says nothing about whether an award followed. */
+  'RESPONSE_DEADLINE',
+] as const;
+
+export const FoiaAwardDateProvenanceSchema = z.enum(FOIA_AWARD_DATE_PROVENANCES);
+
+export type FoiaAwardDateProvenance = z.infer<typeof FoiaAwardDateProvenanceSchema>;
+
+/**
+ * Provenances that justify asserting an award occurred, and permit an unattended
+ * send. Anything else keeps a human in the loop.
+ */
+export const VERIFIED_AWARD_DATE_PROVENANCES = [
+  'RECORDED_AWARD',
+  'RECORDED_OUTCOME',
+] as const satisfies readonly FoiaAwardDateProvenance[];
+
+/** Whether an award date is strong enough to assert as an award. */
+export const isVerifiedAwardDateProvenance = (
+  provenance: FoiaAwardDateProvenance | undefined | null,
+): boolean =>
+  !!provenance &&
+  (VERIFIED_AWARD_DATE_PROVENANCES as readonly string[]).includes(provenance);
+
+/**
  * FOIA Request Item - the complete FOIA request record
  */
 export const FOIARequestItemSchema = z.object({
@@ -267,6 +308,14 @@ export const FOIARequestItemSchema = z.object({
   companyName: z.string().min(1),
   awardeeName: z.string().optional(),
   awardDate: z.string().min(1),
+  /**
+   * Where `awardDate` came from. Governs whether the letter may assert an award
+   * occurred, and whether the request may send unattended.
+   *
+   * Optional so records written before provenance tracking still parse; absent is
+   * treated as unverified.
+   */
+  awardDateProvenance: FoiaAwardDateProvenanceSchema.optional(),
 
   // Requester information
   requesterName: z.string().min(1),

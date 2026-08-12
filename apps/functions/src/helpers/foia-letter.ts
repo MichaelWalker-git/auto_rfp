@@ -1,4 +1,9 @@
-import { FOIA_DOCUMENT_DESCRIPTIONS, getStateRecordsLaw, type FOIADocumentType } from '@auto-rfp/core';
+import {
+  FOIA_DOCUMENT_DESCRIPTIONS,
+  getStateRecordsLaw,
+  isVerifiedAwardDateProvenance,
+  type FOIADocumentType,
+} from '@auto-rfp/core';
 
 import type { DBFOIARequestItem } from '@/types/project-outcome';
 
@@ -166,13 +171,19 @@ export const generateFOIALetter = (
     : numberedDocuments;
 
   /**
-   * "on or about" is doing real work here. The award date is often derived from
-   * an outcome record rather than an agency announcement, and on one real
-   * timeline the response deadline preceded the actual award by 107 days — so a
-   * precise claim would frequently be wrong. Hedged phrasing keeps the letter
-   * accurate while still giving the records officer enough to find the file.
+   * Whether the letter may state that an award happened.
+   *
+   * "on or about" hedges a date, not a fact. When the date came from the response
+   * deadline the letter would assert an award that may not exist yet — on one real
+   * solicitation that produced "awarded on or about October 13, 2025" against a
+   * true award of 2026-01-29, 108 days later. So an unverified date is described as
+   * what it actually is (when responses were due) and the request is written to
+   * cover either outcome, which also keeps it valid if the solicitation is still
+   * pending or was cancelled.
    */
-  const pertainsLine = `This request pertains to Solicitation No. ${request.solicitationNumber}, titled ${request.contractTitle}, awarded on or about ${formatDateForLetter(request.awardDate)}.`;
+  const pertainsLine = isVerifiedAwardDateProvenance(request.awardDateProvenance)
+    ? `This request pertains to Solicitation No. ${request.solicitationNumber}, titled ${request.contractTitle}, awarded on or about ${formatDateForLetter(request.awardDate)}.`
+    : `This request pertains to Solicitation No. ${request.solicitationNumber}, titled ${request.contractTitle}, for which responses were due ${formatDateForLetter(request.awardDate)}. If an award has been made, this request extends to the records of that award; if the solicitation remains pending or was cancelled, please advise and treat this request as limited to the records that exist as of the date of your response.`;
 
   const interestParagraph = resolveInterestParagraph({
     companyName: request.companyName,

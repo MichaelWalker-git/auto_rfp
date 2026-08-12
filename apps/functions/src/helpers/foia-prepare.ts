@@ -5,7 +5,7 @@ import type {
   FoiaSettingsItem,
   OpportunityDBItem,
 } from '@auto-rfp/core';
-import { isTrustedFoiaRecipientSource } from '@auto-rfp/core';
+import { isTrustedFoiaRecipientSource, isVerifiedAwardDateProvenance } from '@auto-rfp/core';
 
 import type { DBFOIARequestItem } from '@/types/project-outcome';
 import { FOIA_REQUEST_PK } from '@/constants/organization';
@@ -158,14 +158,24 @@ export const prepareFoiaRequest = async (args: {
   const letter = generateFOIALetter(request, {
     jurisdiction: opportunity.jurisdiction,
     state: opportunity.state ?? undefined,
+    hasVerifiedSubmission: derived.hasVerifiedSubmission,
   });
 
-  // Auto-send requires BOTH a trusted recipient and the org opting in. The two
-  // are separate on purpose: trust is a property of where the address came from,
-  // while the flag is a deployment-readiness gate (the sending domain must be
-  // able to pass DMARC at .gov/.mil first).
+  /**
+   * Auto-send requires a trusted recipient, the org opting in, AND an award date
+   * we can stand behind.
+   *
+   * The three are separate on purpose. Trust is a property of where the address
+   * came from. The flag is a deployment-readiness gate (the sending domain must
+   * pass DMARC at .gov/.mil first). Provenance is about the letter's content: an
+   * unverified date means we do not know an award happened, and filing a records
+   * request before award is routinely denied as premature — so the letter still
+   * goes out with the hedged wording, but only once a human has looked at it.
+   */
   const autoSendEligible =
-    settings.autoSendTrusted === true && isTrustedFoiaRecipientSource(derived.recipientSource);
+    settings.autoSendTrusted === true &&
+    isTrustedFoiaRecipientSource(derived.recipientSource) &&
+    isVerifiedAwardDateProvenance(request.awardDateProvenance);
 
   if (dryRun) {
     return {

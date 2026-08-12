@@ -27,6 +27,12 @@ jest.mock('@/helpers/foia-recipient', () => ({
   resolveFoiaRecipient: (...a: unknown[]) => mockResolveFoiaRecipient(...a),
 }));
 
+const mockGetSubmissionHistory = jest.fn();
+jest.mock('@/helpers/proposal-submission', () => ({
+  getSubmissionHistory: (...a: unknown[]) => mockGetSubmissionHistory(...a),
+}));
+
+import { isVerifiedAwardDateProvenance } from '@auto-rfp/core';
 import type { FoiaSettingsItem, OpportunityDBItem } from '@auto-rfp/core';
 
 import { buildCompanyName, deriveFoiaRequest, resolveAwardDate } from './foia-derive';
@@ -80,10 +86,34 @@ beforeEach(() => {
     address: '1000 Army Pentagon',
     source: 'ORG_AGENCY_CONTACT',
   });
+  mockGetSubmissionHistory.mockResolvedValue([]);
 });
 
 describe('resolveAwardDate', () => {
-  it('prefers the agency-announced decision date', () => {
+  it('prefers a recorded award over a forecast announcement date', () => {
+    // Order is by evidential strength, not by which field is populated most often.
+    // `decisionDateIso` is a *prediction* of when the agency will announce — it is
+    // not evidence an award happened, so a recorded award outranks it.
+    expect(
+      resolveAwardDate(
+        buildOpp({
+          decisionDateIso: '2026-03-01T00:00:00.000Z',
+          winData: { awardDate: '2026-04-05T00:00:00.000Z' },
+        }),
+      ),
+    ).toEqual({ date: '2026-04-05', provenance: 'RECORDED_AWARD' });
+  });
+
+  it('treats a recorded loss date as a recorded award', () => {
+    // A loss means someone else was awarded — the procurement concluded.
+    expect(
+      resolveAwardDate(
+        buildOpp({ decisionDateIso: null, lossData: { lossDate: '2026-05-06T00:00:00.000Z' } }),
+      ),
+    ).toEqual({ date: '2026-05-06', provenance: 'RECORDED_AWARD' });
+  });
+
+  it('labels a forecast announcement date as unverified', () => {
     expect(
       resolveAwardDate(
         buildOpp({
@@ -91,37 +121,23 @@ describe('resolveAwardDate', () => {
           responseDeadlineIso: '2026-01-01T00:00:00.000Z',
         }),
       ),
-    ).toBe('2026-03-01');
+    ).toEqual({ date: '2026-03-01', provenance: 'FORECAST' });
   });
 
-  it('falls back to the recorded win date', () => {
-    expect(
-      resolveAwardDate(
-        buildOpp({ decisionDateIso: null, winData: { awardDate: '2026-04-05T00:00:00.000Z' } }),
-      ),
-    ).toBe('2026-04-05');
-  });
-
-  it('falls back to the recorded loss date', () => {
-    expect(
-      resolveAwardDate(
-        buildOpp({ decisionDateIso: null, lossData: { lossDate: '2026-05-06T00:00:00.000Z' } }),
-      ),
-    ).toBe('2026-05-06');
-  });
-
-  it('falls back to the response deadline as a last resort', () => {
+  it('labels the response deadline as the weakest fallback', () => {
+    // The case that mattered: on a real solicitation the deadline preceded the
+    // true award by 108 days, and the letter asserted it as the award date.
     expect(
       resolveAwardDate(
         buildOpp({ decisionDateIso: null, responseDeadlineIso: '2026-01-09T00:00:00.000Z' }),
       ),
-    ).toBe('2026-01-09');
+    ).toEqual({ date: '2026-01-09', provenance: 'RESPONSE_DEADLINE' });
   });
 
-  it('returns undefined when no date is available at all', () => {
+  it('returns no date and no provenance when nothing is available', () => {
     expect(
       resolveAwardDate(buildOpp({ decisionDateIso: null, responseDeadlineIso: null })),
-    ).toBeUndefined();
+    ).toEqual({ date: undefined, provenance: undefined });
   });
 
   it('ignores a blank string rather than emitting an empty date', () => {
@@ -129,7 +145,17 @@ describe('resolveAwardDate', () => {
       resolveAwardDate(
         buildOpp({ decisionDateIso: '   ', responseDeadlineIso: '2026-01-09T00:00:00.000Z' }),
       ),
-    ).toBe('2026-01-09');
+    ).toEqual({ date: '2026-01-09', provenance: 'RESPONSE_DEADLINE' });
+  });
+
+  it('never reports a verified provenance for a date it inferred', () => {
+    // The property that keeps a false award claim out of a statutory filing.
+    for (const opp of [
+      buildOpp({ decisionDateIso: '2026-03-01T00:00:00.000Z', responseDeadlineIso: null }),
+      buildOpp({ decisionDateIso: null, responseDeadlineIso: '2026-01-09T00:00:00.000Z' }),
+    ]) {
+      expect(isVerifiedAwardDateProvenance(resolveAwardDate(opp).provenance)).toBe(false);
+    }
   });
 });
 
@@ -191,6 +217,63 @@ describe('deriveFoiaRequest — field derivation', () => {
     expect(request?.foiaId).toMatch(/^[0-9a-f-]{36}$/);
     expect(request?.id).toBe(request?.foiaId);
     expect(request?.requestedBy).toBe('system');
+  });
+
+  it('records the award-date provenance alongside the date', async () => {
+    const { request } = await deriveFoiaRequest({
+      ...baseArgs(),
+      opportunity: buildOpp({ winData: { awardDate: '2026-04-05T00:00:00.000Z' } }),
+    });
+
+    expect(request?.awardDate).toBe('2026-04-05');
+    expect(request?.awardDateProvenance).toBe('RECORDED_AWARD');
+  });
+});
+
+describe('deriveFoiaRequest — bidder-status evidence', () => {
+  it('reports a verified submission when one is on record', async () => {
+    mockGetSubmissionHistory.mockResolvedValue([
+      { status: 'SUBMITTED', submittedAt: '2025-10-13T00:00:00.000Z' },
+    ]);
+
+    const { hasVerifiedSubmission } = await deriveFoiaRequest(baseArgs());
+
+    expect(hasVerifiedSubmission).toBe(true);
+  });
+
+  it('reports no verified submission when none exists', async () => {
+    // The real TTUHSC case: the agency replied "no record of Horus Technology's
+    // participation in this solicitation was located". The letter must not claim
+    // bidder status here.
+    mockGetSubmissionHistory.mockResolvedValue([]);
+
+    const { hasVerifiedSubmission } = await deriveFoiaRequest(baseArgs());
+
+    expect(hasVerifiedSubmission).toBe(false);
+  });
+
+  it('does not count a withdrawn submission', async () => {
+    // The letter claims a proposal was submitted and not selected — untrue of a
+    // bid that was pulled before evaluation.
+    mockGetSubmissionHistory.mockResolvedValue([
+      { status: 'WITHDRAWN', submittedAt: '2025-10-13T00:00:00.000Z' },
+    ]);
+
+    const { hasVerifiedSubmission } = await deriveFoiaRequest(baseArgs());
+
+    expect(hasVerifiedSubmission).toBe(false);
+  });
+
+  it('treats a lookup failure as unknown, never as verified', async () => {
+    // An unavailable table cannot be grounds for asserting a fact about the
+    // customer's bidding history to a government agency.
+    mockGetSubmissionHistory.mockRejectedValue(new Error('dynamo unavailable'));
+
+    const { hasVerifiedSubmission, request } = await deriveFoiaRequest(baseArgs());
+
+    expect(hasVerifiedSubmission).toBe(false);
+    // And the request is still derivable — this must not block the letter.
+    expect(request).toBeDefined();
   });
 });
 

@@ -73,6 +73,18 @@ describe('generate-foia-letter handler', () => {
       createdBy: 'user-789',
     };
 
+    /**
+     * The same request with an award actually on record.
+     *
+     * `mockRequest` deliberately carries no provenance, which is how records
+     * written before provenance tracking look — and must read as unverified, so
+     * the letter cannot assert an award that may not have happened.
+     */
+    const recordedAwardRequest: DBFOIARequestItem = {
+      ...mockRequest,
+      awardDateProvenance: 'RECORDED_AWARD',
+    };
+
     it('generates letter with correct agency info', () => {
       const letter = generateFOIALetter(mockRequest);
 
@@ -89,7 +101,7 @@ describe('generate-foia-letter handler', () => {
     });
 
     it('includes solicitation number, title, and award date', () => {
-      const letter = generateFOIALetter(mockRequest);
+      const letter = generateFOIALetter(recordedAwardRequest);
 
       expect(letter).toContain('Solicitation No. W911NF-21-R-0001');
       expect(letter).toContain('titled IT Services Contract');
@@ -239,15 +251,42 @@ describe('generate-foia-letter handler', () => {
       expect(letter).toMatch(/\w+ \d{1,2}, \d{4}/);
     });
 
-    it('includes award date in pertains line', () => {
-      const letter = generateFOIALetter(mockRequest);
+    it('asserts an award only when the date is on record', () => {
+      const letter = generateFOIALetter(recordedAwardRequest);
 
       expect(letter).toContain('awarded on or about January 15, 2026');
     });
 
+    it('does not assert an award when the date came from the response deadline', () => {
+      // The premature-filing guard. On a real solicitation the deadline preceded
+      // the true award by 108 days; "on or about" hedges a date, not a fact.
+      const letter = generateFOIALetter({
+        ...mockRequest,
+        awardDateProvenance: 'RESPONSE_DEADLINE',
+      });
+
+      expect(letter).not.toContain('awarded on or about');
+      expect(letter).toContain('for which responses were due January 15, 2026');
+      expect(letter).toContain('If an award has been made');
+      expect(letter).toContain('remains pending or was cancelled');
+    });
+
+    it('treats a missing provenance as unverified', () => {
+      // Records written before provenance tracking must not silently assert an award.
+      const letter = generateFOIALetter(mockRequest);
+
+      expect(letter).not.toContain('awarded on or about');
+    });
+
+    it('treats a forecast announcement date as unverified', () => {
+      const letter = generateFOIALetter({ ...mockRequest, awardDateProvenance: 'FORECAST' });
+
+      expect(letter).not.toContain('awarded on or about');
+    });
+
     it('formats ISO date strings into human-readable format', () => {
       const isoDateRequest: DBFOIARequestItem = {
-        ...mockRequest,
+        ...recordedAwardRequest,
         awardDate: '2026-03-22',
       };
 
