@@ -17,6 +17,7 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { putRFPDocument, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
+import { checkSolutionPlanGate } from '@/helpers/solution-plan-gate';
 import { enqueueDocumentGeneration } from '@/helpers/document-generation-queue';
 import { nowIso } from '@/helpers/date';
 import { PK_NAME, SK_NAME } from '@/constants/common';
@@ -41,12 +42,12 @@ const InputSchema = z.object({
 const extractOrgId = (sortKey: string) => String(sortKey ?? '').split('#')[0] || '';
 
 const buildPlaceholderName = (documentType: string): string =>
-  `Generating ${RFP_DOCUMENT_TYPES[documentType as keyof typeof RFP_DOCUMENT_TYPES] ?? documentType}...`;
+    `Generating ${RFP_DOCUMENT_TYPES[documentType as keyof typeof RFP_DOCUMENT_TYPES] ?? documentType}...`;
 
 // ─── Handler ───
 
 export const baseHandler = async (
-  event: AuthedEvent,
+    event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     // 1. Parse & validate input
@@ -80,6 +81,24 @@ export const baseHandler = async (
         updatedBy: userId ?? 'system',
       });
     } else {
+      // ── Solution Plan gate (T9): gated types require a READY plan ──
+      // Regeneration (documentId provided) is not gated — the document's own
+      // existence already grandfathers the opportunity (ADR-10).
+      const { allowed, solutionPlanStatus } = await checkSolutionPlanGate({
+        orgId,
+        projectId,
+        opportunityId: effectiveOpportunityId,
+        documentType,
+      });
+      if (!allowed) {
+        return apiResponse(409, {
+          message:
+              'A ready Solution Plan is required before generating this document type. Create a Solution Plan for this opportunity first.',
+          code: 'SOLUTION_PLAN_REQUIRED',
+          solutionPlanStatus,
+        });
+      }
+
       // ── New document: create a placeholder with status GENERATING ──
       documentId = uuidv4();
       const now = nowIso();
@@ -128,7 +147,7 @@ export const baseHandler = async (
     });
 
     // 4. Return 202 Accepted
-    
+
     setAuditContext(event, {
       action: 'AI_GENERATION_STARTED',
       resource: 'document',
@@ -151,10 +170,10 @@ export const baseHandler = async (
 };
 
 export const handler = withSentryLambda(
-  middy(baseHandler)
-    .use(authContextMiddleware())
-    .use(orgMembershipMiddleware())
-    .use(requirePermission('proposal:create'))
-    .use(auditMiddleware())
-    .use(httpErrorMiddleware()),
+    middy(baseHandler)
+        .use(authContextMiddleware())
+        .use(orgMembershipMiddleware())
+        .use(requirePermission('proposal:create'))
+        .use(auditMiddleware())
+        .use(httpErrorMiddleware()),
 );
