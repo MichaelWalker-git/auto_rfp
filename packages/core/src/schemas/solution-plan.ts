@@ -93,6 +93,22 @@ export const SolutionPlanUpdateRequestSchema = z.object({
 
 export type SolutionPlanUpdateRequest = z.infer<typeof SolutionPlanUpdateRequestSchema>;
 
+// ─── Error codes ────────────────────────────────────────────────────────────────
+
+/**
+ * Machine-readable `code` values carried in solution-plan error response
+ * bodies (409s from update/init and the generation gate). Frontends branch
+ * on these instead of matching message strings.
+ */
+export const SolutionPlanErrorCodeSchema = z.enum([
+  'SOLUTION_PLAN_NOT_READY',
+  'SOLUTION_PLAN_CONFLICT',
+  'SOLUTION_PLAN_RUN_IN_PROGRESS',
+  'SOLUTION_PLAN_REQUIRED',
+]);
+
+export type SolutionPlanErrorCode = z.infer<typeof SolutionPlanErrorCodeSchema>;
+
 // ─── Item (pure domain entity) ──────────────────────────────────────────────────
 
 /**

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { SolutionPlanEditorPage } from '../SolutionPlanEditorPage';
+import { makeHtmlContentResponse } from '../../hooks/__tests__/test-utils';
 import type { SolutionPlanItem } from '@auto-rfp/core';
 
 // ─── Hook / dependency mocks ──────────────────────────────────────────────────
@@ -31,6 +32,20 @@ jest.mock('../../hooks/useInitSolutionPlan', () => ({
   }),
 }));
 
+jest.mock('../../hooks/useEditorImageUpload', () => ({
+  useEditorImageUpload: () => ({
+    isImageUploading: false,
+    setIsImageUploading: jest.fn(),
+    handleUploadImageToS3: jest.fn(),
+    handleGetDownloadUrl: jest.fn(),
+  }),
+}));
+
+const mockUseCurrentOrganization = jest.fn();
+jest.mock('@/context/organization-context', () => ({
+  useCurrentOrganization: () => mockUseCurrentOrganization(),
+}));
+
 const mockToast = jest.fn();
 jest.mock('@/components/ui/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
@@ -56,6 +71,7 @@ jest.mock('@/components/layout/page-loading-skeleton', () => ({
 
 // TipTap is too heavy for jsdom — a textarea stand-in preserves the
 // value/onChange/disabled contract the page relies on.
+const mockStripPresignedUrls = jest.fn();
 jest.mock('@/components/rfp-documents/rich-text-editor', () => ({
   RichTextEditor: ({
     value,
@@ -73,6 +89,7 @@ jest.mock('@/components/rfp-documents/rich-text-editor', () => ({
       onChange={(e) => onChange(e.target.value)}
     />
   ),
+  stripPresignedUrlsFromHtml: (html: string) => mockStripPresignedUrls(html),
 }));
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -102,14 +119,7 @@ const planState = (plan: SolutionPlanItem | null, over: Record<string, unknown> 
 });
 
 const htmlState = (over: Record<string, unknown> = {}) => ({
-  content: {
-    ok: true,
-    html: '<h1>Solution Plan</h1>',
-    contentKey: 'org-1/proj-1/opp-1/solution-plan/v2/solution-plan.html',
-    version: 2,
-    isStale: false,
-    isUserEdited: false,
-  },
+  content: makeHtmlContentResponse(),
   isLoading: false,
   notFound: false,
   error: undefined,
@@ -122,10 +132,15 @@ const renderPage = () =>
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockUseCurrentOrganization.mockReturnValue({
+    currentOrganization: { id: 'org-1', name: 'Org 1', enableSolutionPlan: true },
+    loading: false,
+  });
   mockUseSolutionPlanHtmlContent.mockReturnValue(htmlState());
   mockUpdateSolutionPlan.mockResolvedValue({ ok: true, plan: makePlan({ version: 3 }) });
   mockInitSolutionPlan.mockResolvedValue({ ok: true });
   mockConfirm.mockResolvedValue(true);
+  mockStripPresignedUrls.mockImplementation((html: string) => html);
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -135,6 +150,32 @@ describe('SolutionPlanEditorPage', () => {
     mockUseSolutionPlan.mockReturnValue(planState(null, { isLoading: true, notFound: false }));
     renderPage();
     expect(screen.getByTestId('page-loading-skeleton')).toBeTruthy();
+  });
+
+  it('shows the page loading skeleton while the organization loads', () => {
+    mockUseCurrentOrganization.mockReturnValue({ currentOrganization: null, loading: true });
+    mockUseSolutionPlan.mockReturnValue(planState(makePlan()));
+    renderPage();
+    expect(screen.getByTestId('page-loading-skeleton')).toBeTruthy();
+  });
+
+  it('blocks the editor when the org does not have enableSolutionPlan (R2 flag)', () => {
+    mockUseCurrentOrganization.mockReturnValue({
+      currentOrganization: { id: 'org-1', name: 'Org 1' },
+      loading: false,
+    });
+    mockUseSolutionPlan.mockReturnValue(planState(makePlan()));
+    renderPage();
+
+    expect(screen.getByText(/not enabled for this organization/i)).toBeTruthy();
+    expect(screen.queryByTestId('rich-text-editor')).toBeNull();
+    // The HTML body is not fetched for flag-off orgs.
+    expect(mockUseSolutionPlanHtmlContent).toHaveBeenCalledWith(
+      'org-1',
+      'proj-1',
+      'opp-1',
+      { enabled: false },
+    );
   });
 
   it('shows a not-found state with a back link when no plan exists', () => {
@@ -223,6 +264,46 @@ describe('SolutionPlanEditorPage', () => {
     );
   });
 
+  it('strips presigned image URLs from the HTML before saving', async () => {
+    mockUseSolutionPlan.mockReturnValue(planState(makePlan()));
+    mockStripPresignedUrls.mockImplementation(() => '<p>stripped</p>');
+    renderPage();
+
+    fireEvent.change(screen.getByTestId('rich-text-editor'), {
+      target: { value: '<img src="https://s3.presigned/example.png">' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() =>
+      expect(mockUpdateSolutionPlan).toHaveBeenCalledWith({
+        htmlContent: '<p>stripped</p>',
+      }),
+    );
+    expect(mockStripPresignedUrls).toHaveBeenCalledWith(
+      '<img src="https://s3.presigned/example.png">',
+    );
+  });
+
+  it('does not remount the editor after a save (the cursor position survives)', async () => {
+    mockUseSolutionPlan.mockReturnValue(planState(makePlan()));
+    renderPage();
+
+    const editorBefore = screen.getByTestId('rich-text-editor');
+    fireEvent.change(editorBefore, { target: { value: '<h1>Edited plan</h1>' } });
+    fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Solution Plan saved' }),
+      ),
+    );
+    // Same DOM node ⇒ React did not remount the editor; the local (edited)
+    // content is preserved rather than being reset from the refetched HTML.
+    const editorAfter = screen.getByTestId('rich-text-editor') as HTMLTextAreaElement;
+    expect(editorAfter).toBe(editorBefore);
+    expect(editorAfter.value).toBe('<h1>Edited plan</h1>');
+  });
+
   it('toasts a specific message when the save is refused because the plan is not READY (ADR-8)', async () => {
     mockUseSolutionPlan.mockReturnValue(planState(makePlan()));
     mockUpdateSolutionPlan.mockRejectedValue(
@@ -271,14 +352,9 @@ describe('SolutionPlanEditorPage', () => {
     mockUseSolutionPlan.mockReturnValue(planState(makePlan()));
     mockUseSolutionPlanHtmlContent.mockReturnValue(
       htmlState({
-        content: {
-          ok: true,
+        content: makeHtmlContentResponse({
           html: '<!-- Section guidance: fill this in --><h1>Solution Plan</h1>',
-          contentKey: 'org-1/proj-1/opp-1/solution-plan/v2/solution-plan.html',
-          version: 2,
-          isStale: false,
-          isUserEdited: false,
-        },
+        }),
       }),
     );
     renderPage();
@@ -313,17 +389,5 @@ describe('SolutionPlanEditorPage', () => {
 
     await waitFor(() => expect(mockConfirm).toHaveBeenCalled());
     expect(mockInitSolutionPlan).not.toHaveBeenCalled();
-  });
-
-  it('shows the staleness warning banner for a stale READY plan', () => {
-    mockUseSolutionPlan.mockReturnValue(
-      planState(makePlan({ isStale: true, staleReason: 'Executive brief was regenerated.' })),
-    );
-    renderPage();
-
-    expect(screen.getByText(/may be outdated — regenerate recommended/i)).toBeTruthy();
-    expect(screen.getByText(/executive brief was regenerated/i)).toBeTruthy();
-    // Stale keeps the editor available (gate stays open — ADR-3).
-    expect(screen.getByTestId('rich-text-editor')).toBeTruthy();
   });
 });

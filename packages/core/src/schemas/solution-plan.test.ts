@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { PK_NAME, SK_NAME } from '../constants';
 import {
   SolutionPlanStatusSchema,
+  SolutionPlanErrorCodeSchema,
   SolutionPlanKeySchema,
   SolutionPlanCreateRequestSchema,
   SolutionPlanInitRequestSchema,
@@ -43,6 +44,22 @@ describe('SolutionPlanStatusSchema', () => {
   it('should reject unknown statuses', () => {
     expect(() => SolutionPlanStatusSchema.parse('STALE')).toThrow();
     expect(() => SolutionPlanStatusSchema.parse('DONE')).toThrow();
+  });
+});
+
+describe('SolutionPlanErrorCodeSchema', () => {
+  it.each([
+    'SOLUTION_PLAN_NOT_READY',
+    'SOLUTION_PLAN_CONFLICT',
+    'SOLUTION_PLAN_RUN_IN_PROGRESS',
+    'SOLUTION_PLAN_REQUIRED',
+  ])('should accept %s', (code) => {
+    expect(SolutionPlanErrorCodeSchema.parse(code)).toBe(code);
+  });
+
+  it('should reject unknown codes', () => {
+    expect(() => SolutionPlanErrorCodeSchema.parse('SOLUTION_PLAN_STALE')).toThrow();
+    expect(() => SolutionPlanErrorCodeSchema.parse('')).toThrow();
   });
 });
 

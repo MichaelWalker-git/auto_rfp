@@ -1,17 +1,10 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { useSolutionPlanHtmlContent } from '../useSolutionPlanHtmlContent';
-import { mockApiFetcher, swrWrapper as wrapper } from './test-utils';
+import { makeHtmlContentResponse, mockApiFetcher, swrWrapper as wrapper } from './test-utils';
 
 jest.mock('@/lib/hooks/api-helpers', () => require('./test-utils').apiHelpersMock);
 
-const htmlResponse = {
-  ok: true,
-  html: '<h1>Solution Plan</h1>',
-  contentKey: 'org-1/proj-1/opp-1/solution-plan/v2/solution-plan.html',
-  version: 2,
-  isStale: false,
-  isUserEdited: false,
-};
+const htmlResponse = makeHtmlContentResponse();
 
 beforeEach(() => {
   jest.clearAllMocks();

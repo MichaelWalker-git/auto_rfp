@@ -1,8 +1,22 @@
 import type { ReactNode } from 'react';
 import { SWRConfig } from 'swr';
+import type { SolutionPlanHtmlContentResponse } from '@auto-rfp/core';
 
 export const mockApiFetcher = jest.fn();
 export const mockApiMutate = jest.fn();
+
+/** Canonical GET /solution-plan/html-content body shared by hook and component tests. */
+export const makeHtmlContentResponse = (
+  over: Partial<SolutionPlanHtmlContentResponse> = {},
+): SolutionPlanHtmlContentResponse => ({
+  ok: true,
+  html: '<h1>Solution Plan</h1>',
+  contentKey: 'org-1/proj-1/opp-1/solution-plan/v2/solution-plan.html',
+  version: 2,
+  isStale: false,
+  isUserEdited: false,
+  ...over,
+});
 
 /**
  * Shared factory for `jest.mock('@/lib/hooks/api-helpers', ...)` in the hook

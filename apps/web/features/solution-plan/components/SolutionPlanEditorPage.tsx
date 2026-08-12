@@ -1,23 +1,24 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
-import { AlertTriangle, ArrowLeft, FileText, Loader2, RefreshCw, Save } from 'lucide-react';
 
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
-import PermissionWrapper from '@/components/permission-wrapper';
 import { PageLoadingSkeleton } from '@/components/layout/page-loading-skeleton';
-import { RichTextEditor } from '@/components/rfp-documents/rich-text-editor';
+import {
+  RichTextEditor,
+  stripPresignedUrlsFromHtml,
+} from '@/components/rfp-documents/rich-text-editor';
 import { sanitizeGeneratedHtml } from '@/components/rfp-documents/rfp-document-utils';
-import type { ApiError } from '@/lib/hooks/api-helpers';
+import { useCurrentOrganization } from '@/context/organization-context';
+import { getSaveErrorDescription } from '../lib/save-errors';
 import { useSolutionPlan } from '../hooks/useSolutionPlan';
 import { useSolutionPlanHtmlContent } from '../hooks/useSolutionPlanHtmlContent';
 import { useUpdateSolutionPlan } from '../hooks/useUpdateSolutionPlan';
 import { useSolutionPlanActions } from '../hooks/useSolutionPlanActions';
-import { SolutionPlanStatusBadge } from './SolutionPlanStatusBadge';
+import { useEditorImageUpload } from '../hooks/useEditorImageUpload';
+import { SolutionPlanEditorBlockedState } from './SolutionPlanEditorBlockedState';
+import { SolutionPlanEditorToolbar } from './SolutionPlanEditorToolbar';
 
 interface SolutionPlanEditorPageProps {
   orgId: string;
@@ -25,38 +26,14 @@ interface SolutionPlanEditorPageProps {
   opportunityId: string;
 }
 
-/** Centered full-page state for the non-editable plan statuses, with a way back. */
-const EditorTerminalState = ({
-  backUrl,
-  children,
-}: {
-  backUrl: string;
-  children: React.ReactNode;
-}) => (
-  <div className="flex flex-col items-center justify-center py-24 gap-4">
-    {children}
-    <Button variant="outline" asChild>
-      <Link href={backUrl}>
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to Opportunity
-      </Link>
-    </Button>
-  </div>
-);
-
-/** The body of a 409 from PATCH /solution-plan/update carries a `code`. */
-const getApiErrorCode = (error: ApiError): string | undefined =>
-  typeof error.details === 'object' && error.details !== null && 'code' in error.details
-    ? String((error.details as { code: unknown }).code)
-    : undefined;
-
 /**
  * Full-page TipTap editor for the Solution Plan ("Source of Truth") HTML.
  * Loads the synthesized body via GET /solution-plan/html-content and saves
  * manual edits via PATCH /solution-plan/update — the server bumps the
  * monotonic version and marks the plan user-edited (ADR-8/11). Regenerate
  * goes through the shared confirm flow that warns manual edits are
- * permanently lost when the plan has been hand-edited (ADR-4).
+ * permanently lost when the plan has been hand-edited (ADR-4). Like the rest
+ * of R2, the page is gated on the org-level `enableSolutionPlan` flag.
  */
 export const SolutionPlanEditorPage = ({
   orgId,
@@ -64,6 +41,9 @@ export const SolutionPlanEditorPage = ({
   opportunityId,
 }: SolutionPlanEditorPageProps) => {
   const { toast } = useToast();
+
+  const { currentOrganization, loading: isOrgLoading } = useCurrentOrganization();
+  const isFeatureEnabled = !!currentOrganization?.enableSolutionPlan;
 
   const { plan, isRunning, isLoading: isPlanLoading, notFound, refresh } = useSolutionPlan(
     orgId,
@@ -76,7 +56,7 @@ export const SolutionPlanEditorPage = ({
     orgId,
     projectId,
     opportunityId,
-    { enabled: isReady },
+    { enabled: isFeatureEnabled && isReady },
   );
 
   const { updateSolutionPlan, isUpdating } = useUpdateSolutionPlan(orgId, projectId, opportunityId);
@@ -86,40 +66,47 @@ export const SolutionPlanEditorPage = ({
     opportunityId,
     { plan, refresh },
   );
+  const { isImageUploading, setIsImageUploading, handleUploadImageToS3, handleGetDownloadUrl } =
+    useEditorImageUpload(orgId);
 
   const [htmlContent, setHtmlContent] = useState('');
-  // The server version the editor was last initialized from. TipTap only reads
-  // `value` on mount, so a version bump (save / regenerate) remounts via key.
+  // The server version the editor currently reflects.
   const [editorVersion, setEditorVersion] = useState<number | null>(null);
+  // TipTap only reads `value` on mount, so replacing content programmatically
+  // (initial load, regenerate) requires a remount via this key. A plain save
+  // must NOT bump it — remounting would drop the cursor and scroll position.
+  const [editorKey, setEditorKey] = useState(0);
 
   useEffect(() => {
     if (!content) return;
-    if (editorVersion === content.version) return;
+    // Only move forward (versions are monotonic — ADR-11). A stale refetch,
+    // or the pre-revalidation window right after a save, must not snap the
+    // editor back to older server HTML.
+    if (editorVersion !== null && content.version <= editorVersion) return;
     setHtmlContent(sanitizeGeneratedHtml(content.html));
     setEditorVersion(content.version);
+    setEditorKey((key) => key + 1);
   }, [content, editorVersion]);
 
   const backUrl = `/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}`;
 
   const handleSave = useCallback(async () => {
     try {
-      await updateSolutionPlan({ htmlContent });
+      const result = await updateSolutionPlan({
+        htmlContent: stripPresignedUrlsFromHtml(htmlContent),
+      });
+      // The editor already shows exactly what was saved — adopt the bumped
+      // version so the refetch below doesn't trigger a remount.
+      if (result?.plan) setEditorVersion(result.plan.version);
       await Promise.all([refresh(), refreshHtml()]);
       toast({
         title: 'Solution Plan saved',
         description: 'Your edits are now the source of truth for generated documents.',
       });
     } catch (err) {
-      const apiError = err as ApiError;
-      const errorCode = apiError.status === 409 ? getApiErrorCode(apiError) : undefined;
       toast({
         title: 'Save failed',
-        description:
-          errorCode === 'SOLUTION_PLAN_CONFLICT'
-            ? 'The plan changed while you were editing — reload to pick up the latest version, then reapply your edits.'
-            : errorCode === 'SOLUTION_PLAN_NOT_READY'
-              ? 'The plan is not editable right now — a run may be in progress. Refresh and try again.'
-              : apiError.message,
+        description: getSaveErrorDescription(err),
         variant: 'destructive',
       });
     }
@@ -129,142 +116,50 @@ export const SolutionPlanEditorPage = ({
 
   // ── Render ──
 
-  if (isPlanLoading && !plan && !notFound) {
+  if (isOrgLoading || (isPlanLoading && !plan && !notFound)) {
     return <PageLoadingSkeleton variant="detail" hasDescription />;
   }
 
-  if (!plan) {
+  if (!isFeatureEnabled || !plan || isRunning || plan.status === 'FAILED') {
     return (
-      <EditorTerminalState backUrl={backUrl}>
-        <FileText className="h-12 w-12 text-muted-foreground" />
-        <p className="text-muted-foreground">
-          No Solution Plan exists for this opportunity yet.
-        </p>
-      </EditorTerminalState>
+      <SolutionPlanEditorBlockedState
+        plan={plan}
+        isRunning={isRunning}
+        isFeatureEnabled={isFeatureEnabled}
+        backUrl={backUrl}
+      />
     );
   }
 
-  if (isRunning) {
-    return (
-      <EditorTerminalState backUrl={backUrl}>
-        <SolutionPlanStatusBadge status={plan.status} />
-        <p className="text-sm text-muted-foreground max-w-md text-center">
-          {plan.status === 'GRILLING'
-            ? 'The AI interview is running — follow it live on the opportunity page. The plan becomes editable once it is ready.'
-            : 'The Solution Plan is being synthesized. It becomes editable once it is ready.'}
-        </p>
-      </EditorTerminalState>
-    );
-  }
-
-  if (plan.status === 'FAILED') {
-    return (
-      <EditorTerminalState backUrl={backUrl}>
-        <Alert variant="destructive" className="max-w-md">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            Solution Plan generation failed{plan.error ? `: ${plan.error}` : '.'}
-          </AlertDescription>
-        </Alert>
-      </EditorTerminalState>
-    );
-  }
-
-  // READY — the editable state.
+  // READY — the editable state. 56px matches the dashboard header height.
   const isEditorReady = editorVersion !== null && !isHtmlLoading;
   const isBusy = isUpdating || isInitializing;
 
   return (
-    <div className="flex flex-col" style={{ height: 'calc(100vh - 56px)' }}>
-      {/* ── Toolbar ── */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b bg-background shrink-0">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1 text-muted-foreground hover:text-foreground px-2 shrink-0"
-          asChild
-        >
-          <Link href={backUrl}>
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Link>
-        </Button>
+    <div className="flex flex-col h-[calc(100vh-56px)]">
+      <SolutionPlanEditorToolbar
+        plan={plan}
+        backUrl={backUrl}
+        isRegenerateStarting={isInitializing}
+        isSaving={isUpdating}
+        isBusy={isBusy}
+        canSave={isEditorReady && !isImageUploading}
+        onRegenerate={handleRegenerate}
+        onSave={handleSave}
+      />
 
-        <span className="text-sm font-medium shrink-0">Solution Plan</span>
-        <SolutionPlanStatusBadge status={plan.status} />
-        <span className="text-xs text-muted-foreground whitespace-nowrap">
-          Version {plan.version}
-          {plan.isUserEdited ? ' · manually edited' : ''}
-        </span>
-
-        <div className="flex-1" />
-
-        <div className="flex items-center gap-2 shrink-0">
-          <PermissionWrapper requiredPermission="proposal:create">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRegenerate}
-              disabled={isBusy}
-              title={
-                plan.isUserEdited
-                  ? 'Regenerating permanently discards manual edits'
-                  : 'Run a new interview and replace this plan'
-              }
-            >
-              {isInitializing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Starting…
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Regenerate
-                </>
-              )}
-            </Button>
-          </PermissionWrapper>
-
-          <PermissionWrapper requiredPermission="proposal:create">
-            <Button size="sm" onClick={handleSave} disabled={isBusy || !isEditorReady}>
-              {isUpdating ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving…
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save
-                </>
-              )}
-            </Button>
-          </PermissionWrapper>
-        </div>
-      </div>
-
-      {/* ── Staleness warning (gate stays open — ADR-3) ── */}
-      {plan.isStale && (
-        <Alert className="rounded-none border-x-0 shrink-0">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            Solution Plan may be outdated — regenerate recommended.
-            {plan.staleReason ? ` ${plan.staleReason}` : ''}
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* ── Editor ── */}
       <div className="flex-1 min-h-0 overflow-hidden">
         {isEditorReady ? (
           <RichTextEditor
-            key={editorVersion}
+            key={editorKey}
             value={htmlContent}
             onChange={setHtmlContent}
             disabled={isBusy}
             className="h-full rounded-none border-0"
             minHeight="100%"
+            onUploadImageToS3={handleUploadImageToS3}
+            onGetDownloadUrl={handleGetDownloadUrl}
+            onUploadingChange={setIsImageUploading}
           />
         ) : (
           <div className="p-6 space-y-4" data-testid="solution-plan-editor-skeleton">
