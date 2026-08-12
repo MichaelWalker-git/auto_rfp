@@ -81,6 +81,9 @@ export class FoiaInboundStack extends cdk.Stack {
 
     const functionName = `auto-rfp-foia-inbound-${stage}`;
     const recipient = `${receiptLocalPart}@${receiptDomain}`;
+    // S3 bucket names must be lowercase, and `stage` is capitalized ("Dev").
+    // Interpolating it directly fails at CREATE time, not at synth.
+    const stageSlug = stage.toLowerCase();
 
     // ─── 1. Encryption key ────────────────────────────────────────────────────
     //
@@ -113,7 +116,7 @@ export class FoiaInboundStack extends cdk.Stack {
     // message is itself auditable information. Logging into the same bucket would
     // put the audit trail under the same delete permission as the thing it audits.
     const accessLogBucket = new s3.Bucket(this, 'FoiaInboundAccessLogs', {
-      bucketName: `auto-rfp-foia-inbound-logs-${stage}-${cdk.Aws.ACCOUNT_ID}`,
+      bucketName: `auto-rfp-foia-inbound-logs-${stageSlug}-${cdk.Aws.ACCOUNT_ID}`,
       // S3 server access logging cannot write to a KMS-CMK-encrypted bucket, so
       // this uses SSE-S3. The logs contain object keys and requester identity, not
       // message content.
@@ -130,7 +133,7 @@ export class FoiaInboundStack extends cdk.Stack {
     const mailBucket = new s3.Bucket(this, 'FoiaInboundBucket', {
       serverAccessLogsBucket: accessLogBucket,
       serverAccessLogsPrefix: 'mail-bucket-access/',
-      bucketName: `auto-rfp-foia-inbound-${stage}-${cdk.Aws.ACCOUNT_ID}`,
+      bucketName: `auto-rfp-foia-inbound-${stageSlug}-${cdk.Aws.ACCOUNT_ID}`,
       encryption: s3.BucketEncryption.KMS,
       encryptionKey: mailKey,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
@@ -297,8 +300,12 @@ export class FoiaInboundStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'RequiredDomainIdentity', {
       value: receiptDomain,
+      // Descriptions must be literal strings — interpolating cdk.Aws.REGION
+      // produces an Fn::Join, which CloudFormation rejects with "Every
+      // Description member must be a string". The region is in the stack's own
+      // metadata anyway, so it does not need repeating here.
       description:
-        `Verify this domain in SES in ${cdk.Aws.REGION}. Identities are per-region, ` +
+        'Verify this domain in SES in THIS stack region. Identities are per-region, ' +
         'so verification in the primary region does not carry over.',
     });
 
@@ -309,7 +316,10 @@ export class FoiaInboundStack extends cdk.Stack {
         'and the domain is verified, or group mail will bounce.',
     });
 
-    new cdk.CfnOutput(this, 'InboundBucketName', { value: mailBucket.bucketName });
+    new cdk.CfnOutput(this, 'InboundBucketName', {
+      value: mailBucket.bucketName,
+      description: 'Bucket holding the raw received messages.',
+    });
 
     // ─── 7. cdk-nag ───────────────────────────────────────────────────────────
     //
