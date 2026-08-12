@@ -16,6 +16,7 @@ import { AuditStack } from '../audit-stack';
 import { OpportunityEventsStack } from '../opportunity-events-stack';
 import { RfpLinearSyncStack } from '../rfp-linear-sync-stack';
 import { FoiaAutomationStack } from '../foia-automation-stack';
+import { FoiaInboundStack } from '../foia-inbound-stack';
 import { RfpDigestStack } from '../rfp-digest-stack';
 import { RFP_SYNC_PROJECT_ID } from '@auto-rfp/core';
 import { AwsSolutionsChecks } from 'cdk-nag';
@@ -295,6 +296,50 @@ const foiaAutomationStack = new FoiaAutomationStack(app, `AutoRfp-FoiaAutomation
 
 foiaAutomationStack.addDependency(db);
 foiaAutomationStack.addDependency(storage);
+
+/**
+ * Level 1: inbound mail ingestion (SES receipt).
+ *
+ * Deployed to a DIFFERENT region from everything else, and only when explicitly
+ * configured. SES permits one active receipt rule set per region, and the primary
+ * region's already belongs to an unrelated project — so this owns a rule set
+ * outright where nothing else receives. The region is invisible to senders, since
+ * routing is decided by the MX record.
+ *
+ * Gated on FOIA_RECEIPT_DOMAIN because the receiving subdomain is a deliberate
+ * DNS decision on a live domain, not something to stand up implicitly on every
+ * deploy. Unset means the stack is not synthesized at all.
+ */
+const foiaReceiptDomain = process.env.FOIA_RECEIPT_DOMAIN || '';
+if (foiaReceiptDomain) {
+  const inboundRegion = process.env.FOIA_INBOUND_REGION || 'us-west-2';
+
+  const foiaInboundStack = new FoiaInboundStack(app, `AutoRfp-FoiaInbound-${stage}`, {
+    env: { account: env.account, region: inboundRegion },
+    stage,
+    mainTableName: db.tableName.tableName,
+    // Built by hand rather than read from the table construct: a cross-region
+    // stack cannot reference another stack's attributes without an export, and the
+    // table name is deterministic per stage.
+    mainTableArn: `arn:aws:dynamodb:${env.region}:${env.account}:table/RFP-table-${stage}`,
+    primaryRegion: env.region ?? 'us-east-1',
+    receiptDomain: foiaReceiptDomain,
+    receiptLocalPart: process.env.FOIA_RECEIPT_LOCAL_PART || 'foia',
+    commonEnv: {
+      STAGE: stage,
+      DB_TABLE_NAME: db.tableName.tableName,
+      REGION: env.region ?? 'us-east-1',
+      SENTRY_DSN: sentryDNS,
+      SENTRY_ENVIRONMENT: stage,
+      NODE_ENV: 'production',
+    },
+  });
+
+  // No addDependency on `db`: cross-region stacks cannot express a CloudFormation
+  // dependency. The table is referenced by a deterministic ARN and must already
+  // exist, which it does — it predates this stack.
+  cdk.Tags.of(foiaInboundStack).add('feature', 'foia-inbound');
+}
 
 // Only deployed where a Linear key and Slack webhook are configured for the org.
 const rfpDigestOrgId = process.env.RFP_DIGEST_ORG_ID || '';
