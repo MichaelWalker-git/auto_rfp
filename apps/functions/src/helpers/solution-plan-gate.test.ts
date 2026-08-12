@@ -101,9 +101,9 @@ describe('checkSolutionPlanGate', () => {
     expect(result.allowed).toBe(true);
   });
 
-  it('grandfathers when the opportunity already has a gated-type document', async () => {
+  it('grandfathers when the opportunity already has a generated gated-type document', async () => {
     mockListDocs.mockResolvedValue({
-      items: [{ documentType: 'TECHNICAL_PROPOSAL' }],
+      items: [{ documentType: 'TECHNICAL_PROPOSAL', htmlContentKey: 'org-1/p/o/rfp-documents/d1/content.html' }],
       nextToken: null,
     });
     const result = await checkSolutionPlanGate(args);
@@ -115,7 +115,10 @@ describe('checkSolutionPlanGate', () => {
 
   it('does not grandfather off exempt-type documents', async () => {
     mockListDocs.mockResolvedValue({
-      items: [{ documentType: 'CLARIFYING_QUESTIONS' }, { documentType: 'QUESTIONNAIRE' }],
+      items: [
+        { documentType: 'CLARIFYING_QUESTIONS', htmlContentKey: 'k1' },
+        { documentType: 'QUESTIONNAIRE', htmlContentKey: 'k2' },
+      ],
       nextToken: null,
     });
     const result = await checkSolutionPlanGate(args);
@@ -129,7 +132,7 @@ describe('checkSolutionPlanGate', () => {
         nextToken: { pk: 'x' },
       })
       .mockResolvedValueOnce({
-        items: [{ documentType: 'COVER_LETTER' }],
+        items: [{ documentType: 'COVER_LETTER', htmlContentKey: 'k1' }],
         nextToken: null,
       });
     const result = await checkSolutionPlanGate(args);
@@ -158,9 +161,43 @@ describe('checkSolutionPlanGate', () => {
     expect(result.allowed).toBe(false);
   });
 
-  it('grandfathers off generated documents with null file fields', async () => {
+  it('does not grandfather off placeholders or failed generations (no content produced)', async () => {
     mockListDocs.mockResolvedValue({
-      items: [{ documentType: 'COST_PROPOSAL', fileKey: null, originalFileName: null }],
+      items: [
+        { documentType: 'COST_PROPOSAL', status: 'GENERATING', fileKey: null, originalFileName: null },
+        { documentType: 'TECHNICAL_PROPOSAL', status: 'FAILED', fileKey: null, originalFileName: null },
+      ],
+      nextToken: null,
+    });
+    const result = await checkSolutionPlanGate(args);
+    expect(result.allowed).toBe(false);
+  });
+
+  it('grandfathers off a generated document that was synced to Google Drive (fileKey set, htmlContentKey kept)', async () => {
+    mockListDocs.mockResolvedValue({
+      items: [
+        {
+          documentType: 'COST_PROPOSAL',
+          htmlContentKey: 'org-1/p/o/rfp-documents/d1/content.html',
+          fileKey: 'org-1/p/o/rfp-documents/d1/v1/proposal.docx',
+        },
+      ],
+      nextToken: null,
+    });
+    const result = await checkSolutionPlanGate(args);
+    expect(result.allowed).toBe(true);
+  });
+
+  it('grandfathers off legacy generated documents with content in DynamoDB and no file fields', async () => {
+    mockListDocs.mockResolvedValue({
+      items: [
+        {
+          documentType: 'COST_PROPOSAL',
+          content: { title: 'Cost Proposal' },
+          fileKey: null,
+          originalFileName: null,
+        },
+      ],
       nextToken: null,
     });
     const result = await checkSolutionPlanGate(args);

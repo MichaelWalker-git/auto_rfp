@@ -21,9 +21,11 @@ jest.mock('@/helpers/project', () => ({
 
 const mockPutRFPDocument = jest.fn();
 const mockUpdateMetadata = jest.fn();
+const mockGetRFPDocument = jest.fn();
 jest.mock('@/helpers/rfp-document', () => ({
   putRFPDocument: (...a: unknown[]) => mockPutRFPDocument(...a),
   updateRFPDocumentMetadata: (...a: unknown[]) => mockUpdateMetadata(...a),
+  getRFPDocument: (...a: unknown[]) => mockGetRFPDocument(...a),
 }));
 
 const mockCheckGate = jest.fn();
@@ -57,6 +59,7 @@ beforeEach(() => {
   mockCheckGate.mockResolvedValue({ allowed: true, solutionPlanStatus: 'READY' });
   mockPutRFPDocument.mockResolvedValue(undefined);
   mockUpdateMetadata.mockResolvedValue({});
+  mockGetRFPDocument.mockResolvedValue({ documentId: 'doc-1', documentType: 'COST_PROPOSAL' });
   mockEnqueue.mockResolvedValue(undefined);
 });
 
@@ -128,10 +131,22 @@ describe('generate-document handler — solution plan gate', () => {
 
     expect(statusOf(res)).toBe(202);
     expect(mockCheckGate).not.toHaveBeenCalled();
+    expect(mockGetRFPDocument).toHaveBeenCalledWith('proj-1', 'opp-1', 'doc-1');
     expect(mockUpdateMetadata).toHaveBeenCalledWith(
       expect.objectContaining({ documentId: 'doc-1' }),
     );
     expect(mockEnqueue).toHaveBeenCalled();
+  });
+
+  it('returns 404 for a documentId that does not exist — no phantom record, no enqueue', async () => {
+    mockGetRFPDocument.mockResolvedValue(null);
+
+    const res = await baseHandler(buildEvent({ ...gatedBody, documentId: 'doc-forged' }));
+
+    expect(statusOf(res)).toBe(404);
+    expect(mockUpdateMetadata).not.toHaveBeenCalled();
+    expect(mockPutRFPDocument).not.toHaveBeenCalled();
+    expect(mockEnqueue).not.toHaveBeenCalled();
   });
 
   it('defaults opportunityId to "default" in the gate check', async () => {

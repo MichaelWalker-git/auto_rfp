@@ -16,7 +16,7 @@ import {
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
-import { putRFPDocument, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
+import { getRFPDocument, putRFPDocument, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
 import { checkSolutionPlanGate } from '@/helpers/solution-plan-gate';
 import { enqueueDocumentGeneration } from '@/helpers/document-generation-queue';
 import { nowIso } from '@/helpers/date';
@@ -42,12 +42,12 @@ const InputSchema = z.object({
 const extractOrgId = (sortKey: string) => String(sortKey ?? '').split('#')[0] || '';
 
 const buildPlaceholderName = (documentType: string): string =>
-    `Generating ${RFP_DOCUMENT_TYPES[documentType as keyof typeof RFP_DOCUMENT_TYPES] ?? documentType}...`;
+  `Generating ${RFP_DOCUMENT_TYPES[documentType as keyof typeof RFP_DOCUMENT_TYPES] ?? documentType}...`;
 
 // ─── Handler ───
 
 export const baseHandler = async (
-    event: AuthedEvent,
+  event: AuthedEvent,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     // 1. Parse & validate input
@@ -72,6 +72,19 @@ export const baseHandler = async (
 
     if (existingDocumentId) {
       // ── Regenerate: reuse existing document, reset status to GENERATING ──
+      // Not gated: a verified-existing document grandfathers the opportunity
+      // (ADR-10), and retrying a FAILED generation must keep working. The
+      // existence check matters — updateRFPDocumentMetadata upserts, so an
+      // unverified documentId would create a phantom record and bypass the gate.
+      const existingDocument = await getRFPDocument(
+        projectId,
+        effectiveOpportunityId,
+        existingDocumentId,
+      );
+      if (!existingDocument) {
+        return apiResponse(404, { message: 'Document not found' });
+      }
+
       documentId = existingDocumentId;
       await updateRFPDocumentMetadata({
         projectId,
@@ -82,8 +95,6 @@ export const baseHandler = async (
       });
     } else {
       // ── Solution Plan gate (T9): gated types require a READY plan ──
-      // Regeneration (documentId provided) is not gated — the document's own
-      // existence already grandfathers the opportunity (ADR-10).
       const { allowed, solutionPlanStatus } = await checkSolutionPlanGate({
         orgId,
         projectId,
@@ -93,7 +104,7 @@ export const baseHandler = async (
       if (!allowed) {
         return apiResponse(409, {
           message:
-              'A ready Solution Plan is required before generating this document type. Create a Solution Plan for this opportunity first.',
+            'A ready Solution Plan is required before generating this document type. Create a Solution Plan for this opportunity first.',
           code: 'SOLUTION_PLAN_REQUIRED',
           solutionPlanStatus,
         });
@@ -170,10 +181,10 @@ export const baseHandler = async (
 };
 
 export const handler = withSentryLambda(
-    middy(baseHandler)
-        .use(authContextMiddleware())
-        .use(orgMembershipMiddleware())
-        .use(requirePermission('proposal:create'))
-        .use(auditMiddleware())
-        .use(httpErrorMiddleware()),
+  middy(baseHandler)
+    .use(authContextMiddleware())
+    .use(orgMembershipMiddleware())
+    .use(requirePermission('proposal:create'))
+    .use(auditMiddleware())
+    .use(httpErrorMiddleware()),
 );

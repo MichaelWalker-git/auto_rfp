@@ -222,6 +222,9 @@ export class ApiOrchestratorStack extends cdk.Stack {
       STAGE: stage,
       // Solution Plan grilling loop — REST init enqueues, the worker re-enqueues each round.
       SOLUTION_PLAN_QUEUE_URL: solutionPlanQueue.queueUrl,
+      // Solution Plan generation gate kill switch (T9) — deploy with
+      // SOLUTION_PLAN_GATING=off to disable the gate stage-wide.
+      SOLUTION_PLAN_GATING: process.env.SOLUTION_PLAN_GATING || 'on',
       // AI compliance review — fast model for sync chat, stronger model for the async worker.
       COMPLIANCE_REVIEW_CHAT_MODEL_ID: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
       COMPLIANCE_REVIEW_WORKER_MODEL_ID: 'us.anthropic.claude-sonnet-4-6',
