@@ -165,8 +165,23 @@ export const claimInboundMessage = async (args: {
  * It is globally unique per RFC 5322 and stable across redelivery, which SES
  * message ids are not — SES assigns a fresh one per receipt, so keying on that
  * would let the same email through twice.
+ *
+ * Throws on an empty value rather than writing one. DynamoDB rejects an empty
+ * string as a key attribute, so an unparsed header would surface as a raw
+ * ValidationException naming `sort_key` and nothing else — indistinguishable from
+ * the *read*-side bug that produced that identical message (see
+ * `findOrgByScrapeMailbox`) and cost real time to tell apart. Failing here names
+ * the actual problem.
  */
-export const buildMailScanSk = (messageId: string): string => messageId.trim();
+export const buildMailScanSk = (messageId: string): string => {
+  const trimmed = (messageId ?? '').trim();
+  if (!trimmed) {
+    throw new Error(
+      'Cannot record an inbound message with no Message-ID — refusing to write an empty sort key',
+    );
+  }
+  return trimmed;
+};
 
 /**
  * Decides what a message means, without writing anything.
@@ -265,6 +280,15 @@ export const awardDateFromMail = (args: {
     }
     return { date: value, provenance: 'RECORDED_AWARD' };
   }
+
+  // No stated date. Logged because the fallback is materially weaker evidence than
+  // the agency's own date, and silently preferring it once cost real debugging
+  // time when a body arrived unparsed.
+  console.info(
+    '[foia-award-date] no stated award date found; falling back to receipt date.',
+    `bodyLength=${args.bodyText.length}`,
+    `head=${JSON.stringify(args.bodyText.slice(0, 120))}`,
+  );
 
   return { date: args.receivedAt.slice(0, 10), provenance: 'RECORDED_AWARD' };
 };

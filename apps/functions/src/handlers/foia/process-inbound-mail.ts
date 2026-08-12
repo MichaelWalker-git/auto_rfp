@@ -1,4 +1,4 @@
-import type { SESEvent } from 'aws-lambda';
+import type { SESEvent, SESMessage } from 'aws-lambda';
 import middy from '@middy/core';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
@@ -41,6 +41,38 @@ import { getOrgMembers } from '@/helpers/user';
  */
 
 const s3 = new S3Client({ region: process.env.AWS_REGION });
+
+/**
+ * The prefix the receipt rule's S3 action writes under.
+ *
+ * Must stay in step with `objectKeyPrefix` in `FoiaInboundStack`. It is needed
+ * here because the key has to be reconstructed rather than read — see
+ * `locateStoredMessage`.
+ */
+const INBOUND_KEY_PREFIX = 'inbound/';
+
+/**
+ * Works out where SES stored the raw message.
+ *
+ * A receipt rule reports the action *currently executing*, so a Lambda action
+ * receives `action.type === 'Lambda'` — never the `S3` action that ran before it
+ * in the same rule. Reading `objectKey` off the reported action therefore always
+ * yielded undefined, the raw message was never fetched, and every message was
+ * classified from its subject line alone. That failed silently in the worst
+ * possible way: with no body, an award notice fell back to the receipt date, so a
+ * real award of 1/29/2026 was recorded as 2026-08-12 and the FOIA timer was
+ * anchored 195 days late.
+ *
+ * The key is reconstructable because the S3 action names each object after
+ * `mail.messageId` under its configured prefix. The reported action is still
+ * preferred when it *is* the S3 one, so an SNS-fanout or S3-only wiring keeps
+ * working without depending on the prefix constant.
+ */
+const locateStoredMessage = (receipt: SESMessage['receipt'], messageId: string): string | undefined => {
+  const action = receipt?.action;
+  if (action?.type === 'S3') return action.objectKey;
+  return messageId ? `${INBOUND_KEY_PREFIX}${messageId}` : undefined;
+};
 
 /** Reads the raw message SES stored. */
 const readRawMessage = async (bucket: string, key: string): Promise<string> => {
@@ -206,9 +238,7 @@ export const processInboundMail = async (event: SESEvent): Promise<void> => {
     const { mail, receipt } = record.ses;
     const receivedAt = mail.timestamp ?? nowIso();
 
-    // Message-ID from the headers, not SES's receipt id: SES assigns a fresh one
-    // per delivery, so keying dedupe on that would let a retry through twice.
-    const rawKey = receipt?.action?.type === 'S3' ? receipt.action.objectKey : undefined;
+    const rawKey = locateStoredMessage(receipt, mail.messageId);
 
     let raw = '';
     if (bucket && rawKey) {
@@ -220,8 +250,28 @@ export const processInboundMail = async (event: SESEvent): Promise<void> => {
 
     const subject = mail.commonHeaders?.subject ?? readMailHeader(raw, 'Subject') ?? '';
     const from = mail.commonHeaders?.from?.[0] ?? mail.source ?? '';
+    /**
+     * Dedupe key, in descending order of stability.
+     *
+     * The RFC Message-ID is preferred because it survives redelivery, whereas SES
+     * assigns a fresh receipt id each time. But it is not guaranteed to be
+     * readable — a body we cannot parse yields nothing — so the SES ids act as a
+     * fallback. They still dedupe a *repeat invocation* of the same receipt, which
+     * is the retry case that actually matters here; they only fail to dedupe a
+     * genuine redelivery, which is far rarer than losing the message entirely.
+     */
     const rfcMessageId =
-      readMailHeader(raw, 'Message-ID') ?? mail.commonHeaders?.messageId ?? mail.messageId;
+      [
+        readMailHeader(raw, 'Message-ID'),
+        mail.commonHeaders?.messageId,
+        mail.messageId,
+      ].find((id) => typeof id === 'string' && id.trim().length > 0) ?? '';
+
+    if (!rfcMessageId) {
+      // Nothing to dedupe on at all. Acting could double-apply on a retry.
+      console.error('[foia-inbound] no usable message id; skipping', rawKey);
+      continue;
+    }
 
     // Which tenant owns this mailbox. Nothing may be touched without it: inbound
     // mail carries no tenant, and an unattributed write in a shared table could

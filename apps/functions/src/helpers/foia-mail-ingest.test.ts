@@ -356,6 +356,19 @@ describe('buildMailScanSk', () => {
     // same email through twice.
     expect(buildMailScanSk('  <abc@ttuhsc.edu>  ')).toBe('<abc@ttuhsc.edu>');
   });
+
+  it.each([['', 'empty'], ['   ', 'whitespace'], [undefined, 'undefined']])(
+    'refuses a %s id rather than writing an empty sort key',
+    (value) => {
+      /**
+       * Found in production on the very first real message. DynamoDB rejects an
+       * empty string as a key attribute, so an unparsed header surfaced as a raw
+       * SDK ValidationException that named `sort_key` and nothing else. Failing
+       * here names the actual problem.
+       */
+      expect(() => buildMailScanSk(value as unknown as string)).toThrow(/Message-ID/);
+    },
+  );
 });
 
 describe('awardDateFromMail', () => {

@@ -4,7 +4,7 @@ import type {
   FoiaSettingsUpdateRequest,
 } from '@auto-rfp/core';
 import { buildDefaultFoiaSettings } from '@auto-rfp/core';
-import { getItem, putItem, queryBySkPrefix } from '@/helpers/db';
+import { getItem, putItem, queryByPk } from '@/helpers/db';
 import { ORG_FOIA_SETTINGS_PK } from '@/constants/foia';
 import { nowIso } from '@/helpers/date';
 
@@ -35,7 +35,11 @@ export const findOrgByScrapeMailbox = async (recipients: readonly string[]): Pro
   const wanted = new Set(recipients.map(bareAddress).filter((a) => a.length > 0));
   if (wanted.size === 0) return null;
 
-  const all = await queryBySkPrefix<FoiaSettingsDBItem>(ORG_FOIA_SETTINGS_PK, '');
+  // `queryByPk`, not `queryBySkPrefix('')`: DynamoDB rejects an empty string in a
+  // `begins_with` on a key attribute, so the empty-prefix form threw a
+  // ValidationException naming `sort_key` — which read like a write bug and cost
+  // real time to trace on the first production message.
+  const all = await queryByPk<FoiaSettingsDBItem>(ORG_FOIA_SETTINGS_PK);
 
   const claiming = all.filter(
     (settings) =>

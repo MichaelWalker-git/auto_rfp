@@ -267,10 +267,27 @@ export class FoiaInboundStack extends cdk.Stack {
           // Reject anything not delivered over TLS.
           tlsPolicy: ses.TlsPolicy.REQUIRE,
           actions: [
+            /**
+             * No `kmsKey` here, deliberately.
+             *
+             * Passing one makes SES CLIENT-side encrypt the message body before
+             * the PUT, using the S3 encryption-client envelope format
+             * (x-amz-key-v2 / x-amz-cek-alg metadata). S3 then returns ciphertext
+             * on GetObject even with full kms:Decrypt — reading it requires the
+             * S3 encryption client, which is a separate SDK.
+             *
+             * The bucket's own SSE-KMS default encryption still applies, so the
+             * message is encrypted at rest under the same customer-managed key —
+             * transparently, which is what we actually wanted. Confirmed against a
+             * stored object: it reads back as plain RFC 5322 text.
+             *
+             * NOTE: the prefix below is duplicated as `INBOUND_KEY_PREFIX` in
+             * `process-inbound-mail.ts`, which reconstructs the object key because
+             * SES reports only the executing (Lambda) action. Change both together.
+             */
             new sesActions.S3({
               bucket: mailBucket,
               objectKeyPrefix: 'inbound/',
-              kmsKey: mailKey,
             }),
             new sesActions.Lambda({
               function: inboundLambda,

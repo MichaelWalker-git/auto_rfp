@@ -75,12 +75,19 @@ import type { SESEvent } from 'aws-lambda';
 
 const rawMessage = (lines: string[]): string => lines.join('\r\n');
 
-/** Builds an SES receipt event for one message. */
+/**
+ * Builds an SES receipt event for one message.
+ *
+ * `action` defaults to the Lambda action, which is what SES actually sends. A rule
+ * reports the action *currently executing* — the Lambda one — never the earlier S3
+ * one, so an `S3`-typed fixture describes an event that cannot occur here.
+ */
 const sesEvent = (over: {
   subject?: string;
   from?: string;
   destination?: string[];
   messageId?: string;
+  action?: Record<string, unknown>;
 }): SESEvent =>
   ({
     Records: [
@@ -113,7 +120,11 @@ const sesEvent = (over: {
             spfVerdict: { status: 'PASS' },
             dkimVerdict: { status: 'PASS' },
             dmarcVerdict: { status: 'PASS' },
-            action: { type: 'S3', bucketName: 'inbound-bucket', objectKey: 'inbound/msg-1' },
+            action: over.action ?? {
+              type: 'Lambda',
+              functionArn: 'arn:aws:lambda:us-west-2:1234:function:auto-rfp-foia-inbound-Dev',
+              invocationType: 'Event',
+            },
           },
         },
       },
@@ -351,5 +362,95 @@ describe('failure handling', () => {
     expect(mockUpdateOpportunity).not.toHaveBeenCalled();
     expect(mockSetFoiaAutomationState).not.toHaveBeenCalled();
     expect(mockSendNotification).not.toHaveBeenCalled();
+  });
+});
+
+describe('locating the stored message', () => {
+  /**
+   * The production failure, in one test.
+   *
+   * SES reports the action it is currently executing — `Lambda` — not the earlier
+   * `S3` one from the same rule. Keying the S3 lookup off `action.type === 'S3'`
+   * therefore never matched, so the raw message was never read: every award was
+   * classified from the subject line alone, and the stated award date was silently
+   * replaced by the receipt date. Confirmed on a real message, where the body said
+   * 1/29/2026 and the opportunity recorded 2026-08-12 — a 195-day error in the one
+   * value the whole FOIA schedule is anchored to.
+   */
+  it('reads the raw message even though SES reports the Lambda action', async () => {
+    await processInboundMail(sesEvent({ subject: 'Notification of Award' }));
+
+    expect(mockS3Send).toHaveBeenCalled();
+    expect(mockUpdateOpportunity).toHaveBeenCalledWith(
+      expect.objectContaining({ patch: { outcomeDate: '2026-01-29' } }),
+    );
+  });
+
+  it('derives the object key from the SES message id and the rule prefix', async () => {
+    // The S3 action names the object after `mail.messageId` under its configured
+    // prefix, so the key is reconstructable without the S3 action being reported.
+    await processInboundMail(sesEvent({ messageId: 'smtp-id-42' }));
+
+    expect(mockS3Send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: expect.objectContaining({
+          Bucket: 'inbound-bucket',
+          Key: 'inbound/smtp-id-42',
+        }),
+      }),
+    );
+  });
+
+  it('still prefers an explicit objectKey when SES does report the S3 action', async () => {
+    await processInboundMail(
+      sesEvent({
+        action: { type: 'S3', bucketName: 'inbound-bucket', objectKey: 'inbound/explicit-key' },
+      }),
+    );
+
+    expect(mockS3Send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: expect.objectContaining({ Key: 'inbound/explicit-key' }),
+      }),
+    );
+  });
+
+  it('records the object key it read, so the raw message stays traceable', async () => {
+    // Null s3Key on every real ledger row is what exposed the bug.
+    await processInboundMail(sesEvent({ messageId: 'smtp-id-7' }));
+
+    expect(mockClaimInboundMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ s3Key: 'inbound/smtp-id-7' }),
+    );
+  });
+});
+
+describe('message id fallback', () => {
+  it('falls back to the SES id when the body yields no Message-ID', async () => {
+    // A body we cannot parse yields no header. The fallback still dedupes a
+    // repeated invocation of the same receipt, which is the retry case that
+    // matters here.
+    givenRawMessage('unparseable binary garbage with no headers');
+
+    await processInboundMail(sesEvent({ messageId: 'ses-receipt-9' }));
+
+    expect(mockClaimInboundMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ messageId: 'ses-receipt-9' }),
+    );
+  });
+
+  it('skips entirely when there is no usable id at all', async () => {
+    // With nothing to dedupe on, acting could double-apply on a retry.
+    givenRawMessage('no headers here');
+    const event = sesEvent({});
+    const record = event.Records[0] as unknown as {
+      ses: { mail: { messageId?: string; commonHeaders: { messageId?: string } } };
+    };
+    record.ses.mail.messageId = '';
+    record.ses.mail.commonHeaders.messageId = '';
+
+    await processInboundMail(event);
+
+    expect(mockClaimInboundMessage).not.toHaveBeenCalled();
   });
 });
