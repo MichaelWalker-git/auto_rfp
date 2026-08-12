@@ -228,12 +228,19 @@ const prepareDueAutomation = async (args: {
     return 'BLOCKED';
   }
 
+  // A trusted recipient in an org that has enabled auto-send skips the approval
+  // gate. Everything else waits for a human — see `autoSendTrusted`, which stays
+  // off until the sending domain can pass DMARC at .gov/.mil.
+  const nextState: FoiaAutomationState = outcome.autoSendEligible
+    ? 'SENDING'
+    : 'AWAITING_APPROVAL';
+
   const moved = await transitionFoiaAutomationState({
     orgId,
     projectId,
     oppId,
     from: 'SCHEDULED',
-    to: 'AWAITING_APPROVAL',
+    to: nextState,
     patch: {
       becameDueAt: nowIso(),
       blockedReason: null,
@@ -253,7 +260,11 @@ const prepareDueAutomation = async (args: {
   // unreferenced — harmless, and cheaper than trying to unwind them.
   if (!moved) return 'SKIPPED';
 
-  await syncOpportunityFoiaMarker(orgId, projectId, oppId, 'AWAITING_APPROVAL');
+  await syncOpportunityFoiaMarker(orgId, projectId, oppId, nextState);
+
+  // SENDING is a lock, not a resting state. Reaching it here means the send path
+  // owns the record from now on; until that path exists, `autoSendTrusted`
+  // defaults off so nothing can land in SENDING and stall.
   return 'PREPARED';
 };
 

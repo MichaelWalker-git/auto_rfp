@@ -457,6 +457,49 @@ describe('scan-foia-automation — preparing a due request', () => {
     expect(res.totals.skipped).toBe(1);
   });
 
+  it('goes to AWAITING_APPROVAL when the request is not auto-send eligible', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({ items: [dueOpp()] });
+    mockPrepareFoiaRequest.mockResolvedValue({
+      status: 'PREPARED',
+      request: { foiaId: 'foia-1', agencyFOIAEmail: 'foia@army.mil', agencyFOIAAddress: 'addr' },
+      letter: 'L',
+      artifacts: [],
+      autoSendEligible: false,
+    });
+
+    await baseHandler({});
+
+    expect(mockTransitionFoiaAutomationState).toHaveBeenCalledWith(
+      expect.objectContaining({ to: 'AWAITING_APPROVAL' }),
+    );
+  });
+
+  it('goes to SENDING when the request IS auto-send eligible', async () => {
+    mockListOpportunitiesByOrg.mockResolvedValue({ items: [dueOpp()] });
+    mockPrepareFoiaRequest.mockResolvedValue({
+      status: 'PREPARED',
+      request: { foiaId: 'foia-1', agencyFOIAEmail: 'foia@army.mil', agencyFOIAAddress: 'addr' },
+      letter: 'L',
+      artifacts: [],
+      autoSendEligible: true,
+      recipientSource: 'FOIA_GOV',
+    });
+
+    await baseHandler({});
+
+    expect(mockTransitionFoiaAutomationState).toHaveBeenCalledWith(
+      expect.objectContaining({ to: 'SENDING' }),
+    );
+    // The opportunity marker must mirror the state actually reached, not a
+    // hardcoded one.
+    expect(mockSyncOpportunityFoiaMarker).toHaveBeenCalledWith(
+      'org-1',
+      'proj-1',
+      'opp-1',
+      'SENDING',
+    );
+  });
+
   it('does not write anything on a dry run, but still reports the intent', async () => {
     mockListOpportunitiesByOrg.mockResolvedValue({ items: [dueOpp()] });
 

@@ -1,9 +1,11 @@
 import type {
   FoiaArtifact,
   FoiaAutomationDBItem,
+  FoiaRecipientSource,
   FoiaSettingsItem,
   OpportunityDBItem,
 } from '@auto-rfp/core';
+import { isTrustedFoiaRecipientSource } from '@auto-rfp/core';
 
 import type { DBFOIARequestItem } from '@/types/project-outcome';
 import { FOIA_REQUEST_PK } from '@/constants/organization';
@@ -38,6 +40,16 @@ export type PrepareOutcome =
       request: DBFOIARequestItem;
       letter: string;
       artifacts: FoiaArtifact[];
+      /**
+       * Whether this request may be transmitted without a human click.
+       *
+       * True only when the recipient came from a trusted source AND the org has
+       * enabled `autoSendTrusted`. The scanner uses this to choose between
+       * SENDING and AWAITING_APPROVAL.
+       */
+      autoSendEligible: boolean;
+      /** Which resolution tier supplied the address, for the audit trail. */
+      recipientSource?: FoiaRecipientSource;
     }
   | {
       status: 'BLOCKED';
@@ -148,8 +160,22 @@ export const prepareFoiaRequest = async (args: {
     state: opportunity.state ?? undefined,
   });
 
+  // Auto-send requires BOTH a trusted recipient and the org opting in. The two
+  // are separate on purpose: trust is a property of where the address came from,
+  // while the flag is a deployment-readiness gate (the sending domain must be
+  // able to pass DMARC at .gov/.mil first).
+  const autoSendEligible =
+    settings.autoSendTrusted === true && isTrustedFoiaRecipientSource(derived.recipientSource);
+
   if (dryRun) {
-    return { status: 'PREPARED', request, letter, artifacts: [] };
+    return {
+      status: 'PREPARED',
+      request,
+      letter,
+      artifacts: [],
+      autoSendEligible,
+      recipientSource: derived.recipientSource,
+    };
   }
 
   // Persist the request first: the artifacts reference its foiaId, and a stored
@@ -189,5 +215,12 @@ export const prepareFoiaRequest = async (args: {
     (artifact): artifact is FoiaArtifact => artifact !== null,
   );
 
-  return { status: 'PREPARED', request: stored, letter, artifacts };
+  return {
+    status: 'PREPARED',
+    request: stored,
+    letter,
+    artifacts,
+    autoSendEligible,
+    recipientSource: derived.recipientSource,
+  };
 };

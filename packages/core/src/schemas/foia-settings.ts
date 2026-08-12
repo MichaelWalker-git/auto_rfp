@@ -49,6 +49,23 @@ export const FoiaSettingsSchema = z.object({
   mailScrapeEnabled: z.boolean().default(false),
 
   /**
+   * Transmit without a human click when the recipient came from a TRUSTED source
+   * (see TRUSTED_FOIA_RECIPIENT_SOURCES). Untrusted recipients always require
+   * approval regardless of this flag.
+   *
+   * Defaults OFF, and must stay off until the sending domain can actually reach
+   * these recipients. As of writing, horustech.dev publishes
+   * `v=spf1 include:_spf.google.com ~all` (which does not authorize SES) with
+   * `aspf=s; adkim=s`, and has no SES DKIM record — while army.mil, navy.mil,
+   * state.gov and gsa.gov are all at DMARC `p=reject`. Enabling this before
+   * DKIM, an aligned SPF, a custom MAIL FROM subdomain and bounce handling are
+   * in place would mark requests SENT that were silently rejected, which is
+   * worse than not sending: the deadline passes with the system reporting
+   * success.
+   */
+  autoSendTrusted: z.boolean().default(false),
+
+  /**
    * Who approves sends. When unset, the send path falls back to the
    * opportunity assignee, then the org primary contact, then org admins.
    */

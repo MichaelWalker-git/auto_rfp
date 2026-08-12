@@ -168,6 +168,82 @@ describe('prepareFoiaRequest — happy path', () => {
   });
 });
 
+describe('prepareFoiaRequest — auto-send gate', () => {
+  it('is not eligible when the org has not opted in, even for a trusted source', async () => {
+    mockDeriveFoiaRequest.mockResolvedValue({
+      request: derivedRequest,
+      recipientSource: 'FOIA_GOV',
+    });
+
+    const outcome = await prepareFoiaRequest(baseArgs);
+
+    if (outcome.status !== 'PREPARED') throw new Error('expected PREPARED');
+    // autoSendTrusted defaults false: the sending domain cannot pass DMARC at
+    // .gov/.mil yet, so a "sent" request would silently never arrive.
+    expect(outcome.autoSendEligible).toBe(false);
+  });
+
+  it('is eligible for a trusted source once the org opts in', async () => {
+    mockDeriveFoiaRequest.mockResolvedValue({
+      request: derivedRequest,
+      recipientSource: 'FOIA_GOV',
+    });
+
+    const outcome = await prepareFoiaRequest({
+      ...baseArgs,
+      settings: { ...settings, autoSendTrusted: true } as unknown as FoiaSettingsItem,
+    });
+
+    if (outcome.status !== 'PREPARED') throw new Error('expected PREPARED');
+    expect(outcome.autoSendEligible).toBe(true);
+    expect(outcome.recipientSource).toBe('FOIA_GOV');
+  });
+
+  it.each(['FOIA_GOV', 'HIGHERGOV_HIERARCHY', 'ORG_AGENCY_CONTACT', 'OPP_FOIA_OVERRIDE', 'USER_PROVIDED'])(
+    'treats %s as trusted',
+    async (source) => {
+      mockDeriveFoiaRequest.mockResolvedValue({ request: derivedRequest, recipientSource: source });
+
+      const outcome = await prepareFoiaRequest({
+        ...baseArgs,
+        settings: { ...settings, autoSendTrusted: true } as unknown as FoiaSettingsItem,
+      });
+
+      if (outcome.status !== 'PREPARED') throw new Error('expected PREPARED');
+      expect(outcome.autoSendEligible).toBe(true);
+    },
+  );
+
+  it.each(['OPP_CONTACT', 'DOCUMENT_SEARCH'])(
+    'never auto-sends a %s recipient, even with the flag on',
+    async (source) => {
+      mockDeriveFoiaRequest.mockResolvedValue({ request: derivedRequest, recipientSource: source });
+
+      const outcome = await prepareFoiaRequest({
+        ...baseArgs,
+        settings: { ...settings, autoSendTrusted: true } as unknown as FoiaSettingsItem,
+      });
+
+      if (outcome.status !== 'PREPARED') throw new Error('expected PREPARED');
+      // A contracting officer is usually not the FOIA office, and a document-scan
+      // hit is a regex inference. Both need a human to look.
+      expect(outcome.autoSendEligible).toBe(false);
+    },
+  );
+
+  it('is not eligible when no source was recorded at all', async () => {
+    mockDeriveFoiaRequest.mockResolvedValue({ request: derivedRequest });
+
+    const outcome = await prepareFoiaRequest({
+      ...baseArgs,
+      settings: { ...settings, autoSendTrusted: true } as unknown as FoiaSettingsItem,
+    });
+
+    if (outcome.status !== 'PREPARED') throw new Error('expected PREPARED');
+    expect(outcome.autoSendEligible).toBe(false);
+  });
+});
+
 describe('prepareFoiaRequest — blocked', () => {
   it('returns the block reason and notifies the org', async () => {
     mockDeriveFoiaRequest.mockResolvedValue({ blockedReason: 'NEEDS_RECIPIENT' });

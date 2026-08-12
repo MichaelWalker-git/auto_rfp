@@ -44,6 +44,7 @@ export const FoiaAutomationSettings = ({ orgId }: FoiaAutomationSettingsProps) =
       automationEnabled: true,
       delayDays: DEFAULT_FOIA_DELAY_DAYS,
       mailScrapeEnabled: false,
+      autoSendTrusted: false,
       stallAfterDays: 14,
       dailySendCap: 5,
       defaultFeeLimit: 0,
@@ -52,6 +53,7 @@ export const FoiaAutomationSettings = ({ orgId }: FoiaAutomationSettingsProps) =
 
   const automationEnabled = watch('automationEnabled');
   const mailScrapeEnabled = watch('mailScrapeEnabled');
+  const autoSendTrusted = watch('autoSendTrusted');
 
   useEffect(() => {
     if (settings) {
@@ -59,6 +61,7 @@ export const FoiaAutomationSettings = ({ orgId }: FoiaAutomationSettingsProps) =
       setValue('delayDays', settings.delayDays ?? DEFAULT_FOIA_DELAY_DAYS);
       setValue('scrapeMailbox', settings.scrapeMailbox ?? undefined);
       setValue('mailScrapeEnabled', settings.mailScrapeEnabled ?? false);
+      setValue('autoSendTrusted', settings.autoSendTrusted ?? false);
       setValue('approverUserId', settings.approverUserId ?? undefined);
       setValue('stallAfterDays', settings.stallAfterDays ?? 14);
       setValue('dailySendCap', settings.dailySendCap ?? 5);
@@ -132,6 +135,31 @@ export const FoiaAutomationSettings = ({ orgId }: FoiaAutomationSettingsProps) =
               id="automation-enabled"
               checked={automationEnabled ?? true}
               onCheckedChange={(checked) => setValue('automationEnabled', checked, { shouldDirty: true })}
+            />
+          </div>
+
+          <Separator />
+
+          {/* Auto-send without approval */}
+          <div className="flex items-center justify-between space-x-2">
+            <div className="space-y-0.5 flex-1">
+              <Label htmlFor="auto-send-trusted" className="text-sm font-medium">
+                Send without approval
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Transmit automatically when the FOIA address comes from the government&apos;s own
+                published directory or an address someone here already confirmed. Requests whose
+                address was inferred from a solicitation document always wait for approval.
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-500">
+                Requires a verified sending domain. Leave off until DNS and SES are configured —
+                agency mail servers reject unauthenticated mail silently.
+              </p>
+            </div>
+            <Switch
+              id="auto-send-trusted"
+              checked={autoSendTrusted ?? false}
+              onCheckedChange={(checked) => setValue('autoSendTrusted', checked, { shouldDirty: true })}
             />
           </div>
 
