@@ -14,6 +14,10 @@ import {
   GrillingMessageItemSchema,
   GrillingMessageDBItemSchema,
   GrillingMessageListItemSchema,
+  SolutionPlanInitResponseSchema,
+  SolutionPlanResponseSchema,
+  SolutionPlanTranscriptResponseSchema,
+  SolutionPlanHtmlContentResponseSchema,
   type SolutionPlanItem,
   type SolutionPlanListItem,
 } from './solution-plan';
@@ -400,5 +404,63 @@ describe('GrillingMessageDBItemSchema', () => {
       [SK_NAME]: 'plan-123#002#2026-08-11T10:00:00Z#msg-1',
     });
     expect(success).toBe(true);
+  });
+});
+
+describe('API response schemas', () => {
+  it('SolutionPlanInitResponseSchema should accept the init handler body', () => {
+    const { success } = SolutionPlanInitResponseSchema.safeParse({
+      ok: true,
+      solutionPlanId: 'plan-123',
+      runId: 'run-abc',
+      status: 'GRILLING',
+      version: 0,
+      regenerated: false,
+      wipedMessages: 0,
+    });
+    expect(success).toBe(true);
+  });
+
+  it('SolutionPlanResponseSchema should wrap a full plan item', () => {
+    const { success } = SolutionPlanResponseSchema.safeParse({
+      ok: true,
+      plan: validItem,
+    });
+    expect(success).toBe(true);
+  });
+
+  it('SolutionPlanTranscriptResponseSchema should accept a message list', () => {
+    const { success, data } = SolutionPlanTranscriptResponseSchema.safeParse({
+      ok: true,
+      solutionPlanId: 'plan-123',
+      runId: 'run-abc',
+      status: 'GRILLING',
+      messages: [
+        {
+          id: 'msg-1',
+          solutionPlanId: 'plan-123',
+          runId: 'run-abc',
+          round: 1,
+          role: 'GRILLER',
+          content: 'What is the expected concurrent user load?',
+        },
+      ],
+    });
+    expect(success).toBe(true);
+    expect(data?.messages).toHaveLength(1);
+  });
+
+  it('SolutionPlanHtmlContentResponseSchema should require the html body', () => {
+    const valid = {
+      ok: true,
+      html: '<h1>Plan</h1>',
+      contentKey: 'org/proj/opp/solution-plan/v1/solution-plan.html',
+      version: 1,
+      isStale: false,
+      isUserEdited: false,
+    };
+    expect(SolutionPlanHtmlContentResponseSchema.safeParse(valid).success).toBe(true);
+    const { html: _html, ...withoutHtml } = valid;
+    expect(SolutionPlanHtmlContentResponseSchema.safeParse(withoutHtml).success).toBe(false);
   });
 });

@@ -258,3 +258,51 @@ export const GrillingMessageListItemSchema = z.object({
 });
 
 export type GrillingMessageListItem = z.infer<typeof GrillingMessageListItemSchema>;
+
+// ─── API Response Schemas ───────────────────────────────────────────────────────
+
+/** 202 body of POST /solution-plan/init. */
+export const SolutionPlanInitResponseSchema = z.object({
+  ok: z.boolean(),
+  solutionPlanId: z.string(),
+  runId: z.string(),
+  status: SolutionPlanStatusSchema,
+  version: z.number().int().nonnegative(),
+  /** True when the init replaced an existing plan record. */
+  regenerated: z.boolean(),
+  /** Number of transcript messages wiped from the superseded run. */
+  wipedMessages: z.number().int().nonnegative(),
+});
+
+export type SolutionPlanInitResponse = z.infer<typeof SolutionPlanInitResponseSchema>;
+
+/** 200 body of GET /solution-plan/get and PATCH /solution-plan/update. */
+export const SolutionPlanResponseSchema = z.object({
+  ok: z.boolean(),
+  plan: SolutionPlanItemSchema,
+});
+
+export type SolutionPlanResponse = z.infer<typeof SolutionPlanResponseSchema>;
+
+/** 200 body of GET /solution-plan/transcript. */
+export const SolutionPlanTranscriptResponseSchema = z.object({
+  ok: z.boolean(),
+  solutionPlanId: z.string(),
+  runId: z.string(),
+  status: SolutionPlanStatusSchema,
+  messages: z.array(GrillingMessageItemSchema),
+});
+
+export type SolutionPlanTranscriptResponse = z.infer<typeof SolutionPlanTranscriptResponseSchema>;
+
+/** 200 body of GET /solution-plan/html-content. */
+export const SolutionPlanHtmlContentResponseSchema = z.object({
+  ok: z.boolean(),
+  html: z.string(),
+  contentKey: z.string(),
+  version: z.number().int().nonnegative(),
+  isStale: z.boolean(),
+  isUserEdited: z.boolean(),
+});
+
+export type SolutionPlanHtmlContentResponse = z.infer<typeof SolutionPlanHtmlContentResponseSchema>;
