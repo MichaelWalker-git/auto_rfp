@@ -22,6 +22,7 @@ import type { SolutionPlanItem, SolutionPlanKey } from '@auto-rfp/core';
 
 import { fetchExecutiveBriefAnalysis } from './db-tool-helpers';
 import { loadSolicitation } from './document-generation';
+import { errorMessageOf } from './error';
 import { requireEnv } from './env';
 import { nowIso } from './date';
 import { invokeClaudeJson, truncateText } from './executive-opportunity-brief';
@@ -89,8 +90,7 @@ const messageBase = (
   round: message.round,
 });
 
-export const errorMessageOf = (err: unknown): string =>
-  err instanceof Error ? err.message : String(err);
+export { errorMessageOf };
 
 // ─── Shared context loading ─────────────────────────────────────────────────────
 

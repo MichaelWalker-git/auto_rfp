@@ -6,20 +6,14 @@
  * text the frontend matches against for scroll-to-highlight, so anchors round-trip.
  */
 
+import { decodeHtmlEntities } from './html-text';
+
 const HEADING_RE = /<(h[1-3])\b[^>]*>([\s\S]*?)<\/\1>/gi;
 const TAG_RE = /<[^>]+>/g;
 
-/** Strip tags and decode a few common entities to plain text. */
+/** Strip tags and decode entities to plain text, preserving `<br>` line breaks. */
 export const stripHtml = (html: string): string =>
-  html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(TAG_RE, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
+  decodeHtmlEntities(html.replace(/<br\s*\/?>/gi, '\n').replace(TAG_RE, ''))
     .replace(/[ \t]+/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim();

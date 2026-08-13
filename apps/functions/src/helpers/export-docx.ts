@@ -38,6 +38,7 @@ import {
   splitIntoFurnitureSections,
   TWIPS_PER_INCH,
 } from './export-furniture';
+import { decodeHtmlEntities } from './html-text';
 // Note: extractHeadingsFromHtml, extractTocTitle, estimateHeadingPages, findTocPlaceholderInHtml
 // are no longer needed — DOCX now receives pre-expanded TOC HTML (same as PDF/HTML path).
 
@@ -259,26 +260,7 @@ const parseImgToParagraph = async (imgTag: string): Promise<Paragraph | null> =>
 
 // ─── HTML Entity Decoding ─────────────────────────────────────────────────────
 
-const decodeEntities = (text: string): string =>
-  text
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'")
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&mdash;/g, '—')
-    .replace(/&ndash;/g, '–')
-    .replace(/&hellip;/g, '…')
-    .replace(/&rsquo;/g, '\u2019')
-    .replace(/&lsquo;/g, '\u2018')
-    .replace(/&rdquo;/g, '\u201D')
-    .replace(/&ldquo;/g, '\u201C')
-    .replace(/&bull;/g, '\u2022')
-    .replace(/&trade;/g, '\u2122')
-    .replace(/&copy;/g, '\u00A9')
-    .replace(/&reg;/g, '\u00AE');
+const decodeEntities = decodeHtmlEntities;
 
 // ─── Inline HTML Parser ──────────────────────────────────────────────────────
 

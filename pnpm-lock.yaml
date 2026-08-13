@@ -119,6 +119,9 @@ importers:
       puppeteer-core:
         specifier: ^24.39.0
         version: 24.39.0
+      ulid:
+        specifier: ^2.4.0
+        version: 2.4.0
       uuid:
         specifier: ^13.0.0
         version: 13.0.0

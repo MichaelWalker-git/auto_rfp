@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import type {
   GrillingMessageDBItem,
+  GrillingMessageItem,
   GrillingMessageRole,
   GrillingToolCallSummary,
   SolutionPlanDBItem,
@@ -22,9 +23,10 @@ import type {
   SolutionPlanStatusPatch,
 } from '@auto-rfp/core';
 
-import { PK_NAME } from '@/constants/common';
+import { PK_NAME, SK_NAME } from '@/constants/common';
 import { GRILLING_MESSAGE_PK, SOLUTION_PLAN_PK } from '@/constants/solution-plan';
-import { getItem, putItem, queryAllBySkPrefix, updateItem } from './db';
+import { Sentry } from '@/sentry-lambda';
+import { batchDeleteItems, getItem, putItem, queryAllBySkPrefix, updateItem } from './db';
 import { loadTextFromS3, uploadToS3 } from './s3';
 import { requireEnv } from './env';
 import { nowIso } from './date';
@@ -91,6 +93,55 @@ export const updateSolutionPlanStatus = async (
     ...patch,
   });
 
+/** Strip the single-table keys off a DB record → the pure domain item. */
+const stripDbKeys = <TItem>(dbItem: TItem & Record<typeof PK_NAME | typeof SK_NAME, string>): TItem => {
+  const { [PK_NAME]: _pk, [SK_NAME]: _sk, ...item } = dbItem;
+  // Rest-destructuring can't tell TS the remainder is exactly TItem
+  return item as TItem;
+};
+
+export const toSolutionPlanItem = (dbItem: SolutionPlanDBItem): SolutionPlanItem =>
+  stripDbKeys<SolutionPlanItem>(dbItem);
+
+/**
+ * Persist a user edit of a READY plan's content (ADR-8): bump version +
+ * contentKey, set `isUserEdited`/`editedBy`, clear staleness. Both checks are
+ * DynamoDB conditions, so the write is atomic against races:
+ *  - status must still be READY — a concurrent re-init can't be clobbered
+ *  - version must still be `patch.version - 1` — two concurrent edits can't
+ *    both claim v{N+1} and silently drop one (ADR-11: versions never collide)
+ * Returns null when either condition fails (or the plan is missing).
+ */
+export const updateSolutionPlanContent = async (
+  key: SolutionPlanKey,
+  patch: { version: number; contentKey: string; editedBy?: string },
+): Promise<SolutionPlanDBItem | null> => {
+  try {
+    return await updateItem<SolutionPlanDBItem>(
+      SOLUTION_PLAN_PK,
+      buildSolutionPlanSk(key),
+      { ...patch, isUserEdited: true, isStale: false, staleReason: '' },
+      {
+        condition:
+          'attribute_exists(#pk) AND #status = :readyStatus AND #version = :expectedVersion',
+        conditionNames: { '#pk': PK_NAME, '#status': 'status', '#version': 'version' },
+        conditionValues: {
+          ':readyStatus': 'READY' satisfies SolutionPlanStatus,
+          ':expectedVersion': patch.version - 1,
+        },
+      },
+    );
+  } catch (err) {
+    if ((err as { name?: string })?.name === 'ConditionalCheckFailedException') {
+      console.log(
+        `[updateSolutionPlanContent] refused — plan missing or not READY (opportunityId=${key.opportunityId})`,
+      );
+      return null;
+    }
+    throw err;
+  }
+};
+
 /**
  * Mark a READY plan stale (ADR-3). No-op unless the plan exists AND its status
  * is READY — a plan mid-grilling or FAILED is never marked stale. The check is
@@ -121,6 +172,47 @@ export const markSolutionPlanStale = async (
       return null;
     }
     throw err;
+  }
+};
+
+/**
+ * User-facing staleness reasons (T13), rendered verbatim in the
+ * `SolutionPlanPanel` banner. Kept in one map so trigger call sites never
+ * compose banner copy inline. Brief-generation reasons say "is being …"
+ * because the trigger fires when generation is initiated — the worker may
+ * still fail, so the copy must not assert completion.
+ */
+export const solutionPlanStaleReasons = {
+  briefGenerated: () => 'An Executive Brief is being generated.',
+  briefRegenerated: () => 'The Executive Brief is being regenerated.',
+  briefSectionRegenerated: (section: string) =>
+    `The Executive Brief's "${section}" section is being regenerated.`,
+  solicitationDocumentUploaded: (fileName: string) =>
+    `A new solicitation document ("${fileName}") was uploaded.`,
+} as const;
+
+/**
+ * Best-effort staleness trigger (T13) — the single entry point for all
+ * trigger call sites, paired with a reason from `solutionPlanStaleReasons`.
+ * Staleness is advisory — the banner only recommends a regenerate and never
+ * closes the generation gate — so callers embedded in unrelated write paths
+ * (brief init, section regen, solicitation upload) must not fail their
+ * request when marking stale throws. Logs and returns null instead.
+ */
+export const markSolutionPlanStaleSafe = async (
+  key: SolutionPlanKey,
+  reason: string,
+): Promise<SolutionPlanDBItem | null> => {
+  try {
+    return await markSolutionPlanStale(key, reason);
+  } catch (err) {
+    console.warn(
+      `[markSolutionPlanStaleSafe] failed to mark plan stale (opportunityId=${key.opportunityId})`,
+      err,
+    );
+    // Swallowed on purpose — still surface the unexpected failure to Sentry
+    Sentry.captureException(err);
+    return null;
   }
 };
 
@@ -164,6 +256,29 @@ export const listGrillingMessages = async (
     GRILLING_MESSAGE_PK,
     buildGrillingMessageSkPrefix(solutionPlanId),
   );
+
+/** Strip the single-table keys off a transcript record → the pure domain item. */
+export const toGrillingMessageItem = (dbItem: GrillingMessageDBItem): GrillingMessageItem =>
+  stripDbKeys<GrillingMessageItem>(dbItem);
+
+/**
+ * Wipe the full transcript of a plan (wipe-on-regenerate, ADR-2). Any message
+ * a zombie worker appends afterwards carries a superseded runId and is
+ * filtered out of every read (ADR-5). Returns the number of deleted messages.
+ */
+export const deleteGrillingMessages = async (solutionPlanId: string): Promise<number> => {
+  const messages = await listGrillingMessages(solutionPlanId);
+  if (!messages.length) return 0;
+
+  const { deleted, failed } = await batchDeleteItems(
+    messages.map((m) => ({ pk: GRILLING_MESSAGE_PK, sk: m[SK_NAME] })),
+  );
+  if (failed > 0) {
+    // Leftovers are invisible to reads (superseded runId) — log, don't fail the init
+    console.warn(`[deleteGrillingMessages] ${failed} message(s) failed to delete for plan ${solutionPlanId}`);
+  }
+  return deleted;
+};
 
 // ─── S3 HTML content ────────────────────────────────────────────────────────────
 

@@ -10,6 +10,7 @@ import {
   markSectionFailed,
   markSectionInProgress,
 } from './executive-opportunity-brief';
+import { markSolutionPlanStaleSafe, solutionPlanStaleReasons } from './solution-plan';
 
 const sqs = new SQSClient({});
 const EXEC_BRIEF_QUEUE_URL = requireEnv('EXEC_BRIEF_QUEUE_URL');
@@ -64,6 +65,13 @@ export async function enqueueExecutiveBriefSection(
           inputHash,
         }),
       }),
+    );
+
+    // Staleness trigger (T13): regenerating a single section changes brief
+    // content just like a full re-init — see markSolutionPlanStaleSafe.
+    await markSolutionPlanStaleSafe(
+      { orgId, projectId: brief.projectId, opportunityId: brief.opportunityId },
+      solutionPlanStaleReasons.briefSectionRegenerated(section),
     );
 
     return apiResponse(202, {

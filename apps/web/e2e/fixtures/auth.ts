@@ -7,6 +7,7 @@ import { SettingsPage } from '../pages/settings.page';
 import { KnowledgeBasePage } from '../pages/knowledge-base.page';
 import { OpportunitiesPage } from '../pages/opportunities.page';
 import { DocumentPromptsPage } from '../pages/document-prompts.page';
+import { SolutionPlanPage } from '../pages/solution-plan.page';
 
 /**
  * Custom fixture types for authenticated tests.
@@ -28,6 +29,8 @@ interface AuthFixtures {
   opportunitiesPage: OpportunitiesPage;
   /** Prompts settings page object (AI Features + Document Generation tabs) */
   documentPromptsPage: DocumentPromptsPage;
+  /** Solution Plan panel + gated generate-dialog page object */
+  solutionPlanPage: SolutionPlanPage;
 }
 
 /**
@@ -87,6 +90,10 @@ export const test = base.extend<AuthFixtures>({
 
   documentPromptsPage: async ({ page }, use) => {
     await use(new DocumentPromptsPage(page));
+  },
+
+  solutionPlanPage: async ({ page }, use) => {
+    await use(new SolutionPlanPage(page));
   },
 });
 
