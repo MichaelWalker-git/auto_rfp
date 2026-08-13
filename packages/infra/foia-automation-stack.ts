@@ -88,7 +88,21 @@ export class FoiaAutomationStack extends cdk.Stack {
     // already-extracted solicitation text and never writes.
     lambdaRole.addToPolicy(
       new iam.PolicyStatement({
-        actions: ['s3:GetObject'],
+        /**
+         * Read for the recipient scan, write for the letter artifacts.
+         *
+         * This was read-only, with a comment asserting the reconciler "never
+         * writes". That stopped being true once preparation began persisting the
+         * letter text and .eml: every automated preparation failed with an S3
+         * AccessDenied *after* the request row had already been written, leaving a
+         * request with no artifacts — recoverable, but only because the write
+         * order was chosen for exactly that case.
+         *
+         * PutObject only. The reconciler has no reason to delete, and a scoped
+         * grant means a bug here cannot destroy a customer's solicitation
+         * documents, which share this bucket.
+         */
+        actions: ['s3:GetObject', 's3:PutObject'],
         resources: [`arn:aws:s3:::${documentsBucketName}/*`],
       }),
     );

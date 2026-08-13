@@ -128,10 +128,12 @@ export const createItem = async <T extends Record<string, any>>(
 ): Promise<T & DBItem> => {
   const now = nowIso();
   
+  // Keys after the spread, for the same reason as `putItem` below: an item that
+  // carries its own key fields must not be able to overwrite the arguments.
   const fullItem = {
+    ...item,
     [PK_NAME]: pk,
     [SK_NAME]: sk,
-    ...item,
     createdAt: now,
     updatedAt: now,
   } as T & DBItem;
@@ -245,10 +247,26 @@ export const putItem = async <T extends Record<string, any>>(
 ): Promise<T & DBItem> => {
   const now = nowIso();
   
+  /**
+   * Keys are applied AFTER the spread, so the caller's item can never clobber them.
+   *
+   * They used to come first, which meant an item carrying its own
+   * `partition_key`/`sort_key` silently overwrote the arguments. That is not
+   * hypothetical: `deriveFoiaRequest` seeded both with `''` to satisfy the
+   * `DBFOIARequestItem` type, and every automated FOIA preparation then failed
+   * with "The AttributeValue for a key attribute cannot contain an empty string
+   * value" — a message that names the symptom and none of the twelve helpers in
+   * the call graph.
+   *
+   * The `item: Omit<T, typeof PK_NAME | typeof SK_NAME>` signature does not
+   * prevent this. `PK_NAME` is a `const` of type `string`, so that resolves to
+   * `Omit<T, string>`, which strips nothing — and even a correct `Omit` only
+   * removes the property from the *type*, never from the runtime object.
+   */
   let fullItem: any = {
+    ...item,
     [PK_NAME]: pk,
     [SK_NAME]: sk,
-    ...item,
     updatedAt: now,
   };
 

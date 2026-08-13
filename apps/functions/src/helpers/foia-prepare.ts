@@ -16,6 +16,7 @@ import {
   persistFoiaEml,
   persistFoiaLetterText,
 } from '@/helpers/foia-artifacts';
+import type { UnkeyedFoiaRequest } from '@/helpers/foia-derive';
 import { deriveFoiaRequest } from '@/helpers/foia-derive';
 import { generateFOIALetter } from '@/helpers/foia-letter';
 import { buildNotification, sendNotification } from '@/helpers/send-notification';
@@ -37,7 +38,17 @@ import { FOIA_BLOCKED_REASON_LABELS } from '@auto-rfp/core';
 export type PrepareOutcome =
   | {
       status: 'PREPARED';
-      request: DBFOIARequestItem;
+      /**
+       * Keyed on a real run (this is the record read back from the write) and
+       * unkeyed on a dry run, where nothing was written.
+       *
+       * The union is deliberate rather than a convenience: declaring this as
+       * always-keyed is what pressured `deriveFoiaRequest` into seeding
+       * `partition_key: ''`, and those placeholders then overwrote the real keys
+       * inside `putItem`. No consumer reads the keys off this field — verified by
+       * grep across the repo — so the weaker type costs nothing.
+       */
+      request: DBFOIARequestItem | UnkeyedFoiaRequest;
       letter: string;
       artifacts: FoiaArtifact[];
       /**

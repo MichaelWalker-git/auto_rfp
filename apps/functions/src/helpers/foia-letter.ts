@@ -36,7 +36,16 @@ export const REQUIRED_LETTER_FIELDS = [
  * Returns the names of any fields still missing for letter generation.
  * An empty array means the request is ready to render.
  */
-export const validateLetterFields = (request: DBFOIARequestItem): string[] => {
+/**
+ * Checks the fields the letter template needs.
+ *
+ * Takes an unkeyed request: validation happens before the record is written, so
+ * requiring the table keys here would force callers to invent placeholder ones —
+ * which is exactly the mistake that broke automated preparation.
+ */
+export const validateLetterFields = (
+  request: Omit<DBFOIARequestItem, 'partition_key' | 'sort_key'>,
+): string[] => {
   const missing: string[] = [];
   for (const field of REQUIRED_LETTER_FIELDS) {
     if (!request[field]) {
@@ -146,7 +155,12 @@ const resolveLetterFraming = (
  * Defaults to federal FOIA framing when no jurisdiction context is provided.
  */
 export const generateFOIALetter = (
-  request: DBFOIARequestItem,
+  /**
+   * Unkeyed: the letter is rendered at preparation time, before the record is
+   * written. Demanding the table keys here would push callers to invent
+   * placeholders, which is the bug this signature now prevents.
+   */
+  request: Omit<DBFOIARequestItem, 'partition_key' | 'sort_key'>,
   jurisdictionContext: LetterJurisdictionContext = {},
 ): string => {
   const { recipientLine, salutation, requestSentence } = resolveLetterFraming(jurisdictionContext);

@@ -438,10 +438,17 @@ const reconcileOrg = async (args: {
       }
     } catch (err) {
       result.errors += 1;
-      console.error(
-        `[foia-scan] org ${orgId} opp ${oppId}: reconcile failed:`,
-        err instanceof Error ? err.message : String(err),
-      );
+      /**
+       * Log the whole error, not just `.message`.
+       *
+       * This previously logged `err.message` alone, which cost real time: a
+       * DynamoDB "AttributeValue for a key attribute cannot contain an empty
+       * string value" told us a partition key was empty somewhere in a call graph
+       * spanning a dozen helpers, but not which call. The message alone is the
+       * least useful part of an AWS SDK error — the stack names the caller, and
+       * for validation failures that is the entire diagnosis.
+       */
+      console.error(`[foia-scan] org ${orgId} opp ${oppId}: reconcile failed:`, err);
     }
   }
 

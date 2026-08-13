@@ -33,9 +33,20 @@ export interface ResolvedAwardDate {
  * sendability precheck that decides between "ready" and "ask the user for X".
  */
 
+/**
+ * A composed FOIA request that has not been written yet, so has no table keys.
+ *
+ * Named explicitly because the distinction is load-bearing: seeding placeholder
+ * keys to satisfy `DBFOIARequestItem` is what caused every automated preparation
+ * to fail (the empty strings overwrote the real keys inside `putItem`). The key
+ * names are literals rather than `typeof PK_NAME`, because `PK_NAME` is a `const`
+ * of type `string` and `Omit<T, string>` strips nothing.
+ */
+export type UnkeyedFoiaRequest = Omit<DBFOIARequestItem, 'partition_key' | 'sort_key'>;
+
 export interface DeriveFoiaRequestResult {
   /** Present when everything needed for a letter was derivable. */
-  request?: DBFOIARequestItem;
+  request?: UnkeyedFoiaRequest;
   /** Set when the request cannot proceed without human input. */
   blockedReason?: FoiaBlockedReason;
   /** Populated for MISSING_LETTER_FIELDS. */
@@ -176,9 +187,23 @@ export const deriveFoiaRequest = async (args: {
   const foiaId = uuidv4();
   const awardDate = resolveAwardDate(opportunity);
 
-  const request: DBFOIARequestItem = {
-    partition_key: '',
-    sort_key: '',
+  /**
+   * A derived request has no DynamoDB keys yet — they belong to whoever writes it.
+   *
+   * This was previously typed as `DBFOIARequestItem` and seeded with
+   * `partition_key: ''` / `sort_key: ''` purely to satisfy that type. Those empty
+   * strings then travelled with the object into `putItem`, whose spread order
+   * (`{ [PK_NAME]: pk, [SK_NAME]: sk, ...item }`) let them overwrite the correct
+   * key arguments, so every automated preparation failed with "The AttributeValue
+   * for a key attribute cannot contain an empty string value."
+   *
+   * Typing it as `Omit<..., 'partition_key' | 'sort_key'>` with literal names is
+   * both honest and load-bearing: the compiler now rejects any attempt to
+   * reintroduce a placeholder key. Note that `Omit<T, typeof PK_NAME>` would NOT
+   * work — `PK_NAME` is declared as a plain `const` of type `string`, so that
+   * resolves to `Omit<T, string>`, which strips nothing.
+   */
+  const request: UnkeyedFoiaRequest = {
     foiaId,
     id: foiaId,
     orgId,
