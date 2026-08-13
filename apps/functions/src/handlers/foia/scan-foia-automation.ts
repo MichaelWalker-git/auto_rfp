@@ -17,6 +17,7 @@ import { listOpportunitiesByOrg } from '@/helpers/opportunity';
 import { getSubmissionHistory } from '@/helpers/proposal-submission';
 import { getFoiaSettings } from '@/helpers/foia-settings';
 import {
+  countFoiaSentToday,
   getFoiaAutomation,
   setFoiaAutomationState,
   syncOpportunityFoiaMarker,
@@ -192,8 +193,15 @@ const prepareDueAutomation = async (args: {
   opportunity: OpportunityDBItem;
   settings: FoiaSettingsItem;
   dryRun: boolean;
+  /**
+   * Whether the org's daily unattended-send budget still has room.
+   *
+   * Passed in rather than computed here so the count is seeded once per org pass
+   * instead of re-queried per opportunity.
+   */
+  hasSendBudget: boolean;
 }): Promise<'PREPARED' | 'SENT' | 'BLOCKED' | 'SKIPPED'> => {
-  const { orgId, projectId, oppId, opportunity, settings, dryRun } = args;
+  const { orgId, projectId, oppId, opportunity, settings, dryRun, hasSendBudget } = args;
 
   const outcome = await prepareFoiaRequest({
     orgId,
@@ -289,6 +297,20 @@ const prepareDueAutomation = async (args: {
    * AWAITING_APPROVAL — never in SENDING. A failed unattended send is therefore
    * exactly a request waiting for a human, which is the right fallback.
    */
+  /**
+   * A request that is eligible but over budget simply stays in AWAITING_APPROVAL.
+   *
+   * Not an error and not BLOCKED: the request is prepared, visible, and a human can
+   * send it today or the scanner will send it tomorrow when the budget resets. The
+   * cap is a throttle on automation, not a rejection of the filing.
+   */
+  if (outcome.autoSendEligible && !dryRun && !hasSendBudget) {
+    console.log(
+      `[foia-scan] ${orgId}/${projectId}/${oppId}: auto-send eligible but the daily cap (${settings.dailySendCap}) is reached; left awaiting approval`,
+    );
+    return 'PREPARED';
+  }
+
   if (outcome.autoSendEligible && !dryRun) {
     const dispatched = await dispatchFoiaRequest({
       automation: { ...(moved as FoiaAutomationDBItem), artifacts: outcome.artifacts },
@@ -324,6 +346,25 @@ const reconcileOrg = async (args: {
     console.log(`[foia-scan] org ${orgId}: automation disabled, skipping`);
     return result;
   }
+
+  /**
+   * Unattended sends counted against the org's daily cap.
+   *
+   * `dailySendCap` is validated, persisted and editable in Organization Settings,
+   * but nothing read it — `countFoiaSentToday` existed with zero callers, so the
+   * number in the UI was decorative. That matters most in exactly the situation the
+   * cap is for: a backlog of past-due opportunities all becoming due on the same
+   * pass (a newly-enabled org, a shortened delay, a first run after a long outage)
+   * would have fired every one of them at once, in the customer's name.
+   *
+   * Seeded once from what has already gone out today, then incremented locally —
+   * re-querying per opportunity would be a table scan per send, and the scanner is
+   * the only writer of `sentAt` during its own pass.
+   *
+   * The cap bounds the UNATTENDED path only. A human clicking send is making a
+   * deliberate choice and is not rate-limited by a background job's budget.
+   */
+  let sentToday = dryRun ? 0 : await countFoiaSentToday(orgId);
 
   const { items: opportunities } = await listOpportunitiesByOrg({ orgId });
 
@@ -430,11 +471,17 @@ const reconcileOrg = async (args: {
           opportunity,
           settings,
           dryRun,
+          hasSendBudget: sentToday < settings.dailySendCap,
         });
 
         if (outcome === 'PREPARED') result.prepared += 1;
-        else if (outcome === 'SENT') result.sent += 1;
-        else if (outcome === 'BLOCKED') result.blocked += 1;
+        else if (outcome === 'SENT') {
+          result.sent += 1;
+          // Only a real transmission consumes budget. Counted here rather than
+          // inside the send so a SKIPPED or FAILED attempt does not silently eat
+          // the org's allowance for the day.
+          sentToday += 1;
+        } else if (outcome === 'BLOCKED') result.blocked += 1;
       }
     } catch (err) {
       result.errors += 1;

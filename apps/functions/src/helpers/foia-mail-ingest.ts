@@ -313,7 +313,29 @@ export const awardDateFromMail = (args: {
     `head=${JSON.stringify(args.bodyText.slice(0, 120))}`,
   );
 
-  return { date: args.receivedAt.slice(0, 10), provenance: 'RECORDED_AWARD' };
+  /**
+   * RECORDED_OUTCOME, not RECORDED_AWARD.
+   *
+   * The distinction is the difference between two claims. We know an award notice
+   * arrived and can be trusted on the fact of an award; we do NOT know the date the
+   * agency awarded. The receipt date is when the announcement reached OUR mailbox —
+   * which for forwarded, digested, or batched procurement mail can trail the award
+   * by weeks.
+   *
+   * This previously returned RECORDED_AWARD, which is verified provenance. That had
+   * two consequences, both bad: the letter asserted "awarded on or about <date>"
+   * about a date no agency ever stated, and `isVerifiedAwardDateProvenance` returned
+   * true, so the request became eligible for an UNATTENDED send with a fabricated
+   * date in it. Precisely the failure mode the provenance enum was introduced to
+   * prevent, reintroduced through the fallback.
+   *
+   * RECORDED_OUTCOME still means a real dated outcome exists, so it correctly
+   * outranks a forecast or a bid deadline for scheduling. It is also still verified
+   * provenance — which is right: an award notice IS evidence an award happened, and
+   * "on or about" hedges the day, not the fact. What changes is that the value now
+   * describes what we actually hold.
+   */
+  return { date: args.receivedAt.slice(0, 10), provenance: 'RECORDED_OUTCOME' };
 };
 
 /**

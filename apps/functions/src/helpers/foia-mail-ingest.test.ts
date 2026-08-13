@@ -421,12 +421,32 @@ describe('awardDateFromMail', () => {
     ).toEqual({ date: '2026-03-07', provenance: 'RECORDED_AWARD' });
   });
 
-  it('falls back to the receipt date, still as a recorded award', () => {
-    // Weaker than the agency's own date but still a fact about a real
-    // announcement — and strictly better evidence than a bid deadline.
+  /**
+   * The fallback must NOT claim RECORDED_AWARD.
+   *
+   * This test previously asserted RECORDED_AWARD, encoding the bug as expected
+   * behaviour: the receipt date is when the notice reached our mailbox, not the date
+   * the agency awarded, and RECORDED_AWARD would put that fabricated date into
+   * "awarded on or about <date>" in a statutory filing.
+   *
+   * RECORDED_OUTCOME is the honest value — a real dated outcome exists, so it still
+   * outranks a forecast for scheduling, but it describes what we actually hold.
+   */
+  it('falls back to the receipt date as a recorded OUTCOME, not a recorded award', () => {
     expect(
       awardDateFromMail({ receivedAt: '2026-08-12T10:00:00.000Z', bodyText: 'An award has been made.' }),
-    ).toEqual({ date: '2026-08-12', provenance: 'RECORDED_AWARD' });
+    ).toEqual({ date: '2026-08-12', provenance: 'RECORDED_OUTCOME' });
+  });
+
+  it("prefers the agency's own stated date over the receipt date", () => {
+    // The whole point of the distinction: when the agency states a date, that date
+    // is authoritative and the receipt date is irrelevant.
+    expect(
+      awardDateFromMail({
+        receivedAt: '2026-08-12T10:00:00.000Z',
+        bodyText: 'Award Date: 2026-01-29. Notice of award.',
+      }),
+    ).toEqual({ date: '2026-01-29', provenance: 'RECORDED_AWARD' });
   });
 });
 

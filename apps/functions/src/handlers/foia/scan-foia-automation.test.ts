@@ -54,12 +54,14 @@ const mockUpsertFoiaAutomation = jest.fn();
 const mockSetFoiaAutomationState = jest.fn();
 const mockSyncOpportunityFoiaMarker = jest.fn();
 const mockTransitionFoiaAutomationState = jest.fn();
+const mockCountFoiaSentToday = jest.fn();
 jest.mock('@/helpers/foia-automation', () => ({
   getFoiaAutomation: (...a: unknown[]) => mockGetFoiaAutomation(...a),
   upsertFoiaAutomation: (...a: unknown[]) => mockUpsertFoiaAutomation(...a),
   setFoiaAutomationState: (...a: unknown[]) => mockSetFoiaAutomationState(...a),
   syncOpportunityFoiaMarker: (...a: unknown[]) => mockSyncOpportunityFoiaMarker(...a),
   transitionFoiaAutomationState: (...a: unknown[]) => mockTransitionFoiaAutomationState(...a),
+  countFoiaSentToday: (...a: unknown[]) => mockCountFoiaSentToday(...a),
 }));
 
 const mockPrepareFoiaRequest = jest.fn();
@@ -121,6 +123,8 @@ beforeEach(() => {
   mockUpsertFoiaAutomation.mockResolvedValue({});
   mockSetFoiaAutomationState.mockResolvedValue({});
   mockSyncOpportunityFoiaMarker.mockResolvedValue(undefined);
+  // Nothing sent yet today, so the daily cap never interferes unless a test says so.
+  mockCountFoiaSentToday.mockResolvedValue(0);
   // Default: the conditional transition succeeds, and preparation produces a
   // sendable request. Individual tests override these.
   mockTransitionFoiaAutomationState.mockResolvedValue({ state: 'AWAITING_APPROVAL' });
@@ -781,6 +785,107 @@ describe('scan-foia-automation — unattended send', () => {
       autoSendEligible: true,
     });
   };
+
+  /**
+   * The daily cap is the only thing bounding a mass unattended send.
+   *
+   * `dailySendCap` was validated, persisted and editable in Organization Settings
+   * while `countFoiaSentToday` had zero callers — the number in the UI enforced
+   * nothing. The scenario it exists for is a backlog all becoming due on one pass
+   * (a newly-enabled org, a shortened delay, a first run after an outage).
+   */
+  describe('daily send cap', () => {
+    it('does not send once the cap is already reached', async () => {
+      givenAutoSendEligible();
+      mockGetFoiaSettings.mockResolvedValue({ ...defaultSettings, dailySendCap: 2 });
+      mockCountFoiaSentToday.mockResolvedValue(2);
+
+      const res = await baseHandler({});
+
+      expect(mockDispatchFoiaRequest).not.toHaveBeenCalled();
+      expect(res.totals.sent).toBe(0);
+      // Still prepared and visible — the cap throttles automation, it does not
+      // reject the filing. A human can send it, or tomorrow's pass will.
+      expect(res.totals.prepared).toBe(1);
+      expect(res.totals.blocked).toBe(0);
+    });
+
+    it('sends while under the cap', async () => {
+      givenAutoSendEligible();
+      mockGetFoiaSettings.mockResolvedValue({ ...defaultSettings, dailySendCap: 2 });
+      mockCountFoiaSentToday.mockResolvedValue(1);
+
+      const res = await baseHandler({});
+
+      expect(mockDispatchFoiaRequest).toHaveBeenCalledTimes(1);
+      expect(res.totals.sent).toBe(1);
+    });
+
+    it('stops mid-pass when a backlog exhausts the cap', async () => {
+      // Four due opportunities, a cap of 2, nothing sent yet: exactly the mass-send
+      // scenario. Two go out, two wait.
+      mockListOpportunitiesByOrg.mockResolvedValue({
+        items: [
+          buildOpp({ oppId: 'opp-1', responseDeadlineIso: overdueDeadline() }),
+          buildOpp({ oppId: 'opp-2', responseDeadlineIso: overdueDeadline() }),
+          buildOpp({ oppId: 'opp-3', responseDeadlineIso: overdueDeadline() }),
+          buildOpp({ oppId: 'opp-4', responseDeadlineIso: overdueDeadline() }),
+        ],
+      });
+      mockPrepareFoiaRequest.mockResolvedValue({
+        status: 'PREPARED',
+        request: { foiaId: 'foia-1', agencyFOIAEmail: 'foia@army.mil', agencyFOIAAddress: 'addr' },
+        letter: 'Letter body',
+        artifacts: [{ kind: 'LETTER_TXT', s3Key: 'k.txt' }],
+        autoSendEligible: true,
+      });
+      mockGetFoiaSettings.mockResolvedValue({ ...defaultSettings, dailySendCap: 2 });
+      mockCountFoiaSentToday.mockResolvedValue(0);
+
+      const res = await baseHandler({});
+
+      expect(mockDispatchFoiaRequest).toHaveBeenCalledTimes(2);
+      expect(res.totals.sent).toBe(2);
+      expect(res.totals.prepared).toBe(2);
+    });
+
+    it('does not let a failed send consume the day\'s budget', async () => {
+      mockListOpportunitiesByOrg.mockResolvedValue({
+        items: [
+          buildOpp({ oppId: 'opp-1', responseDeadlineIso: overdueDeadline() }),
+          buildOpp({ oppId: 'opp-2', responseDeadlineIso: overdueDeadline() }),
+        ],
+      });
+      mockPrepareFoiaRequest.mockResolvedValue({
+        status: 'PREPARED',
+        request: { foiaId: 'foia-1', agencyFOIAEmail: 'foia@army.mil', agencyFOIAAddress: 'addr' },
+        letter: 'Letter body',
+        artifacts: [{ kind: 'LETTER_TXT', s3Key: 'k.txt' }],
+        autoSendEligible: true,
+      });
+      mockGetFoiaSettings.mockResolvedValue({ ...defaultSettings, dailySendCap: 1 });
+      mockCountFoiaSentToday.mockResolvedValue(0);
+      // The first attempt fails; that must not spend the single slot, or one SES
+      // hiccup would silently cancel the org's whole day.
+      mockDispatchFoiaRequest
+        .mockResolvedValueOnce({ status: 'FAILED', error: 'SES rejected' })
+        .mockResolvedValueOnce({ status: 'SENT', sentAt: '2026-08-13T00:00:00Z' });
+
+      const res = await baseHandler({});
+
+      expect(mockDispatchFoiaRequest).toHaveBeenCalledTimes(2);
+      expect(res.totals.sent).toBe(1);
+    });
+
+    it('does not query the cap on a dry run', async () => {
+      givenAutoSendEligible();
+
+      await baseHandler({ detail: { dryRun: true } });
+
+      expect(mockCountFoiaSentToday).not.toHaveBeenCalled();
+      expect(mockDispatchFoiaRequest).not.toHaveBeenCalled();
+    });
+  });
 
   it('transmits an eligible request instead of leaving it for a human', async () => {
     // Three independent conditions produced autoSendEligible: a trusted recipient,
