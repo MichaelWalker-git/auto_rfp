@@ -273,14 +273,33 @@ export const processInboundMail = async (event: SESEvent): Promise<void> => {
       continue;
     }
 
-    // Which tenant owns this mailbox. Nothing may be touched without it: inbound
-    // mail carries no tenant, and an unattributed write in a shared table could
-    // put one customer's correspondence on another's opportunity.
-    const orgId = await findOrgByScrapeMailbox(mail.destination ?? []);
+    /**
+     * Which tenant owns this mailbox.
+     *
+     * `receipt.recipients` FIRST, because that is the SMTP envelope — who SES
+     * actually accepted the message for. `mail.destination` is built from the
+     * message HEADERS, and a forwarded message keeps the original ones: the real
+     * mail that arrived overnight carried `To: proposals@horustech.dev` and
+     * `Delivered-To: stevan@horustech.dev`, with our address appearing in neither.
+     * Every one of those messages was dropped as unattributable, even though SES
+     * had accepted them for `foia@inbox.horustech.dev`.
+     *
+     * Headers are still consulted as a fallback, since a rule matching a wildcard
+     * or an SNS-fanout wiring may not populate the envelope list the same way.
+     *
+     * Nothing may be touched without a tenant: an unattributed write in a shared
+     * table could put one customer's correspondence on another's opportunity.
+     */
+    const candidateRecipients = [
+      ...(receipt?.recipients ?? []),
+      ...(mail.destination ?? []),
+    ];
+
+    const orgId = await findOrgByScrapeMailbox(candidateRecipients);
     if (!orgId) {
       console.warn(
         '[foia-inbound] no org claims',
-        mail.destination,
+        candidateRecipients,
         '— ignoring. Set scrapeMailbox and enable mailScrapeEnabled to opt in.',
       );
       continue;

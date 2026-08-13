@@ -182,7 +182,11 @@ describe('tenant attribution', () => {
   it('resolves the org from the recipient address', async () => {
     await processInboundMail(sesEvent({ destination: ['foia@inbox.horustech.dev'] }));
 
-    expect(mockFindOrgByScrapeMailbox).toHaveBeenCalledWith(['foia@inbox.horustech.dev']);
+    // Envelope and header recipients are both offered to the lookup, so this
+    // asserts containment rather than an exact array.
+    expect(mockFindOrgByScrapeMailbox).toHaveBeenCalledWith(
+      expect.arrayContaining(['foia@inbox.horustech.dev']),
+    );
   });
 });
 
@@ -452,5 +456,55 @@ describe('message id fallback', () => {
     await processInboundMail(event);
 
     expect(mockClaimInboundMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe('tenant attribution on forwarded mail', () => {
+  /**
+   * Regression from the first night of real traffic. Every overnight message was
+   * dropped as unattributable: Gmail forwarding preserves the ORIGINAL headers, so
+   * `mail.destination` held `proposals@horustech.dev` and `Delivered-To` held the
+   * user's own address — our receiving address appeared in neither. SES had
+   * accepted the mail for us and said so in `receipt.recipients`, which the handler
+   * was ignoring.
+   */
+  const forwardedEvent = () => {
+    const e = sesEvent({});
+    const rec = e.Records[0] as unknown as {
+      ses: {
+        mail: { destination: string[] };
+        receipt: { recipients: string[] };
+      };
+    };
+    // Headers carry the original recipients only.
+    rec.ses.mail.destination = ['proposals@horustech.dev', 'stevan@horustech.dev'];
+    // The envelope is what SES accepted the message for.
+    rec.ses.receipt.recipients = ['foia@inbox.horustech.dev'];
+    return e;
+  };
+
+  it('resolves the org from the SMTP envelope, not the headers', async () => {
+    await processInboundMail(forwardedEvent());
+
+    expect(mockFindOrgByScrapeMailbox).toHaveBeenCalledWith(
+      expect.arrayContaining(['foia@inbox.horustech.dev']),
+    );
+    // And it went on to act, rather than dropping the message.
+    expect(mockClaimInboundMessage).toHaveBeenCalled();
+  });
+
+  it('still consults headers, for wirings that do not populate the envelope', async () => {
+    const e = sesEvent({});
+    const rec = e.Records[0] as unknown as {
+      ses: { mail: { destination: string[] }; receipt: { recipients?: string[] } };
+    };
+    rec.ses.mail.destination = ['foia@inbox.horustech.dev'];
+    delete rec.ses.receipt.recipients;
+
+    await processInboundMail(e);
+
+    expect(mockFindOrgByScrapeMailbox).toHaveBeenCalledWith(
+      expect.arrayContaining(['foia@inbox.horustech.dev']),
+    );
   });
 });
