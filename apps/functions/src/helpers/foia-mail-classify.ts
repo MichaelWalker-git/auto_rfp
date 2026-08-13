@@ -89,6 +89,20 @@ const AWARD_PATTERNS: ReadonlyArray<{ re: RegExp; label: string }> = [
   { re: /\bcontract\s+award(ed)?\b/i, label: 'contract-award' },
   { re: /\baward\s+has\s+been\s+(made|posted)\b/i, label: 'award-made' },
   { re: /\bhas\s+been\s+awarded\s+to\b/i, label: 'awarded-to' },
+  /**
+   * "Award(s) Published for ..." — BidNet's real subject line, and the third
+   * distinct award phrasing real mail has produced that the patterns missed. The
+   * parenthesised plural is the trap: `\baward(ed)?\b` cannot match "Award(s)",
+   * because `(s)` is literal text rather than an inflection.
+   *
+   * Also covers "bid results" and "abstract of bids", which are award
+   * announcements in substance — they name the winner.
+   */
+  { re: /\baward\(s\)/i, label: 'award-parenthesised-plural' },
+  { re: /\bawards?\s+(published|posted|announced)\b/i, label: 'award-published' },
+  { re: /\bbid\s+results?\s+(published|posted|announced|available)\b/i, label: 'bid-results' },
+  { re: /\babstract\s+of\s+bids\b/i, label: 'abstract-of-bids' },
+  { re: /\bapparent\s+low\s+bidder\b/i, label: 'apparent-low-bidder' },
   // The loss side of the same event.
   { re: /\bunsuccessful\s+offeror\b/i, label: 'unsuccessful-offeror' },
   { re: /\bnot\s+(been\s+)?selected\s+for\s+award\b/i, label: 'not-selected' },

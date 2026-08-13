@@ -292,6 +292,34 @@ describe('real subject lines from the monitored mailbox', () => {
     expect(r.confidence).toBe('HIGH');
   });
 
+  it('recognises "Award(s) Published" — the parenthesised plural', () => {
+    /**
+     * Real BidNet subject line, and the THIRD distinct award phrasing that real
+     * mail exposed as a miss (after "Notification of Award" and the loss-side
+     * wording). It classified as UNRELATED, i.e. the actual trigger this feature
+     * exists to catch was being discarded.
+     *
+     * The trap is that `(s)` is literal text, so `\baward(ed)?\b` cannot match
+     * "Award(s)" — the pattern reads it as an optional "ed" suffix.
+     */
+    const r = real(
+      'Award(s) Published for HACSC2026-RFP-03 - REQUEST FOR PROPOSALS FOR WEBSITE DESIGN',
+      'An award has been published for this solicitation.',
+    );
+
+    expect(r.classification).toBe('AWARD_NOTICE');
+  });
+
+  it('treats a bid-results announcement as an award notice', () => {
+    // Substantively an award: it names the winner. Previously IGNORED.
+    const r = real(
+      'Bid Results Published for BID #28-2026 - OFFICE AND PRINTING SUPPLIES',
+      'Bid results are now available.',
+    );
+
+    expect(r.classification).toBe('AWARD_NOTICE');
+  });
+
   it('recognises a real cancellation with the identifier only in the subject', () => {
     /**
      * From the real archive, and the first cancellation ever tested — this path had
