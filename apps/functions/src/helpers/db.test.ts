@@ -26,6 +26,7 @@ import {
   getItem,
   createItem,
   deleteItemWithRetry,
+  updateItem,
 } from './db';
 
 const makeError = (name: string, message = '') => {
@@ -134,6 +135,74 @@ describe('createItem retry integration', () => {
 
     await expect(createItem('PK', 'SK', { foo: 'bar' })).rejects.toThrow();
     expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('updateItem expression attribute pruning', () => {
+  const sentCommandParams = () =>
+    (mockSend.mock.calls[0][0] as { params: Record<string, any> }).params;
+
+  it('keeps the seeded #pk/#sk names when the default condition is used', async () => {
+    mockSend.mockResolvedValue({ Attributes: {} });
+
+    await updateItem('PK', 'SK', { name: 'x' });
+
+    const params = sentCommandParams();
+    expect(params.ConditionExpression).toBe('attribute_exists(#pk) AND attribute_exists(#sk)');
+    expect(params.ExpressionAttributeNames).toMatchObject({
+      '#pk': expect.any(String),
+      '#sk': expect.any(String),
+      '#name': 'name',
+    });
+  });
+
+  it('drops seeded names a custom condition does not reference (regression: unused #sk)', async () => {
+    mockSend.mockResolvedValue({ Attributes: {} });
+
+    await updateItem(
+      'PK',
+      'SK',
+      { isStale: true },
+      {
+        condition: 'attribute_exists(#pk) AND #status = :readyStatus',
+        conditionNames: { '#pk': 'partition_key', '#status': 'status' },
+        conditionValues: { ':readyStatus': 'READY' },
+      },
+    );
+
+    const params = sentCommandParams();
+    expect(params.ExpressionAttributeNames).not.toHaveProperty('#sk');
+    expect(params.ExpressionAttributeNames).toMatchObject({
+      '#pk': 'partition_key',
+      '#status': 'status',
+      '#isStale': 'isStale',
+    });
+    expect(params.ExpressionAttributeValues).toMatchObject({
+      ':readyStatus': 'READY',
+      ':isStale': true,
+    });
+  });
+
+  it('does not confuse names that share a prefix (#s vs #status)', async () => {
+    mockSend.mockResolvedValue({ Attributes: {} });
+
+    await updateItem(
+      'PK',
+      'SK',
+      { status: 'READY' },
+      {
+        condition: 'attribute_exists(#pk) AND #s = :s',
+        conditionNames: { '#pk': 'partition_key', '#s': 'shortField' },
+        conditionValues: { ':s': 1 },
+      },
+    );
+
+    const params = sentCommandParams();
+    expect(params.ExpressionAttributeNames).toMatchObject({
+      '#s': 'shortField',
+      '#status': 'status',
+    });
+    expect(params.ExpressionAttributeNames).not.toHaveProperty('#sk');
   });
 });
 

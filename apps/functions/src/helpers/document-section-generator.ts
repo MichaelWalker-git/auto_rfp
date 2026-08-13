@@ -41,7 +41,7 @@ export interface DocumentSection {
 export interface GenerateSectionBySection {
   modelId: string;
   systemPrompt: string;
-  /** Initial user prompt with solicitation, Q&A, and enrichment context */
+  /** Initial user prompt with solicitation, Q&A, Approved Solution Plan (when READY), and enrichment context */
   initialUserPrompt: string;
   sections: DocumentSection[];
   orgId: string;

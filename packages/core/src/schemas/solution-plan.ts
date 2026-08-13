@@ -11,6 +11,7 @@
 
 import { z } from 'zod';
 import { PK_NAME, SK_NAME } from '../constants';
+import { RFP_DOCUMENT_TYPES } from './rfp-document';
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 
@@ -67,6 +68,17 @@ export const SolutionPlanCreateRequestSchema = SolutionPlanKeySchema;
 
 export type SolutionPlanCreateRequest = z.infer<typeof SolutionPlanCreateRequestSchema>;
 
+/**
+ * POST body for `init-solution-plan` — the key triple plus an explicit restart
+ * intent. Re-initializing a plan that is mid-run (GRILLING/GENERATING_SOT)
+ * requires `restart: true`; a silent re-init is refused with 409 (ADR-5).
+ */
+export const SolutionPlanInitRequestSchema = SolutionPlanKeySchema.extend({
+  restart: z.boolean().optional(),
+});
+
+export type SolutionPlanInitRequest = z.infer<typeof SolutionPlanInitRequestSchema>;
+
 // ─── Update request ─────────────────────────────────────────────────────────────
 
 /**
@@ -81,6 +93,43 @@ export const SolutionPlanUpdateRequestSchema = z.object({
 });
 
 export type SolutionPlanUpdateRequest = z.infer<typeof SolutionPlanUpdateRequestSchema>;
+
+// ─── Error codes ────────────────────────────────────────────────────────────────
+
+/**
+ * Machine-readable `code` values carried in solution-plan error response
+ * bodies (409s from update/init and the generation gate). Frontends branch
+ * on these instead of matching message strings.
+ */
+export const SolutionPlanErrorCodeSchema = z.enum([
+  'SOLUTION_PLAN_NOT_READY',
+  'SOLUTION_PLAN_CONFLICT',
+  'SOLUTION_PLAN_RUN_IN_PROGRESS',
+  'SOLUTION_PLAN_REQUIRED',
+]);
+
+export type SolutionPlanErrorCode = z.infer<typeof SolutionPlanErrorCodeSchema>;
+
+// ─── Generation gate ────────────────────────────────────────────────────────────
+
+/**
+ * Document types that never require a Solution Plan (Q&A-style exports).
+ * Shared by the server-side generation gate (T9) and the frontend gating UI
+ * (T12) so both always agree on what is exempt.
+ */
+export const SOLUTION_PLAN_GATE_EXEMPT_DOCUMENT_TYPES = [
+  'CLARIFYING_QUESTIONS',
+  'QUESTIONS_AND_ANSWERS',
+  'QUESTIONNAIRE',
+] as const satisfies readonly (keyof typeof RFP_DOCUMENT_TYPES)[];
+
+const GATE_EXEMPT_TYPES: ReadonlySet<string> = new Set(
+  SOLUTION_PLAN_GATE_EXEMPT_DOCUMENT_TYPES,
+);
+
+/** True when the document type requires a READY Solution Plan (custom types are gated). */
+export const isSolutionPlanGatedDocumentType = (documentType: string): boolean =>
+  !GATE_EXEMPT_TYPES.has(documentType);
 
 // ─── Item (pure domain entity) ──────────────────────────────────────────────────
 
@@ -247,3 +296,51 @@ export const GrillingMessageListItemSchema = z.object({
 });
 
 export type GrillingMessageListItem = z.infer<typeof GrillingMessageListItemSchema>;
+
+// ─── API Response Schemas ───────────────────────────────────────────────────────
+
+/** 202 body of POST /solution-plan/init. */
+export const SolutionPlanInitResponseSchema = z.object({
+  ok: z.boolean(),
+  solutionPlanId: z.string(),
+  runId: z.string(),
+  status: SolutionPlanStatusSchema,
+  version: z.number().int().nonnegative(),
+  /** True when the init replaced an existing plan record. */
+  regenerated: z.boolean(),
+  /** Number of transcript messages wiped from the superseded run. */
+  wipedMessages: z.number().int().nonnegative(),
+});
+
+export type SolutionPlanInitResponse = z.infer<typeof SolutionPlanInitResponseSchema>;
+
+/** 200 body of GET /solution-plan/get and PATCH /solution-plan/update. */
+export const SolutionPlanResponseSchema = z.object({
+  ok: z.boolean(),
+  plan: SolutionPlanItemSchema,
+});
+
+export type SolutionPlanResponse = z.infer<typeof SolutionPlanResponseSchema>;
+
+/** 200 body of GET /solution-plan/transcript. */
+export const SolutionPlanTranscriptResponseSchema = z.object({
+  ok: z.boolean(),
+  solutionPlanId: z.string(),
+  runId: z.string(),
+  status: SolutionPlanStatusSchema,
+  messages: z.array(GrillingMessageItemSchema),
+});
+
+export type SolutionPlanTranscriptResponse = z.infer<typeof SolutionPlanTranscriptResponseSchema>;
+
+/** 200 body of GET /solution-plan/html-content. */
+export const SolutionPlanHtmlContentResponseSchema = z.object({
+  ok: z.boolean(),
+  html: z.string(),
+  contentKey: z.string(),
+  version: z.number().int().nonnegative(),
+  isStale: z.boolean(),
+  isUserEdited: z.boolean(),
+});
+
+export type SolutionPlanHtmlContentResponse = z.infer<typeof SolutionPlanHtmlContentResponseSchema>;

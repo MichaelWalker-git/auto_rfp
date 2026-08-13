@@ -2,6 +2,7 @@ import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { type RFPDocumentContent } from '@auto-rfp/core';
 import { loadRFPDocumentHtml } from './rfp-document';
+import { decodeHtmlEntities } from './html-text';
 import { requireEnv } from './env';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -10,23 +11,6 @@ const PRESIGN_EXPIRES_IN = Number(process.env.PRESIGN_EXPIRES_IN || 3600);
 const s3ExportClient = new S3Client({ region: REGION });
 
 // ─── Table of Contents expansion ──────────────────────────────────────────────
-
-/** Decode common HTML entities to plain text for TOC display. */
-const decodeHtmlEntities = (text: string): string =>
-  text
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#0?39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&mdash;/g, '—')
-    .replace(/&ndash;/g, '–')
-    .replace(/&hellip;/g, '…')
-    .replace(/&rsquo;/g, '\u2019')
-    .replace(/&lsquo;/g, '\u2018')
-    .replace(/&rdquo;/g, '\u201D')
-    .replace(/&ldquo;/g, '\u201C');
 
 /** Strip all HTML tags and decode entities to get clean heading text. */
 const extractPlainText = (html: string): string =>
@@ -473,24 +457,19 @@ export function buildS3Key(
 
 // ─── HTML → plain text strip ──────────────────────────────────────────────────
 
-function stripHtml(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
-    .replace(/<\/h[1-6]>/gi, '\n\n')
-    .replace(/<\/li>/gi, '\n')
-    .replace(/<\/tr>/gi, '\n')
-    .replace(/<\/td>/gi, '\t')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#039;/g, "'")
-    .replace(/&nbsp;/g, ' ')
+const stripHtml = (html: string): string =>
+  decodeHtmlEntities(
+    html
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/h[1-6]>/gi, '\n\n')
+      .replace(/<\/li>/gi, '\n')
+      .replace(/<\/tr>/gi, '\n')
+      .replace(/<\/td>/gi, '\t')
+      .replace(/<[^>]+>/g, ''),
+  )
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-}
 
 /**
  * Flatten proposal document into plain text for use by various exporters.

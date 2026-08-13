@@ -83,6 +83,8 @@ export const OrganizationItemSchema = OrganizationCreateRequestSchema.extend({
   enableComplianceReview: z.boolean().optional(),
   /** Whether new-member detection alerts are enabled for this org (set manually in DynamoDB; no UI) */
   enableMemberDetection: z.boolean().optional().default(false),
+  /** Whether the Solution Plan (Source of Truth) feature + generation gate is enabled for this org (set manually in DynamoDB; no UI) */
+  enableSolutionPlan: z.boolean().optional(),
 });
 
 export type OrganizationItem = z.infer<typeof OrganizationItemSchema>;
@@ -108,6 +110,7 @@ export const OrganizationListItemSchema = z.object({
   iconKey: z.string().optional(),
   enablePOCGeneration: z.boolean().optional(),
   enableComplianceReview: z.boolean().optional(),
+  enableSolutionPlan: z.boolean().optional(),
 });
 
 export type OrganizationListItem = z.infer<typeof OrganizationListItemSchema>;

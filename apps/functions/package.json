@@ -49,6 +49,7 @@
     "pdfjs-dist": "4.9.155",
     "pptxgenjs": "^4.0.1",
     "puppeteer-core": "^24.39.0",
+    "ulid": "^2.4.0",
     "uuid": "^13.0.0",
     "xlsx": "^0.18.5",
     "zod": "^3.25.0"
