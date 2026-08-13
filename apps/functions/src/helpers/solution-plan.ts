@@ -176,10 +176,28 @@ export const markSolutionPlanStale = async (
 };
 
 /**
- * Best-effort staleness trigger (T13). Staleness is advisory — the banner only
- * recommends a regenerate and never closes the generation gate — so callers
- * embedded in unrelated write paths (brief init, solicitation upload) must not
- * fail their request when marking stale throws. Logs and returns null instead.
+ * User-facing staleness reasons (T13), rendered verbatim in the
+ * `SolutionPlanPanel` banner. Kept in one map so trigger call sites never
+ * compose banner copy inline. Brief-generation reasons say "is being …"
+ * because the trigger fires when generation is initiated — the worker may
+ * still fail, so the copy must not assert completion.
+ */
+export const solutionPlanStaleReasons = {
+  briefGenerated: () => 'An Executive Brief is being generated.',
+  briefRegenerated: () => 'The Executive Brief is being regenerated.',
+  briefSectionRegenerated: (section: string) =>
+    `The Executive Brief's "${section}" section is being regenerated.`,
+  solicitationDocumentUploaded: (fileName: string) =>
+    `A new solicitation document ("${fileName}") was uploaded.`,
+} as const;
+
+/**
+ * Best-effort staleness trigger (T13) — the single entry point for all
+ * trigger call sites, paired with a reason from `solutionPlanStaleReasons`.
+ * Staleness is advisory — the banner only recommends a regenerate and never
+ * closes the generation gate — so callers embedded in unrelated write paths
+ * (brief init, section regen, solicitation upload) must not fail their
+ * request when marking stale throws. Logs and returns null instead.
  */
 export const markSolutionPlanStaleSafe = async (
   key: SolutionPlanKey,

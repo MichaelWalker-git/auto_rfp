@@ -42,6 +42,7 @@ import {
   markSolutionPlanStaleSafe,
   padGrillingRound,
   putSolutionPlan,
+  solutionPlanStaleReasons,
   toGrillingMessageItem,
   toSolutionPlanItem,
   updateSolutionPlanContent,
@@ -303,6 +304,25 @@ describe('markSolutionPlanStaleSafe', () => {
   it('swallows unexpected errors instead of failing the host request', async () => {
     mockUpdateItem.mockRejectedValue(new Error('DynamoDB unavailable'));
     await expect(markSolutionPlanStaleSafe(planKey, reason)).resolves.toBeNull();
+  });
+});
+
+// ─── solutionPlanStaleReasons (T13 banner copy) ─────────────────────────────────
+
+describe('solutionPlanStaleReasons', () => {
+  it('produces the exact user-facing banner copy for each trigger', () => {
+    expect(solutionPlanStaleReasons.briefGenerated()).toBe(
+      'An Executive Brief is being generated.',
+    );
+    expect(solutionPlanStaleReasons.briefRegenerated()).toBe(
+      'The Executive Brief is being regenerated.',
+    );
+    expect(solutionPlanStaleReasons.briefSectionRegenerated('risks')).toBe(
+      'The Executive Brief\'s "risks" section is being regenerated.',
+    );
+    expect(solutionPlanStaleReasons.solicitationDocumentUploaded('amendment-002.pdf')).toBe(
+      'A new solicitation document ("amendment-002.pdf") was uploaded.',
+    );
   });
 });
 

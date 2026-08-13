@@ -4,7 +4,7 @@ import middy from '@middy/core';
 import { CreateQuestionFileRequestSchema } from '@auto-rfp/core';
 import { apiResponse } from '@/helpers/api';
 import { createQuestionFile } from '@/helpers/questionFile';
-import { markSolutionPlanStaleSafe } from '@/helpers/solution-plan';
+import { markSolutionPlanStaleSafe, solutionPlanStaleReasons } from '@/helpers/solution-plan';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
@@ -28,12 +28,10 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
 
   const created = await createQuestionFile(data);
 
-  // Staleness trigger (T13): a new solicitation document changes an input a
-  // READY Solution Plan may have been built from — the helper no-ops otherwise
-  // (ADR-3). Best-effort — never fails the upload.
+  // Staleness trigger (T13) — see markSolutionPlanStaleSafe for the contract.
   await markSolutionPlanStaleSafe(
     { orgId: data.orgId, projectId: data.projectId, opportunityId: data.oppId },
-    `A new solicitation document ("${data.originalFileName}") was uploaded.`,
+    solutionPlanStaleReasons.solicitationDocumentUploaded(data.originalFileName),
   );
 
   setAuditContext(event, {

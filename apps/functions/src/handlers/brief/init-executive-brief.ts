@@ -11,7 +11,7 @@ import {
   putExecutiveBrief,
 } from '@/helpers/executive-opportunity-brief';
 import { isExtractedQuestionFile, listQuestionFilesByOpportunity } from '@/helpers/questionFile';
-import { markSolutionPlanStaleSafe } from '@/helpers/solution-plan';
+import { markSolutionPlanStaleSafe, solutionPlanStaleReasons } from '@/helpers/solution-plan';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { EXEC_BRIEF_PK } from '@/constants/exec-brief';
 import {
@@ -140,17 +140,15 @@ export const initExecutiveBrief = async (
     onBriefGenerationStarted({ orgId, projectId, oppId: opportunityId });
   }
 
-  // Staleness trigger (T13): a (re)generated brief changes an input a READY
-  // Solution Plan may have been built from — the helper no-ops otherwise
-  // (ADR-3). Covers the first-time case too: a plan can exist without a brief
-  // (ADR-14), so a brand-new brief is equally new information. Best-effort —
-  // never fails the brief init.
+  // Staleness trigger (T13) — see markSolutionPlanStaleSafe for the contract.
+  // Covers first-time generation too: a plan can exist without a brief
+  // (ADR-14), so a brand-new brief is equally new information.
   if (orgId) {
     await markSolutionPlanStaleSafe(
       { orgId, projectId, opportunityId },
       isRegeneration
-        ? 'The Executive Brief was regenerated.'
-        : 'An Executive Brief was generated.',
+        ? solutionPlanStaleReasons.briefRegenerated()
+        : solutionPlanStaleReasons.briefGenerated(),
     );
   }
 

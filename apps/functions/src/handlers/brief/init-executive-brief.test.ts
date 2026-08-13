@@ -42,6 +42,7 @@ jest.mock('@/helpers/opportunity-status', () => ({
 
 const mockMarkStaleSafe = jest.fn();
 jest.mock('@/helpers/solution-plan', () => ({
+  ...(jest.requireActual('@/helpers/solution-plan') as object),
   markSolutionPlanStaleSafe: (...a: unknown[]) => mockMarkStaleSafe(...a),
 }));
 
@@ -83,7 +84,7 @@ describe('init-executive-brief — solution plan staleness trigger (T13)', () =>
     expect(statusOf(res)).toBe(200);
     expect(mockMarkStaleSafe).toHaveBeenCalledWith(
       { orgId: 'org-1', projectId: 'proj-1', opportunityId: 'opp-1' },
-      'An Executive Brief was generated.',
+      'An Executive Brief is being generated.',
     );
   });
 
@@ -99,7 +100,7 @@ describe('init-executive-brief — solution plan staleness trigger (T13)', () =>
     expect(statusOf(res)).toBe(200);
     expect(mockMarkStaleSafe).toHaveBeenCalledWith(
       { orgId: 'org-1', projectId: 'proj-1', opportunityId: 'opp-1' },
-      'The Executive Brief was regenerated.',
+      'The Executive Brief is being regenerated.',
     );
   });
 

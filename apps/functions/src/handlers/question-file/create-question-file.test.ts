@@ -28,6 +28,7 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
 
 const mockMarkStaleSafe = jest.fn();
 jest.mock('@/helpers/solution-plan', () => ({
+  ...(jest.requireActual('@/helpers/solution-plan') as object),
   markSolutionPlanStaleSafe: (...a: unknown[]) => mockMarkStaleSafe(...a),
 }));
 
