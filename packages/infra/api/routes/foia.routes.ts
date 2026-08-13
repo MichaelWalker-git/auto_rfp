@@ -81,6 +81,13 @@ export function foiaDomain(): DomainRoutes {
         path: 'confirm-foia-recipient',
         entry: lambdaEntry('foia/confirm-foia-recipient.ts'),
       },
+      {
+        // PATCH: replaces the additional-document list on a prepared request and
+        // re-renders its artifacts, so the approved letter stays the sent letter.
+        method: 'PATCH',
+        path: 'update-foia-custom-documents',
+        entry: lambdaEntry('foia/update-foia-custom-documents.ts'),
+      },
     ],
   };
 }

@@ -33,6 +33,7 @@ import { FoiaStateSummary } from './FoiaStateSummary';
 import { FoiaSendControls } from './FoiaSendControls';
 import { FoiaDocumentsList } from './FoiaDocumentsList';
 import { FoiaResponseUpload } from './FoiaResponseUpload';
+import { FoiaCustomDocumentsEditor } from './FoiaCustomDocumentsEditor';
 import {
   useFoiaAutomation,
   useUpdateFoiaAutomation,
@@ -334,6 +335,27 @@ export const FoiaAutomationCard = ({
               )}
             </div>
           )}
+
+          {/*
+            Additional document requests — offered at the approval step, the one
+            moment a human is already reading the letter. Saving re-renders the
+            persisted artifacts, so what is approved stays what is sent.
+          */}
+          {(automation.state === 'AWAITING_APPROVAL' || automation.state === 'FAILED') &&
+            automation.foiaRequestId && (
+              <div className="pt-2">
+                <FoiaCustomDocumentsEditor
+                  orgId={orgId}
+                  projectId={projectId}
+                  oppId={opportunityId}
+                  customDocumentRequests={foiaRequest?.customDocumentRequests}
+                  onSaved={async () => {
+                    await refetch();
+                    await refetchRequests();
+                  }}
+                />
+              </div>
+            )}
 
           {/* Send controls for AWAITING_APPROVAL and STALLED */}
           {(automation.state === 'AWAITING_APPROVAL' || automation.state === 'STALLED') && (

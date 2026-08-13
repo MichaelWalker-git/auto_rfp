@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ConfirmFoiaRecipientSchema,
+  UpdateFoiaCustomDocumentsSchema,
   FoiaAgencyContactCreateRequestSchema,
   FoiaAgencyContactItemSchema,
   FoiaAgencyContactUpdateRequestSchema,
@@ -247,5 +248,90 @@ describe('ConfirmFoiaRecipientSchema', () => {
     const { oppId: _oppId, ...withoutOpp } = valid;
 
     expect(ConfirmFoiaRecipientSchema.safeParse(withoutOpp).success).toBe(false);
+  });
+});
+
+describe('UpdateFoiaCustomDocumentsSchema', () => {
+  const valid = {
+    orgId: 'org-1',
+    projectId: 'proj-1',
+    oppId: 'opp-1',
+    customDocumentRequests: ['Section 4.3 individual evaluator scoresheets'],
+  };
+
+  it('accepts a valid payload', () => {
+    const { success, data } = UpdateFoiaCustomDocumentsSchema.safeParse(valid);
+
+    expect(success).toBe(true);
+    expect(data?.customDocumentRequests).toEqual([
+      'Section 4.3 individual evaluator scoresheets',
+    ]);
+  });
+
+  it('accepts an empty array — clearing the list is meaningful', () => {
+    const { success, data } = UpdateFoiaCustomDocumentsSchema.safeParse({
+      ...valid,
+      customDocumentRequests: [],
+    });
+
+    expect(success).toBe(true);
+    expect(data?.customDocumentRequests).toEqual([]);
+  });
+
+  it('trims entries', () => {
+    const { data } = UpdateFoiaCustomDocumentsSchema.safeParse({
+      ...valid,
+      customDocumentRequests: ['  Bid tabulation  '],
+    });
+
+    expect(data?.customDocumentRequests).toEqual(['Bid tabulation']);
+  });
+
+  it('rejects a whitespace-only entry', () => {
+    expect(
+      UpdateFoiaCustomDocumentsSchema.safeParse({
+        ...valid,
+        customDocumentRequests: ['   '],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects more than 25 entries — a huge list invites a burdensome denial', () => {
+    expect(
+      UpdateFoiaCustomDocumentsSchema.safeParse({
+        ...valid,
+        customDocumentRequests: Array.from({ length: 26 }, (_, i) => `doc ${i}`),
+      }).success,
+    ).toBe(false);
+  });
+
+  it('allows exactly 25 entries', () => {
+    expect(
+      UpdateFoiaCustomDocumentsSchema.safeParse({
+        ...valid,
+        customDocumentRequests: Array.from({ length: 25 }, (_, i) => `doc ${i}`),
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rejects an entry over 500 characters', () => {
+    expect(
+      UpdateFoiaCustomDocumentsSchema.safeParse({
+        ...valid,
+        customDocumentRequests: ['x'.repeat(501)],
+      }).success,
+    ).toBe(false);
+  });
+
+  it('requires the full opportunity identity', () => {
+    const { oppId: _oppId, ...withoutOpp } = valid;
+
+    expect(UpdateFoiaCustomDocumentsSchema.safeParse(withoutOpp).success).toBe(false);
+  });
+
+  it('requires the list to be present — an omitted field is not an empty list', () => {
+    const { customDocumentRequests: _c, ...withoutList } = valid;
+
+    expect(UpdateFoiaCustomDocumentsSchema.safeParse(withoutList).success).toBe(false);
   });
 });

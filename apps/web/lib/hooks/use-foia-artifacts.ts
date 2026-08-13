@@ -134,3 +134,59 @@ export const useSendFoiaRequest = (): UseSendFoiaRequestResult => {
 
   return { sendFoiaRequest, isSending };
 };
+
+// ─── Custom Document Requests Hook ────────────────────────────────────────────
+
+interface UpdateCustomDocumentsArgs {
+  orgId: string;
+  projectId: string;
+  oppId: string;
+  customDocumentRequests: string[];
+}
+
+interface UseUpdateFoiaCustomDocumentsResult {
+  updateCustomDocuments: (args: UpdateCustomDocumentsArgs) => Promise<string>;
+  isSaving: boolean;
+}
+
+/**
+ * Replaces the additional-document list on a prepared FOIA request.
+ *
+ * Returns the re-rendered letter, because the endpoint re-renders and re-persists
+ * the artifacts as part of the same call — the send transmits the stored artifact,
+ * so a save that did not re-render would ship the pre-edit letter. Callers should
+ * show what comes back rather than assuming their local edit is what will go out.
+ */
+export const useUpdateFoiaCustomDocuments = (): UseUpdateFoiaCustomDocumentsResult => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const updateCustomDocuments = async (args: UpdateCustomDocumentsArgs): Promise<string> => {
+    setIsSaving(true);
+    try {
+      const baseUrl = env.BASE_API_URL.replace(/\/$/, '');
+      const res = await authFetcher(`${baseUrl}/foia/update-foia-custom-documents`, {
+        method: 'PATCH',
+        body: JSON.stringify(args),
+      });
+
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+
+        if (res.status === 409) {
+          throw new Error(
+            'This request can no longer be edited — it has already been sent or is being sent.',
+          );
+        }
+
+        throw new Error(`Could not save document requests: ${res.status}. ${body}`);
+      }
+
+      const result = (await res.json()) as { letter: string };
+      return result.letter;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return { updateCustomDocuments, isSaving };
+};

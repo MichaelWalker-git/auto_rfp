@@ -23,6 +23,12 @@ jest.mock('@/lib/hooks/use-foia-artifacts', () => ({
   useSendFoiaRequest: jest.fn(),
   // FoiaDocumentsList renders inside the card and destructures this.
   useFoiaArtifacts: () => ({ getDownloadUrl: jest.fn().mockResolvedValue('https://signed') }),
+  // FoiaCustomDocumentsEditor renders alongside the send controls on
+  // AWAITING_APPROVAL and destructures this.
+  useUpdateFoiaCustomDocuments: () => ({
+    updateCustomDocuments: jest.fn().mockResolvedValue('Letter body'),
+    isSaving: false,
+  }),
 }));
 jest.mock('@/components/ui/use-toast', () => ({
   useToast: () => ({

@@ -122,3 +122,41 @@ export const ConfirmFoiaRecipientSchema = z.object({
 });
 
 export type ConfirmFoiaRecipient = z.infer<typeof ConfirmFoiaRecipientSchema>;
+
+/**
+ * Adds solicitation-specific document requests to a prepared FOIA request.
+ *
+ * The automated path composes a standardized list of documents, which is correct
+ * but generic. A specialist reading the solicitation asks for named artifacts —
+ * "the Section 4.3 scoring worksheets", "the bid tabulation with SB preference
+ * computations" — and those requests are what actually get honoured, because they
+ * name records the agency can locate.
+ *
+ * Rather than trying to infer them, this lets a reviewer add them at the approval
+ * step, which is the one moment a human is already reading the letter.
+ *
+ * Editing is deliberately scoped to this ONE field. The rest of the letter is
+ * derived from records that can be checked (the agency address, the award date and
+ * its provenance, whether a proposal was actually submitted); making those
+ * free-text here would let a reviewer assert something the app cannot substantiate
+ * in a statutory filing. Additional document requests carry no such risk — the
+ * worst case is the agency reporting no such record exists.
+ */
+export const UpdateFoiaCustomDocumentsSchema = z.object({
+  orgId: z.string().min(1),
+  projectId: z.string().min(1),
+  oppId: z.string().min(1),
+  /**
+   * Replaces the list wholesale rather than appending, so the UI can edit and
+   * remove entries with one call. An empty array is meaningful: it clears them.
+   *
+   * The cap is a guard against a paste of the whole solicitation — a letter that
+   * enumerates two hundred items reads as unserious and invites a "unduly
+   * burdensome" denial, which is worse than asking for too little.
+   */
+  customDocumentRequests: z
+    .array(z.string().trim().min(1, 'A document request cannot be empty').max(500))
+    .max(25, 'At most 25 additional document requests'),
+});
+
+export type UpdateFoiaCustomDocuments = z.infer<typeof UpdateFoiaCustomDocumentsSchema>;
