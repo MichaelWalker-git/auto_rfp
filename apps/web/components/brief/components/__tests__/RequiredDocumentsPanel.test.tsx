@@ -1,6 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { RequiredDocumentsPanel } from '../RequiredDocumentsPanel';
-import type { SolutionPlanGate } from '@/features/solution-plan';
+import {
+  activeGateState,
+  gateState,
+  grandfatheredGateState,
+} from '@/features/solution-plan/testing';
 import type { RequiredOutputDocument } from '@auto-rfp/core';
 
 // ─── Hook / dependency mocks ──────────────────────────────────────────────────
@@ -36,20 +40,6 @@ const requiredDocuments: RequiredOutputDocument[] = [
   { documentType: 'QUESTIONS_AND_ANSWERS', name: 'Q&A Sheet', required: false },
 ];
 
-const gateState = (over: Partial<SolutionPlanGate> = {}): SolutionPlanGate => ({
-  isEnabled: true,
-  plan: null,
-  isGateActive: false,
-  isDocumentTypeBlocked: () => false,
-  ...over,
-});
-
-const activeGate = () =>
-  gateState({
-    isGateActive: true,
-    isDocumentTypeBlocked: (documentType: string) => documentType === 'TECHNICAL_PROPOSAL',
-  });
-
 const renderPanel = () =>
   render(
     <RequiredDocumentsPanel
@@ -73,7 +63,7 @@ beforeEach(() => {
 
 describe('RequiredDocumentsPanel — Solution Plan gate', () => {
   it('disables gated rows, keeps exempt rows generatable, and shows the callout', () => {
-    mockUseSolutionPlanGate.mockReturnValue(activeGate());
+    mockUseSolutionPlanGate.mockReturnValue(activeGateState());
 
     renderPanel();
 
@@ -87,7 +77,7 @@ describe('RequiredDocumentsPanel — Solution Plan gate', () => {
   });
 
   it('excludes blocked types from Generate All', () => {
-    mockUseSolutionPlanGate.mockReturnValue(activeGate());
+    mockUseSolutionPlanGate.mockReturnValue(activeGateState());
 
     renderPanel();
 
@@ -111,5 +101,15 @@ describe('RequiredDocumentsPanel — Solution Plan gate', () => {
     expect(screen.queryByTestId('solution-plan-gate-callout')).not.toBeInTheDocument();
     expect(generateButtonIn('Technical Volume')).not.toBeDisabled();
     expect(screen.getByRole('button', { name: /generate all \(2\)/i })).toBeInTheDocument();
+  });
+
+  it('shows the nudge banner without gating when grandfathered (ADR-10)', () => {
+    mockUseSolutionPlanGate.mockReturnValue(grandfatheredGateState());
+
+    renderPanel();
+
+    expect(screen.getByTestId('solution-plan-nudge-banner')).toBeInTheDocument();
+    expect(screen.queryByTestId('solution-plan-gate-callout')).not.toBeInTheDocument();
+    expect(generateButtonIn('Technical Volume')).not.toBeDisabled();
   });
 });

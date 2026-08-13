@@ -41,6 +41,18 @@ describe('toGenerateDocumentError', () => {
     expect(mapped.solutionPlanStatus).toBeNull();
   });
 
+  it('degrades an unrecognized solutionPlanStatus to null instead of passing through', () => {
+    const raw = new ApiError(
+      JSON.stringify({ code: 'SOLUTION_PLAN_REQUIRED', solutionPlanStatus: 'BOGUS' }),
+      409,
+    );
+
+    const mapped = toGenerateDocumentError(raw) as SolutionPlanRequiredError;
+
+    expect(isSolutionPlanRequiredError(mapped)).toBe(true);
+    expect(mapped.solutionPlanStatus).toBeNull();
+  });
+
   it('passes through 409s with other codes', () => {
     const raw = new ApiError(JSON.stringify({ code: 'SOLUTION_PLAN_CONFLICT' }), 409);
     expect(toGenerateDocumentError(raw)).toBe(raw);

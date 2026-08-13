@@ -1,6 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { GenerateDocumentDialog } from '../generate-document-dialog';
-import type { SolutionPlanGate } from '@/features/solution-plan';
+import {
+  activeGateState,
+  gateState,
+  grandfatheredGateState,
+} from '@/features/solution-plan/testing';
 
 // ─── Hook / dependency mocks ──────────────────────────────────────────────────
 
@@ -47,22 +51,6 @@ jest.mock('../template-selector', () => ({
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const EXEMPT_TYPES = ['CLARIFYING_QUESTIONS', 'QUESTIONS_AND_ANSWERS'];
-
-const gateState = (over: Partial<SolutionPlanGate> = {}): SolutionPlanGate => ({
-  isEnabled: true,
-  plan: null,
-  isGateActive: false,
-  isDocumentTypeBlocked: () => false,
-  ...over,
-});
-
-const activeGate = () =>
-  gateState({
-    isGateActive: true,
-    isDocumentTypeBlocked: (documentType: string) => !EXEMPT_TYPES.includes(documentType),
-  });
-
 const renderAndOpenDialog = async () => {
   render(
     <GenerateDocumentDialog projectId="proj-1" opportunityId="opp-1" orgId="org-1" />,
@@ -83,7 +71,7 @@ beforeEach(() => {
 
 describe('GenerateDocumentDialog — Solution Plan gate', () => {
   it('disables gated rows and shows the callout when the gate is active', async () => {
-    mockUseSolutionPlanGate.mockReturnValue(activeGate());
+    mockUseSolutionPlanGate.mockReturnValue(activeGateState());
 
     await renderAndOpenDialog();
 
@@ -102,7 +90,7 @@ describe('GenerateDocumentDialog — Solution Plan gate', () => {
   });
 
   it('keeps the Generate button disabled until an exempt row is selected', async () => {
-    mockUseSolutionPlanGate.mockReturnValue(activeGate());
+    mockUseSolutionPlanGate.mockReturnValue(activeGateState());
 
     await renderAndOpenDialog();
 
@@ -114,7 +102,7 @@ describe('GenerateDocumentDialog — Solution Plan gate', () => {
   });
 
   it('excludes blocked rows from Select all', async () => {
-    mockUseSolutionPlanGate.mockReturnValue(activeGate());
+    mockUseSolutionPlanGate.mockReturnValue(activeGateState());
 
     await renderAndOpenDialog();
 
@@ -132,5 +120,19 @@ describe('GenerateDocumentDialog — Solution Plan gate', () => {
     expect(screen.queryByTestId('solution-plan-gate-callout')).not.toBeInTheDocument();
     expect(checkboxFor('TECHNICAL_PROPOSAL')).not.toBeDisabled();
     expect(checkboxFor('COST_PROPOSAL')).not.toBeDisabled();
+  });
+
+  it('shows the nudge banner without gating when grandfathered (ADR-10)', async () => {
+    mockUseSolutionPlanGate.mockReturnValue(grandfatheredGateState());
+
+    await renderAndOpenDialog();
+
+    expect(screen.getByTestId('solution-plan-nudge-banner')).toBeInTheDocument();
+    expect(screen.queryByTestId('solution-plan-gate-callout')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /create a solution plan/i })).toHaveAttribute(
+      'href',
+      '/organizations/org-1/projects/proj-1/opportunities/opp-1#solution-plan',
+    );
+    expect(checkboxFor('TECHNICAL_PROPOSAL')).not.toBeDisabled();
   });
 });

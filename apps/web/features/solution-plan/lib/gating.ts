@@ -5,6 +5,11 @@ import { isSolutionPlanGatedDocumentType, type RFPDocumentItem } from '@auto-rfp
  * (`apps/functions/src/helpers/solution-plan-gate.ts`, ADR-10). The server
  * stays authoritative — these only decide when the UI disables generation
  * entry points, so they must never be stricter than the backend.
+ *
+ * Known exception: the server's stage-wide `SOLUTION_PLAN_GATING=off` kill
+ * switch is not visible to the client, so while it is active the UI still
+ * gates flagged orgs even though the server would allow generation. Accepted —
+ * the switch is an emergency lever, not a product state.
  */
 
 /** The minimal document shape the grandfather check reads. */

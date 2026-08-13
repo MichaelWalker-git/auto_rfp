@@ -55,6 +55,7 @@ describe('useSolutionPlanGate', () => {
     const result = render();
 
     expect(result.current.isGateActive).toBe(true);
+    expect(result.current.isGrandfathered).toBe(false);
     expect(result.current.isDocumentTypeBlocked('TECHNICAL_PROPOSAL')).toBe(true);
     expect(result.current.isDocumentTypeBlocked('MY_CUSTOM_TYPE')).toBe(true);
   });
@@ -87,6 +88,8 @@ describe('useSolutionPlanGate', () => {
     const result = render();
 
     expect(result.current.isGateActive).toBe(false);
+    // A READY plan is not grandfathering — no nudge banner.
+    expect(result.current.isGrandfathered).toBe(false);
     expect(result.current.isDocumentTypeBlocked('COST_PROPOSAL')).toBe(false);
   });
 
@@ -98,12 +101,13 @@ describe('useSolutionPlanGate', () => {
     expect(result.current.isGateActive).toBe(true);
   });
 
-  it('opens the gate for grandfathered opportunities (ADR-10)', () => {
+  it('opens the gate and reports grandfathering for grandfathered opportunities (ADR-10)', () => {
     mockUseRFPDocuments.mockReturnValue({ documents: [generatedDoc], isLoading: false });
 
     const result = render();
 
     expect(result.current.isGateActive).toBe(false);
+    expect(result.current.isGrandfathered).toBe(true);
   });
 
   it('does not block while the plan or documents are still loading', () => {
@@ -112,7 +116,10 @@ describe('useSolutionPlanGate', () => {
 
     mockUseSolutionPlan.mockReturnValue({ plan: null, isLoading: false });
     mockUseRFPDocuments.mockReturnValue({ documents: [], isLoading: true });
-    expect(render().current.isGateActive).toBe(false);
+    const result = render();
+    expect(result.current.isGateActive).toBe(false);
+    // Not grandfathered either while loading — no premature nudge.
+    expect(result.current.isGrandfathered).toBe(false);
   });
 
   it("resolves a missing opportunityId to 'default' like the server", () => {

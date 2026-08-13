@@ -20,6 +20,12 @@ export interface SolutionPlanGate {
    * blocks on incomplete data; the server 409 is the backstop.
    */
   isGateActive: boolean;
+  /**
+   * True when the gate is open only because existing generated documents
+   * grandfather the opportunity (ADR-10) — surfaces the non-blocking nudge
+   * banner recommending a plan.
+   */
+  isGrandfathered: boolean;
   /** Per-type verdict: gate active AND the type is not exempt. */
   isDocumentTypeBlocked: (documentType: string) => boolean;
 }
@@ -56,13 +62,14 @@ export const useSolutionPlanGate = (
     effectiveOpportunityId,
   );
 
-  const isGateActive =
-    needsGrandfatherCheck && !isDocumentsLoading && !hasGrandfatheredDocument(documents);
+  const isGrandfathered =
+    needsGrandfatherCheck && !isDocumentsLoading && hasGrandfatheredDocument(documents);
+  const isGateActive = needsGrandfatherCheck && !isDocumentsLoading && !isGrandfathered;
 
   const isDocumentTypeBlocked = useCallback(
     (documentType: string) => isGateActive && isSolutionPlanGatedDocumentType(documentType),
     [isGateActive],
   );
 
-  return { isEnabled, plan, isGateActive, isDocumentTypeBlocked };
+  return { isEnabled, plan, isGateActive, isGrandfathered, isDocumentTypeBlocked };
 };

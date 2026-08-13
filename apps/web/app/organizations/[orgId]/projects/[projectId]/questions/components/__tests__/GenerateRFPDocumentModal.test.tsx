@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { GenerateRFPDocumentModal } from '../GenerateRFPDocumentModal';
-import type { SolutionPlanGate } from '@/features/solution-plan';
+import { activeGateState, gateState } from '@/features/solution-plan/testing';
 
 // ─── Hook / dependency mocks ──────────────────────────────────────────────────
 
@@ -43,14 +43,6 @@ jest.mock('@/components/rfp-documents/rich-text-editor', () => ({
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const gateState = (over: Partial<SolutionPlanGate> = {}): SolutionPlanGate => ({
-  isEnabled: true,
-  plan: null,
-  isGateActive: false,
-  isDocumentTypeBlocked: () => false,
-  ...over,
-});
-
 beforeEach(() => {
   jest.clearAllMocks();
   mockUseSolutionPlanGate.mockReturnValue(gateState());
@@ -60,12 +52,7 @@ beforeEach(() => {
 
 describe('GenerateRFPDocumentModal — Solution Plan gate', () => {
   it('disables the Generate Proposal button when the gate blocks TECHNICAL_PROPOSAL', () => {
-    mockUseSolutionPlanGate.mockReturnValue(
-      gateState({
-        isGateActive: true,
-        isDocumentTypeBlocked: (documentType: string) => documentType === 'TECHNICAL_PROPOSAL',
-      }),
-    );
+    mockUseSolutionPlanGate.mockReturnValue(activeGateState());
 
     render(<GenerateRFPDocumentModal projectId="proj-1" opportunityId="opp-1" />);
 

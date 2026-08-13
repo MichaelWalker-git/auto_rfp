@@ -362,31 +362,34 @@ const SOLUTION_PLAN_REQUIRED_MESSAGE =
   'A ready Solution Plan is required before generating this document. Create one from the Solution Plan section of the opportunity page.';
 
 /**
+ * 409 body produced by the server gate (T9). An unrecognized
+ * `solutionPlanStatus` degrades to null rather than failing the whole parse.
+ */
+const SolutionPlanRequiredBodySchema = z.object({
+  code: z.literal('SOLUTION_PLAN_REQUIRED'),
+  message: z.string().optional(),
+  solutionPlanStatus: SolutionPlanStatusSchema.nullable().catch(null).optional(),
+});
+
+/**
  * Map a raw generate-document failure to `SolutionPlanRequiredError` when the
  * 409 body carries `code: 'SOLUTION_PLAN_REQUIRED'`; all other errors pass
  * through unchanged. Exported for tests.
  */
 export const toGenerateDocumentError = (err: unknown): unknown => {
   if (!(err instanceof ApiError) || err.status !== 409) return err;
+  let raw: unknown;
   try {
-    const body = JSON.parse(err.message) as {
-      code?: string;
-      message?: string;
-      solutionPlanStatus?: unknown;
-    };
-    if (body.code === 'SOLUTION_PLAN_REQUIRED') {
-      const { success, data: status } = SolutionPlanStatusSchema.nullable().safeParse(
-        body.solutionPlanStatus ?? null,
-      );
-      return new SolutionPlanRequiredError(
-        body.message || SOLUTION_PLAN_REQUIRED_MESSAGE,
-        success ? status : null,
-      );
-    }
+    raw = JSON.parse(err.message);
   } catch {
-    // Not a JSON body — fall through to the original error
+    return err; // Not a JSON body
   }
-  return err;
+  const { success, data: body } = SolutionPlanRequiredBodySchema.safeParse(raw);
+  if (!success) return err;
+  return new SolutionPlanRequiredError(
+    body.message || SOLUTION_PLAN_REQUIRED_MESSAGE,
+    body.solutionPlanStatus ?? null,
+  );
 };
 
 /**

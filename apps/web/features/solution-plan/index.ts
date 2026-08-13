@@ -1,6 +1,7 @@
 export { SolutionPlanPanel } from './components/SolutionPlanPanel';
 export {
   SolutionPlanGateCallout,
+  SolutionPlanNudgeBanner,
   SOLUTION_PLAN_GATE_BLOCKED_LABEL,
   buildSolutionPlanSectionHref,
 } from './components/SolutionPlanGateCallout';

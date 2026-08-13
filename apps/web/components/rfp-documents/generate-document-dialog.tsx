@@ -28,6 +28,7 @@ import { useCurrentOrganization } from '@/context/organization-context';
 import {
   useSolutionPlanGate,
   SolutionPlanGateCallout,
+  SolutionPlanNudgeBanner,
   SOLUTION_PLAN_GATE_BLOCKED_LABEL,
 } from '@/features/solution-plan';
 import PermissionWrapper from '@/components/permission-wrapper';
@@ -97,7 +98,7 @@ export const GenerateDocumentDialog = ({
 
   // Solution Plan gate (T12): gated doc types require a READY plan; exempt
   // types (Q&A-style) stay generatable. Server enforces the same rule (T9).
-  const { isGateActive, isDocumentTypeBlocked } = useSolutionPlanGate(
+  const { isGateActive, isGrandfathered, isDocumentTypeBlocked } = useSolutionPlanGate(
     orgId,
     projectId,
     opportunityId,
@@ -302,6 +303,15 @@ export const GenerateDocumentDialog = ({
           {/* Solution Plan gate callout (T12) */}
           {isGateActive && (
             <SolutionPlanGateCallout
+              orgId={orgId}
+              projectId={projectId}
+              opportunityId={opportunityId}
+              onNavigate={() => setOpen(false)}
+            />
+          )}
+          {/* Grandfathered opportunities generate without a plan, but get the ADR-10 nudge */}
+          {isGrandfathered && (
+            <SolutionPlanNudgeBanner
               orgId={orgId}
               projectId={projectId}
               opportunityId={opportunityId}

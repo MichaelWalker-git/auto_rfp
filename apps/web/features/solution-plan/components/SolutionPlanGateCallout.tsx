@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Lightbulb } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 /** Tooltip / short label for controls disabled by the generation gate. */
@@ -42,6 +42,33 @@ export const SolutionPlanGateCallout = ({
         onClick={onNavigate}
       >
         Go to Solution Plan
+      </Link>
+    </AlertDescription>
+  </Alert>
+);
+
+/**
+ * Non-blocking nudge shown when generation is allowed only because the
+ * opportunity is grandfathered by existing documents (ADR-10): recommend
+ * creating a plan without gating anything.
+ */
+export const SolutionPlanNudgeBanner = ({
+  orgId,
+  projectId,
+  opportunityId,
+  onNavigate,
+}: SolutionPlanGateCalloutProps) => (
+  <Alert data-testid="solution-plan-nudge-banner">
+    <Lightbulb className="h-4 w-4" />
+    <AlertDescription>
+      Solution Plan recommended — this opportunity predates Solution Plans, so
+      generation still works, but a plan gives the AI an approved source of truth.{' '}
+      <Link
+        href={buildSolutionPlanSectionHref(orgId, projectId, opportunityId)}
+        className="font-medium underline underline-offset-2"
+        onClick={onNavigate}
+      >
+        Create a Solution Plan
       </Link>
     </AlertDescription>
   </Alert>

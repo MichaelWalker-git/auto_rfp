@@ -16,6 +16,7 @@ import { useCurrentOrganization } from '@/context/organization-context';
 import {
   useSolutionPlanGate,
   SolutionPlanGateCallout,
+  SolutionPlanNudgeBanner,
   SOLUTION_PLAN_GATE_BLOCKED_LABEL,
 } from '@/features/solution-plan';
 import type { RequiredOutputDocument } from '@auto-rfp/core';
@@ -46,7 +47,7 @@ export const RequiredDocumentsPanel = ({
 
   // Solution Plan gate (T12): gated doc types require a READY plan (server
   // enforces the same rule via 409 SOLUTION_PLAN_REQUIRED, T9).
-  const { isGateActive, isDocumentTypeBlocked } = useSolutionPlanGate(
+  const { isGateActive, isGrandfathered, isDocumentTypeBlocked } = useSolutionPlanGate(
     orgId || undefined,
     projectId,
     opportunityId,
@@ -156,6 +157,14 @@ export const RequiredDocumentsPanel = ({
       <CardContent className="space-y-2">
         {isGateActive && (
           <SolutionPlanGateCallout
+            orgId={orgId}
+            projectId={projectId}
+            opportunityId={opportunityId}
+          />
+        )}
+        {/* Grandfathered opportunities generate without a plan, but get the ADR-10 nudge */}
+        {isGrandfathered && (
+          <SolutionPlanNudgeBanner
             orgId={orgId}
             projectId={projectId}
             opportunityId={opportunityId}
