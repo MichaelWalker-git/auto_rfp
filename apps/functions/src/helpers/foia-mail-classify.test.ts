@@ -292,6 +292,43 @@ describe('real subject lines from the monitored mailbox', () => {
     expect(r.confidence).toBe('HIGH');
   });
 
+  it('recognises a real cancellation with the identifier only in the subject', () => {
+    /**
+     * From the real archive, and the first cancellation ever tested — this path had
+     * zero real coverage before. The identifier is "4142", which no solicitation
+     * regex matches, so the classification is right but nothing can be acted on
+     * until an opportunity with that number exists. Refusing is correct.
+     */
+    const r = real(
+      '"Award" for the 4142 solicitation has been cancelled',
+      'The award for this solicitation has been cancelled by the agency.',
+    );
+
+    expect(r.classification).toBe('SOLICITATION_CANCELLED');
+    expect(canActAutomatically(r)).toBe(false);
+  });
+
+  it('recognises the "Cancelled:" subject prefix agencies use', () => {
+    const r = real(
+      'Cancelled: 26-061 - Digital Training Log and Certification of Public Works',
+      'This solicitation has been cancelled.',
+    );
+
+    expect(r.classification).toBe('SOLICITATION_CANCELLED');
+  });
+
+  it('reads a South Carolina agency reply as a reply, not a cancellation', () => {
+    // Real message from mmo.sc.gov. Its opening is the tell; without those markers
+    // the cancellation wording inside would have made it a suppression trigger.
+    const r = real(
+      '[External] Freedom of Information Act Request – Solicitation No. 5400028096, DNR Website and Hosting',
+      'Our office has received your request regarding Solicitation #5400028096.',
+    );
+
+    expect(r.classification).toBe('FOIA_RESPONSE');
+    expect(canActAutomatically(r)).toBe(false);
+  });
+
   it('does not read our letter\'s document list as an award announcement', () => {
     /**
      * From the real archive. Our request itemises "the notice of award and the
