@@ -19,10 +19,15 @@ export interface FoiaAutomationStackProps extends cdk.StackProps {
   /** Documents bucket, read for the solicitation text scan. */
   documentsBucketName: string;
   /**
-   * api.data.gov key for the FOIA.gov directory seeder. Optional — the API
-   * answers without one, just on a shared rate-limited quota.
+   * Secrets Manager ARN (or name) holding the api.data.gov key for the FOIA.gov
+   * directory seeder.
+   *
+   * An ARN rather than the key itself: a plain env var would put the credential
+   * in the CloudFormation template and expose it to anyone with console read on
+   * the Lambda. Optional — the API answers unauthenticated, but only on a shared
+   * quota that this seeder has already been rate-limited off once.
    */
-  foiaGovApiKey?: string;
+  foiaGovApiKeySecretArn?: string;
   /**
    * Verified SES sender for outbound FOIA mail.
    *
@@ -54,7 +59,7 @@ export class FoiaAutomationStack extends cdk.Stack {
       mainTable,
       commonEnv,
       documentsBucketName,
-      foiaGovApiKey,
+      foiaGovApiKeySecretArn,
       sesFromEmail,
     } = props;
 
@@ -108,6 +113,25 @@ export class FoiaAutomationStack extends cdk.Stack {
         ],
       }),
     );
+
+    /**
+     * Read the api.data.gov key from the secret store.
+     *
+     * Scoped to this one secret rather than a prefix wildcard: the seeder needs
+     * exactly one credential, so a broader grant would let any future bug in a
+     * Lambda on this shared role reach unrelated secrets.
+     */
+    if (foiaGovApiKeySecretArn) {
+      lambdaRole.addToPolicy(
+        new iam.PolicyStatement({
+          sid: 'ReadFoiaGovApiKey',
+          actions: ['secretsmanager:GetSecretValue'],
+          // A 6-character suffix is appended to the ARN on creation, so a
+          // name-derived ARN must tolerate the trailing characters.
+          resources: [`${foiaGovApiKeySecretArn}*`],
+        }),
+      );
+    }
 
     // 2. Log group with controlled retention.
     const logGroup = new logs.LogGroup(this, 'FoiaAutomationLogGroup', {
@@ -209,7 +233,9 @@ export class FoiaAutomationStack extends cdk.Stack {
       environment: {
         ...commonEnv,
         // Optional: the seeder falls back to the shared public quota when unset.
-        ...(foiaGovApiKey ? { FOIA_GOV_API_KEY: foiaGovApiKey } : {}),
+        ...(foiaGovApiKeySecretArn
+          ? { FOIA_GOV_API_KEY_SECRET_ARN: foiaGovApiKeySecretArn }
+          : {}),
       },
       bundling: {
         minify: true,

@@ -7,6 +7,7 @@ import { normalizeAgencyTitle } from '@auto-rfp/core';
 import { withSentryLambda } from '@/sentry-lambda';
 import { nowIso } from '@/helpers/date';
 import { upsertFoiaComponent } from '@/helpers/foia-component';
+import { readPlainSecret } from '@/helpers/secret';
 
 /**
  * Seeds the FOIA.gov agency-component directory into DynamoDB.
@@ -145,15 +146,52 @@ interface SeedEvent {
   };
 }
 
+/**
+ * Resolves the api.data.gov key, preferring the secret and tolerating absence.
+ *
+ * A failure to read the secret is logged and swallowed rather than thrown: the
+ * seeder degrades to the shared quota, which is worse but not broken. Throwing
+ * would turn a credential problem into a total outage of the directory refresh.
+ */
+const resolveFoiaGovApiKey = async (): Promise<string | undefined> => {
+  const secretId = process.env['FOIA_GOV_API_KEY_SECRET_ARN']?.trim();
+  if (secretId) {
+    try {
+      const value = (await readPlainSecret(secretId)).trim();
+      if (value) return value;
+      console.warn('[foia-seed] secret resolved to an empty string');
+    } catch (err) {
+      console.error('[foia-seed] could not read the api key secret', err);
+    }
+  }
+
+  // Fallback for local runs, where Secrets Manager may not be reachable.
+  const fromEnv = process.env['FOIA_GOV_API_KEY']?.trim();
+  if (fromEnv) return fromEnv;
+
+  console.warn('[foia-seed] no api key available — using the shared demo quota');
+  return undefined;
+};
+
 export const baseHandler = async (event: SeedEvent) => {
   const dryRun = Boolean(event?.detail?.dryRun);
   const fetchedAt = nowIso();
 
-  // Optional — the seeder works without it, just more slowly.
-  const apiKey = process.env['FOIA_GOV_API_KEY']?.trim() || undefined;
-  if (!apiKey) {
-    console.warn('[foia-seed] no FOIA_GOV_API_KEY set — using the shared demo quota');
-  }
+  /**
+   * The api.data.gov key, from Secrets Manager.
+   *
+   * Read from a secret rather than a plain env var because the key is a
+   * credential: an env var is visible to anyone with console read on the Lambda,
+   * and the value would sit in the CloudFormation template too.
+   *
+   * Still optional. The FOIA.gov API answers unauthenticated, just on a shared
+   * quota — and that quota is not theoretical: the first real run of this seeder
+   * failed with `429 OVER_RATE_LIMIT` before the key was configured, leaving the
+   * component directory empty. An empty directory is what makes the reconciler
+   * fall back to scraping addresses out of solicitation PDFs, which on a real
+   * BIA opportunity surfaced the contracting officer instead of foia@bia.gov.
+   */
+  const apiKey = await resolveFoiaGovApiKey();
 
   const raw = await fetchAllComponents(apiKey);
   console.log(`[foia-seed] fetched ${raw.length} components${dryRun ? ' (dry run)' : ''}`);

@@ -281,9 +281,20 @@ const foiaAutomationStack = new FoiaAutomationStack(app, `AutoRfp-FoiaAutomation
   stage,
   mainTable: db.tableName,
   documentsBucketName: storage.documentsBucket.bucketName,
-  // Optional: the FOIA.gov API answers unauthenticated, so an unset key only
-  // means the seeder shares a rate-limited public quota.
-  foiaGovApiKey: process.env.FOIA_GOV_API_KEY || undefined,
+  /**
+   * Secret holding the api.data.gov key, created out-of-band rather than by CDK
+   * so rotating the credential never needs a stack deploy.
+   *
+   * Optional in principle — the FOIA.gov API answers unauthenticated — but the
+   * shared quota is not usable in practice: the first real seeder run returned
+   * `429 OVER_RATE_LIMIT` and left the component directory empty, which is what
+   * pushed recipient resolution onto PDF scraping.
+   */
+  foiaGovApiKeySecretArn:
+    process.env.FOIA_GOV_API_KEY_SECRET_ARN ||
+    `arn:aws:secretsmanager:${process.env.CDK_DEFAULT_REGION ?? 'us-east-1'}:${
+      process.env.CDK_DEFAULT_ACCOUNT ?? ''
+    }:secret:auto-rfp/foia-gov-api-key/${stage}`,
   // Required: the reconciler can now send unattended, and the send helper reads
   // this at module load — unset would crash the Lambda on cold start.
   sesFromEmail: 'noreply@horustech.dev',

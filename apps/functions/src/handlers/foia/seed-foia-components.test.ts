@@ -8,6 +8,20 @@ jest.mock('@middy/core', () => {
 
 jest.mock('@/sentry-lambda', () => ({ withSentryLambda: (h: unknown) => h }));
 
+/**
+ * The seeder reads its api.data.gov key from the secret store, which constructs a
+ * real AWS client at module load. Unmocked, that fails under Jest with
+ * "Right-hand side of 'instanceof' is not an object" from the Smithy HTTP
+ * handler — a failure that looks nothing like the missing mock that causes it.
+ *
+ * Returning empty means these tests exercise the unauthenticated path, which is
+ * what they were already asserting before the key moved into a secret.
+ */
+const mockReadPlainSecret = jest.fn().mockResolvedValue('');
+jest.mock('@/helpers/secret', () => ({
+  readPlainSecret: (...a: unknown[]) => mockReadPlainSecret(...a),
+}));
+
 jest.mock('@aws-sdk/client-dynamodb', () => ({ DynamoDBClient: jest.fn(() => ({})) }));
 jest.mock('@aws-sdk/lib-dynamodb', () => ({
   DynamoDBDocumentClient: { from: jest.fn(() => ({ send: jest.fn() })) },
@@ -206,5 +220,37 @@ describe('seed-foia-components', () => {
     const res = await baseHandler({});
 
     expect(res.ok).toBe(true);
+  });
+});
+
+describe('api key resolution', () => {
+  /**
+   * The key lives in a secret, not an env var. Before this, the seeder read
+   * FOIA_GOV_API_KEY directly — and the first real run hit
+   * `429 OVER_RATE_LIMIT` on the shared quota because nothing had set it,
+   * leaving the component directory empty. An empty directory is what makes the
+   * reconciler fall back to scraping recipients out of solicitation PDFs.
+   */
+  it('reads the key from the configured secret', async () => {
+    process.env['FOIA_GOV_API_KEY_SECRET_ARN'] = 'arn:aws:secretsmanager:us-east-1:1:secret:k';
+    mockReadPlainSecret.mockResolvedValueOnce('a-real-key');
+
+    await baseHandler({ detail: { dryRun: true } } as never);
+
+    expect(mockReadPlainSecret).toHaveBeenCalledWith(
+      'arn:aws:secretsmanager:us-east-1:1:secret:k',
+    );
+    delete process.env['FOIA_GOV_API_KEY_SECRET_ARN'];
+  });
+
+  it('still runs when the secret cannot be read', async () => {
+    // Degrading to the shared quota is worse but not broken; throwing would turn
+    // a credential problem into a total outage of the directory refresh.
+    process.env['FOIA_GOV_API_KEY_SECRET_ARN'] = 'arn:aws:secretsmanager:us-east-1:1:secret:k';
+    mockReadPlainSecret.mockRejectedValueOnce(new Error('AccessDenied'));
+
+    await expect(baseHandler({ detail: { dryRun: true } } as never)).resolves.toBeDefined();
+
+    delete process.env['FOIA_GOV_API_KEY_SECRET_ARN'];
   });
 });

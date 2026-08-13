@@ -227,6 +227,16 @@ export const FoiaAutomationCard = ({
                 automation.recipientCandidates.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-medium">Found in solicitation documents:</p>
+                    {/*
+                      Named as scraped, not endorsed. These are whatever email
+                      addresses appeared in the PDF — usually the contracting
+                      officer, who is not the FOIA officer.
+                    */}
+                    <p className="text-xs text-muted-foreground">
+                      These are addresses found in the solicitation, which are usually bid
+                      contacts rather than the agency&apos;s FOIA office. Check the agency&apos;s
+                      published FOIA contact before using one.
+                    </p>
                     <div className="space-y-2">
                       {automation.recipientCandidates.map((candidate, idx) => (
                         <div
@@ -265,8 +275,21 @@ export const FoiaAutomationCard = ({
                   </div>
                 )}
 
-              {/* NEEDS_RECIPIENT — manual entry form */}
-              {automation.blockedReason === 'NEEDS_RECIPIENT' && (
+              {/*
+                Manual entry — offered for NEEDS_CONFIRMATION as well as
+                NEEDS_RECIPIENT.
+
+                Candidates are scraped from the solicitation, so they are the
+                addresses the agency published for *bids*, not for records
+                requests. On a real BIA opportunity both candidates were the
+                contracting officer and contract specialist, while the address
+                FOIA.gov publishes for that component is foia@bia.gov — which
+                appears nowhere in the PDF. Gating this form to NEEDS_RECIPIENT
+                meant the only options were two wrong addresses, with no way to
+                enter the right one short of calling the API directly.
+              */}
+              {(automation.blockedReason === 'NEEDS_RECIPIENT' ||
+                automation.blockedReason === 'NEEDS_CONFIRMATION') && (
                 <ManualRecipientForm
                   orgId={orgId}
                   projectId={projectId}
