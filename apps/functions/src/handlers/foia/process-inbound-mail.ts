@@ -98,14 +98,41 @@ const applyAwardNotice = async (args: {
 }): Promise<void> => {
   const { orgId, projectId, oppId, bodyText, receivedAt } = args;
 
-  const { date } = awardDateFromMail({ receivedAt, bodyText });
+  const { date, provenance } = awardDateFromMail({ receivedAt, bodyText });
 
-  await updateOpportunity({
-    orgId,
-    projectId,
-    oppId,
-    patch: { outcomeDate: date },
-  });
+  /**
+   * Only record `outcomeDate` when the AGENCY stated the date.
+   *
+   * `outcomeDate` is read back by `resolveAwardDate`, which labels whatever it finds
+   * RECORDED_OUTCOME — verified provenance. That label is what lets the letter assert
+   * "awarded on or about <date>" and what satisfies the unattended-send gate. So
+   * writing the receipt-date fallback here would launder "the day this email reached
+   * our mailbox" into "the day the agency awarded", and the provenance argument is
+   * discarded at the write, so nothing downstream can tell the difference.
+   *
+   * That is the 108-day-error class of bug arriving through the one path that
+   * bypasses human review. Forwarded, digested and batched procurement mail can
+   * trail the real award by weeks — one real solicitation in this dataset was
+   * announced 2026-01-29 and reached us far later.
+   *
+   * When the date is only the receipt date we still re-anchor the timer below (the
+   * notice is real evidence an award happened, and receipt+delay is a far better
+   * clock than a bid deadline) but we do NOT assert it as the award date. The letter
+   * then keeps its hedged wording, which is accurate, and a human confirms the date
+   * before anything is transmitted.
+   */
+  if (provenance === 'RECORDED_AWARD') {
+    await updateOpportunity({
+      orgId,
+      projectId,
+      oppId,
+      patch: { outcomeDate: date },
+    });
+  } else {
+    console.info(
+      `[foia-inbound] ${oppId}: award notice carried no stated date; re-anchoring the timer to the receipt date but not recording it as the award date.`,
+    );
+  }
 
   // Re-anchor the schedule to the real award. Only touch a record still waiting:
   // a request already prepared, sent or manually completed is not ours to move.

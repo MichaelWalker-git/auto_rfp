@@ -210,6 +210,47 @@ describe('award notices', () => {
     expect(call.patch.scheduledSendAt.slice(0, 10)).toBe('2026-04-29');
   });
 
+  /**
+   * The date the mail arrived is NOT the date the agency awarded.
+   *
+   * `outcomeDate` is read back by resolveAwardDate and labelled RECORDED_OUTCOME —
+   * verified provenance — which both permits "awarded on or about <date>" in the
+   * letter and satisfies the unattended-send gate. Writing the receipt-date fallback
+   * would launder a guess into a verified award claim through the one path with no
+   * human in it. The timer still re-anchors, because an award notice IS evidence an
+   * award happened; only the factual assertion is withheld.
+   */
+  it('does not record the receipt date as the award date when the agency stated none', async () => {
+    givenRawMessage(
+      rawMessage([
+        'Message-ID: <award-nodate@ttuhsc.edu>',
+        'Content-Type: text/plain',
+        '',
+        'Solicitation 739-SL3722874 has been awarded. See the attached notice.',
+      ]),
+    );
+
+    await processInboundMail(sesEvent({}));
+
+    expect(mockUpdateOpportunity).not.toHaveBeenCalled();
+
+    // But the timer is still re-anchored off the receipt date — a far better clock
+    // than the bid deadline, and the letter's hedged wording stays accurate.
+    const call = mockSetFoiaAutomationState.mock.calls[0]?.[0];
+    expect(call.state).toBe('SCHEDULED');
+    expect(call.patch.scheduledSendAt).toBeTruthy();
+  });
+
+  it('still records the date when the agency stated one', async () => {
+    // The complement of the case above: a stated date is authoritative, so it is
+    // recorded and becomes assertable.
+    await processInboundMail(sesEvent({}));
+
+    expect(mockUpdateOpportunity).toHaveBeenCalledWith(
+      expect.objectContaining({ patch: { outcomeDate: '2026-01-29' } }),
+    );
+  });
+
   it('notifies the org so an automated decision is never invisible', async () => {
     await processInboundMail(sesEvent({}));
 
