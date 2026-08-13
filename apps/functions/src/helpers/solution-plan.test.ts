@@ -39,6 +39,7 @@ import {
   listGrillingMessages,
   loadSolutionPlanHtml,
   markSolutionPlanStale,
+  markSolutionPlanStaleSafe,
   padGrillingRound,
   putSolutionPlan,
   toGrillingMessageItem,
@@ -270,6 +271,38 @@ describe('markSolutionPlanStale', () => {
   it('rethrows non-conditional errors', async () => {
     mockUpdateItem.mockRejectedValue(new Error('boom'));
     await expect(markSolutionPlanStale(planKey, reason)).rejects.toThrow('boom');
+  });
+});
+
+// ─── markSolutionPlanStaleSafe (T13 trigger wrapper) ────────────────────────────
+
+describe('markSolutionPlanStaleSafe', () => {
+  const reason = 'New solicitation document uploaded';
+
+  it('passes the updated plan through on success', async () => {
+    const updated = { ...basePlan, status: 'READY', isStale: true, staleReason: reason };
+    mockUpdateItem.mockResolvedValue(updated);
+
+    await expect(markSolutionPlanStaleSafe(planKey, reason)).resolves.toEqual(updated);
+    expect(mockUpdateItem).toHaveBeenCalledWith(
+      SOLUTION_PLAN_PK,
+      'org-1#proj-1#opp-1',
+      { isStale: true, staleReason: reason },
+      expect.anything(),
+    );
+  });
+
+  it('returns null (guard no-op) when the plan is missing or not READY', async () => {
+    const conditionError = new Error('The conditional request failed');
+    conditionError.name = 'ConditionalCheckFailedException';
+    mockUpdateItem.mockRejectedValue(conditionError);
+
+    await expect(markSolutionPlanStaleSafe(planKey, reason)).resolves.toBeNull();
+  });
+
+  it('swallows unexpected errors instead of failing the host request', async () => {
+    mockUpdateItem.mockRejectedValue(new Error('DynamoDB unavailable'));
+    await expect(markSolutionPlanStaleSafe(planKey, reason)).resolves.toBeNull();
   });
 });
 

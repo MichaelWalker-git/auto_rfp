@@ -25,6 +25,7 @@ import type {
 
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { GRILLING_MESSAGE_PK, SOLUTION_PLAN_PK } from '@/constants/solution-plan';
+import { Sentry } from '@/sentry-lambda';
 import { batchDeleteItems, getItem, putItem, queryAllBySkPrefix, updateItem } from './db';
 import { loadTextFromS3, uploadToS3 } from './s3';
 import { requireEnv } from './env';
@@ -171,6 +172,29 @@ export const markSolutionPlanStale = async (
       return null;
     }
     throw err;
+  }
+};
+
+/**
+ * Best-effort staleness trigger (T13). Staleness is advisory — the banner only
+ * recommends a regenerate and never closes the generation gate — so callers
+ * embedded in unrelated write paths (brief init, solicitation upload) must not
+ * fail their request when marking stale throws. Logs and returns null instead.
+ */
+export const markSolutionPlanStaleSafe = async (
+  key: SolutionPlanKey,
+  reason: string,
+): Promise<SolutionPlanDBItem | null> => {
+  try {
+    return await markSolutionPlanStale(key, reason);
+  } catch (err) {
+    console.warn(
+      `[markSolutionPlanStaleSafe] failed to mark plan stale (opportunityId=${key.opportunityId})`,
+      err,
+    );
+    // Swallowed on purpose — still surface the unexpected failure to Sentry
+    Sentry.captureException(err);
+    return null;
   }
 };
 

@@ -11,6 +11,7 @@ import {
   putExecutiveBrief,
 } from '@/helpers/executive-opportunity-brief';
 import { isExtractedQuestionFile, listQuestionFilesByOpportunity } from '@/helpers/questionFile';
+import { markSolutionPlanStaleSafe } from '@/helpers/solution-plan';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { EXEC_BRIEF_PK } from '@/constants/exec-brief';
 import {
@@ -137,6 +138,20 @@ export const initExecutiveBrief = async (
   // Auto-transition opportunity: IDENTIFIED → QUALIFYING (fire-and-forget)
   if (orgId && opportunityId) {
     onBriefGenerationStarted({ orgId, projectId, oppId: opportunityId });
+  }
+
+  // Staleness trigger (T13): a (re)generated brief changes an input a READY
+  // Solution Plan may have been built from — the helper no-ops otherwise
+  // (ADR-3). Covers the first-time case too: a plan can exist without a brief
+  // (ADR-14), so a brand-new brief is equally new information. Best-effort —
+  // never fails the brief init.
+  if (orgId) {
+    await markSolutionPlanStaleSafe(
+      { orgId, projectId, opportunityId },
+      isRegeneration
+        ? 'The Executive Brief was regenerated.'
+        : 'An Executive Brief was generated.',
+    );
   }
 
   const effectiveSk = isRegeneration
