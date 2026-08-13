@@ -1,0 +1,58 @@
+Impromptu Google Meet Meeting - August 10
+VIEW RECORDING:
+Meeting Purpose
+
+Identify the main issues of AutoRFP and align on an improvement plan.
+
+Key Takeaways
+
+  - Primary issue: AutoRFP generates inconsistent proposals since each document is created in parallel, without a single source of truth (SoT), resulting in conflicting plans and costs.
+  - v1 Solution: Implement a mandatory "Pre-Plan Solution" step to create a single SoT before document generation. This will eliminate inconsistency and allow users to review and edit the plan.
+  - Priority: Build a fully automated system to align with Michael’s speed-focused strategy (processing 10+ RFPs per day), rather than a quality-first approach that requires significant manual intervention.
+  - Plan: Pavlo will prepare a v1 plan and roadmap to present to Michael today. Kateryna will review Brennon’s video for ideas for future versions.
+
+Topics
+
+Problems with AutoRFP
+
+  - Document inconsistency: Documents are generated in parallel, without a single SoT.
+      - Consequence: Conflicting data, e.g., different implementation timelines in the Technical Proposal and Cost Proposal.
+  - Inaccurate pricing: The system makes up prices for third-party subscriptions (e.g., $7k, $5k, $17k for the same service) because the pricing database is incomplete.
+  - Insufficient knowledge base (KB): A limited KB leads to inaccurate estimates, especially for simple projects (e.g., websites), because it focuses on complex AI/IDP cases.
+  - Unintuitive UX: The Q&A tool is unclear and requires several illogical steps to add an answer.
+
+Solution v1: single source of truth
+
+  - Concept: Implement a mandatory "Pre-Plan Solution" step before document generation.
+  - Flow:
+    1.  Launch: The user starts "Pre-Plan Solution."
+    2.  "Grilling": The "Tech Lead" agent asks clarifying questions based on the RFP and KB.
+    3.  SoT: The agent uses the answers to create a single SoT (solution plan).
+    4.  Review: The user reviews and can regenerate the SoT.
+    5.  Generation: The user generates all documents from the single SoT.
+  - Rationale: This flow ensures document consistency and aligns with Michael’s speed strategy by minimizing manual intervention.
+
+Roadmap and Future Features
+
+  - Version 1:
+      - Implement the mandatory "Pre-Plan Solution" step.
+      - Build the "Tech Lead" agent for grilling.
+      - Create a single SoT from the agent’s answers.
+      - Improve prompts for the Cost Proposal and Cost-Value.
+  - Version 2+ (future ideas):
+      - Add a tool to look up current prices for third-party services.
+      - Allow users to edit the SoT (e.g., change the database).
+      - Add limits on the number of document pages.
+      - Automate emailing of proposals.
+      - Generate a Proof of Concept (POC) UI/demo.
+
+Next Steps
+
+  - Pavlo:
+      - Prepare the v1 plan and roadmap for presentation to Michael.
+      - Refine prompts for the Cost Proposal and Cost-Value.
+  - Kateryna:
+      - Review Brennon’s video for ideas for future versions.
+  - Team:
+      - Present the v1 plan to Michael today.
+      - Schedule a meeting on Friday to allocate tasks.
