@@ -84,26 +84,41 @@ export class FoiaAutomationStack extends cdk.Stack {
     // automation records and the denormalized marker on the opportunity.
     mainTable.grantReadWriteData(lambdaRole);
 
-    // Read-only on the documents bucket: the tier-3 recipient scan reads the
-    // already-extracted solicitation text and never writes.
+    /**
+     * Read anywhere in the documents bucket: the tier-3 recipient scan reads the
+     * already-extracted solicitation text, which lives under the document
+     * pipeline's own keys.
+     */
     lambdaRole.addToPolicy(
       new iam.PolicyStatement({
-        /**
-         * Read for the recipient scan, write for the letter artifacts.
-         *
-         * This was read-only, with a comment asserting the reconciler "never
-         * writes". That stopped being true once preparation began persisting the
-         * letter text and .eml: every automated preparation failed with an S3
-         * AccessDenied *after* the request row had already been written, leaving a
-         * request with no artifacts — recoverable, but only because the write
-         * order was chosen for exactly that case.
-         *
-         * PutObject only. The reconciler has no reason to delete, and a scoped
-         * grant means a bug here cannot destroy a customer's solicitation
-         * documents, which share this bucket.
-         */
-        actions: ['s3:GetObject', 's3:PutObject'],
+        sid: 'ReadDocumentsForRecipientScan',
+        actions: ['s3:GetObject'],
         resources: [`arn:aws:s3:::${documentsBucketName}/*`],
+      }),
+    );
+
+    /**
+     * Write ONLY the FOIA artifact prefix.
+     *
+     * The grant used to be read-only, with a comment asserting the reconciler
+     * "never writes". That stopped being true once preparation began persisting
+     * the letter text and .eml: every automated preparation failed with an S3
+     * AccessDenied *after* the request row had already been written, leaving a
+     * request with no artifacts — recoverable, but only because the write order
+     * was chosen for exactly that case.
+     *
+     * The wildcards mirror `buildFoiaArtifactPrefix`, which composes
+     * `{orgId}/{projectId}/{oppId}/foia/{foiaId}/...`. Granting write on the whole
+     * bucket would let a bug here overwrite a customer's solicitation documents,
+     * which share it — and those are the source records the recipient scan reads,
+     * so corrupting them would silently degrade recipient resolution rather than
+     * fail loudly. PutObject only: the reconciler has no reason to delete.
+     */
+    lambdaRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'WriteFoiaArtifactsOnly',
+        actions: ['s3:PutObject'],
+        resources: [`arn:aws:s3:::${documentsBucketName}/*/*/*/foia/*`],
       }),
     );
 
