@@ -125,6 +125,9 @@ export const AuditActionSchema = z.enum([
   // Opportunity go/no-go approval (RFP tracking dashboard)
   'OPPORTUNITY_APPROVED',
   'OPPORTUNITY_REJECTED',
+  // Related RFPs (auto-find past related RFPs, HOR-2610)
+  'RELATED_RFP_ADDED',
+  'RELATED_RFP_REMOVED',
   // Extraction (auto-populate from documents)
   'EXTRACTION_JOB_STARTED',
   'EXTRACTION_JOB_COMPLETED',
