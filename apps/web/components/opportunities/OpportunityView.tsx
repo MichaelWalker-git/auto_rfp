@@ -26,7 +26,7 @@ import { ExecutiveBriefView } from '@/components/brief/ExecutiveBriefView';
 import { QuestionsProvider } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components';
 import { OpportunityOutcomeSummary } from './opportunity-outcome-summary';
 import { DebriefingCard } from '@/components/debriefing';
-import { FOIARequestCard } from '@/components/foia/FOIARequestCard';
+import { FOIARequestCard, FoiaAutomationCard } from '@/components/foia';
 import { OpportunityContextPanel } from './opportunity-context-panel';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { saveSelectedOpportunity } from '@/lib/utils/opportunity-selection';
@@ -377,6 +377,12 @@ const OpportunityContent = ({ className }: { className?: string }) => {
             contractTitle={opportunity?.title ?? undefined}
           />
         )}
+        <FoiaAutomationCard
+          orgId={orgId}
+          projectId={projectId}
+          opportunityId={oppId}
+          opportunityStatus={outcome?.status}
+        />
         <FOIARequestCard
           projectId={projectId}
           orgId={orgId}

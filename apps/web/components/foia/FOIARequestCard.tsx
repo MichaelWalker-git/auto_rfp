@@ -23,7 +23,7 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 import { PermissionButton } from '@/components/ui/permission-button';
 import type { FOIADocumentType, FOIARequestItem, Jurisdiction } from '@auto-rfp/core';
-import { FOIA_DOCUMENT_DESCRIPTIONS, getStateRecordsLaw } from '@auto-rfp/core';
+import { FOIA_DOCUMENT_DESCRIPTIONS, getStateRecordsLaw, isFoiaEligibleStatus } from '@auto-rfp/core';
 import {
   Building2,
   Scale,
@@ -77,7 +77,7 @@ export const FOIARequestCard = ({
   const { deleteFOIARequest } = useDeleteFOIARequest();
   const { toast } = useToast();
 
-  const isLost = projectOutcomeStatus === 'LOST';
+  const isEligible = isFoiaEligibleStatus(projectOutcomeStatus);
 
   // State contracts use the state's public records law; federal uses FOIA.
   // A state request is never labelled "FOIA" — each state has its own statute name.
@@ -97,7 +97,7 @@ export const FOIARequestCard = ({
     : 'Submit a Freedom of Information Act request to obtain evaluation documents.';
 
   const handleCreateRequest = () => {
-    if (!isLost) {
+    if (!isEligible) {
       setIsOutcomeWarningOpen(true);
       return;
     }
@@ -419,11 +419,11 @@ export const FOIARequestCard = ({
       <AlertDialog open={isOutcomeWarningOpen} onOpenChange={setIsOutcomeWarningOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Mark the project outcome as Lost first</AlertDialogTitle>
+            <AlertDialogTitle>Mark the project outcome first</AlertDialogTitle>
             <AlertDialogDescription>
               A {requestNoun} can only be created for projects with a{' '}
-              <span className="font-medium">Lost</span> outcome. Set the project outcome to Lost in
-              the Post-Award section, then create a {requestNoun}.
+              <span className="font-medium">Won</span> or <span className="font-medium">Lost</span>{' '}
+              outcome. Set the project outcome in the Post-Award section, then create a {requestNoun}.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
