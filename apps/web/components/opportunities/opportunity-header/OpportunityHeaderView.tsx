@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { OpportunityStatusBadge } from '../opportunity-status-badge';
+import { FoiaAutomationBadge } from '@/components/foia';
 
 import { formatDateTime } from '../opportunity-helpers';
 import type { OpportunityItem, OpportunityStatus } from '@auto-rfp/core';
@@ -33,6 +34,7 @@ export const OpportunityHeaderView = ({
         <OpportunityStatusBadge
           status={(opportunity.status as OpportunityStatus | undefined) ?? 'IDENTIFIED'}
         />
+        <FoiaAutomationBadge state={opportunity.foiaAutomationState} />
         <Badge variant="secondary">{opportunity.source}</Badge>
         {opportunity.type && <Badge variant="outline">{opportunity.type}</Badge>}
         {opportunity.naicsCode && (
