@@ -291,7 +291,7 @@ describe('searchServicePricing', () => {
     expect(results[0]).toEqual(expect.objectContaining({ found: true, price: 23 }));
   });
 
-  it('de-duplicates services that normalize to the same cache key', async () => {
+  it('looks up duplicate cache keys once but returns a row per input service', async () => {
     mockGetItem.mockResolvedValue(cachedItem({ billingPeriod: 'UNKNOWN' }));
 
     const results = await searchServicePricing({
@@ -299,7 +299,8 @@ describe('searchServicePricing', () => {
     });
 
     expect(mockGetItem).toHaveBeenCalledTimes(1);
-    expect(results).toHaveLength(1);
+    expect(results).toHaveLength(2);
+    expect(results.every((r) => r.found === true && r.fromCache === true)).toBe(true);
   });
 
   it('drops blank service names', async () => {
@@ -308,7 +309,7 @@ describe('searchServicePricing', () => {
     expect(mockGetItem).not.toHaveBeenCalled();
   });
 
-  it(`caps the batch at ${MAX_SERVICE_PRICING_BATCH} services`, async () => {
+  it(`caps lookups at ${MAX_SERVICE_PRICING_BATCH} but returns a degraded row per extra service`, async () => {
     mockGetItem.mockResolvedValue(cachedItem());
 
     const services = Array.from({ length: MAX_SERVICE_PRICING_BATCH + 2 }, (_, i) => ({
@@ -316,7 +317,31 @@ describe('searchServicePricing', () => {
     }));
     const results = await searchServicePricing({ services });
 
-    expect(results).toHaveLength(MAX_SERVICE_PRICING_BATCH);
     expect(mockGetItem).toHaveBeenCalledTimes(MAX_SERVICE_PRICING_BATCH);
+    expect(mockWebSearch).not.toHaveBeenCalled();
+    expect(results).toHaveLength(MAX_SERVICE_PRICING_BATCH + 2);
+    for (const result of results.slice(0, MAX_SERVICE_PRICING_BATCH)) {
+      expect(result).toEqual(expect.objectContaining({ found: true, fromCache: true }));
+    }
+    for (const result of results.slice(MAX_SERVICE_PRICING_BATCH)) {
+      expect(result).toEqual(expect.objectContaining({ found: false, fromCache: false }));
+    }
+  });
+
+  it('shares the looked-up result with an over-cap duplicate of an in-cap service', async () => {
+    mockGetItem.mockResolvedValue(cachedItem());
+
+    const services = Array.from({ length: MAX_SERVICE_PRICING_BATCH }, (_, i) => ({
+      serviceName: `Service ${i}`,
+    }));
+    // Position 11 duplicates Service 0 — over the cap, but its key was looked up.
+    services.push({ serviceName: 'Service 0' });
+    const results = await searchServicePricing({ services });
+
+    expect(mockGetItem).toHaveBeenCalledTimes(MAX_SERVICE_PRICING_BATCH);
+    expect(results).toHaveLength(MAX_SERVICE_PRICING_BATCH + 1);
+    expect(results[MAX_SERVICE_PRICING_BATCH]).toEqual(
+      expect.objectContaining({ serviceName: 'Service 0', found: true, fromCache: true }),
+    );
   });
 });

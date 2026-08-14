@@ -36,6 +36,7 @@ import { webSearch, type WebSearchResult } from '@/helpers/web-search-client';
 import { safeParseJsonFromModel } from '@/helpers/json';
 import { nowIso } from '@/helpers/date';
 import { requireEnv } from '@/helpers/env';
+import { sleep } from '@/helpers/sleep';
 import {
   MAX_SERVICE_PRICING_BATCH,
   SERVICE_PRICING_CACHE_PK,
@@ -198,8 +199,6 @@ const extractPrices = async (
 
 // ─── Public API ─────────────────────────────────────────────────────────────────
 
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
 const toResult = (
   lookup: ResolvedLookup,
   fields: {
@@ -232,29 +231,45 @@ const notFound = (lookup: ResolvedLookup): ServicePricingResult =>
 /**
  * Batched service pricing lookup: cache → sequential web search for misses →
  * one extraction pass → confidence-tiered cache writes. Returns one result
- * per input service (in input order, de-duplicated by cache key, capped at
- * MAX_SERVICE_PRICING_BATCH). Never throws for lookup failures.
+ * per input service (in input order): duplicates share their cache key's
+ * result, and services beyond MAX_SERVICE_PRICING_BATCH degrade to
+ * `found: false` rather than being dropped, so the tool executor (T3) can
+ * always render a row per requested service. Never throws for lookup failures.
  */
 export const searchServicePricing = async (args: {
   services: ServicePricingLookup[];
 }): Promise<ServicePricingResult[]> => {
+  // `resolved` keeps one entry per valid input service (duplicates included);
+  // only `lookups` (de-duplicated, capped) is actually looked up.
+  const resolved: ResolvedLookup[] = [];
   const seen = new Set<string>();
   const lookups: ResolvedLookup[] = [];
+  let droppedOverCap = 0;
   for (const service of args.services) {
     const normalizedServiceName = normalizeServiceName(service.serviceName);
     if (!normalizedServiceName) continue;
     const billingPeriod = service.billingPeriod ?? 'UNKNOWN';
     const sk = buildServicePricingCacheSk(normalizedServiceName, billingPeriod);
+    const lookup: ResolvedLookup = {
+      serviceName: service.serviceName.trim(),
+      normalizedServiceName,
+      billingPeriod,
+      sk,
+    };
+    resolved.push(lookup);
     if (seen.has(sk)) continue;
+    if (lookups.length >= MAX_SERVICE_PRICING_BATCH) {
+      droppedOverCap++;
+      continue;
+    }
     seen.add(sk);
-    lookups.push({ serviceName: service.serviceName.trim(), normalizedServiceName, billingPeriod, sk });
+    lookups.push(lookup);
   }
 
-  if (lookups.length > MAX_SERVICE_PRICING_BATCH) {
+  if (droppedOverCap > 0) {
     console.warn(
-      `[service-pricing] batch of ${lookups.length} capped at ${MAX_SERVICE_PRICING_BATCH}; extra services dropped`,
+      `[service-pricing] batch capped at ${MAX_SERVICE_PRICING_BATCH}; ${droppedOverCap} extra service(s) degraded to found:false`,
     );
-    lookups.length = MAX_SERVICE_PRICING_BATCH;
   }
 
   const results = new Map<string, ServicePricingResult>();
@@ -316,5 +331,5 @@ export const searchServicePricing = async (args: {
     }
   }
 
-  return lookups.map((lookup) => results.get(lookup.sk) ?? notFound(lookup));
+  return resolved.map((lookup) => results.get(lookup.sk) ?? notFound(lookup));
 };

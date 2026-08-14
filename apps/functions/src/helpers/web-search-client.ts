@@ -16,6 +16,7 @@ import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import https from 'https';
 import { z } from 'zod';
 import { requireEnv } from './env';
+import { sleep } from './sleep';
 
 const SSM_PARAM_NAME = requireEnv('BRAVE_SEARCH_API_KEY_SSM_PARAM', '/auto-rfp/brave-search/api-key');
 const REGION = requireEnv('REGION', 'us-east-1');
@@ -93,8 +94,6 @@ const getApiKey = async (): Promise<string | null> => {
 
   return null;
 };
-
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 type HttpError = Error & { statusCode?: number };
 
