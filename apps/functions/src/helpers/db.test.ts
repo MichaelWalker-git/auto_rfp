@@ -27,6 +27,7 @@ import {
   createItem,
   deleteItemWithRetry,
   updateItem,
+  appendToList,
 } from './db';
 
 const makeError = (name: string, message = '') => {
@@ -203,6 +204,32 @@ describe('updateItem expression attribute pruning', () => {
       '#status': 'status',
     });
     expect(params.ExpressionAttributeNames).not.toHaveProperty('#sk');
+  });
+});
+
+describe('appendToList', () => {
+  it('emits a list_append UpdateCommand touching only the target attribute + updatedAt', async () => {
+    mockSend.mockResolvedValue({ Attributes: { appliedEditIds: ['e1', 'e2'] } });
+
+    const result = await appendToList('PK', 'SK', 'appliedEditIds', ['e2']);
+
+    expect(result).toEqual({ appliedEditIds: ['e1', 'e2'] });
+    const cmd = mockSend.mock.calls[0][0];
+    expect(cmd.type).toBe('Update');
+    // list_append(if_not_exists(...)) so a concurrent append can't clobber.
+    expect(cmd.params.UpdateExpression).toContain('list_append(if_not_exists(#attr, :empty), :items)');
+    expect(cmd.params.ExpressionAttributeNames['#attr']).toBe('appliedEditIds');
+    expect(cmd.params.ExpressionAttributeValues[':items']).toEqual(['e2']);
+    // Guarded on item existence (mirrors updateItem).
+    expect(cmd.params.ConditionExpression).toContain('attribute_exists(#pk)');
+    // Only the attribute + updatedAt are set — no sibling fields.
+    expect(cmd.params.UpdateExpression).not.toContain('#status');
+  });
+
+  it('does not retry a ConditionalCheckFailedException (missing item)', async () => {
+    mockSend.mockRejectedValue(makeError('ConditionalCheckFailedException'));
+    await expect(appendToList('PK', 'SK', 'appliedEditIds', ['e1'])).rejects.toThrow();
+    expect(mockSend).toHaveBeenCalledTimes(1);
   });
 });
 

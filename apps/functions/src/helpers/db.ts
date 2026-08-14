@@ -41,6 +41,15 @@ const RETRYABLE_ERROR_NAMES = new Set([
   'ServiceUnavailable',
 ]);
 
+/**
+ * True when an error is a DynamoDB conditional-check failure — the write's
+ * ConditionExpression was not met (e.g. `attribute_not_exists` on an SK that now
+ * exists). Callers that write with a uniqueness condition use this to detect a
+ * lost race and recompute+retry, rather than surfacing a 500.
+ */
+export const isConditionalCheckFailed = (err: unknown): boolean =>
+  typeof err === 'object' && err !== null && (err as { name?: string }).name === 'ConditionalCheckFailedException';
+
 const isRetryableError = (err: unknown): boolean => {
   if (typeof err !== 'object' || err === null) return false;
   const e = err as {
@@ -234,6 +243,50 @@ export const updateItem = async <T extends Record<string, any>>(
 };
 
 /**
+ * Atomically append items to a list attribute (server-side `list_append`), so
+ * concurrent appends both survive instead of one clobbering the other via a
+ * read-modify-write full-item overwrite. The attribute is created if absent.
+ * Only touches `attribute` + `updatedAt` — never rewrites sibling fields.
+ *
+ * Note: `list_append` does NOT dedupe; callers that treat the list as a set must
+ * dedupe on read. Returns the updated item (ALL_NEW).
+ */
+export const appendToList = async <T extends Record<string, any>>(
+  pk: string,
+  sk: string,
+  attribute: string,
+  items: unknown[],
+): Promise<T & DBItem> => {
+  const now = nowIso();
+  const res = await withRetry(
+    () => docClient.send(
+      new UpdateCommand({
+        TableName: DB_TABLE_NAME,
+        Key: { [PK_NAME]: pk, [SK_NAME]: sk },
+        UpdateExpression:
+          'SET #attr = list_append(if_not_exists(#attr, :empty), :items), #updatedAt = :now',
+        // Require the item to exist — mirrors updateItem's default guard.
+        ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#sk': SK_NAME,
+          '#attr': attribute,
+          '#updatedAt': 'updatedAt',
+        },
+        ExpressionAttributeValues: {
+          ':empty': [],
+          ':items': items,
+          ':now': now,
+        },
+        ReturnValues: 'ALL_NEW',
+      }),
+    ),
+    { label: 'appendToList' },
+  );
+  return res.Attributes as T & DBItem;
+};
+
+/**
  * Generic put item helper (upsert)
  * Automatically adds/updates timestamps
  */
@@ -302,6 +355,39 @@ export const deleteItem = async (pk: string, sk: string) => {
     ),
     { label: 'deleteItem' },
   );
+};
+
+/**
+ * Delete an item only if a ConditionExpression holds (e.g. a lock whose owner
+ * matches). Returns true if the delete happened, false if the condition failed
+ * (including when the item doesn't exist — a conditional delete on a missing item
+ * fails its condition, which we treat as a benign no-op). Other errors propagate.
+ */
+export const deleteItemIf = async (
+  pk: string,
+  sk: string,
+  condition: string,
+  conditionNames?: Record<string, string>,
+  conditionValues?: Record<string, any>,
+): Promise<boolean> => {
+  try {
+    await withRetry(
+      () => docClient.send(
+        new DeleteCommand({
+          TableName: DB_TABLE_NAME,
+          Key: { [PK_NAME]: pk, [SK_NAME]: sk },
+          ConditionExpression: condition,
+          ExpressionAttributeNames: conditionNames,
+          ExpressionAttributeValues: conditionValues,
+        }),
+      ),
+      { label: 'deleteItemIf' },
+    );
+    return true;
+  } catch (err) {
+    if (isConditionalCheckFailed(err)) return false;
+    throw err;
+  }
 };
 
 export const getItem = async <T>(

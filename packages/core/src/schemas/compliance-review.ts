@@ -156,6 +156,11 @@ export const ComplianceReviewMessageSchema = z.object({
   content: z.string(),
   /** Findings produced by an assistant turn (chat can surface findings too). */
   findings: z.array(ComplianceFindingSchema).optional(),
+  /**
+   * Set on an assistant turn that kicked off a cross-package EDIT (unified chat):
+   * the proposal run to poll + render inline. Absent for pure review turns.
+   */
+  editRunId: z.string().optional(),
   userId: z.string().optional(),
   createdAt: z.string().datetime(),
 });

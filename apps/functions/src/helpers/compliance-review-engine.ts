@@ -18,6 +18,7 @@ import {
 } from '@/helpers/compliance-review-tools';
 import { validateAndTagFindings, type RawFinding } from '@/helpers/compliance-review-validate';
 import { computeMissingFormFindings } from '@/helpers/compliance-review-missing-forms';
+import { computeConsistencyFindings } from '@/helpers/compliance-review-consistency';
 import { MAX_TOKENS, MAX_TOKENS_FULL, MAX_TOOL_ROUNDS, MAX_TOOL_ROUNDS_FULL } from '@/constants/compliance-review';
 import type { ComplianceFinding } from '@auto-rfp/core';
 
@@ -193,19 +194,26 @@ export const runFullReview = async (args: {
     userPrompt: buildFullReviewUserPrompt(),
     maxToolRounds: MAX_TOOL_ROUNDS_FULL,
     maxTokens: MAX_TOKENS_FULL,
-    // Deterministic ground-truth diff: solicitation-required forms vs the forms
-    // actually in the package. Runs only in the full review (needs solicitation
-    // text ± one extra model call — too heavy for the 29s sync chat). Best-effort:
-    // computeMissingFormFindings swallows failures and returns [] so the review
-    // never fails because the cross-check couldn't build its expected list.
-    augmentFindings: (rawFindings, inventory) =>
-      computeMissingFormFindings({
-        projectId: args.projectId,
-        oppId: args.oppId,
-        modelId: args.modelId,
-        inventory,
-        existingFindings: rawFindings,
-      }),
+    // Deterministic ground-truth cross-checks (full review only — the model is
+    // sampling-limited and can't be relied on for exhaustive coverage). Both are
+    // best-effort ([] on failure) so they never fail the review:
+    //   1. missing-forms: solicitation-required forms vs forms in the package.
+    //   2. consistency: canonical company name/identifiers vs every doc's text —
+    //      catches inconsistencies in sections the model never read (e.g. a large
+    //      questionnaire). Runs in code, no model calls → token/time-safe.
+    augmentFindings: async (rawFindings, inventory) => {
+      const [missing, inconsistent] = await Promise.all([
+        computeMissingFormFindings({
+          projectId: args.projectId,
+          oppId: args.oppId,
+          modelId: args.modelId,
+          inventory,
+          existingFindings: rawFindings,
+        }),
+        computeConsistencyFindings({ orgId: args.orgId, modelId: args.modelId, inventory }),
+      ]);
+      return [...missing, ...inconsistent];
+    },
   });
 
 /** Conversational per-turn review (sync chat). */

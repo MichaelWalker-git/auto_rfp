@@ -60,10 +60,17 @@ export interface QuestionnaireCellInventory {
  * Returns null if the file can't be read or has no usable sheet. Never throws —
  * questionnaire inventory is best-effort (a missing/corrupt file must not fail
  * the whole review).
+ *
+ * `maxCellChars` bounds each cell's value length. The default keeps the review
+ * prompt small, but the EDIT engine passes `Infinity` to read FULL cell text:
+ * proposals' before→after and the apply staleness guard compare against the real
+ * cell content, so a truncated value (…[TRUNCATED]) would never match on apply.
  */
 export const readQuestionnaireCellInventory = async (
   fileKey: string,
+  opts?: { maxCellChars?: number },
 ): Promise<QuestionnaireCellInventory | null> => {
+  const maxCellChars = opts?.maxCellChars ?? MAX_QUESTIONNAIRE_CELL_VALUE_CHARS;
   try {
     const s3Obj = await s3.send(new GetObjectCommand({ Bucket: getDocumentsBucket(), Key: fileKey }));
     const bytes = await s3Obj.Body?.transformToByteArray();
@@ -107,7 +114,9 @@ export const readQuestionnaireCellInventory = async (
           row: r,
           col: c,
           ref: XLSX.utils.encode_cell({ r, c }),
-          value: truncateText(value, MAX_QUESTIONNAIRE_CELL_VALUE_CHARS),
+          // Number.isFinite guard so the default path stays exact; the engine's
+          // Infinity override keeps the full untruncated value.
+          value: Number.isFinite(maxCellChars) ? truncateText(value, maxCellChars) : value,
         });
       }
     }

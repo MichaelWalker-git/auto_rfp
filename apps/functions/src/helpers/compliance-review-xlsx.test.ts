@@ -98,6 +98,21 @@ describe('readQuestionnaireCellInventory', () => {
     expect(price!.value).toBe('1234');
   });
 
+  it('truncates long cell values by default but keeps them full when maxCellChars is Infinity (WR-2)', async () => {
+    const long = 'x'.repeat(500);
+    mockS3Body(sheetToBytes([['Answer', long]]));
+    const truncated = await readQuestionnaireCellInventory('any/key.xlsx');
+    const tCell = truncated!.cells.find((c) => c.col === 1)!;
+    expect(tCell.value).toContain('[TRUNCATED]');
+    expect(tCell.value.length).toBeLessThan(long.length);
+
+    mockS3Body(sheetToBytes([['Answer', long]]));
+    const full = await readQuestionnaireCellInventory('any/key.xlsx', { maxCellChars: Infinity });
+    const fCell = full!.cells.find((c) => c.col === 1)!;
+    expect(fCell.value).toBe(long);
+    expect(fCell.value).not.toContain('[TRUNCATED]');
+  });
+
   it('returns null when the S3 object has no body', async () => {
     mockSend.mockResolvedValueOnce({ Body: { transformToByteArray: async () => undefined } });
     await expect(readQuestionnaireCellInventory('any/key.xlsx')).resolves.toBeNull();
