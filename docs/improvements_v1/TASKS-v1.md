@@ -12,6 +12,11 @@
 
 Rewrite the `DOC_TYPE_GUIDANCE` and `DOC_TYPE_TASK` entries for `COST_PROPOSAL` (~L533/L946) and `PRICE_VOLUME` (~L497/L1024) in `apps/functions/src/helpers/document-prompts.ts`. Add rules: (a) SOLUTION PLAN CONSISTENCY — CLINs, phases, labor mix, and period of performance must match the Approved Solution Plan exactly, phrased conditionally ("if provided") so it ships before the SoT feature; (b) THIRD-PARTY PRICING — never invent subscription/license prices, call `search_service_pricing`, cite source URL + retrieval date, label as estimate, write "vendor quote required" on lookup failure; (c) INTERNAL RATES only from `get_pricing_data`; (d) PAGE LIMITS — respect solicitation-specified limits; (e) new structure subsection "Third-Party Services & Subscriptions" table. Update `document-prompts.test.ts`. Note in release notes that orgs with stored prompt overrides (`document-prompt-overrides.ts`) won't get the new defaults.
 
+> **Implementation notes (as built, 2026-08-14):**
+> - **The four rule blocks are non-overridable** (deviation from the spec's release-notes-only approach, by explicit decision): they live in a single `PRICING_GUIDANCE_RULES` constant appended to the system-prompt skeleton (`buildSystemPromptForDocumentType` + `buildSectionSystemPrompt`) as a "MANDATORY PRICING RULES" block for `COST_PROPOSAL`/`PRICE_VOLUME` only — org guidance overrides replace the guidance fragment but cannot remove these rules. They are also excluded from the editable defaults shown by the prompt-management API.
+> - The "Third-Party Services & Subscriptions" structure subsection and the rewritten task steps remain part of the normal (overridable) guidance/task fragments.
+> - **Release-notes item for R1 (reduced scope):** orgs with stored prompt overrides for these doc types still miss the improved *structure* subsection and *task* steps until they reset/re-save their override — but the four mandatory rule blocks now apply to them regardless.
+
 ### T2 · Brave web-search client + service pricing lookup with cache
 **Size:** M · **Deps:** none
 
