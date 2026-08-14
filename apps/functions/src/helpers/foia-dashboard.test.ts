@@ -1,6 +1,10 @@
 const mockListFoiaAutomationsByOrg = jest.fn();
 const mockListFoiaRequestsByOrg = jest.fn();
-const mockListOpportunitiesByOrg = jest.fn();
+// The aggregation queries the OPPORTUNITY partition directly with a projection rather
+// than going through listOpportunitiesByOrg — that helper adds a USER-partition query
+// for names this dashboard never reads, and an unprojected read pulled 1.6MB of
+// document text per call.
+const mockQueryAllBySkPrefix = jest.fn();
 
 jest.mock('@/helpers/foia-automation', () => ({
   listFoiaAutomationsByOrg: (...a: unknown[]) => mockListFoiaAutomationsByOrg(...a),
@@ -10,8 +14,8 @@ jest.mock('@/helpers/foia', () => ({
   listFoiaRequestsByOrg: (...a: unknown[]) => mockListFoiaRequestsByOrg(...a),
 }));
 
-jest.mock('@/helpers/opportunity', () => ({
-  listOpportunitiesByOrg: (...a: unknown[]) => mockListOpportunitiesByOrg(...a),
+jest.mock('@/helpers/db', () => ({
+  queryAllBySkPrefix: (...a: unknown[]) => mockQueryAllBySkPrefix(...a),
 }));
 
 process.env.DB_TABLE_NAME = 'test-table';
@@ -56,7 +60,7 @@ const prime = (args?: {
 }) => {
   mockListFoiaAutomationsByOrg.mockResolvedValue(args?.automations ?? []);
   mockListFoiaRequestsByOrg.mockResolvedValue(args?.requests ?? []);
-  mockListOpportunitiesByOrg.mockResolvedValue({ items: args?.opportunities ?? [] });
+  mockQueryAllBySkPrefix.mockResolvedValue(args?.opportunities ?? []);
 };
 
 describe('buildFoiaDashboard', () => {
@@ -65,7 +69,7 @@ describe('buildFoiaDashboard', () => {
     [
       mockListFoiaAutomationsByOrg,
       mockListFoiaRequestsByOrg,
-      mockListOpportunitiesByOrg,
+      mockQueryAllBySkPrefix,
     ].forEach((m) => m.mockReset());
   });
 
@@ -76,7 +80,13 @@ describe('buildFoiaDashboard', () => {
 
     expect(mockListFoiaAutomationsByOrg).toHaveBeenCalledWith(ORG);
     expect(mockListFoiaRequestsByOrg).toHaveBeenCalledWith(ORG);
-    expect(mockListOpportunitiesByOrg).toHaveBeenCalledWith({ orgId: ORG });
+    // Projected, and scoped by the org prefix on the single-table sort key.
+    expect(mockQueryAllBySkPrefix).toHaveBeenCalledWith(
+      'OPPORTUNITY',
+      `${ORG}#`,
+      expect.stringContaining('lossData'),
+      expect.objectContaining({ '#status': 'status' }),
+    );
   });
 
   it('returns zeroed counts for an org with nothing tracked', async () => {
@@ -380,7 +390,7 @@ describe('buildFoiaDashboard', () => {
     // A dashboard that silently renders partial numbers is worse than one that
     // errors: a reader cannot tell an empty bucket from a failed query.
     prime();
-    mockListOpportunitiesByOrg.mockRejectedValue(new Error('table unavailable'));
+    mockQueryAllBySkPrefix.mockRejectedValue(new Error('table unavailable'));
 
     await expect(buildFoiaDashboard(ORG)).rejects.toThrow('table unavailable');
   });
