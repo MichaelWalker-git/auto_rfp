@@ -1,7 +1,7 @@
 # AutoRFP Improvements v1 — Task List
 
 > Companion to `ROADMAP-v1.md`, `DECISIONS.md` (ADR-1…15), `GLOSSARY.md`. Sizes: S ≈ 0.5–1 day, M ≈ 1–2 days, L ≈ 3–4 days.
-> Releases: **R1** = T1–T3 (pricing fix, ships first) · **R2** = T4–T11 (SoT behind `enableSolutionPlan` org flag) · **R3** = T12 (flip gating on per org).
+> Releases: **R1** = T1–T3 + T15 (pricing fix, ships first) · **R2** = T4–T11 (SoT behind `enableSolutionPlan` org flag) · **R3** = T12 (flip gating on per org).
 
 ---
 
@@ -30,7 +30,22 @@ Add the `search_service_pricing` tool definition and executor branch to `apps/fu
 > **Implementation notes (as built, 2026-08-14):**
 > - Doc-type filtering is centralized in a new `getDocumentToolsForType(documentType)` export from `document-tools.ts`; every place that offered `DOCUMENT_TOOLS` to the model now uses it — single-shot + section-by-section generation (`generate-document-worker.ts` / `document-section-generator.ts`, which gained a required `documentType` arg) **and also `edit-section.ts`** (beyond spec, for consistency: the pricing tool is available when editing COST_PROPOSAL/PRICE_VOLUME sections, hidden elsewhere).
 > - **T6's `search_service_pricing` stub in `solution-plan-tools.ts` was replaced** per its `TODO(T3)`: the tool name joined `SOLUTION_PLAN_SHARED_TOOL_NAMES` and the executor now delegates to the real Brave-backed lookup via `executeDocumentTool`.
-> - **No new IAM grant was needed** — `commonLambdaRole` already has `ssm:GetParameter` on `parameter/auto-rfp/*`, which covers `/auto-rfp/brave-search/api-key`. Runbook: `docs/improvements_v1/RUNBOOK-BRAVE-SEARCH-API-KEY.md`.
+> - **No new IAM grant was needed** — `commonLambdaRole` already has `ssm:GetParameter` on `parameter/auto-rfp/*`, which covers `/auto-rfp/brave-search/api-key`. Runbook: `docs/improvements_v1/RUNBOOK-WEB-SEARCH-API-KEY.md` (renamed from `RUNBOOK-BRAVE-SEARCH-API-KEY.md` in T15).
+
+### T15 · Web-search provider abstraction + Tavily provider
+**Size:** S · **Deps:** T2 (T3 unaffected — tool layer sits above `webSearch`)
+
+**Why:** Brave discontinued its free tier (now $5/1,000 requests with $5/month free credits, **credit card required**) and its API dashboard is WAF-blocked from some regions, making key signup/rotation unreliable for us. Tavily offers 1,000 free credits/month, recurring, no card. Keep Brave — don't delete it — and make the provider swappable per stage.
+
+Refactor `apps/functions/src/helpers/web-search-client.ts` into a provider registry behind the **unchanged** public API (`webSearch(query, opts)`, `WebSearchResult{title,url,snippet}`) so `service-pricing.ts` and its tests need no changes. Define a `WebSearchProvider` interface (`{ name, ssmParamEnvVar, search(query, count, apiKey) }`) and move the existing Brave request/normalization into `helpers/web-search-providers/brave.ts` as-is (429 retry-once behavior preserved). Add `helpers/web-search-providers/tavily.ts`: `POST https://api.tavily.com/search` (`Authorization: Bearer <key>`, body `{query, max_results}`), normalize `results[].{title, url, content→snippet}`; key from SSM `/auto-rfp/tavily/api-key` (SecureString, covered by the existing `parameter/auto-rfp/*` IAM grant). Provider selected by env var `WEB_SEARCH_PROVIDER` (`'brave' | 'tavily'`, **default `'tavily'`** — Tavily is the primary provider; set `'brave'` explicitly on any stage that should keep using an existing Brave key) set per stage in `commonEnv` in `api-orchestrator-stack.ts` alongside `TAVILY_API_KEY_SSM_PARAM`; unknown provider value → warn + treat key as unavailable so ADR-15 degradation kicks in (documents still complete with "vendor quote required" rows). SSM key cache becomes per-provider. Note: the 1 req/sec sequential pacing in `service-pricing.ts` is a Brave free-tier constraint — harmless under Tavily, leave it. Jest tests: provider selection via env, Tavily normalization + error/429 paths, Brave paths unchanged, unknown-provider degradation. Docs: generalize `RUNBOOK-BRAVE-SEARCH-API-KEY.md` into a web-search-key runbook covering both providers (Tavily signup: <https://app.tavily.com>, no card; also fix the stale "Brave free tier ~2,000 queries/month" claim), and update the `web-search-client.ts` header comment.
+
+> **Implementation notes (as built, 2026-08-14):**
+> - Providers live in `apps/functions/src/helpers/web-search-providers/` (`types.ts` interface, `brave.ts`, `tavily.ts`). The `WebSearchProvider` interface gained a `defaultSsmParamName` field beyond the spec's three (`name`, `ssmParamEnvVar`, `search`) so the fallback SSM parameter name lives with the provider instead of in a client-side lookup table.
+> - **The single 429 retry stays in the client** (generic over providers), not in `brave.ts` — Brave's behavior is byte-identical, and Tavily gets the same retry for free (covered by tests).
+> - Provider selection and SSM parameter names are read **per call**, not at module load, so a warm container picks up nothing stale and tests can flip `WEB_SEARCH_PROVIDER` freely. Key cache is a per-provider `Map`.
+> - The key-unavailable error message changed from "Brave Search API key not found…" to "`<provider>` web search API key not found in SSM (`<param>`)…" — no caller matches on the message (service-pricing catches all errors, ADR-15).
+> - Infra: `WEB_SEARCH_PROVIDER` in `commonEnv` follows the `SOLUTION_PLAN_GATING` pattern (`process.env.WEB_SEARCH_PROVIDER || 'tavily'`) so a stage can be pinned to Brave at deploy time without a code change.
+> - Runbook renamed to `RUNBOOK-WEB-SEARCH-API-KEY.md` (git mv, both providers covered, stale free-tier claim fixed).
 
 ---
 
@@ -108,6 +123,7 @@ Playwright happy path: init Solution Plan → poll to READY (mocked backend) →
 ```
 T1 ──────────────────────────────► R1
 T2 ─► T3 ─────────────────────────► R1
+ └──► T15 ────────────────────────► R1
 T4 ─► T5 ─► T6 ─► T7 ─► T10 ─► T11 ─► R2
             │          └► T12 ───────► R3
             ├► T8 ──────────────────► R2

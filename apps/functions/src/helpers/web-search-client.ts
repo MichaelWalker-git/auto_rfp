@@ -3,195 +3,144 @@
  *
  * Provider-agnostic web search client, mirroring `bedrock-http-client.ts`:
  * the exported `webSearch(query, opts)` returns normalized results and hides
- * the provider behind it. Current implementation: Brave Search API
- * (`GET https://api.search.brave.com/res/v1/web/search`), API key from SSM
- * (`/auto-rfp/brave-search/api-key`) cached in the warm container.
+ * the provider behind it. Providers live in `helpers/web-search-providers/`
+ * (Brave, Tavily) and are selected per stage via the `WEB_SEARCH_PROVIDER`
+ * env var (`'brave' | 'tavily'`, default `'tavily'` — Brave dropped its free
+ * tier, T15). Each provider's API key comes from its own SSM parameter
+ * (Tavily `/auto-rfp/tavily/api-key`, Brave `/auto-rfp/brave-search/api-key`)
+ * and is cached per provider in the warm container.
  *
- * Brave's free tier allows 1 request/second — on a 429 the client retries
- * ONCE after a short delay; a second 429 (or any other failure) throws, and
+ * On a 429 the client retries ONCE after a short delay; a second 429 (or any
+ * other failure, including an unknown provider or missing key) throws, and
  * callers (service-pricing) degrade per ADR-15 instead of failing documents.
  */
 
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
-import https from 'https';
-import { z } from 'zod';
 import { requireEnv } from './env';
 import { sleep } from './sleep';
+import { braveProvider } from './web-search-providers/brave';
+import { tavilyProvider } from './web-search-providers/tavily';
+import type { HttpError, WebSearchProvider, WebSearchResult } from './web-search-providers/types';
 
-const SSM_PARAM_NAME = requireEnv('BRAVE_SEARCH_API_KEY_SSM_PARAM', '/auto-rfp/brave-search/api-key');
+export { WebSearchResultSchema } from './web-search-providers/types';
+export type { WebSearchResult };
+
 const REGION = requireEnv('REGION', 'us-east-1');
 
-const BRAVE_SEARCH_HOSTNAME = 'api.search.brave.com';
-const BRAVE_SEARCH_PATH = '/res/v1/web/search';
-
-/** Delay before the single 429 retry — just over the free tier's 1 req/sec. */
+/** Delay before the single 429 retry — just over Brave's free-tier 1 req/sec. */
 const RATE_LIMIT_RETRY_DELAY_MS = 1100;
 
 /** Default number of results per query. */
 const DEFAULT_RESULT_COUNT = 5;
 
-// Cache for API key to avoid repeated SSM calls in warm Lambda containers
-let cachedApiKey: string | null = null;
+const DEFAULT_PROVIDER_NAME = 'tavily';
 
-/** Normalized web search result — the provider-agnostic shape. */
-export const WebSearchResultSchema = z.object({
-  title: z.string(),
-  url: z.string(),
-  snippet: z.string(),
-});
+const PROVIDERS: Record<string, WebSearchProvider> = {
+  [braveProvider.name]: braveProvider,
+  [tavilyProvider.name]: tavilyProvider,
+};
 
-export type WebSearchResult = z.infer<typeof WebSearchResultSchema>;
+// Per-provider API key cache to avoid repeated SSM calls in warm Lambda containers
+const cachedApiKeys = new Map<string, string>();
 
 export type WebSearchOptions = {
   /** Max results to return (default 5). */
   count?: number;
 };
 
-/** Shape of the Brave Search API response — only what we read. */
-const BraveSearchResponseSchema = z.object({
-  web: z
-    .object({
-      results: z
-        .array(
-          z
-            .object({
-              title: z.string().optional(),
-              url: z.string().optional(),
-              description: z.string().optional(),
-            })
-            .passthrough(),
-        )
-        .optional(),
-    })
-    .optional(),
-});
+/**
+ * Resolve the active provider from `WEB_SEARCH_PROVIDER`. Unknown values warn
+ * and return null so `webSearch` throws and ADR-15 degradation kicks in.
+ */
+const getProvider = (): WebSearchProvider | null => {
+  const name = process.env.WEB_SEARCH_PROVIDER || DEFAULT_PROVIDER_NAME;
+  const provider = PROVIDERS[name];
+  if (!provider) {
+    console.warn(
+      `[web-search] Unknown WEB_SEARCH_PROVIDER "${name}" (expected one of: ${Object.keys(PROVIDERS).join(', ')}). Web search is unavailable.`,
+    );
+    return null;
+  }
+  return provider;
+};
+
+/** SSM parameter name holding the provider's API key. */
+const resolveSsmParamName = (provider: WebSearchProvider): string =>
+  process.env[provider.ssmParamEnvVar] || provider.defaultSsmParamName;
 
 /**
- * Get the Brave Search API key from SSM Parameter Store with caching.
+ * Get the provider's API key from SSM Parameter Store with per-provider caching.
  */
-const getApiKey = async (): Promise<string | null> => {
-  if (cachedApiKey) {
-    return cachedApiKey;
+const getApiKey = async (provider: WebSearchProvider): Promise<string | null> => {
+  const cached = cachedApiKeys.get(provider.name);
+  if (cached) {
+    return cached;
   }
+
+  const paramName = resolveSsmParamName(provider);
 
   try {
     const ssmClient = new SSMClient({ region: REGION });
     const response = await ssmClient.send(
       new GetParameterCommand({
-        Name: SSM_PARAM_NAME,
+        Name: paramName,
         WithDecryption: true,
       }),
     );
 
     if (response.Parameter?.Value) {
-      cachedApiKey = response.Parameter.Value;
-      console.log('Successfully retrieved Brave Search API key from SSM');
-      return cachedApiKey;
+      cachedApiKeys.set(provider.name, response.Parameter.Value);
+      console.log(`Successfully retrieved ${provider.name} web search API key from SSM`);
+      return response.Parameter.Value;
     }
   } catch (error) {
-    console.warn('Failed to retrieve Brave Search API key from SSM:', error);
+    console.warn(`Failed to retrieve ${provider.name} web search API key from SSM:`, error);
   }
 
   return null;
 };
 
-type HttpError = Error & { statusCode?: number };
-
-/** One HTTPS GET against the Brave Search API. */
-const braveSearchRequest = (query: string, count: number, apiKey: string): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const params = new URLSearchParams({ q: query, count: String(count) });
-    const options = {
-      hostname: BRAVE_SEARCH_HOSTNAME,
-      port: 443,
-      path: `${BRAVE_SEARCH_PATH}?${params.toString()}`,
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        'Accept-Encoding': 'identity',
-        'X-Subscription-Token': apiKey,
-      },
-    };
-
-    const req = https.request(options, (res) => {
-      const chunks: Buffer[] = [];
-
-      res.on('data', (chunk: Buffer) => {
-        chunks.push(chunk);
-      });
-
-      res.on('end', () => {
-        const body = Buffer.concat(chunks).toString('utf-8');
-        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-          resolve(body);
-        } else {
-          const statusCode = res.statusCode ?? 500;
-          reject(
-            Object.assign(
-              new Error(`Brave Search request failed: ${statusCode} ${res.statusMessage ?? ''} - ${body}`),
-              { statusCode },
-            ),
-          );
-        }
-      });
-    });
-
-    req.on('error', (error) => {
-      reject(error);
-    });
-
-    req.end();
-  });
-
-/** Parse a raw Brave response body into normalized results. */
-const normalizeBraveResults = (body: string, count: number): WebSearchResult[] => {
-  const { success, data } = BraveSearchResponseSchema.safeParse(JSON.parse(body));
-  if (!success || !data.web?.results) {
-    return [];
-  }
-
-  return data.web.results
-    .filter((r) => Boolean(r.url))
-    .slice(0, count)
-    .map((r) => ({
-      title: r.title ?? '',
-      url: r.url ?? '',
-      snippet: r.description ?? '',
-    }));
-};
-
 /**
  * Search the web and return normalized `{title, url, snippet}` results.
- * Retries once on 429 (Brave free tier: 1 req/sec); throws on any other
- * failure or when the API key is unavailable.
+ * Retries once on 429; throws on any other failure, when the API key is
+ * unavailable, or when `WEB_SEARCH_PROVIDER` names an unknown provider.
  */
 export const webSearch = async (
   query: string,
   opts?: WebSearchOptions,
 ): Promise<WebSearchResult[]> => {
-  const apiKey = await getApiKey();
+  const provider = getProvider();
+  if (!provider) {
+    throw new Error(
+      `Unknown web search provider "${process.env.WEB_SEARCH_PROVIDER}". Web search is unavailable.`,
+    );
+  }
+
+  const apiKey = await getApiKey(provider);
   if (!apiKey) {
     throw new Error(
-      `Brave Search API key not found in SSM (${SSM_PARAM_NAME}). Web search is unavailable.`,
+      `${provider.name} web search API key not found in SSM (${resolveSsmParamName(provider)}). Web search is unavailable.`,
     );
   }
 
   const count = opts?.count ?? DEFAULT_RESULT_COUNT;
 
   try {
-    return normalizeBraveResults(await braveSearchRequest(query, count, apiKey), count);
+    return await provider.search(query, count, apiKey);
   } catch (err) {
     const statusCode = (err as HttpError).statusCode;
     if (statusCode !== 429) {
       throw err;
     }
-    console.warn(`[web-search] 429 from Brave, retrying once in ${RATE_LIMIT_RETRY_DELAY_MS}ms...`);
+    console.warn(
+      `[web-search] 429 from ${provider.name}, retrying once in ${RATE_LIMIT_RETRY_DELAY_MS}ms...`,
+    );
     await sleep(RATE_LIMIT_RETRY_DELAY_MS);
-    return normalizeBraveResults(await braveSearchRequest(query, count, apiKey), count);
+    return provider.search(query, count, apiKey);
   }
 };
 
 /** Test-only: clear the warm-container API key cache. */
 export const __resetWebSearchApiKeyCacheForTests = (): void => {
-  cachedApiKey = null;
+  cachedApiKeys.clear();
 };
