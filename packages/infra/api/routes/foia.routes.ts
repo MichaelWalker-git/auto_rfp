@@ -88,6 +88,13 @@ export function foiaDomain(): DomainRoutes {
         path: 'update-foia-custom-documents',
         entry: lambdaEntry('foia/update-foia-custom-documents.ts'),
       },
+      {
+        // Org-wide comparison aggregate for the dashboard. Read-only, and gated on
+        // project:read so every role can see the charts.
+        method: 'GET',
+        path: 'get-foia-dashboard',
+        entry: lambdaEntry('foia/get-foia-dashboard.ts'),
+      },
     ],
   };
 }
