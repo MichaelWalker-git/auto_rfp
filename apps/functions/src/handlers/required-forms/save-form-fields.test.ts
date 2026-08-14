@@ -34,6 +34,11 @@ jest.mock('@/helpers/required-form-proposal-bridge', () => ({
   detachFormFromProposal: (...args: unknown[]) => mockDetachFormFromProposal(...args),
 }));
 
+const mockSnapshotFormFields = jest.fn();
+jest.mock('@/helpers/required-form-version', () => ({
+  snapshotFormFields: (...args: unknown[]) => mockSnapshotFormFields(...args),
+}));
+
 jest.mock('@/helpers/api', () => ({
   apiResponse: (statusCode: number, body: unknown) => ({ statusCode, body: JSON.stringify(body) }),
   getOrgId: (event: { queryStringParameters?: Record<string, string>; body?: string | null }) => {
@@ -49,6 +54,16 @@ jest.mock('@/helpers/api', () => ({
     return undefined;
   },
   getUserId: () => 'user-1',
+  // Mirror the real parseJsonBody: takes the event, returns the parsed value or
+  // `undefined` on malformed JSON (absent body → {}).
+  parseJsonBody: (event: { body?: string | null }) => {
+    if (!event.body) return {};
+    try {
+      return JSON.parse(event.body);
+    } catch {
+      return undefined;
+    }
+  },
 }));
 
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
@@ -104,6 +119,16 @@ describe('save-form-fields', () => {
   it('returns 400 on invalid payload', async () => {
     const res = await baseHandler(eventFor({ orgId: 'org' }));
     expect(res.statusCode).toBe(400);
+  });
+
+  it('returns 400 (not 500) on malformed JSON body', async () => {
+    const event = {
+      body: '{ not: valid json',
+      queryStringParameters: { orgId: 'org' },
+    } as unknown as APIGatewayProxyEventV2;
+    const res = await baseHandler(event);
+    expect(res.statusCode).toBe(400);
+    expect(mockGetForm).not.toHaveBeenCalled();
   });
 
   it('returns 404 when form is not found', async () => {
@@ -224,6 +249,45 @@ describe('save-form-fields', () => {
     expect(patch.totalFieldCount).toBe(0);
     expect(patch.autoFillPercentage).toBe(0);
     expect(patch.manualFieldCount).toBe(0);
+  });
+
+  it('snapshots the current fields (source MANUAL) before overwriting when the form already has fields', async () => {
+    mockGetForm.mockResolvedValueOnce({
+      formId: 'f', status: 'READY', attachedToProposal: false, proposalDocumentId: null,
+      fields: [buildField({ value: 'old' })],
+    });
+    mockUpdateForm.mockResolvedValueOnce({ formId: 'f' });
+
+    const res = await baseHandler(eventFor(validBody()));
+    expect(res.statusCode).toBe(200);
+    expect(mockSnapshotFormFields).toHaveBeenCalledTimes(1);
+    expect(mockSnapshotFormFields).toHaveBeenCalledWith(
+      expect.objectContaining({ source: 'MANUAL', userId: 'user-1' }),
+    );
+  });
+
+  it('does NOT snapshot on the first save (form has no fields yet)', async () => {
+    mockGetForm.mockResolvedValueOnce({
+      formId: 'f', status: 'READY', attachedToProposal: false, proposalDocumentId: null,
+      fields: [],
+    });
+    mockUpdateForm.mockResolvedValueOnce({ formId: 'f' });
+
+    await baseHandler(eventFor(validBody()));
+    expect(mockSnapshotFormFields).not.toHaveBeenCalled();
+  });
+
+  it('still saves when the snapshot fails (history is best-effort)', async () => {
+    mockGetForm.mockResolvedValueOnce({
+      formId: 'f', status: 'READY', attachedToProposal: false, proposalDocumentId: null,
+      fields: [buildField({ value: 'old' })],
+    });
+    mockSnapshotFormFields.mockRejectedValueOnce(new Error('ddb down'));
+    mockUpdateForm.mockResolvedValueOnce({ formId: 'f' });
+
+    const res = await baseHandler(eventFor(validBody()));
+    expect(res.statusCode).toBe(200);
+    expect(mockUpdateForm).toHaveBeenCalledTimes(1);
   });
 
   it('passes requireUnattached on the update when auto-attaching', async () => {

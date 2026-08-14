@@ -59,6 +59,8 @@ import { pricingDomain } from './routes/pricing.routes';
 import { extractionDomain } from './routes/extraction.routes';
 import { opportunityAssistantDomain } from './routes/opportunity-assistant.routes';
 import { complianceReviewDomain } from './routes/compliance-review.routes';
+import { packageEditDomain } from './routes/package-edit.routes';
+import { questionnaireDomain } from './routes/questionnaire.routes';
 import { companyProfileDomain } from './routes/company-profile.routes';
 import { requiredFormsDomain } from './routes/required-forms.routes';
 import { dashboardDomain } from './routes/dashboard.routes';
@@ -218,6 +220,23 @@ export class ApiOrchestratorStack extends cdk.Stack {
       deadLetterQueue: { queue: solutionPlanDlq, maxReceiveCount: 1 },
     });
 
+    // ─── Package Edit queue (async cross-package "Mass Edit" proposal scan) ────
+    // Clone of the compliance-review queue: the proposal scan is a long Sonnet job
+    // that can't fit in the 29s chat turn, so the chat handler enqueues it here and
+    // the PackageEditWorker drafts the proposals asynchronously.
+    const packageEditDlq = new sqs.Queue(this, `PackageEditDLQ-${stage}`, {
+      queueName: `auto-rfp-package-edit-dlq-${stage}`,
+      retentionPeriod: cdk.Duration.days(14),
+    });
+    const packageEditQueue = new sqs.Queue(this, `PackageEditQueue-${stage}`, {
+      queueName: `auto-rfp-package-edit-${stage}`,
+      // Must be >= the worker Lambda timeout so a message isn't redelivered mid-scan.
+      visibilityTimeout: cdk.Duration.minutes(16),
+      // Long, expensive Sonnet scan — one attempt then DLQ (don't burn ~15 min
+      // retrying a doomed run). The run is marked FAILED by the worker/stale-recovery.
+      deadLetterQueue: { queue: packageEditDlq, maxReceiveCount: 1 },
+    });
+
     const commonEnv: Record<string, string> = {
       STAGE: stage,
       // Solution Plan grilling loop — REST init enqueues, the worker re-enqueues each round.
@@ -229,6 +248,11 @@ export class ApiOrchestratorStack extends cdk.Stack {
       COMPLIANCE_REVIEW_CHAT_MODEL_ID: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
       COMPLIANCE_REVIEW_WORKER_MODEL_ID: 'us.anthropic.claude-sonnet-4-6',
       COMPLIANCE_REVIEW_QUEUE_URL: complianceReviewQueue.queueUrl,
+      // Cross-package AI editing ("Mass Edit") — Haiku routes the chat turn, Sonnet
+      // scans in the async worker.
+      PACKAGE_EDIT_CHAT_MODEL_ID: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+      PACKAGE_EDIT_WORKER_MODEL_ID: 'us.anthropic.claude-sonnet-4-6',
+      PACKAGE_EDIT_QUEUE_URL: packageEditQueue.queueUrl,
       AWS_ACCOUNT_ID: cdk.Aws.ACCOUNT_ID,
       DOCUMENTS_BUCKET: documentsBucket.bucketName,
       NODE_ENV: 'production',
@@ -705,6 +729,8 @@ export class ApiOrchestratorStack extends cdk.Stack {
       extractionDomain({ extractionQueueUrl }),
       opportunityAssistantDomain(),
       complianceReviewDomain(),
+      packageEditDomain(),
+      questionnaireDomain(),
       companyProfileDomain(),
       requiredFormsDomain(),
       dashboardDomain(),
@@ -778,6 +804,44 @@ export class ApiOrchestratorStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
+    // ─── Package Edit worker ──────────────────────────────────────────────
+    // Processes async cross-package "Mass Edit" proposal scans (Sonnet, no 29s
+    // limit). REST handlers enqueue via PACKAGE_EDIT_QUEUE_URL (in commonEnv).
+    // Clone of the compliance-review worker.
+    packageEditQueue.grantSendMessages(sharedInfraStack.commonLambdaRole);
+    const packageEditWorkerFunctionName = `auto-rfp-package-edit-worker-${stage}`;
+    const packageEditWorker = new lambdaNodejs.NodejsFunction(this, `PackageEditWorker-${stage}`, {
+      functionName: packageEditWorkerFunctionName,
+      entry: path.join(__dirname, '../../../apps/functions/src/handlers/package-edit/propose-worker.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.minutes(15), // Lambda max; < queue visibility timeout (16m)
+      memorySize: 1024,
+      role: sharedInfraStack.commonLambdaRole,
+      environment: { ...commonEnv },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        externalModules: ['@aws-sdk/*', '@smithy/*'],
+      },
+    });
+    packageEditWorker.addEventSource(
+      new lambdaEventSources.SqsEventSource(packageEditQueue, {
+        batchSize: 1,
+        reportBatchItemFailures: true,
+      }),
+    );
+    packageEditQueue.grantConsumeMessages(packageEditWorker);
+
+    // Explicit log group with controlled retention (the compliance worker relies
+    // on the auto-created group; package-edit gets an explicit one for
+    // observability + retention control, mirroring RasterizePdfWorkerLogs).
+    new logs.LogGroup(this, `PackageEditWorkerLogs-${stage}`, {
+      logGroupName: `/aws/lambda/${packageEditWorkerFunctionName}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
     // ─── Rasterize PDF worker ─────────────────────────────────────────────
     // Owns the heavy pdfjs-dist + @napi-rs/canvas deps so callers
     // (export-rfp-document, export-all-rfp-documents, etc.) stay under the
@@ -847,6 +911,8 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'DocumentApprovalRoutes', 'UniversalApprovalRoutes', 'PricingRoutes', 'ExtractionRoutes',
       'OpportunityAssistantRoutes',
       'ComplianceReviewRoutes',
+      'PackageEditRoutes',
+      'QuestionnaireRoutes',
       'CompanyProfileRoutes',
       'RequiredFormsRoutes',
       'DashboardRoutes',

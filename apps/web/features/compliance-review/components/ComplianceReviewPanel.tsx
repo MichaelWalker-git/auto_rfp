@@ -1,20 +1,22 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, ChevronDown, ChevronsDownUp, ChevronsUpDown, ChevronUp, Loader2, MessageSquare, Play, Send, Sparkles } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronsDownUp, ChevronsUpDown, ChevronUp, Loader2, MessageSquare, Play, Send, Sparkles, User } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { useReviewRun } from '../hooks/useReviewRun';
-import { useComplianceChat } from '../hooks/useComplianceChat';
+import { useUnifiedChat } from '../hooks/useUnifiedChat';
 import { useFindingDecisions } from '../hooks/useFindingDecisions';
 import { FindingsList } from './FindingsList';
 import { FindingsStats } from './FindingsStats';
-import { FindingsFilterBar, applyFilter, emptyFilter, isFilterActive, type FindingsFilter } from './FindingsFilterBar';
+import { ALL, FindingsFilterBar, applyFilter, emptyFilter, isFilterActive, type FindingsFilter } from './FindingsFilterBar';
+import type { ComplianceFindingSeverity } from '@auto-rfp/core';
+import { ProposalRunView } from '@/features/package-edit';
 
 interface ComplianceReviewPanelProps {
   orgId: string;
@@ -22,10 +24,20 @@ interface ComplianceReviewPanelProps {
   oppId: string;
 }
 
+// Starter prompts for the empty chat — remove the blank-slate friction and teach
+// what the surface can do. Editors get a review + an edit example; viewers get
+// review-only prompts (they can't start edits).
+const CHAT_SUGGESTIONS_REVIEW = [
+  'Which required forms am I missing?',
+  'Is the company name consistent across all documents?',
+  'Does the technical volume address Section L?',
+];
+const CHAT_SUGGESTIONS_EDIT = ['Change the contact email everywhere to new@acme.com.'];
+
 export const ComplianceReviewPanel = ({ orgId, projectId, oppId }: ComplianceReviewPanelProps) => {
   const { findings, decisions, stale, isRunning, isLoading, triggerReview, refresh, status } =
     useReviewRun(orgId, projectId, oppId);
-  const { messages, isLoadingHistory, sendMessage, isSending } = useComplianceChat(
+  const { messages, isLoadingHistory, sendMessage, isSending, canEdit } = useUnifiedChat(
     orgId,
     projectId,
     oppId,
@@ -56,8 +68,25 @@ export const ComplianceReviewPanel = ({ orgId, projectId, oppId }: ComplianceRev
   const hasFindings =
     activeFindings.length + dismissedFindings.length + resolvedFindings.length > 0;
 
-  // Client-side filter by issue type + document (Full Review tab only).
+  // ProposalRunView polls the LATEST run for the opportunity, so only the most
+  // recent edit turn should render it live; older edit turns in history are shown
+  // as a plain note (their run is superseded).
+  const latestEditRunId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant' && messages[i].editRunId) return messages[i].editRunId;
+    }
+    return undefined;
+  }, [messages]);
+
+  // Client-side filter by severity + issue type + document (Full Review tab only).
   const [filter, setFilter] = useState<FindingsFilter>(emptyFilter);
+  // Clicking a severity badge in the summary toggles the severity filter (click
+  // the active one to clear it). Expands the findings if they were collapsed so
+  // the filtered result is visible.
+  const toggleSeverity = (severity: ComplianceFindingSeverity) => {
+    setFilter((f) => ({ ...f, severity: f.severity === severity ? ALL : severity }));
+    setFindingsCollapsed(false);
+  };
   const allFindings = useMemo(
     () => [...activeFindings, ...resolvedFindings, ...dismissedFindings],
     [activeFindings, resolvedFindings, dismissedFindings],
@@ -69,9 +98,9 @@ export const ComplianceReviewPanel = ({ orgId, projectId, oppId }: ComplianceRev
   // Optimistic echo of the in-flight user message (history only updates after
   // the AI responds, which can take 10–15s).
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
-  const handleSend = async () => {
-    const text = input.trim();
-    if (!text) return;
+  const handleSend = async (override?: string) => {
+    const text = (override ?? input).trim();
+    if (!text || isSending) return;
     setInput('');
     setPendingMessage(text);
     try {
@@ -103,27 +132,38 @@ export const ComplianceReviewPanel = ({ orgId, projectId, oppId }: ComplianceRev
           <Sparkles className="mr-1.5 h-3.5 w-3.5" />
           Full Review
         </TabsTrigger>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <TabsTrigger value="chat">
-              <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
-              Chat
-            </TabsTrigger>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            Chat is for small, targeted questions — e.g. reviewing a single document or checking one
-            requirement. For a complete audit of the whole package, use Full Review.
-          </TooltipContent>
-        </Tooltip>
+        {/* Tooltip wraps the tab's INNER content, not the TabsTrigger itself:
+            both Radix primitives emit a `data-state` attribute, and merging
+            TooltipTrigger onto the TabsTrigger via asChild lets the tooltip's
+            data-state="closed" clobber the tab's data-state="active" — which
+            kills the `data-[state=active]` active styling. Keeping them on
+            separate elements preserves the active highlight. */}
+        <TabsTrigger value="chat">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex items-center">
+                <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
+                Chat
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              Chat is for small, targeted questions — e.g. reviewing a single document or checking one
+              requirement. For a complete audit of the whole package, use Full Review.
+            </TooltipContent>
+          </Tooltip>
+        </TabsTrigger>
       </TabsList>
 
       {/* ── Full package review ──────────────────────────────────────────── */}
       <TabsContent value="full-review" className="space-y-4">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Review the entire submission package against the solicitation.
-          </p>
-          <Button onClick={triggerReview} disabled={isRunning}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-0.5">
+            <h2 className="text-sm font-semibold text-foreground">Full package review</h2>
+            <p className="text-sm text-muted-foreground">
+              Audit every document and form against the solicitation.
+            </p>
+          </div>
+          <Button onClick={triggerReview} disabled={isRunning} className="shrink-0">
             {isRunning ? (
               <>
                 <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
@@ -156,11 +196,44 @@ export const ComplianceReviewPanel = ({ orgId, projectId, oppId }: ComplianceRev
 
         {isLoading || isRunning ? (
           <div className="space-y-3">
+            {isRunning && (
+              <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-foreground">
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
+                Reviewing the whole package against the solicitation — this can take a minute.
+              </div>
+            )}
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-24 w-full" />
           </div>
+        ) : !status ? (
+          // Never run: a focal call-to-action, not a misleading "no issues found".
+          <div className="flex flex-col items-center justify-center rounded-lg border bg-muted/30 px-6 py-12 text-center">
+            <div className="mb-3 rounded-full bg-primary/10 p-2.5">
+              <Sparkles className="h-5 w-5 text-primary" />
+            </div>
+            <p className="text-sm font-medium text-foreground">No review yet</p>
+            <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+              Run a full review to check the entire package against the solicitation — missing forms,
+              inconsistencies, unaddressed requirements, and more.
+            </p>
+            <Button onClick={triggerReview} disabled={isRunning} className="mt-4">
+              <Play className="mr-1.5 h-4 w-4" />
+              Run full review
+            </Button>
+          </div>
         ) : (
           <>
+            {/* Persistent focal summary — the "how bad is it?" answer stays visible
+                whether or not the cards are expanded. Severity badges act as
+                quick filters. */}
+            {hasFindings && (
+              <FindingsStats
+                findings={activeFindings}
+                activeSeverity={filter.severity === ALL ? null : filter.severity}
+                onToggleSeverity={toggleSeverity}
+              />
+            )}
+
             {hasFindings && (
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <Button
@@ -201,9 +274,7 @@ export const ComplianceReviewPanel = ({ orgId, projectId, oppId }: ComplianceRev
                 )}
               </div>
             )}
-            {findingsCollapsed ? (
-              <FindingsStats findings={activeFindings} />
-            ) : (
+            {!findingsCollapsed && (
               <FindingsList
                 activeFindings={filteredActive}
                 dismissedFindings={filteredDismissed}
@@ -223,63 +294,144 @@ export const ComplianceReviewPanel = ({ orgId, projectId, oppId }: ComplianceRev
         )}
       </TabsContent>
 
-      {/* ── Conversational review ────────────────────────────────────────── */}
-      <TabsContent value="chat" className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          Chat is for small, targeted questions — e.g. reviewing a single document or checking one
-          requirement. For a complete audit of the whole package, run a Full Review.
-        </p>
-        <div ref={chatScrollRef} className="space-y-3 max-h-[480px] overflow-y-auto">
+      {/* ── Conversational review + edit ─────────────────────────────────── */}
+      <TabsContent value="chat" className="space-y-3">
+        <div
+          ref={chatScrollRef}
+          className="min-h-[280px] max-h-[520px] overflow-y-auto rounded-lg border bg-muted/30 p-4"
+        >
           {isLoadingHistory ? (
-            <>
-              <Skeleton className="h-16 w-3/4" />
-              <Skeleton className="h-16 w-2/3 ml-auto" />
-            </>
-          ) : messages.length === 0 && !pendingMessage ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              Ask about the package&rsquo;s compliance — e.g. &ldquo;Does the technical volume address
-              Section L? Which forms am I missing?&rdquo;
-            </p>
-          ) : (
-            messages.map((msg) => (
-              <div key={msg.messageId} className="space-y-2">
-                <Card
-                  className={
-                    msg.role === 'user'
-                      ? 'p-3 bg-muted ml-auto max-w-[85%]'
-                      : 'p-3 max-w-[85%]'
-                  }
-                >
-                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                </Card>
-                {msg.role === 'assistant' && msg.findings && msg.findings.length > 0 && (
-                  <>
-                    <p className="text-xs text-muted-foreground">
-                      Run a Full review to track and resolve findings.
-                    </p>
-                    <FindingsList
-                      activeFindings={msg.findings.map((f) => ({ ...f }))}
-                      orgId={orgId}
-                      projectId={projectId}
-                      oppId={oppId}
-                      readOnly
-                    />
-                  </>
-                )}
+            <div className="space-y-4">
+              <div className="flex justify-end">
+                <Skeleton className="h-10 w-1/2 rounded-2xl" />
               </div>
-            ))
-          )}
-          {pendingMessage && (
-            <div className="space-y-2">
-              <Card className="p-3 bg-muted ml-auto max-w-[85%]">
-                <p className="text-sm whitespace-pre-wrap">{pendingMessage}</p>
-              </Card>
+              <div className="flex gap-2.5">
+                <Skeleton className="h-7 w-7 shrink-0 rounded-full" />
+                <Skeleton className="h-16 w-2/3 rounded-2xl" />
+              </div>
+            </div>
+          ) : messages.length === 0 && !pendingMessage ? (
+            // Empty state: an icon, one line of intent, and clickable starter
+            // prompts that seed + send — removing blank-slate friction and
+            // teaching what this surface does.
+            <div className="flex h-full flex-col items-center justify-center py-8 text-center">
+              <div className="mb-3 rounded-full bg-primary/10 p-2.5">
+                <MessageSquare className="h-5 w-5 text-primary" />
+              </div>
+              <p className="text-sm font-medium text-foreground">
+                {canEdit ? 'Ask about the package — or request a change' : 'Ask about the package'}
+              </p>
+              <p className="mt-1 max-w-xs text-xs text-muted-foreground">
+                Targeted questions and edits. For a complete audit, run a Full Review.
+              </p>
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                {[...CHAT_SUGGESTIONS_REVIEW, ...(canEdit ? CHAT_SUGGESTIONS_EDIT : [])].map((s) => (
+                  <Button
+                    key={s}
+                    type="button"
+                    variant="outline"
+                    onClick={() => void handleSend(s)}
+                    // Suggestion chip: rounded-full pill styling kept over the
+                    // outline variant via tailwind-merge.
+                    className="h-auto rounded-full bg-background px-3 py-1.5 text-xs text-foreground hover:border-primary/40 hover:bg-accent hover:text-foreground"
+                  >
+                    {s}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {messages.map((msg) => (
+                <div key={msg.messageId} className="space-y-2">
+                  <div className={cn('flex gap-2.5', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
+                    {msg.role === 'assistant' && (
+                      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                        <Sparkles className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                    )}
+                    <div
+                      className={cn(
+                        'max-w-[85%] px-3.5 py-2 text-sm whitespace-pre-wrap',
+                        msg.role === 'user'
+                          ? 'rounded-2xl rounded-br-md bg-primary text-primary-foreground'
+                          : 'rounded-2xl rounded-bl-md border bg-card text-card-foreground shadow-sm',
+                      )}
+                    >
+                      {msg.content}
+                    </div>
+                    {msg.role === 'user' && (
+                      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted">
+                        <User className="h-3.5 w-3.5 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Findings + edit runs align under the assistant bubble (avatar gutter). */}
+                  {msg.role === 'assistant' && (msg.findings?.length || msg.editRunId) && (
+                    <div className="space-y-2 pl-[38px]">
+                      {msg.findings && msg.findings.length > 0 && (
+                        <>
+                          <p className="text-xs text-muted-foreground">
+                            Run a Full review to track and resolve findings.
+                          </p>
+                          <FindingsList
+                            activeFindings={msg.findings.map((f) => ({ ...f }))}
+                            orgId={orgId}
+                            projectId={projectId}
+                            oppId={oppId}
+                            readOnly
+                          />
+                        </>
+                      )}
+                      {/* Most recent edit turn renders its proposal run inline (poll →
+                          diff → apply); superseded older edit turns show a note.
+                          Pass the message's editRunId so the view polls THIS run,
+                          not whatever run is latest for the opportunity (which may
+                          have been started from another surface — W2). */}
+                      {msg.editRunId &&
+                        (msg.editRunId === latestEditRunId ? (
+                          <ProposalRunView orgId={orgId} projectId={projectId} oppId={oppId} runId={msg.editRunId} />
+                        ) : (
+                          <p className="text-xs italic text-muted-foreground">
+                            This edit was superseded by a later request.
+                          </p>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {pendingMessage && (
+                <div className="flex justify-end gap-2.5">
+                  <div className="max-w-[85%] rounded-2xl rounded-br-md bg-primary px-3.5 py-2 text-sm whitespace-pre-wrap text-primary-foreground opacity-70">
+                    {pendingMessage}
+                  </div>
+                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                  </div>
+                </div>
+              )}
+
+              {isSending && (
+                <div className="flex gap-2.5">
+                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                    <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  </div>
+                  <div className="flex items-center gap-1 rounded-2xl rounded-bl-md border bg-card px-3.5 py-3 shadow-sm">
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.3s]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.15s]" />
+                    <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted-foreground/60" />
+                  </div>
+                </div>
+              )}
             </div>
           )}
-          {isSending && <Skeleton className="h-16 w-2/3" />}
         </div>
 
-        <div className="flex items-end gap-2">
+        {/* Composer: one bordered surface with a focus ring, so input + send read
+            as a single control (not a textarea sitting next to a button). */}
+        <div className="rounded-lg border bg-background focus-within:ring-2 focus-within:ring-ring/50 focus-within:border-ring">
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -289,13 +441,20 @@ export const ComplianceReviewPanel = ({ orgId, projectId, oppId }: ComplianceRev
                 void handleSend();
               }
             }}
-            placeholder="Ask about the package's compliance…"
+            placeholder={canEdit ? 'Ask about the package, or request a change…' : "Ask about the package's compliance…"}
             rows={2}
             disabled={isSending}
+            className="resize-none border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
           />
-          <Button onClick={() => void handleSend()} disabled={isSending || !input.trim()}>
-            {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          </Button>
+          <div className="flex items-center justify-between gap-2 px-3 pb-2">
+            <span className="text-xs text-muted-foreground">
+              <kbd className="rounded border bg-muted px-1 py-0.5 font-sans text-[10px]">Enter</kbd> to send ·{' '}
+              <kbd className="rounded border bg-muted px-1 py-0.5 font-sans text-[10px]">Shift+Enter</kbd> for new line
+            </span>
+            <Button size="sm" onClick={() => void handleSend()} disabled={isSending || !input.trim()}>
+              {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </Button>
+          </div>
         </div>
       </TabsContent>
     </Tabs>

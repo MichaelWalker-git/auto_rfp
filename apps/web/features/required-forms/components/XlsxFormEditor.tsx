@@ -10,6 +10,7 @@ import {
   FIELD_LOCATOR_ATTR,
   CELL_LOCATOR_ATTR,
 } from '@/features/compliance-review';
+import { FormVersionHistory, FormSidebarTabs, type FormSidebarTab } from '@/features/package-edit';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -60,6 +61,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
   const [editingCell, setEditingCell] = useState<{ row: number; col: number } | null>(null);
   const [editingSidebarField, setEditingSidebarField] = useState<string | null>(null);
   const [sidebarValues, setSidebarValues] = useState<Record<string, string>>({});
+  const [sidebarTab, setSidebarTab] = useState<FormSidebarTab>('fields');
   const [exporting, setExporting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isDirty, setIsDirty] = useState(false);
@@ -511,11 +513,24 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
         {/* Right: Field sidebar — same light-surface pinning as the grid. */}
         <div className="border-l flex flex-col overflow-hidden bg-white text-gray-900 shrink-0" style={{ width: sidebarWidth }}>
           <div className="px-4 py-3 border-b bg-gray-50/80 shrink-0">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-gray-700">Fields</p>
-              <p className="text-[10px] text-gray-500">{activeSheetFields.filter((f) => f.value).length}/{activeSheetFields.length} filled</p>
+            <div className="flex items-center justify-between gap-2">
+              <FormSidebarTabs value={sidebarTab} onChange={setSidebarTab} />
+              {sidebarTab === 'fields' && (
+                <p className="text-[10px] text-gray-500">{activeSheetFields.filter((f) => f.value).length}/{activeSheetFields.length} filled</p>
+              )}
             </div>
           </div>
+          {sidebarTab === 'history' ? (
+            <div className="flex-1 overflow-y-auto p-3">
+              <FormVersionHistory
+                orgId={orgId}
+                projectId={doc.projectId}
+                oppId={doc.opportunityId}
+                formId={doc.formId}
+                onReverted={() => onFieldUpdated?.()}
+              />
+            </div>
+          ) : (
           <div className="flex-1 overflow-y-auto">
             {activeSheetFields.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-6">No editable fields detected.</p>
@@ -567,6 +582,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
               })
             )}
           </div>
+          )}
         </div>
       </div>
       <ConfirmDialog />

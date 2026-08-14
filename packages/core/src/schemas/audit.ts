@@ -143,6 +143,15 @@ export const AuditActionSchema = z.enum([
   'COMPLIANCE_FINDING_DISMISSED',
   'COMPLIANCE_FINDING_RESOLVED',
   'COMPLIANCE_FINDING_DECISION_CLEARED',
+  // Cross-package AI editing ("Mass Edit")
+  'PACKAGE_EDIT_PROPOSAL_STARTED',
+  'PACKAGE_EDIT_PROPOSAL_COMPLETED',
+  'PACKAGE_EDIT_PROPOSAL_FAILED',
+  'PACKAGE_EDIT_APPLIED',
+  // Required-form version history
+  'FORM_VERSION_REVERTED',
+  // Questionnaire version history
+  'QUESTIONNAIRE_VERSION_REVERTED',
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 
@@ -191,6 +200,10 @@ export const AuditResourceSchema = z.enum([
   'compliance_review_chat',
   'compliance_review_run',
   'compliance_review_finding',
+  // Cross-package AI editing + required-form versioning
+  'package_edit_run',
+  'required_form',
+  'required_form_version',
 ]);
 export type AuditResource = z.infer<typeof AuditResourceSchema>;
 
