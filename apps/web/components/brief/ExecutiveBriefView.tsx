@@ -1112,6 +1112,7 @@ export function ExecutiveBriefView({
                 <DecisionCard
                   projectName={project.name}
                   projectId={projectId}
+                  opportunityId={selectedOpportunityId || undefined}
                   orgId={currentOrganization?.id}
                   summary={summary}
                   briefItem={briefItem}
