@@ -328,6 +328,13 @@ export const SearchOpportunityForm = ({ orgId, onSearch, isLoading, initialValue
     !!(w.closingFrom || w.closingTo),
   ].filter(Boolean).length;
 
+  // HigherGov can't filter by keyword/NAICS/set-aside directly — those only work
+  // through a saved search (search_id). Warn before the user runs a doomed search.
+  const higherGovNeedsSearchId =
+    w.source === 'HIGHER_GOV' &&
+    !w.higherGovSearchId?.trim() &&
+    !!(w.keywords?.trim() || (w.naics?.length ?? 0) > 0 || w.setAsideCode);
+
   const buildCriteria = (v: FormValues): SearchOpportunityCriteria => ({
     keywords:     v.keywords?.trim() || undefined,
     naics:        v.naics?.length ? v.naics : undefined,
@@ -546,6 +553,18 @@ export const SearchOpportunityForm = ({ orgId, onSearch, isLoading, initialValue
           </div>
         )}
       </div>
+
+      {/* ── HigherGov keyword-search guidance ── */}
+      {higherGovNeedsSearchId && (
+        <p className="flex items-start gap-1.5 text-xs text-amber-700">
+          <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          <span>
+            HigherGov can't filter by keyword, NAICS, or set-aside directly. Build the search on{' '}
+            <a href="https://www.highergov.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-900">HigherGov</a>,
+            then paste its Search ID into the <span className="font-medium">HigherGov ID</span> field above.
+          </span>
+        </p>
+      )}
     </form>
   );
 };

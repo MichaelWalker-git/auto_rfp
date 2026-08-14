@@ -33,6 +33,24 @@ jest.mock('@/helpers/search-opportunity', () => ({
   searchDibbsOpportunities: (...args: unknown[]) => mockSearchDibbs(...args),
   searchHigherGovOpportunities: (...args: unknown[]) => mockSearchHigherGov(...args),
   withSourceTimeout: (...args: unknown[]) => mockWithSourceTimeout(...args),
+  HIGHERGOV_TIMEOUT_MS: 22_000,
+}));
+
+// HigherGov saved-search (search_id) requests now flow through an async cache +
+// background worker rather than an inline API call, so both are mocked here.
+const mockGetCache = jest.fn();
+const mockIsStale = jest.fn();
+const mockMarkPending = jest.fn();
+jest.mock('@/helpers/highergov-search-cache', () => ({
+  getHigherGovSearchCache: (...args: unknown[]) => mockGetCache(...args),
+  isHigherGovSearchCacheStale: (...args: unknown[]) => mockIsStale(...args),
+  markHigherGovSearchPending: (...args: unknown[]) => mockMarkPending(...args),
+}));
+
+const mockLambdaSend = jest.fn();
+jest.mock('@aws-sdk/client-lambda', () => ({
+  LambdaClient: jest.fn(() => ({ send: mockLambdaSend })),
+  InvokeCommand: jest.fn((params) => ({ type: 'Invoke', params })),
 }));
 
 jest.mock('@auto-rfp/core', () => ({
@@ -47,7 +65,11 @@ jest.mock('@/helpers/env', () => ({
 
 jest.mock('@/constants/samgov', () => ({ SAM_GOV_SECRET_PREFIX: 'sam' }));
 jest.mock('@/constants/dibbs', () => ({ DIBBS_SECRET_PREFIX: 'dibbs' }));
-jest.mock('@/constants/highergov', () => ({ HIGHERGOV_SECRET_PREFIX: 'hg', HIGHERGOV_BASE_URL: 'https://highergov.com' }));
+jest.mock('@/constants/highergov', () => ({
+  HIGHERGOV_SECRET_PREFIX: 'hg',
+  HIGHERGOV_BASE_URL: 'https://highergov.com',
+  HIGHERGOV_SEARCH_WORKER_FUNCTION_NAME_ENV: 'HIGHERGOV_SEARCH_FUNCTION_NAME',
+}));
 
 import type { APIGatewayProxyEventV2 } from 'aws-lambda';
 import { baseHandler } from './search';
@@ -60,21 +82,35 @@ const makeEvent = (body: object, orgId = 'org-1'): APIGatewayProxyEventV2 =>
     pathParameters: {},
   }) as unknown as APIGatewayProxyEventV2;
 
+/** A READY cache row so a search_id search returns HigherGov results inline. */
+const readyCache = (opportunities: unknown[], totalCount: number) => ({
+  status: 'READY',
+  opportunities,
+  totalCount,
+  error: null,
+});
+
 describe('search handler', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockGetApiKey.mockResolvedValue('key-123');
     mockWithSourceTimeout.mockImplementation((promise: Promise<unknown>) => promise);
+    // Default: no cache row, stale (→ triggers a worker + pending).
+    mockGetCache.mockResolvedValue(null);
+    mockIsStale.mockReturnValue(true);
+    mockMarkPending.mockResolvedValue(undefined);
+    mockLambdaSend.mockResolvedValue({});
+    process.env.HIGHERGOV_SEARCH_FUNCTION_NAME = 'test-worker';
   });
 
   it('returns partial results when one source times out', async () => {
     mockSearchSam.mockResolvedValue({ totalRecords: 2, opportunities: [{ id: '1' }, { id: '2' }] });
     mockSearchDibbs.mockRejectedValue(new Error('DIBBS is responding slowly. Please try again later.'));
-    mockSearchHigherGov.mockResolvedValue({ totalCount: 1, results: [{ id: '3' }] });
+    // HigherGov is served from a READY cache row via its saved search_id.
+    mockGetCache.mockResolvedValue(readyCache([{ id: '3', source: 'HIGHER_GOV' }], 1));
+    mockIsStale.mockReturnValue(false);
 
-    mockWithSourceTimeout.mockImplementation((promise: Promise<unknown>) => promise);
-
-    const result = await baseHandler(makeEvent({ source: 'ALL', keywords: 'test' }));
+    const result = await baseHandler(makeEvent({ source: 'ALL', keywords: 'test', higherGovSearchId: 'saved-1' }));
     const body = JSON.parse((result as { body: string }).body);
 
     expect(body.errors).toEqual({ DIBBS: 'DIBBS is responding slowly. Please try again later.' });
@@ -84,81 +120,151 @@ describe('search handler', () => {
     expect(body.totalHigherGov).toBe(1);
   });
 
-  it('returns all errors when all sources fail', async () => {
+  it('returns SAM/DIBBS errors and a pending flag when the HigherGov cache is cold', async () => {
     mockSearchSam.mockRejectedValue(new Error('SAM.gov is responding slowly. Please try again later.'));
     mockSearchDibbs.mockRejectedValue(new Error('DIBBS is responding slowly. Please try again later.'));
-    mockSearchHigherGov.mockRejectedValue(new Error('HigherGov is responding slowly. Please try again later.'));
+    // Cold cache → HigherGov goes async; no inline error, just pending.
 
-    const result = await baseHandler(makeEvent({ source: 'ALL', keywords: 'test' }));
+    const result = await baseHandler(makeEvent({ source: 'ALL', keywords: 'test', higherGovSearchId: 'saved-1' }));
     const body = JSON.parse((result as { body: string }).body);
 
     expect(body.opportunities).toEqual([]);
-    expect(body.total).toBe(0);
+    expect(body.higherGovPending).toBe(true);
     expect(body.errors).toEqual({
       SAM_GOV: 'SAM.gov is responding slowly. Please try again later.',
       DIBBS: 'DIBBS is responding slowly. Please try again later.',
-      HIGHER_GOV: 'HigherGov is responding slowly. Please try again later.',
     });
   });
 
-  it('calls withSourceTimeout for each source', async () => {
-    const samPromise = Promise.resolve({ totalRecords: 0, opportunities: [] });
-    const dibbsPromise = Promise.resolve({ totalRecords: 0, opportunities: [] });
-    const hgPromise = Promise.resolve({ totalCount: 0, results: [] });
+  it('calls withSourceTimeout for the inline sources (SAM, DIBBS, date-only HigherGov)', async () => {
+    mockSearchSam.mockReturnValue(Promise.resolve({ totalRecords: 0, opportunities: [] }));
+    mockSearchDibbs.mockReturnValue(Promise.resolve({ totalRecords: 0, opportunities: [] }));
+    mockSearchHigherGov.mockReturnValue(Promise.resolve({ totalCount: 0, results: [] }));
 
-    mockSearchSam.mockReturnValue(samPromise);
-    mockSearchDibbs.mockReturnValue(dibbsPromise);
-    mockSearchHigherGov.mockReturnValue(hgPromise);
-    mockWithSourceTimeout.mockImplementation((p: Promise<unknown>) => p);
-
-    await baseHandler(makeEvent({ source: 'ALL', keywords: 'infra' }));
+    // No search_id + no keyword filters → HigherGov runs inline (date-only path).
+    await baseHandler(makeEvent({ source: 'ALL', postedFrom: '01/01/2025' }));
 
     expect(mockWithSourceTimeout).toHaveBeenCalledTimes(3);
     expect(mockWithSourceTimeout).toHaveBeenCalledWith(expect.anything(), 'SAM.gov');
     expect(mockWithSourceTimeout).toHaveBeenCalledWith(expect.anything(), 'DIBBS');
-    expect(mockWithSourceTimeout).toHaveBeenCalledWith(expect.anything(), 'HigherGov');
+    // HigherGov's inline path gets a longer timeout — its API responds in 12–15s.
+    expect(mockWithSourceTimeout).toHaveBeenCalledWith(expect.anything(), 'HigherGov', 22_000);
   });
 
   it('does not include errors field when all sources succeed', async () => {
     mockSearchSam.mockResolvedValue({ totalRecords: 1, opportunities: [{ id: '1' }] });
     mockSearchDibbs.mockResolvedValue({ totalRecords: 1, opportunities: [{ id: '2' }] });
-    mockSearchHigherGov.mockResolvedValue({ totalCount: 1, results: [{ id: '3' }] });
+    mockGetCache.mockResolvedValue(readyCache([{ id: '3', source: 'HIGHER_GOV' }], 1));
+    mockIsStale.mockReturnValue(false);
 
-    const result = await baseHandler(makeEvent({ source: 'ALL', keywords: 'test' }));
+    const result = await baseHandler(makeEvent({ source: 'ALL', keywords: 'test', higherGovSearchId: 'saved-1' }));
     const body = JSON.parse((result as { body: string }).body);
 
     expect(body.errors).toBeUndefined();
     expect(body.opportunities.length).toBe(3);
+    expect(body.higherGovPending).toBeUndefined();
   });
 
-  it('forwards a search_id and drops the filters it already encodes', async () => {
-    mockSearchHigherGov.mockResolvedValue({ totalCount: 0, results: [] });
-    mockWithSourceTimeout.mockImplementation((p: Promise<unknown>) => p);
+  it('returns cached HigherGov results instantly without invoking the worker', async () => {
+    mockGetCache.mockResolvedValue(readyCache([{ id: 'A', source: 'HIGHER_GOV' }, { id: 'B', source: 'HIGHER_GOV' }], 2));
+    mockIsStale.mockReturnValue(false);
 
-    await baseHandler(makeEvent({
-      source: 'HIGHER_GOV',
-      keywords: 'ignored when a search id is present',
-      higherGovSearchId: 'BWr0PdG39B6mX8cG47AQ8',
-    }));
+    const result = await baseHandler(makeEvent({ source: 'HIGHER_GOV', higherGovSearchId: 'saved-1' }));
+    const body = JSON.parse((result as { body: string }).body);
 
-    const [, params] = mockSearchHigherGov.mock.calls[0] as [unknown, Record<string, unknown>];
-    expect(params.searchId).toBe('BWr0PdG39B6mX8cG47AQ8');
-    // The search_id already encodes its own keywords, filters and date range.
-    expect(params.keywords).toBeUndefined();
-    expect(params.sourceType).toBeUndefined();
-    expect(params.postedDate).toBeUndefined();
+    expect(mockSearchHigherGov).not.toHaveBeenCalled();
+    expect(mockLambdaSend).not.toHaveBeenCalled();
+    expect(mockMarkPending).not.toHaveBeenCalled();
+    expect(body.totalHigherGov).toBe(2);
+    expect(body.opportunities.length).toBe(2);
+    expect(body.higherGovPending).toBeUndefined();
   });
 
-  it('keeps keyword filters when there is no search_id', async () => {
+  it('kicks off the worker and reports pending on a cold HigherGov cache', async () => {
+    mockGetCache.mockResolvedValue(null);
+    mockIsStale.mockReturnValue(true);
+
+    const result = await baseHandler(makeEvent({ source: 'HIGHER_GOV', higherGovSearchId: 'saved-1' }));
+    const body = JSON.parse((result as { body: string }).body);
+
+    expect(mockMarkPending).toHaveBeenCalledWith('org-1', 'saved-1', expect.any(String), expect.any(Number));
+    expect(mockLambdaSend).toHaveBeenCalledTimes(1);
+    const invokeArg = mockLambdaSend.mock.calls[0][0] as { params: { FunctionName: string; InvocationType: string; Payload: Buffer } };
+    expect(invokeArg.params.FunctionName).toBe('test-worker');
+    expect(invokeArg.params.InvocationType).toBe('Event');
+    expect(JSON.parse(invokeArg.params.Payload.toString())).toEqual({ orgId: 'org-1', searchId: 'saved-1', pageSize: 25 });
+    expect(body.higherGovPending).toBe(true);
+    expect(body.opportunities).toEqual([]);
+  });
+
+  it('does not re-invoke the worker while a fresh PENDING row exists', async () => {
+    mockGetCache.mockResolvedValue({ status: 'PENDING', opportunities: [], totalCount: 0, error: null });
+    mockIsStale.mockReturnValue(false); // fresh pending — worker already running
+
+    const result = await baseHandler(makeEvent({ source: 'HIGHER_GOV', higherGovSearchId: 'saved-1' }));
+    const body = JSON.parse((result as { body: string }).body);
+
+    expect(mockMarkPending).not.toHaveBeenCalled();
+    expect(mockLambdaSend).not.toHaveBeenCalled();
+    expect(body.higherGovPending).toBe(true);
+  });
+
+  it('surfaces a HigherGov worker error from the cache row', async () => {
+    mockGetCache.mockResolvedValue({ status: 'ERROR', opportunities: [], totalCount: 0, error: 'HigherGov API 500: boom' });
+    mockIsStale.mockReturnValue(false);
+
+    const result = await baseHandler(makeEvent({ source: 'HIGHER_GOV', higherGovSearchId: 'saved-1' }));
+    const body = JSON.parse((result as { body: string }).body);
+
+    expect(mockLambdaSend).not.toHaveBeenCalled();
+    expect(body.errors.HIGHER_GOV).toBe('HigherGov API 500: boom');
+    expect(body.higherGovPending).toBeUndefined();
+  });
+
+  it('short-circuits a HigherGov keyword search with no search_id', async () => {
+    // HigherGov has no keyword filter — a bare keyword search would time out and
+    // return nothing, so we skip the call and return actionable guidance instead.
+    const result = await baseHandler(makeEvent({ source: 'HIGHER_GOV', keywords: 'document processing' }));
+    const body = JSON.parse((result as { body: string }).body);
+
+    expect(mockSearchHigherGov).not.toHaveBeenCalled();
+    expect(mockLambdaSend).not.toHaveBeenCalled();
+    expect(body.opportunities).toEqual([]);
+    expect(body.totalHigherGov).toBe(0);
+    expect(body.errors.HIGHER_GOV).toMatch(/requires a saved search/i);
+  });
+
+  it('short-circuits a HigherGov NAICS/set-aside search with no search_id', async () => {
+    const result = await baseHandler(makeEvent({ source: 'HIGHER_GOV', naics: ['541511'] }));
+    const body = JSON.parse((result as { body: string }).body);
+
+    expect(mockSearchHigherGov).not.toHaveBeenCalled();
+    expect(body.errors.HIGHER_GOV).toMatch(/requires a saved search/i);
+  });
+
+  it('runs HigherGov inline without a search_id when no keyword filters are set', async () => {
+    // A date-only / unfiltered HigherGov search is still valid against the API.
     mockSearchHigherGov.mockResolvedValue({ totalCount: 0, results: [] });
-    mockWithSourceTimeout.mockImplementation((p: Promise<unknown>) => p);
 
-    await baseHandler(makeEvent({ source: 'HIGHER_GOV', keywords: 'document processing' }));
+    const result = await baseHandler(makeEvent({ source: 'HIGHER_GOV' }));
+    const body = JSON.parse((result as { body: string }).body);
 
-    const [, params] = mockSearchHigherGov.mock.calls[0] as [unknown, Record<string, unknown>];
-    expect(params.pageSize).toBe(25);
-    expect(params.keywords).toBe('document processing');
-    expect(params.searchId).toBeUndefined();
+    expect(mockSearchHigherGov).toHaveBeenCalledTimes(1);
+    expect(mockLambdaSend).not.toHaveBeenCalled();
+    expect(body.errors).toBeUndefined();
+  });
+
+  it('does not flag guidance for a bare keyword search in ALL mode', async () => {
+    // SAM/DIBBS carry the keyword search; HigherGov silently skips without a banner.
+    mockSearchSam.mockResolvedValue({ totalRecords: 1, opportunities: [{ id: '1' }] });
+    mockSearchDibbs.mockResolvedValue({ totalRecords: 0, opportunities: [] });
+
+    const result = await baseHandler(makeEvent({ source: 'ALL', keywords: 'document processing' }));
+    const body = JSON.parse((result as { body: string }).body);
+
+    expect(mockSearchHigherGov).not.toHaveBeenCalled();
+    expect(body.errors).toBeUndefined();
+    expect(body.opportunities.length).toBe(1);
   });
 
   it('skips source when no API key is configured', async () => {

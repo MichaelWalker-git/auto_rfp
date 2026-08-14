@@ -892,6 +892,54 @@ export class ApiOrchestratorStack extends cdk.Stack {
     // Pass the function name to every downstream route Lambda via commonEnv.
     sharedInfraStack.commonEnv.RASTERIZE_PDF_FUNCTION_NAME = rasterizePdfFunctionName;
 
+    // ─── HigherGov async search worker ────────────────────────────────────
+    // HigherGov's /opportunity/ API takes ~30s+ for some saved searches, past
+    // the API Gateway 30s ceiling — so a search_id search can't complete inline.
+    // This worker (not fronted by API Gateway) performs the fetch fire-and-forget
+    // and writes results to a DynamoDB cache row the search handler reads and the
+    // frontend polls. Created before the domain stacks so its name lands in
+    // commonEnv first. 60s timeout gives headroom over the observed ~32s fetch.
+    const higherGovSearchFunctionName = `auto-rfp-highergov-search-${stage}`;
+    new lambdaNodejs.NodejsFunction(this, `HigherGovSearchWorker-${stage}`, {
+      functionName: higherGovSearchFunctionName,
+      entry: path.join(__dirname, '../../../apps/functions/src/handlers/search-opportunity/highergov-search-worker.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      // 120s: HigherGov's /opportunity/ has been observed as slow as ~60s on a
+      // cold saved-search fetch (fast, ~34s, once warm). Headroom over the worst
+      // case lets the fetch finish in one invocation instead of relying on
+      // Lambda's async retry (which pushes first-paste results out to ~90s+).
+      timeout: cdk.Duration.seconds(120),
+      memorySize: 512,
+      role: sharedInfraStack.commonLambdaRole,
+      environment: { ...commonEnv },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        externalModules: ['@aws-sdk/*', '@smithy/*'],
+      },
+    });
+
+    new logs.LogGroup(this, `HigherGovSearchWorkerLogs-${stage}`, {
+      logGroupName: `/aws/lambda/${higherGovSearchFunctionName}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Allow the shared Lambda role to invoke the worker (string-built ARN to
+    // avoid a SharedInfra ⇄ worker dependency cycle — same reasoning as above).
+    sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        sid: 'InvokeHigherGovSearchWorker',
+        actions: ['lambda:InvokeFunction'],
+        resources: [
+          `arn:aws:lambda:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:function:${higherGovSearchFunctionName}`,
+        ],
+      }),
+    );
+
+    sharedInfraStack.commonEnv.HIGHERGOV_SEARCH_FUNCTION_NAME = higherGovSearchFunctionName;
+
     // 4. Create nested stacks per domain (Lambda + LogGroup + Route registration)
     //    Each nested stack stays under CloudFormation's 500 resource limit.
     //    Routes are HttpApi routes (no resource tree limit like REST API).

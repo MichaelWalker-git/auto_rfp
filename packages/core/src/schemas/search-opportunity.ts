@@ -654,3 +654,45 @@ export const ImportHigherGovRequestSchema = z.object({
 });
 
 export type ImportHigherGovRequest = z.infer<typeof ImportHigherGovRequestSchema>;
+
+// ─── HigherGov async search cache ────────────────────────────────────────────
+
+/**
+ * HigherGov's `/opportunity/` API takes ~30s+ for some saved searches, which
+ * exceeds the API Gateway 30s ceiling — so a search_id search can NEVER complete
+ * inline. Instead a background worker performs the fetch and writes the results
+ * to this cache row; the search handler reads the row and the frontend polls
+ * until the status leaves `PENDING`.
+ */
+export const HigherGovSearchCacheStatusSchema = z.enum(['PENDING', 'READY', 'ERROR']);
+export type HigherGovSearchCacheStatus = z.infer<typeof HigherGovSearchCacheStatusSchema>;
+
+export const HigherGovSearchCacheSchema = z.object({
+  orgId:        z.string().min(1),
+  /** HigherGov saved-search ID (search_id) this cache row is keyed by. */
+  searchId:     z.string().min(1),
+  status:       HigherGovSearchCacheStatusSchema,
+  opportunities: z.array(SearchOpportunitySchema).default([]),
+  totalCount:   z.number().int().nonnegative().default(0),
+  /** Present only when status is ERROR. */
+  error:        z.string().nullable().default(null),
+  /** ISO timestamp the worker started the fetch — used to detect a stale PENDING. */
+  startedAt:    z.string().datetime().nullable().default(null),
+  /** ISO timestamp the results (or error) were written. */
+  completedAt:  z.string().datetime().nullable().default(null),
+});
+
+export type HigherGovSearchCache = z.infer<typeof HigherGovSearchCacheSchema>;
+
+/**
+ * Fire-and-forget payload the search handler sends to the HigherGov search
+ * worker. `pageSize` mirrors the request limit so the cached slice matches what
+ * the user asked for.
+ */
+export const HigherGovSearchJobSchema = z.object({
+  orgId:    z.string().min(1),
+  searchId: z.string().min(1),
+  pageSize: z.number().int().positive().max(100).default(25),
+});
+
+export type HigherGovSearchJob = z.infer<typeof HigherGovSearchJobSchema>;
