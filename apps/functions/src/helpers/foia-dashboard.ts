@@ -10,10 +10,11 @@ import {
 } from '@auto-rfp/core';
 import type { FoiaAutomationDBItem, OpportunityDBItem } from '@auto-rfp/core';
 
+import { OPPORTUNITY_PK } from '@/constants/opportunity';
 import { nowIso } from '@/helpers/date';
+import { queryAllBySkPrefix } from '@/helpers/db';
 import { listFoiaAutomationsByOrg } from '@/helpers/foia-automation';
 import { listFoiaRequestsByOrg } from '@/helpers/foia';
-import { listOpportunitiesByOrg } from '@/helpers/opportunity';
 
 /**
  * Aggregates the org-wide FOIA comparison dashboard.
@@ -65,10 +66,34 @@ export const buildFoiaDashboard = async (
    * partial totals is worse than one that errors, because a reader cannot tell an
    * empty bucket from a failed query.
    */
-  const [automations, requests, opportunityResult] = await Promise.all([
+  const [automations, requests, opportunities] = await Promise.all([
     listFoiaAutomationsByOrg(orgId),
     listFoiaRequestsByOrg(orgId),
-    listOpportunitiesByOrg({ orgId }),
+    /**
+     * A PROJECTED query, not `listOpportunitiesByOrg`.
+     *
+     * Two reasons, both measured against the largest real org (516 opportunities):
+     *
+     * 1. That helper appends `enrichWithUserNames`, an extra query against the USER
+     *    partition to attach `createdByName`/`updatedByName`. This dashboard reads
+     *    neither, so it is a round trip for data nobody displays.
+     *
+     * 2. Far more important: an opportunity row carries extracted document text and
+     *    other bulk fields. Reading every attribute pulls **1.6 MB** over the wire to
+     *    compute a handful of counts; the projection below is **146 KB**. Measured
+     *    3,282ms unprojected vs 406ms projected — an 8x difference that grows with
+     *    every document attached to an opportunity.
+     *
+     * Keep this list minimal. Adding an attribute here is not free, and the fields
+     * below are exactly what the bucketing, pricing and score projections consume.
+     */
+    queryAllBySkPrefix<OpportunityDBItem>(
+      OPPORTUNITY_PK,
+      `${orgId}#`,
+      'oppId,projectId,title,#status,lossData,winData,outcomeDate,organizationName,solicitationNumber',
+      // `status` is a DynamoDB reserved word, so it must go through an alias.
+      { '#status': 'status' },
+    ),
   ]);
 
   const automationByOpp = new Map<string, FoiaAutomationDBItem>();
@@ -81,7 +106,7 @@ export const buildFoiaDashboard = async (
   const pricingRows: FoiaPricingComparison[] = [];
   const scoreRows: FoiaScoreComparison[] = [];
 
-  for (const opp of opportunityResult.items) {
+  for (const opp of opportunities) {
     const { oppId, projectId } = opp;
     if (!oppId || !projectId) continue;
 
