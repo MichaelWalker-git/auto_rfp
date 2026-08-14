@@ -53,6 +53,20 @@ export const listFoiaRequests = async (
   );
 
 /**
+ * List every FOIA request in an organization, across all projects.
+ *
+ * The single-table SK is `{orgId}#{projectId}#{oppId}#{foiaId}`, so an org-wide read
+ * is just a shorter prefix — no GSI and no scan. Mirrors `listFoiaAutomationsByOrg`.
+ *
+ * `listFoiaRequests` cannot serve this: it requires a projectId and an oppId, which
+ * an org-wide dashboard does not have.
+ */
+export const listFoiaRequestsByOrg = async (
+  orgId: string,
+): Promise<DBFOIARequestItem[]> =>
+  queryAllBySkPrefix<DBFOIARequestItem>(FOIA_REQUEST_PK, `${orgId}#`);
+
+/**
  * Generic field update for FOIA request records — a dynamic SET patch that does
  * not pass through the handler's UPDATABLE_FIELDS allowlist.
  *
