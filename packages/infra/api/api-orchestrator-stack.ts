@@ -62,6 +62,7 @@ import { complianceReviewDomain } from './routes/compliance-review.routes';
 import { companyProfileDomain } from './routes/company-profile.routes';
 import { requiredFormsDomain } from './routes/required-forms.routes';
 import { dashboardDomain } from './routes/dashboard.routes';
+import { solutionPlanDomain } from './routes/solution-plan.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -202,8 +203,28 @@ export class ApiOrchestratorStack extends cdk.Stack {
       deadLetterQueue: { queue: complianceReviewDlq, maxReceiveCount: 1 },
     });
 
+    // ─── Solution Plan queue (async grilling loop, step-per-round) ────────
+    // Owned by this stack (self-contained), like the compliance review queue.
+    const solutionPlanDlq = new sqs.Queue(this, `SolutionPlanDLQ-${stage}`, {
+      queueName: `auto-rfp-solution-plan-dlq-${stage}`,
+      retentionPeriod: cdk.Duration.days(14),
+    });
+    const solutionPlanQueue = new sqs.Queue(this, `SolutionPlanQueue-${stage}`, {
+      queueName: `auto-rfp-solution-plan-${stage}`,
+      // Must be >= the worker Lambda timeout so a message isn't redelivered mid-run.
+      visibilityTimeout: cdk.Duration.minutes(16),
+      // One grilling round is an expensive model job and the worker marks the
+      // plan FAILED on error — one attempt, then DLQ. The user retries via re-init.
+      deadLetterQueue: { queue: solutionPlanDlq, maxReceiveCount: 1 },
+    });
+
     const commonEnv: Record<string, string> = {
       STAGE: stage,
+      // Solution Plan grilling loop — REST init enqueues, the worker re-enqueues each round.
+      SOLUTION_PLAN_QUEUE_URL: solutionPlanQueue.queueUrl,
+      // Solution Plan generation gate kill switch (T9) — deploy with
+      // SOLUTION_PLAN_GATING=off to disable the gate stage-wide.
+      SOLUTION_PLAN_GATING: process.env.SOLUTION_PLAN_GATING || 'on',
       // AI compliance review — fast model for sync chat, stronger model for the async worker.
       COMPLIANCE_REVIEW_CHAT_MODEL_ID: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
       COMPLIANCE_REVIEW_WORKER_MODEL_ID: 'us.anthropic.claude-sonnet-4-6',
@@ -687,6 +708,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       companyProfileDomain(),
       requiredFormsDomain(),
       dashboardDomain(),
+      solutionPlanDomain(),
     ];
 
     // ─── Compliance Review worker ─────────────────────────────────────────
@@ -715,6 +737,46 @@ export class ApiOrchestratorStack extends cdk.Stack {
       }),
     );
     complianceReviewQueue.grantConsumeMessages(complianceReviewWorker);
+
+    // ─── Solution Plan worker ─────────────────────────────────────────────
+    // Processes one grilling round (or the final synthesis) per SQS message.
+    // REST handlers enqueue round 1 via SOLUTION_PLAN_QUEUE_URL (in commonEnv);
+    // the worker re-enqueues the next round itself (step-per-round, T6).
+    solutionPlanQueue.grantSendMessages(sharedInfraStack.commonLambdaRole);
+    const solutionPlanWorker = new lambdaNodejs.NodejsFunction(this, `SolutionPlanWorker-${stage}`, {
+      functionName: `auto-rfp-solution-plan-worker-${stage}`,
+      entry: path.join(__dirname, '../../../apps/functions/src/handlers/solution-plan/solution-plan-worker.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.minutes(10), // < queue visibility timeout (16m)
+      memorySize: 1024,
+      role: sharedInfraStack.commonLambdaRole,
+      environment: {
+        ...commonEnv,
+        // Tech Lead + Synthesizer fall back to BEDROCK_MODEL_ID; the no-tools
+        // Griller turns run on the cheaper fast model.
+        SOLUTION_PLAN_GRILLER_MODEL_ID: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+        SOLUTION_PLAN_MAX_ROUNDS: '4',
+      },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        externalModules: ['@aws-sdk/*', '@smithy/*'],
+      },
+    });
+    solutionPlanWorker.addEventSource(
+      new lambdaEventSources.SqsEventSource(solutionPlanQueue, {
+        batchSize: 1,
+        reportBatchItemFailures: true,
+      }),
+    );
+    solutionPlanQueue.grantConsumeMessages(solutionPlanWorker);
+
+    new logs.LogGroup(this, `SolutionPlanWorkerLogs-${stage}`, {
+      logGroupName: `/aws/lambda/auto-rfp-solution-plan-worker-${stage}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
 
     // ─── Rasterize PDF worker ─────────────────────────────────────────────
     // Owns the heavy pdfjs-dist + @napi-rs/canvas deps so callers
@@ -788,6 +850,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'CompanyProfileRoutes',
       'RequiredFormsRoutes',
       'DashboardRoutes',
+      'SolutionPlanRoutes',
     ];
 
     // allDomains and domainStackNames are mapped 1:1 by index. A mismatch silently

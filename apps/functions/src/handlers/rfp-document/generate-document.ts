@@ -16,7 +16,8 @@ import {
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
-import { putRFPDocument, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
+import { getRFPDocument, putRFPDocument, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
+import { checkSolutionPlanGate } from '@/helpers/solution-plan-gate';
 import { enqueueDocumentGeneration } from '@/helpers/document-generation-queue';
 import { nowIso } from '@/helpers/date';
 import { PK_NAME, SK_NAME } from '@/constants/common';
@@ -71,6 +72,19 @@ export const baseHandler = async (
 
     if (existingDocumentId) {
       // ── Regenerate: reuse existing document, reset status to GENERATING ──
+      // Not gated: a verified-existing document grandfathers the opportunity
+      // (ADR-10), and retrying a FAILED generation must keep working. The
+      // existence check matters — updateRFPDocumentMetadata upserts, so an
+      // unverified documentId would create a phantom record and bypass the gate.
+      const existingDocument = await getRFPDocument(
+        projectId,
+        effectiveOpportunityId,
+        existingDocumentId,
+      );
+      if (!existingDocument) {
+        return apiResponse(404, { message: 'Document not found' });
+      }
+
       documentId = existingDocumentId;
       await updateRFPDocumentMetadata({
         projectId,
@@ -80,6 +94,22 @@ export const baseHandler = async (
         updatedBy: userId ?? 'system',
       });
     } else {
+      // ── Solution Plan gate (T9): gated types require a READY plan ──
+      const { allowed, solutionPlanStatus } = await checkSolutionPlanGate({
+        orgId,
+        projectId,
+        opportunityId: effectiveOpportunityId,
+        documentType,
+      });
+      if (!allowed) {
+        return apiResponse(409, {
+          message:
+            'A ready Solution Plan is required before generating this document type. Create a Solution Plan for this opportunity first.',
+          code: 'SOLUTION_PLAN_REQUIRED',
+          solutionPlanStatus,
+        });
+      }
+
       // ── New document: create a placeholder with status GENERATING ──
       documentId = uuidv4();
       const now = nowIso();
@@ -128,7 +158,7 @@ export const baseHandler = async (
     });
 
     // 4. Return 202 Accepted
-    
+
     setAuditContext(event, {
       action: 'AI_GENERATION_STARTED',
       resource: 'document',

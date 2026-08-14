@@ -56,6 +56,55 @@ describe('pricing schemas', () => {
       expect(success).toBe(true);
       expect(data?.expirationDate).toBeUndefined();
     });
+
+    it('should validate with an optional offshore buildup', () => {
+      const { success, data } = LaborRateSchema.safeParse({
+        ...validLaborRate,
+        offshoreBaseRate: 30,
+        offshoreOverhead: 100,
+        offshoreGa: 10,
+        offshoreProfit: 10,
+        offshoreFullyLoadedRate: 72.6,
+        offshoreRateJustification: 'India delivery center',
+      });
+      expect(success).toBe(true);
+      expect(data?.offshoreFullyLoadedRate).toBe(72.6);
+    });
+
+    it('should treat offshore fields as optional', () => {
+      const { success, data } = LaborRateSchema.safeParse(validLaborRate);
+      expect(success).toBe(true);
+      expect(data?.offshoreFullyLoadedRate).toBeUndefined();
+      expect(data?.offshoreBaseRate).toBeUndefined();
+    });
+
+    it('should reject a negative offshore base rate', () => {
+      const { success } = LaborRateSchema.safeParse({ ...validLaborRate, offshoreBaseRate: -5 });
+      expect(success).toBe(false);
+    });
+
+    it('should accept a date-only effectiveDate and normalize to datetime', () => {
+      const { success, data } = LaborRateSchema.safeParse({ ...validLaborRate, effectiveDate: '2026-08-05' });
+      expect(success).toBe(true);
+      expect(data?.effectiveDate).toBe('2026-08-05T00:00:00.000Z');
+    });
+
+    it('should accept a date-only expirationDate', () => {
+      const { success, data } = LaborRateSchema.safeParse({ ...validLaborRate, expirationDate: '2027-01-01' });
+      expect(success).toBe(true);
+      expect(data?.expirationDate).toBe('2027-01-01T00:00:00.000Z');
+    });
+
+    it('should reject an invalid calendar date in effectiveDate', () => {
+      expect(LaborRateSchema.safeParse({ ...validLaborRate, effectiveDate: '2026-13-45' }).success).toBe(false);
+      expect(LaborRateSchema.safeParse({ ...validLaborRate, effectiveDate: '2025-02-29' }).success).toBe(false);
+    });
+
+    it('should accept a valid leap-year date', () => {
+      const { success, data } = LaborRateSchema.safeParse({ ...validLaborRate, effectiveDate: '2024-02-29' });
+      expect(success).toBe(true);
+      expect(data?.effectiveDate).toBe('2024-02-29T00:00:00.000Z');
+    });
   });
 
   describe('CreateLaborRateSchema', () => {

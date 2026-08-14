@@ -6,6 +6,27 @@ import { ExtractionSourceSchema } from './past-performance';
  * LABOR RATES
  * ================
  */
+
+/** Rate basis for pricing. BLENDED deferred to a later version. */
+export const RateBasisSchema = z.enum(['ONSHORE', 'OFFSHORE']);
+export type RateBasis = z.infer<typeof RateBasisSchema>;
+
+/**
+ * Accepts a full ISO datetime OR a date-only string ("2026-08-05") and normalizes
+ * to an ISO datetime. Date-only values arrive from extraction drafts and from the
+ * edit form re-sending a previously stored date-only value; both must round-trip.
+ * Uses a string union (not z.preprocess) so the inferred *input* type stays `string`
+ * — preprocess would widen it to `unknown` and break typed form fields.
+ *
+ * The date-only branch uses `z.string().date()` (not a bare regex) so invalid calendar
+ * dates like "2026-13-45" or "2025-02-29" are rejected rather than normalized to a
+ * bogus datetime.
+ */
+const flexibleDatetime = z
+  .string()
+  .datetime()
+  .or(z.string().date().transform((d) => `${d}T00:00:00.000Z`));
+
 export const LaborRateSchema = z.object({
   laborRateId: z.string().uuid(),
   orgId: z.string().uuid(),
@@ -15,10 +36,23 @@ export const LaborRateSchema = z.object({
   ga: z.number().min(0).max(100), // G&A percentage
   profit: z.number().min(0).max(100), // Profit margin percentage
   fullyLoadedRate: z.number().positive(), // Final billable rate (calculated)
-  effectiveDate: z.string().datetime(),
-  expirationDate: z.string().datetime().optional(),
+
+  // ── Offshore (non-US / global delivery) buildup — all optional ──
+  // Nullable so an update can explicitly CLEAR the offshore buildup: sending
+  // offshoreBaseRate: null wipes the whole offshore rate (undefined = "unchanged").
+  offshoreBaseRate: z.number().positive().nullish(),
+  offshoreOverhead: z.number().min(0).max(500).nullish(),
+  offshoreGa: z.number().min(0).max(100).nullish(),
+  offshoreProfit: z.number().min(0).max(100).nullish(),
+  // Computed server-side from the offshore buildup, mirrors fullyLoadedRate.
+  offshoreFullyLoadedRate: z.number().positive().nullish(),
+
+  effectiveDate: flexibleDatetime,
+  expirationDate: flexibleDatetime.optional(),
   isActive: z.boolean().default(true),
   rateJustification: z.string().max(500).optional(), // GSA schedule, market research, etc.
+  // Justification specific to the offshore rate (delivery center, market, etc.).
+  offshoreRateJustification: z.string().max(500).optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   createdBy: z.string().uuid(),
@@ -32,6 +66,7 @@ export type LaborRate = z.infer<typeof LaborRateSchema>;
 export const CreateLaborRateSchema = LaborRateSchema.omit({
   laborRateId: true,
   fullyLoadedRate: true,
+  offshoreFullyLoadedRate: true, // server-computed
   createdAt: true,
   updatedAt: true,
   createdBy: true,
@@ -107,9 +142,10 @@ export type UpdateBOMItem = z.infer<typeof UpdateBOMItemSchema>;
 export const StaffingPlanItemSchema = z.object({
   position: z.string().min(1).max(100), // Must match LaborRate.position
   hours: z.number().positive(),
-  rate: z.number().positive(), // From LaborRate.fullyLoadedRate
+  rate: z.number().positive(), // Resolved from onshore or offshore fully-loaded rate
   totalCost: z.number().positive(), // hours * rate
   phase: z.string().max(100).optional(), // "Phase 1", "Base Period", etc.
+  rateBasis: RateBasisSchema.optional(), // which basis this line used (default ONSHORE)
 });
 
 export const StaffingPlanSchema = z.object({
@@ -133,6 +169,8 @@ export const CreateStaffingPlanSchema = z.object({
   projectId: z.string().uuid(),
   opportunityId: z.string().uuid(),
   name: z.string().min(1).max(200),
+  // Omit to derive the basis from the opportunity's delivery constraint; send to override.
+  rateBasis: RateBasisSchema.optional(),
   laborItems: z.array(z.object({
     position: z.string().min(1).max(100),
     hours: z.number().positive(),
@@ -170,6 +208,7 @@ export const EstimateItemSchema = z.object({
   unitCost: z.number().positive(),
   totalCost: z.number().positive(),
   phase: z.string().max(100).optional(),
+  rateBasis: RateBasisSchema.optional(), // LABOR lines only
 });
 
 export const CostEstimateSchema = z.object({
@@ -326,6 +365,9 @@ export const CalculateEstimateRequestSchema = z.object({
   projectId: z.string().uuid(),
   opportunityId: z.string().uuid(),
   strategy: PricingStrategySchema,
+  // Omit to derive the basis from the opportunity's delivery constraint; send an explicit
+  // value to override. (No default — absent must be distinguishable from an explicit ONSHORE.)
+  rateBasis: RateBasisSchema.optional(),
   laborItems: z.array(z.object({
     position: z.string().min(1),
     hours: z.number().positive(),

@@ -15,6 +15,20 @@ export function apiResponse(
   };
 }
 
+/**
+ * Parse a JSON request body for validation. An absent body parses to `{}`;
+ * malformed JSON parses to `undefined` — both fail a downstream `safeParse`
+ * with a 400 instead of the raw SyntaxError surfacing as a 500.
+ */
+export const parseJsonBody = (event: Pick<APIGatewayProxyEventV2, 'body'>): unknown => {
+  if (!event.body) return {};
+  try {
+    return JSON.parse(event.body);
+  } catch {
+    return undefined;
+  }
+};
+
 type RequestContextWithAuthorizer = APIGatewayProxyEventV2['requestContext'] & {
   authorizer?: {
     jwt?: { claims?: Record<string, any> };

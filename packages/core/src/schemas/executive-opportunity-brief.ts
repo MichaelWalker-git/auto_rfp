@@ -175,6 +175,8 @@ export const QuickSummarySchema = z.object({
   placeOfPerformance: z.string().nullish(),
   estimatedValueUsd: z.string().nullish(),
   periodOfPerformance: z.string().nullish(),
+  deliveryLocationConstraint: z.enum(['US_ONLY', 'OFFSHORE_ALLOWED', 'UNKNOWN']).nullish().default('UNKNOWN'),
+  offshoreEligibilityRationale: z.string().nullish(),
   summary: z.preprocess(
     (v) => {
       if (v === null || v === undefined) return '';

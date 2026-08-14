@@ -9,7 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { Plus, Trash2, Users, Calculator } from 'lucide-react';
+import type { RateBasis } from '@auto-rfp/core';
 import { StaffingPlanInfoPopover } from './StaffingPlanInfoPopover';
 
 interface StaffingPlanBuilderProps {
@@ -29,6 +32,7 @@ export const StaffingPlanBuilder = ({ orgId }: StaffingPlanBuilderProps) => {
 
   const [rows, setRows] = useState<PlanRow[]>([]);
   const [planName, setPlanName] = useState('');
+  const [rateBasis, setRateBasis] = useState<RateBasis>('ONSHORE');
 
   const addRow = () => {
     setRows([
@@ -50,16 +54,30 @@ export const StaffingPlanBuilder = ({ orgId }: StaffingPlanBuilderProps) => {
     setRows(rows.filter(r => r.id !== id));
   };
 
-  const rateMap = new Map(laborRates.filter(r => r.isActive).map(r => [r.position, r.fullyLoadedRate]));
+  const rateByPos = new Map(laborRates.filter(r => r.isActive).map(r => [r.position, r]));
 
+  // Resolve the billable rate for the selected basis. OFFSHORE falls back to the onshore
+  // rate when a position has no offshore rate — mirroring the backend resolveRate — and the
+  // fallback is flagged so the user sees which positions aren't actually priced offshore.
   const computedRows = rows.map(row => {
-    const rate = rateMap.get(row.position) ?? 0;
+    const lr = rateByPos.get(row.position);
+    let rate = 0;
+    let offshoreFallback = false;
+    if (lr) {
+      if (rateBasis === 'OFFSHORE' && lr.offshoreFullyLoadedRate != null && lr.offshoreFullyLoadedRate > 0) {
+        rate = lr.offshoreFullyLoadedRate;
+      } else {
+        rate = lr.fullyLoadedRate;
+        offshoreFallback = rateBasis === 'OFFSHORE';
+      }
+    }
     const totalCost = Math.round(row.hours * rate * 100) / 100;
-    return { ...row, rate, totalCost };
+    return { ...row, rate, totalCost, offshoreFallback };
   });
 
   const totalLaborCost = computedRows.reduce((sum, r) => sum + r.totalCost, 0);
   const totalHours = computedRows.reduce((sum, r) => sum + r.hours, 0);
+  const fallbackCount = computedRows.filter(r => r.offshoreFallback).length;
 
   if (isLoadingRates) {
     return (
@@ -107,15 +125,35 @@ export const StaffingPlanBuilder = ({ orgId }: StaffingPlanBuilderProps) => {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <label className="text-sm font-medium">Plan Name</label>
-            <Input
-              value={planName}
-              onChange={(e) => setPlanName(e.target.value)}
-              placeholder="e.g., Base Period Staffing Plan"
-              className="max-w-md"
-            />
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[240px]">
+              <label className="text-sm font-medium">Plan Name</label>
+              <Input
+                value={planName}
+                onChange={(e) => setPlanName(e.target.value)}
+                placeholder="e.g., Base Period Staffing Plan"
+                className="max-w-md"
+              />
+            </div>
+            <div className="w-56">
+              <Label htmlFor="staffing-rate-basis" className="text-sm font-medium">Rate basis</Label>
+              <Select value={rateBasis} onValueChange={(v) => setRateBasis(v as RateBasis)}>
+                <SelectTrigger id="staffing-rate-basis">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ONSHORE">Onshore (US-based)</SelectItem>
+                  <SelectItem value="OFFSHORE">Offshore</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
+          {rateBasis === 'OFFSHORE' && fallbackCount > 0 && (
+            <p className="text-xs text-amber-600">
+              {fallbackCount} position{fallbackCount > 1 ? 's have' : ' has'} no offshore rate and {fallbackCount > 1 ? 'are' : 'is'} priced at the onshore rate. Add an offshore rate in the Labor Rates tab to price {fallbackCount > 1 ? 'them' : 'it'} offshore.
+            </p>
+          )}
 
           {rows.length > 0 && (
             <div className="border rounded-lg overflow-hidden">
@@ -167,6 +205,9 @@ export const StaffingPlanBuilder = ({ orgId }: StaffingPlanBuilderProps) => {
                       </td>
                       <td className="p-3 text-right text-muted-foreground">
                         {row.rate > 0 ? `$${row.rate.toFixed(2)}` : '—'}
+                        {row.offshoreFallback && row.rate > 0 && (
+                          <span className="ml-1 text-[10px] text-amber-600" title="No offshore rate — using onshore">(onshore)</span>
+                        )}
                       </td>
                       <td className="p-3 text-right font-semibold">
                         {row.totalCost > 0 ? `$${row.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
@@ -218,11 +259,17 @@ export const StaffingPlanBuilder = ({ orgId }: StaffingPlanBuilderProps) => {
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            {laborRates.filter(r => r.isActive).map((rate) => (
-              <Badge key={rate.laborRateId} variant="outline" className="py-1.5 px-3">
-                {rate.position}: ${rate.fullyLoadedRate.toFixed(2)}/hr
-              </Badge>
-            ))}
+            {laborRates.filter(r => r.isActive).map((rate) => {
+              const hasOffshore = rate.offshoreFullyLoadedRate != null && rate.offshoreFullyLoadedRate > 0;
+              const shown = rateBasis === 'OFFSHORE' && hasOffshore ? rate.offshoreFullyLoadedRate! : rate.fullyLoadedRate;
+              const isFallback = rateBasis === 'OFFSHORE' && !hasOffshore;
+              return (
+                <Badge key={rate.laborRateId} variant="outline" className="py-1.5 px-3">
+                  {rate.position}: ${shown.toFixed(2)}/hr
+                  {isFallback && <span className="ml-1 text-amber-600">(onshore)</span>}
+                </Badge>
+              );
+            })}
           </div>
         </CardContent>
       </Card>

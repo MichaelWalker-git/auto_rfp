@@ -17,6 +17,7 @@ import {
   useUpdateSavedSearch,
 } from '@/lib/hooks/use-saved-search';
 
+import { savedSearchToParams } from '@/components/opportunities/search-criteria-url';
 import { SavedSearchCard } from '@/components/samgov/SavedSearchCard';
 import { SavedSearchEmptyState } from '@/components/samgov/SavedSearchEmptyState';
 import { SavedSearchGridSkeleton } from '@/components/samgov/SavedSearchGridSkeleton';
@@ -52,8 +53,7 @@ const SavedSearchesPage = ({ orgId }: Props) => {
   );
 
   const handleRun = (s: SavedSearch) => {
-    const encoded = encodeURIComponent(JSON.stringify(s.criteria));
-    router.push(`${searchBase}?search=${encoded}`);
+    router.push(`${searchBase}?${savedSearchToParams(s)}`);
   };
 
   const handleDelete = async () => {

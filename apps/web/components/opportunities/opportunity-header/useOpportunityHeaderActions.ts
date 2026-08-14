@@ -4,13 +4,15 @@ import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDeleteOpportunity, useUpdateOpportunity } from '@/lib/hooks/use-opportunities';
 import { TERMINAL_OPPORTUNITY_STATUSES } from '@auto-rfp/core';
-import type { OpportunityStatus, OpportunityUpdateRequest, WinData, LossData, LossReasonCategory, Jurisdiction } from '@auto-rfp/core';
+import type { OpportunityStatus, OpportunityUpdateRequest, WinData, LossData, LossReasonCategory, Jurisdiction, DeliveryLocationConstraint } from '@auto-rfp/core';
 
 interface UseOpportunityHeaderActionsProps {
   oppId: string | null;
   projectId: string | null;
   orgId: string | undefined;
   backUrl: string;
+  /** The opportunity's currently-stored delivery constraint, used to detect a real user change. */
+  currentDeliveryConstraint?: DeliveryLocationConstraint | null;
   onSuccess?: () => void;
 }
 
@@ -26,6 +28,7 @@ export interface EditFormValues {
   contactEmail?: string;
   decisionDateIso?: string;
   contractStartDateIso?: string;
+  deliveryLocationConstraint?: DeliveryLocationConstraint;
   // ── Status + outcome ──────────────────────────────────────────────────────
   status?: OpportunityStatus;
   outcomeComment?: string;
@@ -48,6 +51,7 @@ export const useOpportunityHeaderActions = ({
   projectId,
   orgId,
   backUrl,
+  currentDeliveryConstraint,
   onSuccess,
 }: UseOpportunityHeaderActionsProps) => {
   const router = useRouter();
@@ -78,6 +82,15 @@ export const useOpportunityHeaderActions = ({
         decisionDateIso: values.decisionDateIso?.trim() || null,
         contractStartDateIso: values.contractStartDateIso?.trim() || null,
       };
+
+      // Delivery-location constraint — only mark USER_SET when the user actually CHANGED it.
+      // Writing it on every save (the form always sends a value, and 'UNKNOWN' is truthy) would
+      // lock deliveryConstraintSource to USER_SET and permanently disable AI auto-detection.
+      const storedConstraint = currentDeliveryConstraint ?? 'UNKNOWN';
+      if (values.deliveryLocationConstraint && values.deliveryLocationConstraint !== storedConstraint) {
+        patch.deliveryLocationConstraint = values.deliveryLocationConstraint;
+        patch.deliveryConstraintSource = 'USER_SET';
+      }
 
       // Status + outcome detail
       if (values.status) {

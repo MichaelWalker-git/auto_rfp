@@ -131,6 +131,36 @@ describe('search handler', () => {
     expect(body.opportunities.length).toBe(3);
   });
 
+  it('forwards a search_id and drops the filters it already encodes', async () => {
+    mockSearchHigherGov.mockResolvedValue({ totalCount: 0, results: [] });
+    mockWithSourceTimeout.mockImplementation((p: Promise<unknown>) => p);
+
+    await baseHandler(makeEvent({
+      source: 'HIGHER_GOV',
+      keywords: 'ignored when a search id is present',
+      higherGovSearchId: 'BWr0PdG39B6mX8cG47AQ8',
+    }));
+
+    const [, params] = mockSearchHigherGov.mock.calls[0] as [unknown, Record<string, unknown>];
+    expect(params.searchId).toBe('BWr0PdG39B6mX8cG47AQ8');
+    // The search_id already encodes its own keywords, filters and date range.
+    expect(params.keywords).toBeUndefined();
+    expect(params.sourceType).toBeUndefined();
+    expect(params.postedDate).toBeUndefined();
+  });
+
+  it('keeps keyword filters when there is no search_id', async () => {
+    mockSearchHigherGov.mockResolvedValue({ totalCount: 0, results: [] });
+    mockWithSourceTimeout.mockImplementation((p: Promise<unknown>) => p);
+
+    await baseHandler(makeEvent({ source: 'HIGHER_GOV', keywords: 'document processing' }));
+
+    const [, params] = mockSearchHigherGov.mock.calls[0] as [unknown, Record<string, unknown>];
+    expect(params.pageSize).toBe(25);
+    expect(params.keywords).toBe('document processing');
+    expect(params.searchId).toBeUndefined();
+  });
+
   it('skips source when no API key is configured', async () => {
     mockGetApiKey.mockImplementation((_orgId: string, prefix: string) => {
       if (prefix === 'sam') return Promise.resolve(null);

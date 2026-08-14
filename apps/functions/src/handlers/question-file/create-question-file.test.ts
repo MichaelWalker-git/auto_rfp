@@ -26,6 +26,12 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
   PutCommand: jest.fn((params) => ({ type: 'Put', params })),
 }));
 
+const mockMarkStaleSafe = jest.fn();
+jest.mock('@/helpers/solution-plan', () => ({
+  ...(jest.requireActual('@/helpers/solution-plan') as object),
+  markSolutionPlanStaleSafe: (...a: unknown[]) => mockMarkStaleSafe(...a),
+}));
+
 import { baseHandler } from './create-question-file';
 import { createQuestionFile } from '@/helpers/questionFile';
 import type { CreateQuestionFileRequest } from '@auto-rfp/core';
@@ -35,6 +41,7 @@ describe('create-question-file', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSend.mockReset();
+    mockMarkStaleSafe.mockResolvedValue(null);
   });
 
   // ─── createQuestionFile helper ────────────────────────────────────────────────
@@ -276,6 +283,64 @@ describe('create-question-file', () => {
       const response = await baseHandler(event);
 
       expect(response).toMatchObject({ statusCode: 400 });
+    });
+
+    // ─── Solution Plan staleness trigger (T13) ────────────────────────────────
+
+    it('marks the solution plan stale after a successful upload', async () => {
+      mockSend.mockResolvedValue({});
+
+      const response = await baseHandler(
+        makeEvent({
+          orgId: 'org-123',
+          projectId: 'proj-456',
+          oppId: 'opp-789',
+          originalFileName: 'amendment-002.pdf',
+          fileKey: 's3/amendment-002.pdf',
+          mimeType: 'application/pdf',
+        }),
+      );
+
+      expect(response).toMatchObject({ statusCode: 201 });
+      expect(mockMarkStaleSafe).toHaveBeenCalledWith(
+        { orgId: 'org-123', projectId: 'proj-456', opportunityId: 'opp-789' },
+        'A new solicitation document ("amendment-002.pdf") was uploaded.',
+      );
+    });
+
+    it('does not trigger the staleness marker when validation fails', async () => {
+      const response = await baseHandler(
+        makeEvent({
+          orgId: 'org-123',
+          projectId: 'proj-456',
+          oppId: 'opp-789',
+          // originalFileName missing
+          fileKey: 's3/rfp.pdf',
+          mimeType: 'application/pdf',
+        }),
+      );
+
+      expect(response).toMatchObject({ statusCode: 400 });
+      expect(mockMarkStaleSafe).not.toHaveBeenCalled();
+    });
+
+    it('does not trigger the staleness marker when the file record write fails', async () => {
+      mockSend.mockRejectedValue(new Error('DynamoDB down'));
+
+      await expect(
+        baseHandler(
+          makeEvent({
+            orgId: 'org-123',
+            projectId: 'proj-456',
+            oppId: 'opp-789',
+            originalFileName: 'rfp.pdf',
+            fileKey: 's3/rfp.pdf',
+            mimeType: 'application/pdf',
+          }),
+        ),
+      ).rejects.toThrow('DynamoDB down');
+
+      expect(mockMarkStaleSafe).not.toHaveBeenCalled();
     });
 
     it('passes sourceDocumentId through when provided', async () => {

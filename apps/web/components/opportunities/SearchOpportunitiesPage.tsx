@@ -18,7 +18,8 @@ import { AlertCircle, Bookmark, Key, Layers, Loader2, Search, Settings, ChevronD
 import Link from 'next/link';
 
 import { PageHeader } from '@/components/layout/page-header';
-import { SearchOpportunityForm, type FormValues } from './SearchOpportunityForm';
+import { SearchOpportunityForm } from './SearchOpportunityForm';
+import { criteriaToParams, paramsToCriteria, paramsToFormValues } from './search-criteria-url';
 import { buildImportBody } from './build-import-body';
 import { SearchOpportunityResultsTable } from './SearchOpportunityResultsTable';
 import { SavedSearchList } from '@/components/organizations/SavedSearchList';
@@ -37,55 +38,8 @@ interface Props {
   orgId: string;
 }
 
-// ─── URL ↔ criteria serialization ──────────────────────────────────────────
-
-const criteriaToParams = (c: SearchOpportunityCriteria): URLSearchParams => {
-  const p = new URLSearchParams();
-  if (c.keywords)            p.set('q', c.keywords);
-  if (c.sources?.length)     p.set('source', c.sources[0]);
-  if (c.naics?.length)       p.set('naics', c.naics.join(','));
-  if (c.setAsideCode)        p.set('setAside', c.setAsideCode);
-  if (c.postedFrom)          p.set('from', c.postedFrom);
-  if (c.postedTo)            p.set('to', c.postedTo);
-  if (c.closingFrom)         p.set('closingFrom', c.closingFrom);
-  if (c.closingTo)           p.set('closingTo', c.closingTo);
-  if (c.higherGovSourceType) p.set('hgSource', c.higherGovSourceType);
-  if (c.limit && c.limit !== 25) p.set('limit', String(c.limit));
-  return p;
-};
-
-const paramsToFormValues = (p: URLSearchParams): Partial<FormValues> | null => {
-  if (!p.has('q') && !p.has('source') && !p.has('naics') && !p.has('setAside') && !p.has('from')) return null;
-  const parseDate = (s: string | null) => s ? new Date(s) : undefined;
-  return {
-    keywords: p.get('q') ?? '',
-    source: (p.get('source') as FormValues['source']) ?? 'all',
-    naics: p.get('naics')?.split(',').filter(Boolean) ?? [],
-    setAsideCode: p.get('setAside') ?? '',
-    postedFrom: parseDate(p.get('from')),
-    postedTo: parseDate(p.get('to')),
-    closingFrom: parseDate(p.get('closingFrom')),
-    closingTo: parseDate(p.get('closingTo')),
-    higherGovSourceType: (p.get('hgSource') ?? '') as FormValues['higherGovSourceType'],
-  };
-};
-
-const paramsToCriteria = (p: URLSearchParams): SearchOpportunityCriteria | null => {
-  if (!p.has('q') && !p.has('source') && !p.has('naics') && !p.has('setAside') && !p.has('from')) return null;
-  const source = p.get('source') as 'SAM_GOV' | 'DIBBS' | 'HIGHER_GOV' | null;
-  return {
-    keywords:            p.get('q') ?? undefined,
-    sources:             source ? [source] : undefined,
-    naics:               p.get('naics')?.split(',').filter(Boolean) ?? undefined,
-    setAsideCode:        p.get('setAside') ?? undefined,
-    postedFrom:          p.get('from') ?? undefined,
-    postedTo:            p.get('to') ?? undefined,
-    closingFrom:         p.get('closingFrom') ?? undefined,
-    closingTo:           p.get('closingTo') ?? undefined,
-    higherGovSourceType: p.get('hgSource') ?? undefined,
-    limit:               p.has('limit') ? Number(p.get('limit')) : 25,
-  };
-};
+// URL ↔ criteria serialization lives in ./search-criteria-url, shared with the
+// project-level page.
 
 // ─── Component ──────────────────────────────────────────────────────────────
 

@@ -3,7 +3,7 @@ import middy from '@middy/core';
 import { UpdateLaborRateSchema } from '@auto-rfp/core';
 import { apiResponse } from '@/helpers/api';
 import { nowIso } from '@/helpers/date';
-import { getLaborRate, updateLaborRate, calculateFullyLoadedRate } from '@/helpers/pricing';
+import { getLaborRate, updateLaborRate, calculateFullyLoadedRate, computeOffshoreFullyLoadedRate } from '@/helpers/pricing';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
@@ -24,6 +24,27 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
 
     const userId = event.auth?.userId || 'unknown';
     const now = nowIso();
+
+    // Build the final offshore buildup for a merged record. Sending offshoreBaseRate: null in
+    // the update explicitly CLEARS the entire offshore buildup (fields set to undefined so the
+    // full-overwrite putItem drops them). Otherwise recompute from the merged buildup.
+    const resolveOffshoreFields = (merged: {
+      offshoreBaseRate?: number | null;
+      offshoreOverhead?: number | null;
+      offshoreGa?: number | null;
+      offshoreProfit?: number | null;
+      offshoreRateJustification?: string | null;
+    }) => {
+      const cleared = merged.offshoreBaseRate == null;
+      return {
+        offshoreBaseRate: cleared ? undefined : merged.offshoreBaseRate,
+        offshoreOverhead: cleared ? undefined : merged.offshoreOverhead ?? undefined,
+        offshoreGa: cleared ? undefined : merged.offshoreGa ?? undefined,
+        offshoreProfit: cleared ? undefined : merged.offshoreProfit ?? undefined,
+        offshoreRateJustification: cleared ? undefined : merged.offshoreRateJustification ?? undefined,
+        offshoreFullyLoadedRate: cleared ? undefined : computeOffshoreFullyLoadedRate(merged),
+      };
+    };
 
     // Get existing labor rate by ID
     const existing = await getLaborRate(data.orgId, data.laborRateId);
@@ -48,6 +69,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
       const updated = {
         ...merged,
         fullyLoadedRate,
+        ...resolveOffshoreFields(merged),
         updatedAt: now,
         updatedBy: userId,
       };
@@ -68,6 +90,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     const updated = {
       ...merged,
       fullyLoadedRate,
+      ...resolveOffshoreFields(merged),
       updatedAt: now,
       updatedBy: userId,
     };

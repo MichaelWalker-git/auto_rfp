@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { getLaborRatesByOrg, getBOMItemsByOrg, calculateFullyLoadedRate } from './pricing';
+import { getLaborRatesByOrg, getBOMItemsByOrg, calculateFullyLoadedRate, resolveRate } from './pricing';
+import type { RateBasis } from '@auto-rfp/core';
 import { queryCompanyKnowledgeBase } from './executive-opportunity-brief';
 import { loadTextFromS3 } from './s3';
 import { requireEnv } from './env';
@@ -200,6 +201,11 @@ export const PRICING_TOOLS: Array<ToolDefinition> = [
       type: 'object',
       properties: {
         orgId: { type: 'string', description: 'Organization ID' },
+        rateBasis: {
+          type: 'string',
+          enum: ['ONSHORE', 'OFFSHORE'],
+          description: 'Which rate basis to price against. OFFSHORE falls back to onshore for positions without an offshore rate. Default: ONSHORE.',
+        },
         laborItems: {
           type: 'array',
           items: {
@@ -542,6 +548,9 @@ export const executePricingTool = async (params: {
               ga: r.ga,
               profit: r.profit,
               fullyLoadedRate: r.fullyLoadedRate,
+              offshoreBaseRate: r.offshoreBaseRate,
+              offshoreFullyLoadedRate: r.offshoreFullyLoadedRate,
+              hasOffshoreRate: typeof r.offshoreFullyLoadedRate === 'number' && r.offshoreFullyLoadedRate > 0,
               rateJustification: r.rateJustification,
               effectiveDate: r.effectiveDate,
             })),
@@ -573,45 +582,49 @@ export const executePricingTool = async (params: {
 
       case 'calculate_labor_cost': {
         const laborItems = toolInput.laborItems as Array<{ position: string; hours: number; phase?: string }>;
+        const basis: RateBasis = toolInput.rateBasis === 'OFFSHORE' ? 'OFFSHORE' : 'ONSHORE';
         const rates = await getLaborRatesByOrg(orgId);
         const activeRates = rates.filter(r => r.isActive);
-        const rateMap = new Map(activeRates.map(r => [r.position, r.fullyLoadedRate]));
+        const rateMap = new Map(activeRates.map(r => [r.position, r]));
         const availablePositions = activeRates.map(r => r.position);
-        
+
         const calculations = laborItems.map(item => {
           // Try exact match first
-          let rate = rateMap.get(item.position);
+          let laborRate = rateMap.get(item.position);
           let matchedPosition = item.position;
-          let matchType: 'exact' | 'fuzzy' | 'none' = rate !== undefined ? 'exact' : 'none';
-          let matchScore = rate !== undefined ? 1.0 : 0;
+          let matchType: 'exact' | 'fuzzy' | 'none' = laborRate !== undefined ? 'exact' : 'none';
+          let matchScore = laborRate !== undefined ? 1.0 : 0;
 
           // If no exact match, try fuzzy matching
-          if (rate === undefined) {
+          if (laborRate === undefined) {
             const fuzzyMatch = findBestPositionMatch(item.position, availablePositions);
             if (fuzzyMatch) {
-              rate = rateMap.get(fuzzyMatch.position) ?? 0;
+              laborRate = rateMap.get(fuzzyMatch.position);
               matchedPosition = fuzzyMatch.position;
               matchType = 'fuzzy';
               matchScore = fuzzyMatch.score;
-            } else {
-              rate = 0;
             }
           }
 
-          const totalCost = item.hours * rate;
+          const resolved = laborRate
+            ? resolveRate(laborRate, basis)
+            : { rate: 0, basisUsed: 'ONSHORE' as const, fellBackToOnshore: false };
+          const totalCost = item.hours * resolved.rate;
           return {
             requestedPosition: item.position,
             matchedPosition,
             matchType,
             matchScore: Math.round(matchScore * 100) / 100,
             hours: item.hours,
-            rate,
+            rate: resolved.rate,
+            rateBasis: resolved.basisUsed,
+            offshoreFallback: resolved.fellBackToOnshore,
             totalCost,
             phase: item.phase,
             found: matchType !== 'none',
           };
         });
-        
+
         const totalLaborCost = calculations.reduce((sum, calc) => sum + calc.totalCost, 0);
         const byPhase = calculations.reduce((acc, calc) => {
           const phase = calc.phase || 'Base Period';
@@ -621,15 +634,18 @@ export const executePricingTool = async (params: {
 
         const unmatchedPositions = calculations.filter(c => !c.found);
         const fuzzyMatches = calculations.filter(c => c.matchType === 'fuzzy');
-        
+        const offshoreFallbacks = calculations.filter(c => c.offshoreFallback);
+
         return {
           tool_use_id: toolUseId,
           content: JSON.stringify({
             success: true,
+            rateBasis: basis,
             calculations,
             totalLaborCost,
             costByPhase: byPhase,
             missingRates: unmatchedPositions.map(c => c.requestedPosition),
+            offshoreFallbackPositions: offshoreFallbacks.map(c => c.requestedPosition),
             fuzzyMatches: fuzzyMatches.map(c => ({
               requested: c.requestedPosition,
               matched: c.matchedPosition,

@@ -6,6 +6,7 @@ import type {
   StaffingPlan,
   CostEstimate,
   PricingBidAnalysis,
+  RateBasis,
 } from '@auto-rfp/core';
 
 // ─── SK Builders ───
@@ -186,6 +187,30 @@ export const calculateFullyLoadedRate = (baseRate: number, overhead: number, ga:
   return Math.round(withProfit * 100) / 100;
 };
 
+/**
+ * Compute the offshore fully-loaded rate from an (optional, possibly partial) offshore buildup.
+ * The offshore BASE RATE is the trigger: if it's a positive number, the rate is computed, treating
+ * any omitted overhead/G&A/profit as 0 (an offshore base with blank markups is a valid, if lean,
+ * buildup). Returns undefined when the base rate is absent OR explicitly null/<=0 (cleared).
+ */
+export const computeOffshoreFullyLoadedRate = (buildup: {
+  offshoreBaseRate?: number | null;
+  offshoreOverhead?: number | null;
+  offshoreGa?: number | null;
+  offshoreProfit?: number | null;
+}): number | undefined => {
+  const { offshoreBaseRate, offshoreOverhead, offshoreGa, offshoreProfit } = buildup;
+  if (offshoreBaseRate == null || offshoreBaseRate <= 0) {
+    return undefined;
+  }
+  return calculateFullyLoadedRate(
+    offshoreBaseRate,
+    offshoreOverhead ?? 0,
+    offshoreGa ?? 0,
+    offshoreProfit ?? 0,
+  );
+};
+
 export const calculateEstimateTotals = (
   laborCosts: Array<{ totalCost: number }>,
   materialCosts: Array<{ totalCost: number }>,
@@ -208,35 +233,88 @@ export const calculateEstimateTotals = (
   };
 };
 
+export interface ResolvedRate {
+  rate: number;              // the fully-loaded rate to bill at
+  basisUsed: RateBasis;      // ONSHORE | OFFSHORE (may differ from requested on fallback)
+  fellBackToOnshore: boolean;
+}
+
+/**
+ * Resolve the fully-loaded rate for a position given the requested basis.
+ * OFFSHORE falls back to the onshore rate when the position has no offshore rate,
+ * and reports the fallback so callers can surface it (never silently substitute).
+ */
+export const resolveRate = (rate: LaborRate, basis: RateBasis): ResolvedRate => {
+  if (basis === 'OFFSHORE') {
+    if (typeof rate.offshoreFullyLoadedRate === 'number' && rate.offshoreFullyLoadedRate > 0) {
+      return { rate: rate.offshoreFullyLoadedRate, basisUsed: 'OFFSHORE', fellBackToOnshore: false };
+    }
+    return { rate: rate.fullyLoadedRate, basisUsed: 'ONSHORE', fellBackToOnshore: true };
+  }
+  return { rate: rate.fullyLoadedRate, basisUsed: 'ONSHORE', fellBackToOnshore: false };
+};
+
+/**
+ * Derive the pricing rate basis from an opportunity's delivery-location constraint.
+ * OFFSHORE_ALLOWED → OFFSHORE; everything else (US_ONLY / UNKNOWN / unset) → ONSHORE.
+ * Single source of truth shared by manual pricing (estimate, staffing plan) and
+ * document generation so the basis is consistent everywhere. Never throws.
+ */
+export const resolveRateBasisForOpportunity = async (
+  orgId: string,
+  projectId: string,
+  opportunityId: string,
+): Promise<RateBasis> => {
+  try {
+    const { getOpportunity } = await import('@/helpers/opportunity');
+    const opp = await getOpportunity({ orgId, projectId, oppId: opportunityId });
+    return opp?.item?.deliveryLocationConstraint === 'OFFSHORE_ALLOWED' ? 'OFFSHORE' : 'ONSHORE';
+  } catch (err) {
+    console.warn('resolveRateBasisForOpportunity failed, defaulting ONSHORE:', (err as Error)?.message);
+    return 'ONSHORE';
+  }
+};
+
 /**
  * Build a staffing plan by resolving labor items against org labor rates.
  * Returns fully populated StaffingPlanItem[] with rates and costs.
+ * OFFSHORE basis falls back to onshore for positions lacking an offshore rate;
+ * those positions are reported in `fallbackPositions`.
  */
 export const resolveStaffingPlanItems = async (
   orgId: string,
   laborItems: Array<{ position: string; hours: number; phase?: string }>,
-): Promise<{ items: Array<{ position: string; hours: number; rate: number; totalCost: number; phase?: string }>; totalLaborCost: number }> => {
+  basis: RateBasis = 'ONSHORE',
+): Promise<{
+  items: Array<{ position: string; hours: number; rate: number; totalCost: number; phase?: string; rateBasis: RateBasis }>;
+  totalLaborCost: number;
+  fallbackPositions: string[];
+}> => {
   const laborRates = await getLaborRatesByOrg(orgId);
-  const rateMap = new Map(laborRates.filter(r => r.isActive).map(r => [r.position, r.fullyLoadedRate]));
+  const activeMap = new Map(laborRates.filter(r => r.isActive).map(r => [r.position, r]));
 
+  const fallbackPositions: string[] = [];
   const items = laborItems.map(item => {
-    const rate = rateMap.get(item.position);
-    if (!rate) {
+    const laborRate = activeMap.get(item.position);
+    if (!laborRate) {
       throw new Error(`No active labor rate found for position: ${item.position}`);
     }
-    const totalCost = Math.round(item.hours * rate * 100) / 100;
+    const resolved = resolveRate(laborRate, basis);
+    if (resolved.fellBackToOnshore) fallbackPositions.push(item.position);
+    const totalCost = Math.round(item.hours * resolved.rate * 100) / 100;
     return {
       position: item.position,
       hours: item.hours,
-      rate,
+      rate: resolved.rate,
       totalCost,
+      rateBasis: resolved.basisUsed,
       ...(item.phase ? { phase: item.phase } : {}),
     };
   });
 
   const totalLaborCost = Math.round(items.reduce((sum, i) => sum + i.totalCost, 0) * 100) / 100;
 
-  return { items, totalLaborCost };
+  return { items, totalLaborCost, fallbackPositions };
 };
 
 /**

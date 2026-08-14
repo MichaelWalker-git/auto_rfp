@@ -34,6 +34,8 @@ import { z } from 'zod';
 import {
   RFPDocumentItemSchema,
   RFPExportFormatSchema,
+  SolutionPlanStatusSchema,
+  type SolutionPlanStatus,
 } from '@auto-rfp/core';
 
 // ─── Zod-defined response/request schemas ───
@@ -111,7 +113,7 @@ type ExportRFPDocumentResponse = z.infer<typeof ExportRFPDocumentResponseSchema>
 
 // ─── Helpers ───
 
-class ApiError extends Error {
+export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
     super(message);
@@ -338,13 +340,71 @@ const GenerateRFPDocumentResponseSchema = z.object({
 export type GenerateRFPDocumentResponse = z.infer<typeof GenerateRFPDocumentResponseSchema>;
 
 /**
+ * 409 from generate-document when the org requires a READY Solution Plan
+ * before generating gated document types (T9/T12). Components branch on this
+ * via `isSolutionPlanRequiredError` to show a specific toast.
+ */
+export class SolutionPlanRequiredError extends ApiError {
+  code = 'SOLUTION_PLAN_REQUIRED' as const;
+  solutionPlanStatus: SolutionPlanStatus | null;
+
+  constructor(message: string, solutionPlanStatus: SolutionPlanStatus | null = null) {
+    super(message, 409);
+    this.name = 'SolutionPlanRequiredError';
+    this.solutionPlanStatus = solutionPlanStatus;
+  }
+}
+
+export const isSolutionPlanRequiredError = (err: unknown): err is SolutionPlanRequiredError =>
+  err instanceof SolutionPlanRequiredError;
+
+const SOLUTION_PLAN_REQUIRED_MESSAGE =
+  'A ready Solution Plan is required before generating this document. Create one from the Solution Plan section of the opportunity page.';
+
+/**
+ * 409 body produced by the server gate (T9). An unrecognized
+ * `solutionPlanStatus` degrades to null rather than failing the whole parse.
+ */
+const SolutionPlanRequiredBodySchema = z.object({
+  code: z.literal('SOLUTION_PLAN_REQUIRED'),
+  message: z.string().optional(),
+  solutionPlanStatus: SolutionPlanStatusSchema.nullable().catch(null).optional(),
+});
+
+/**
+ * Map a raw generate-document failure to `SolutionPlanRequiredError` when the
+ * 409 body carries `code: 'SOLUTION_PLAN_REQUIRED'`; all other errors pass
+ * through unchanged. Exported for tests.
+ */
+export const toGenerateDocumentError = (err: unknown): unknown => {
+  if (!(err instanceof ApiError) || err.status !== 409) return err;
+  let raw: unknown;
+  try {
+    raw = JSON.parse(err.message);
+  } catch {
+    return err; // Not a JSON body
+  }
+  const { success, data: body } = SolutionPlanRequiredBodySchema.safeParse(raw);
+  if (!success) return err;
+  return new SolutionPlanRequiredError(
+    body.message || SOLUTION_PLAN_REQUIRED_MESSAGE,
+    body.solutionPlanStatus ?? null,
+  );
+};
+
+/**
  * Trigger async document generation (POST /rfp-document/generate-document).
- * Returns 202 Accepted with a documentId to poll.
+ * Returns 202 Accepted with a documentId to poll. A 409 SOLUTION_PLAN_REQUIRED
+ * rejection surfaces as `SolutionPlanRequiredError` (defense-in-depth behind
+ * the client-side gate in `@/features/solution-plan`).
  */
 export function useGenerateRFPDocument(orgId?: string) {
   return useSWRMutation<GenerateRFPDocumentResponse, Error, string, GenerateRFPDocumentRequest>(
     `${BASE}/generate-document${orgId ? `?orgId=${orgId}` : ''}`,
-    (url, { arg }) => postJson<GenerateRFPDocumentResponse>(url, arg),
+    (url, { arg }) =>
+      postJson<GenerateRFPDocumentResponse>(url, arg).catch((err: unknown) => {
+        throw toGenerateDocumentError(err);
+      }),
   );
 }
 

@@ -834,6 +834,7 @@ You will receive several types of context. Use them as follows:
 5. PAST PERFORMANCE: Relevant past projects. Reference these to prove track record and relevant experience.
 6. CONTENT LIBRARY: Pre-approved content snippets. Use where relevant for consistent, vetted messaging.
 7. PRICING DATA (via get_pricing_data tool): For Cost Proposal and Price Volume documents, ALWAYS call the get_pricing_data tool first to retrieve actual labor rates, cost estimates, staffing plans, and bid analysis. Use real figures when available.
+8. APPROVED SOLUTION PLAN (when present): The single source of truth for the technical solution — architecture, services, timeline, team, and cost drivers. It OVERRIDES any conflicting information from other context sources; never contradict it.
 
 ${templateHtmlScaffold ? HTML_REQUIREMENTS_WITH_TEMPLATE : HTML_REQUIREMENTS_NO_TEMPLATE}`;
 
@@ -947,6 +948,7 @@ YOUR TASK — Past Performance:
 YOUR TASK — Cost Proposal:
 1. FIRST, use the get_pricing_data tool to retrieve actual labor rates, cost estimates, staffing plans, and bid analysis from the pricing module.
 2. If pricing data is available, use the REAL figures (labor rates, cost breakdowns, staffing plans) in your document — do NOT use placeholders.
+2b. Check the RATE BASIS line from get_pricing_data. When basis is OFFSHORE, price labor using the OFFSHORE fully-loaded rates and state in the cost narrative that delivery is offshore/global-delivery-eligible per the solicitation. When basis is ONSHORE, use onshore rates. If a position has no offshore rate, use its onshore rate and note the exception. NEVER relabel onshore numbers as offshore.
 3. Present a detailed cost breakdown by labor category, ODCs, and period of performance.
 4. Provide a basis of estimate explaining your cost estimation methodology and assumptions.
 5. Justify all labor rates with supporting data (GSA schedule, market research, historical data).
@@ -1025,6 +1027,7 @@ YOUR TASK — Management Proposal:
 YOUR TASK — Price Volume:
 1. FIRST, use the get_pricing_data tool to retrieve actual labor rates, cost estimates, staffing plans, and bid analysis from the pricing module.
 2. If pricing data is available, use the REAL figures (labor rates, cost breakdowns, staffing plans) — do NOT use placeholders.
+2b. Check the RATE BASIS line from get_pricing_data. When basis is OFFSHORE, price labor using the OFFSHORE fully-loaded rates and state in the cost narrative that delivery is offshore/global-delivery-eligible per the solicitation. When basis is ONSHORE, use onshore rates. If a position has no offshore rate, use its onshore rate and note the exception. NEVER relabel onshore numbers as offshore.
 3. Present a complete price/cost volume with CLIN-level pricing breakdown.
 4. Provide basis of estimate with methodology, assumptions, and labor rate justification.
 5. Include escalation factors for multi-year contracts and ODC breakdown.
@@ -1198,6 +1201,17 @@ ${stylingSection}`;
 
 // ─── User Prompt Builder ──────────────────────────────────────────────────────
 
+/** Context blocks assembled into the user prompt by {@link buildUserPromptForDocumentType}. */
+export interface UserPromptContext {
+  solicitation: string;
+  qaText: string;
+  enrichedKbText: string;
+  /** Org-level task override; falls back to the type-specific default when null/undefined. */
+  taskOverride?: string | null;
+  /** Approved Solution Plan plain text (ADR-7); block omitted when null/undefined/blank. */
+  solutionPlanText?: string | null;
+}
+
 /**
  * Build a tailored user prompt for a specific document type.
  * Each document type gets focused task instructions that direct the model
@@ -1205,16 +1219,29 @@ ${stylingSection}`;
  */
 export const buildUserPromptForDocumentType = (
   documentType: string,
-  solicitation: string,
-  qaText: string,
-  enrichedKbText: string,
-  taskOverride?: string | null,
+  context: UserPromptContext,
 ): string => {
+  const { solicitation, qaText, enrichedKbText, taskOverride, solutionPlanText } = context;
   const typeLabel =
     RFP_DOCUMENT_TYPES[documentType as keyof typeof RFP_DOCUMENT_TYPES] ??
     humanizeDocumentType(documentType);
 
   const taskInstructions = taskOverride ?? DOC_TYPE_TASK[documentType] ?? DEFAULT_TASK(typeLabel);
+
+  // Approved Solution Plan block (ADR-7): injected only when a READY plan exists.
+  const solutionPlanBlock = solutionPlanText?.trim()
+    ? `
+═══════════════════════════════════════
+APPROVED SOLUTION PLAN (SOURCE OF TRUTH)
+═══════════════════════════════════════
+This is the APPROVED technical solution for this opportunity. It is authoritative — it OVERRIDES anything
+you might otherwise infer from the solicitation, Q&A, or enrichment context. The architecture, services,
+licenses, timeline, phases, team composition, and cost drivers described here MUST be reflected exactly
+in your document. Do NOT invent alternatives or deviate from this plan.
+
+${solutionPlanText.trim()}
+`
+    : '';
 
   return `
 ═══════════════════════════════════════
@@ -1232,7 +1259,7 @@ These are previously answered questions about this opportunity. Use these answer
 for your document sections. Each Q&A pair represents validated information about the company's approach.
 
 ${qaText || 'No Q&A pairs available.'}
-
+${solutionPlanBlock}
 ═══════════════════════════════════════
 ENRICHMENT CONTEXT (Knowledge Base, Past Performance, Executive Brief, Content Library)
 ═══════════════════════════════════════

@@ -30,6 +30,9 @@ import {
   type QaPair,
 } from '@/helpers/document-generation';
 import { getTemplate, findBestTemplate, loadTemplateHtml, replaceMacros, buildMacroValues } from '@/helpers/template';
+import { getSolutionPlanByOpportunity, loadSolutionPlanHtml } from '@/helpers/solution-plan';
+import { stripHtmlToText } from '@/helpers/html-text';
+import { errorMessageOf } from '@/helpers/error';
 import { uploadRFPDocumentHtml, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
 import {
   createVersion,
@@ -39,7 +42,7 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { getRFPDocument } from '@/helpers/rfp-document';
 import { BEDROCK_MODEL_ID, MAX_TOKENS, TEMPERATURE } from '@/constants/document-generation';
-import { RFPDocumentContentSchema, RFPDocumentTypeSchema, RFP_DOCUMENT_TYPES, type RFPDocumentContent } from '@auto-rfp/core';
+import { RFPDocumentContentSchema, RFPDocumentTypeSchema, RFP_DOCUMENT_TYPES, type RFPDocumentContent, type SolutionPlanDBItem, type SolutionPlanKey } from '@auto-rfp/core';
 import { DOCUMENT_TOOLS, executeDocumentTool } from '@/helpers/document-tools';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import {
@@ -74,6 +77,13 @@ const TABLE_HEAVY_TYPES = new Set(['COMPLIANCE_MATRIX', 'APPENDICES', 'PAST_PERF
 
 /** Maximum tool-use rounds for single-shot generation */
 const MAX_TOOL_ROUNDS = 5;
+
+/**
+ * Character budget for the injected Solution Plan text (ADR-6). Its own budget,
+ * separate from the 18k `gatherAllContext` blob. Synthesis targets ~10k chars of
+ * body text, so this is a safety net — hitting it means the plan is oversized.
+ */
+export const SOLUTION_PLAN_TEXT_BUDGET = 12_000;
 
 // ─── HTML Helpers ─────────────────────────────────────────────────────────────
 
@@ -819,7 +829,7 @@ export const generateSingleShot = async (args: {
       }
     }
   } catch (parseErr) {
-    console.warn(`[single-shot] safeParseJsonFromModel failed: ${(parseErr as Error).message}. Wrapping raw text as HTML.`);
+    console.warn(`[single-shot] safeParseJsonFromModel failed: ${errorMessageOf(parseErr)}. Wrapping raw text as HTML.`);
     modelJson = { title: getDocumentTypeLabel(documentType), htmlContent: rawText };
   }
 
@@ -890,6 +900,60 @@ export const generateSingleShot = async (args: {
     ...normalizedDocument,
     content: finalHtml,
   };
+};
+
+// ─── Solution Plan (Source of Truth) injection ────────────────────────────────
+
+export interface SolutionPlanContext {
+  plan: SolutionPlanDBItem;
+  /** Plan HTML stripped to plain text, truncated to SOLUTION_PLAN_TEXT_BUDGET */
+  text: string;
+}
+
+/**
+ * Load the approved Solution Plan for injection into document generation (ADR-7).
+ *
+ * Returns null only when there is no READY plan — generation legitimately
+ * proceeds without the source-of-truth block. A READY-but-stale plan IS
+ * injected: staleness only surfaces a UI warning, it never blocks generation
+ * (ADR-3). When a READY plan exists but its content cannot be loaded, this
+ * THROWS: generating a document without the plan that "overrides anything"
+ * would silently violate the SoT contract and produce an unstamped document,
+ * so the job must retry/fail instead (processJob handles retry + FAILED).
+ */
+export const loadApprovedSolutionPlanContext = async (
+  key: SolutionPlanKey,
+): Promise<SolutionPlanContext | null> => {
+  const plan = await getSolutionPlanByOpportunity(key);
+  if (!plan || plan.status !== 'READY') return null;
+
+  if (!plan.contentKey) {
+    throw new Error(
+      `Solution Plan ${plan.id} is READY but has no contentKey — cannot inject the source of truth`,
+    );
+  }
+
+  const html = await loadSolutionPlanHtml(plan.contentKey);
+  // Tags become spaces (not '' like compliance-review-html's stripHtml, which
+  // would merge words across element boundaries).
+  let text = stripHtmlToText(html);
+
+  if (!text) {
+    throw new Error(
+      `Solution Plan ${plan.id} content is empty (contentKey=${plan.contentKey}) — cannot inject the source of truth`,
+    );
+  }
+
+  if (text.length > SOLUTION_PLAN_TEXT_BUDGET) {
+    // Truncation is a safety net — synthesis targets ~10k chars (ADR-6), so
+    // firing means the plan is oversized and worth investigating.
+    console.warn(
+      `[worker] Solution Plan text truncated: planId=${plan.id} length=${text.length} exceeds budget=${SOLUTION_PLAN_TEXT_BUDGET}`,
+    );
+    text = text.slice(0, SOLUTION_PLAN_TEXT_BUDGET);
+  }
+
+  return { plan, text };
 };
 
 // ─── Process Job (Core Logic) ─────────────────────────────────────────────────
@@ -976,11 +1040,18 @@ export const processJobInner = async (job: Job): Promise<void> => {
   const macroValues = await buildMacroValues({ orgId, projectId, opportunityId });
   console.log(`Built macro values for documentId=${documentId}:`, Object.keys(macroValues));
 
-  // ─── Step 4: Gather enrichment context + resolve template HTML in parallel ───
-  const [enrichedKbText, templateHtmlScaffold] = await Promise.all([
+  // ─── Step 4: Gather enrichment context + template HTML + Solution Plan in parallel ───
+  const [enrichedKbText, templateHtmlScaffold, solutionPlanContext] = await Promise.all([
     gatherAllContext({ projectId, orgId, opportunityId, solicitation, documentType }),
     resolveTemplateHtml(orgId, documentType, templateId, macroValues),
+    loadApprovedSolutionPlanContext({ orgId, projectId, opportunityId }),
   ]);
+
+  if (solutionPlanContext) {
+    console.log(
+      `[worker] Injecting Solution Plan ${solutionPlanContext.plan.id} v${solutionPlanContext.plan.version} (${solutionPlanContext.text.length} chars) into ${documentType} generation`,
+    );
+  }
 
   if (templateHtmlScaffold) {
     console.log(`Using HTML template scaffold for documentId=${documentId} (${templateHtmlScaffold.length} chars)`);
@@ -1016,7 +1087,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
         }
       }
     } catch (err) {
-      console.warn(`[worker] Failed to load original template HTML: ${(err as Error).message}`);
+      console.warn(`[worker] Failed to load original template HTML: ${errorMessageOf(err)}`);
     }
   }
 
@@ -1025,13 +1096,15 @@ export const processJobInner = async (job: Job): Promise<void> => {
   // to the hardcoded defaults inside the builders.
   const fragments = await resolveDocumentPromptFragments(orgId, documentType);
   const systemPrompt = buildSystemPromptForDocumentType(documentType, templateHtmlScaffold, fragments.guidance);
-  const userPrompt = buildUserPromptForDocumentType(
-    documentType,
+  // The solution-plan block rides inside the user prompt, so section-by-section
+  // mode receives it too (the section generator prepends `initialUserPrompt`).
+  const userPrompt = buildUserPromptForDocumentType(documentType, {
     solicitation,
-    JSON.stringify(qaPairs),
+    qaText: JSON.stringify(qaPairs),
     enrichedKbText,
-    fragments.task,
-  );
+    taskOverride: fragments.task,
+    solutionPlanText: solutionPlanContext?.text ?? null,
+  });
 
   console.log(`Prompt sizes: system=${systemPrompt.length}, user=${userPrompt.length}, solicitation=${solicitation.length}, qaPairs=${qaPairs.length}, enrichedKb=${enrichedKbText.length}`);
 
@@ -1328,7 +1401,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
     });
     console.log(`[worker] HTML uploaded to S3: ${htmlContentKey} (${htmlContent.length} chars)`);
   } catch (err) {
-    const msg = `Failed to upload HTML to S3: ${(err as Error).message}`;
+    const msg = `Failed to upload HTML to S3: ${errorMessageOf(err)}`;
     console.error(`[worker] ${msg}`);
     await updateRFPDocumentMetadata({
       projectId, opportunityId, documentId,
@@ -1356,6 +1429,11 @@ export const processJobInner = async (job: Job): Promise<void> => {
       title: finalDocument.title || getDocumentTypeLabel(documentType),
       name: finalDocument.title || getDocumentTypeLabel(documentType),
       htmlContentKey,
+      // Stamp which Solution Plan version this document was generated from (ADR-7)
+      ...(solutionPlanContext && {
+        solutionPlanId: solutionPlanContext.plan.id,
+        solutionPlanVersion: solutionPlanContext.plan.version,
+      }),
     },
     updatedBy: 'system',
   });
@@ -1392,7 +1470,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
     console.log(`[worker] Created version ${newVersionNumber} for document ${documentId}`);
   } catch (versionErr) {
     // Version creation is non-critical — log but don't fail the generation
-    console.error('[worker] Failed to create version snapshot:', (versionErr as Error).message);
+    console.error('[worker] Failed to create version snapshot:', errorMessageOf(versionErr));
   }
 
   console.log(`[worker] Document generation complete for documentId=${documentId}`);

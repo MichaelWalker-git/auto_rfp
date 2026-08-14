@@ -37,6 +37,7 @@ import {
   markSectionInProgress,
   queryCompanyKnowledgeBase,
   sanitizeSummaryResponse,
+  scanDeliveryLocationConstraint,
   smartTruncate,
   truncateText,
 } from '@/helpers/executive-opportunity-brief';
@@ -44,7 +45,7 @@ import { syncRequiredDocumentsToCustomTypes } from '@/helpers/custom-document-ty
 import type { RequiredOutputDocument } from '@auto-rfp/core';
 import { enqueueGoogleDriveSync } from '@/helpers/google-drive-queue';
 import { getProjectById } from '@/helpers/project';
-import { getOpportunity } from '@/helpers/opportunity';
+import { getOpportunity, updateOpportunity } from '@/helpers/opportunity';
 import { requireEnv } from '@/helpers/env';
 import { loadTextFromS3 } from '@/helpers/s3';
 import { storeDeadlinesSeparately } from '@/helpers/deadlines';
@@ -52,6 +53,7 @@ import { invokeClaudeWithTools } from '@/helpers/bedrock-tool-loop';
 import { BRIEF_TOOLS, executeBriefTool } from '@/helpers/brief-tools';
 import { usePricingSystemPrompt, usePricingUserPrompt } from '@/constants/pricing-prompts';
 import { onBriefScoringComplete } from '@/helpers/opportunity-status';
+import { ensurePastPerformanceForScoring } from '@/helpers/past-performance-matching';
 
 const JobSchema = z.object({
   orgId: z.string().min(1),
@@ -65,12 +67,16 @@ const JobSchema = z.object({
 type Job = z.infer<typeof JobSchema>;
 type Section = Job['section'];
 
-/** Weighted scoring criteria – must match the prompt instructions */
+/**
+ * Weighted scoring criteria – must match the prompt instructions.
+ * POC-first weighting: build capability (TECHNICAL_FIT) and delivery-model fit
+ * (STRATEGIC_ALIGNMENT) outweigh incumbent-style past-performance history.
+ */
 const SCORING_WEIGHTS: Record<string, number> = {
-  TECHNICAL_FIT: 0.20,
-  PAST_PERFORMANCE_RELEVANCE: 0.30,
+  TECHNICAL_FIT: 0.25,
+  PAST_PERFORMANCE_RELEVANCE: 0.20,
   PRICING_POSITION: 0.15,
-  STRATEGIC_ALIGNMENT: 0.25,
+  STRATEGIC_ALIGNMENT: 0.30,
   INCUMBENT_RISK: 0.10,
 };
 
@@ -181,7 +187,10 @@ async function runSummary(job: Job): Promise<void> {
     await markSectionInProgress({ executiveBriefId, section: 'summary', inputHash });
 
     const { solicitationText: rawText } = await loadSolicitationWithOpportunity(brief, orgId);
-    const solicitationText = truncateText(rawText, MAX_SOLICITATION_CHARS);
+    // Use head+tail truncation: delivery-location / offshore-prohibition and eligibility
+    // clauses frequently live in terms/appendices at the END of the document, which a
+    // plain head-only truncation would drop on long solicitations.
+    const solicitationText = smartTruncate(rawText, MAX_SOLICITATION_CHARS);
 
     let data: unknown;
 
@@ -262,6 +271,45 @@ async function runSummary(job: Job): Promise<void> {
       data,
       topLevelPatch: { status: 'IN_PROGRESS' },
     });
+
+    // Persist the detected delivery-location constraint onto the opportunity so it is
+    // stable across brief regeneration and available to document generation.
+    // Never overwrite a value the user has explicitly set.
+    //
+    // A deterministic scan over the FULL raw text takes precedence over the LLM: explicit
+    // clauses like "OFFSHORE CONTRACTING PROHIBITED" are decisive and the model sometimes
+    // misses them inside the long multi-field summary prompt. The LLM value is the fallback.
+    try {
+      const llmDetected = (data as { deliveryLocationConstraint?: string })?.deliveryLocationConstraint;
+      const llmRationale = (data as { offshoreEligibilityRationale?: string })?.offshoreEligibilityRationale;
+      const scan = scanDeliveryLocationConstraint(rawText);
+
+      const detected = scan?.constraint
+        ?? (llmDetected === 'US_ONLY' || llmDetected === 'OFFSHORE_ALLOWED' ? llmDetected : undefined);
+      const rationale = scan?.rationale ?? llmRationale;
+
+      console.log(
+        `[SUMMARY] delivery-location: scan=${scan?.constraint ?? 'none'} llm=${llmDetected ?? 'none'} → ${detected ?? 'none'}`,
+      );
+
+      if (detected === 'US_ONLY' || detected === 'OFFSHORE_ALLOWED') {
+        const opp = await getOpportunity({ orgId, projectId, oppId: opportunityId });
+        if (opp?.item && opp.item.deliveryConstraintSource !== 'USER_SET') {
+          await updateOpportunity({
+            orgId,
+            projectId,
+            oppId: opportunityId,
+            patch: {
+              deliveryLocationConstraint: detected,
+              deliveryConstraintSource: 'AI_DETECTED',
+              ...(rationale ? { deliveryConstraintRationale: rationale.slice(0, 500) } : {}),
+            },
+          });
+        }
+      }
+    } catch (constraintErr) {
+      console.warn('[SUMMARY] Failed to persist delivery-location constraint:', (constraintErr as Error)?.message);
+    }
   } catch (err) {
     await markSectionFailed({ executiveBriefId, section: 'summary', error: err });
     throw err;
@@ -537,15 +585,20 @@ async function runPricing(job: Job): Promise<void> {
     let bomContext = '';
     try {
       const { getLaborRatesByOrg, getBOMItemsByOrg } = await import('@/helpers/pricing');
-      const [rates, bomItems] = await Promise.all([
+      const [rates, bomItems, opp] = await Promise.all([
         getLaborRatesByOrg(orgId).catch(() => []),
         getBOMItemsByOrg(orgId).catch(() => []),
+        getOpportunity({ orgId, projectId, oppId: opportunityId }).catch(() => undefined),
       ]);
+      const rateBasis = opp?.item?.deliveryLocationConstraint === 'OFFSHORE_ALLOWED' ? 'OFFSHORE' : 'ONSHORE';
       if (rates.length) {
-        laborRatesContext = '\n\nORGANIZATION LABOR RATES:\n' + rates
+        laborRatesContext = `\n\nRATE BASIS: ${rateBasis}\nORGANIZATION LABOR RATES:\n` + rates
           .filter((r: { isActive?: boolean }) => r.isActive !== false)
-          .map((r: { position: string; fullyLoadedRate?: number; baseRate?: number }) =>
-            `- ${r.position}: $${r.fullyLoadedRate ?? r.baseRate ?? 0}/hr`)
+          .map((r: { position: string; fullyLoadedRate?: number | null; baseRate?: number | null; offshoreFullyLoadedRate?: number | null }) => {
+            const onshore = r.fullyLoadedRate ?? r.baseRate ?? 0;
+            const offshore = r.offshoreFullyLoadedRate;
+            return `- ${r.position}: onshore $${onshore}/hr` + (offshore ? `, offshore $${offshore}/hr` : ', offshore (none)');
+          })
           .join('\n');
       }
       if (bomItems.length) {
@@ -623,7 +676,15 @@ async function runScoring(job: Job): Promise<void> {
       throw new BusinessRetryError(`Section data missing for scoring: ${missingData.join(', ')}`);
     }
 
-    const pastPerformanceData = sections?.pastPerformance?.data;
+    // Auto-run past-performance matching before scoring so the
+    // PAST_PERFORMANCE_RELEVANCE criterion (20% weight) sees matched projects.
+    // Idempotent — returns cached section data when matching already ran, and
+    // is non-blocking: scoring proceeds without it when matching fails.
+    const pastPerformanceData = await ensurePastPerformanceForScoring({
+      executiveBriefId,
+      orgId,
+      brief,
+    });
     const pricingData = sections?.pricing?.data;
 
     // Also try to load actual cost estimate data from the pricing module
@@ -693,7 +754,7 @@ async function runScoring(job: Job): Promise<void> {
 
     const computedComposite = weightedCompositeScore((data?.criteria ?? []) as Array<{ name?: string; score?: number }>);
 
-    const normalized = {
+    const normalized = applyExpiredDeadlineGuard({
       ...data,
       compositeScore: computedComposite,
       decision:
@@ -706,7 +767,7 @@ async function runScoring(job: Job): Promise<void> {
       blockers: data.blockers ?? [],
       requiredActions: data.requiredActions ?? [],
       confidenceDrivers: data.confidenceDrivers ?? [],
-    };
+    });
 
     type SectionStatus = 'FAILED' | 'IN_PROGRESS' | 'IDLE' | 'COMPLETE';
     const nextSections: Record<string, { status: SectionStatus }> = {
@@ -802,6 +863,40 @@ const baseHandler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
 const average = (nums: number[]): number => {
   if (!nums.length) return 0;
   return nums.reduce((a, b) => a + b, 0) / nums.length;
+};
+
+/**
+ * Detect blockers that indicate the submission/response deadline has expired.
+ * The prompt instructs the model to emit "Submission deadline has passed", but
+ * we match robustly on deadline + expiry wording variants.
+ */
+export const isExpiredDeadlineBlocker = (blocker: string): boolean =>
+  /deadline|due date|response date|closing date/i.test(blocker) &&
+  /expired|passed|past due|in the past|already closed|has closed|lapsed|elapsed/i.test(blocker);
+
+const DEADLINE_OVERRIDE_NOTE =
+  'Deadline override: decision forced to NO_GO because the submission deadline has already passed.';
+
+/**
+ * Deterministic guard for the prompt's FINAL CONSISTENCY CHECK: if blockers[]
+ * contains an expired-deadline entry, the decision MUST be NO_GO. The LLM only
+ * complies ~80% of the time, so we enforce it in post-processing.
+ * Does NOT change the composite score.
+ */
+export const applyExpiredDeadlineGuard = <
+  T extends { decision?: string | null; blockers?: string[] | null; decisionRationale?: string | null },
+>(
+  scoring: T,
+): T => {
+  const hasExpiredDeadlineBlocker = (scoring.blockers ?? []).some(isExpiredDeadlineBlocker);
+  if (!hasExpiredDeadlineBlocker || scoring.decision === 'NO_GO') return scoring;
+
+  const rationale = scoring.decisionRationale?.trim();
+  return {
+    ...scoring,
+    decision: 'NO_GO',
+    decisionRationale: rationale ? `${rationale} ${DEADLINE_OVERRIDE_NOTE}` : DEADLINE_OVERRIDE_NOTE,
+  };
 };
 
 const weightedCompositeScore = (criteria: Array<{ name?: string; score?: number }>): number => {

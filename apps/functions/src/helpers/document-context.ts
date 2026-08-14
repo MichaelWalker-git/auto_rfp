@@ -505,20 +505,64 @@ export async function gatherAllContext(args: {
       const { getLaborRatesByOrg, getCostEstimatesByOpportunity, getStaffingPlansByOpportunity } = await import('./pricing');
       const parts: string[] = [];
 
+      // Resolve the rate basis from the opportunity's delivery-location constraint.
+      // OFFSHORE_ALLOWED → price remotely-deliverable roles at the offshore rate.
+      let rateBasis: 'ONSHORE' | 'OFFSHORE' = 'ONSHORE';
+      let constraintSeen: string | undefined;
+      if (opportunityId) {
+        try {
+          const { getOpportunity } = await import('./opportunity');
+          const opp = await getOpportunity({ orgId, projectId, oppId: opportunityId });
+          constraintSeen = opp?.item?.deliveryLocationConstraint ?? undefined;
+          if (opp?.item?.deliveryLocationConstraint === 'OFFSHORE_ALLOWED') {
+            rateBasis = 'OFFSHORE';
+          }
+        } catch (e) {
+          console.warn('[loadPricingContext] getOpportunity failed:', (e as Error)?.message);
+        }
+      }
+
       const laborRates = await getLaborRatesByOrg(orgId);
       const activeRates = laborRates.filter(r => r.isActive);
+      console.log(
+        `[loadPricingContext] oppId=${opportunityId ?? 'none'} constraint=${constraintSeen ?? 'none'} ` +
+        `rateBasis=${rateBasis} activeRates=${activeRates.length} ` +
+        `withOffshore=${activeRates.filter(r => typeof r.offshoreFullyLoadedRate === 'number' && r.offshoreFullyLoadedRate > 0).length}`,
+      );
       if (activeRates.length > 0) {
-        const rateLines = activeRates.map(r =>
-          `  ${r.position}: $${r.fullyLoadedRate.toFixed(2)}/hr (Base: $${r.baseRate.toFixed(2)}, OH: ${r.overhead}%, G&A: ${r.ga}%, Profit: ${r.profit}%)`
-        );
-        parts.push(`LABOR RATES:\n${rateLines.join('\n')}`);
+        const rateLines = activeRates.map(r => {
+          const hasOffshore = typeof r.offshoreFullyLoadedRate === 'number' && r.offshoreFullyLoadedRate > 0;
+          if (rateBasis === 'OFFSHORE') {
+            const rateToUse = hasOffshore ? r.offshoreFullyLoadedRate! : r.fullyLoadedRate;
+            const source = hasOffshore ? 'OFFSHORE' : 'ONSHORE (no offshore rate on file — exception)';
+            return `  ${r.position}: Rate to use $${rateToUse.toFixed(2)}/hr [${source}]` +
+              ` (onshore $${r.fullyLoadedRate.toFixed(2)}` +
+              (hasOffshore ? `, offshore $${r.offshoreFullyLoadedRate!.toFixed(2)}` : '') + '/hr)';
+          }
+          return `  ${r.position}: Rate to use $${r.fullyLoadedRate.toFixed(2)}/hr [ONSHORE]` +
+            ` (Base: $${r.baseRate.toFixed(2)}, OH: ${r.overhead}%, G&A: ${r.ga}%, Profit: ${r.profit}%)`;
+        });
+        const basisNote = rateBasis === 'OFFSHORE'
+          ? '\nRATE BASIS: OFFSHORE (AUTHORITATIVE — DO NOT RE-EVALUATE).' +
+            ' The offshore/remote-delivery eligibility for this opportunity has ALREADY been determined by prior solicitation analysis and confirmed by the user. Do NOT re-derive it from the solicitation text, and do NOT fall back to onshore because of perceived data-residency, records, or sensitivity concerns — if such a restriction applied, this basis would not be OFFSHORE.' +
+            ' Bill EVERY remotely-deliverable role (config, development, migration, documentation, testing, back-office PM) at its offshore "Rate to use" below. Only genuinely location-bound tasks (on-site kickoff/training) stay onshore.' +
+            ' Positions marked "ONSHORE (exception)" simply have no offshore rate on file — use their onshore rate. NEVER relabel onshore numbers as offshore.'
+          : '\nRATE BASIS: ONSHORE.';
+        parts.push(`LABOR RATES:${basisNote}\n${rateLines.join('\n')}`);
       }
 
       if (opportunityId) {
+        // A pre-built estimate/staffing plan carries the rate basis it was computed with.
+        // When the opportunity is OFFSHORE but the plan/estimate is onshore, tell the model
+        // to reprice from the OFFSHORE labor rates above rather than trust these totals.
+        const staleBasisNote = rateBasis === 'OFFSHORE'
+          ? ' NOTE: these totals may have been computed at ONSHORE rates. Reprice labor from the OFFSHORE "Rate to use" above; treat hours/scope here as reference only.'
+          : '';
+
         const estimates = await getCostEstimatesByOpportunity(orgId, projectId, opportunityId);
         if (estimates.length > 0) {
           const est = estimates[0]!;
-          parts.push(`COST ESTIMATE: ${est.name}\n  Strategy: ${est.strategy}\n  Total Price: $${est.totalPrice.toLocaleString()}\n  Margin: ${est.margin}%`);
+          parts.push(`COST ESTIMATE: ${est.name}\n  Strategy: ${est.strategy}\n  Total Price: $${est.totalPrice.toLocaleString()}\n  Margin: ${est.margin}%${staleBasisNote}`);
         }
 
         const plans = await getStaffingPlansByOpportunity(orgId, projectId, opportunityId);
@@ -527,7 +571,7 @@ export async function gatherAllContext(args: {
           const planLines = plan.laborItems.map(item =>
             `  ${item.position}: ${item.hours} hrs × $${item.rate.toFixed(2)}/hr = $${item.totalCost.toLocaleString()}`
           );
-          parts.push(`STAFFING PLAN: ${plan.name}\n${planLines.join('\n')}\n  Total: $${plan.totalLaborCost.toLocaleString()}`);
+          parts.push(`STAFFING PLAN: ${plan.name}\n${planLines.join('\n')}\n  Total: $${plan.totalLaborCost.toLocaleString()}${staleBasisNote}`);
         }
       }
 

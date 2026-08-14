@@ -205,8 +205,6 @@ export const updateItem = async <T extends Record<string, any>>(
       [SK_NAME]: sk,
     },
     UpdateExpression: `SET ${setParts.join(', ')}`,
-    ExpressionAttributeNames: names,
-    ExpressionAttributeValues: values,
     ReturnValues: options?.returnValues || 'ALL_NEW',
   };
 
@@ -216,6 +214,20 @@ export const updateItem = async <T extends Record<string, any>>(
   } else {
     command.ConditionExpression = 'attribute_exists(#pk) AND attribute_exists(#sk)';
   }
+
+  // DynamoDB rejects the whole update when ExpressionAttributeNames/-Values
+  // contain entries no expression references (e.g. the seeded #pk/#sk when a
+  // caller supplies a custom condition that doesn't use them) — keep only
+  // what the final expressions actually mention.
+  const expressionText = `${command.UpdateExpression} ${command.ConditionExpression}`;
+  const isReferenced = (key: string) =>
+    new RegExp(`${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(expressionText);
+  command.ExpressionAttributeNames = Object.fromEntries(
+    Object.entries(names).filter(([key]) => isReferenced(key)),
+  );
+  command.ExpressionAttributeValues = Object.fromEntries(
+    Object.entries(values).filter(([key]) => isReferenced(key)),
+  );
 
   const res = await withRetry(() => docClient.send(new UpdateCommand(command)), { label: 'updateItem' });
   return res.Attributes as T & DBItem;
