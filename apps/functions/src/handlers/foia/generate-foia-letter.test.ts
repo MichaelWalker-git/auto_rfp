@@ -73,6 +73,18 @@ describe('generate-foia-letter handler', () => {
       createdBy: 'user-789',
     };
 
+    /**
+     * The same request with an award actually on record.
+     *
+     * `mockRequest` deliberately carries no provenance, which is how records
+     * written before provenance tracking look — and must read as unverified, so
+     * the letter cannot assert an award that may not have happened.
+     */
+    const recordedAwardRequest: DBFOIARequestItem = {
+      ...mockRequest,
+      awardDateProvenance: 'RECORDED_AWARD',
+    };
+
     it('generates letter with correct agency info', () => {
       const letter = generateFOIALetter(mockRequest);
 
@@ -89,17 +101,39 @@ describe('generate-foia-letter handler', () => {
     });
 
     it('includes solicitation number, title, and award date', () => {
-      const letter = generateFOIALetter(mockRequest);
+      const letter = generateFOIALetter(recordedAwardRequest);
 
       expect(letter).toContain('Solicitation No. W911NF-21-R-0001');
       expect(letter).toContain('titled IT Services Contract');
       expect(letter).toContain('awarded on or about January 15, 2026');
     });
 
-    it('includes company name', () => {
+    it('claims bidder status only when a submission is verified', () => {
+      const letter = generateFOIALetter(mockRequest, { hasVerifiedSubmission: true });
+
+      expect(letter).toContain(
+        'My company, Acme Corp, submitted a proposal in response to the above-referenced solicitation and was not selected for award.',
+      );
+    });
+
+    it('asserts no bidder status when the submission is unverified', () => {
+      // A real agency replied "no record of ... participation in this
+      // solicitation was located" to a letter that claimed proposer status.
+      // Unattended sending must not repeat that.
       const letter = generateFOIALetter(mockRequest);
 
-      expect(letter).toContain('My company, Acme Corp, submitted a proposal');
+      expect(letter).not.toContain('submitted a proposal');
+      expect(letter).not.toContain('unsuccessful offeror');
+      expect(letter).toContain('prospective contractor with a commercial interest');
+      expect(letter).toContain('no claim of bidder status is asserted');
+      // The company is still named — the entity asking is not in doubt.
+      expect(letter).toContain('Acme Corp');
+    });
+
+    it('treats an explicit false the same as unknown', () => {
+      const letter = generateFOIALetter(mockRequest, { hasVerifiedSubmission: false });
+
+      expect(letter).not.toContain('submitted a proposal');
     });
 
     it('includes awardee name', () => {
@@ -116,14 +150,14 @@ describe('generate-foia-letter handler', () => {
       expect(letter).toContain('3. Price/cost analysis documentation');
     });
 
-    it('includes fee limit line when feeLimit > 0', () => {
+    it('states a fee ceiling and asks for an estimate when feeLimit > 0', () => {
       const letter = generateFOIALetter(mockRequest);
 
       expect(letter).toContain('$100.00');
-      expect(letter).toContain('willing to pay up to');
+      expect(letter).toContain('written cost estimate');
     });
 
-    it('includes fee waiver line when feeLimit is 0', () => {
+    it('agrees to statutory charges rather than claiming a waiver when feeLimit is 0', () => {
       const zeroFeeRequest: DBFOIARequestItem = {
         ...mockRequest,
         feeLimit: 0,
@@ -131,9 +165,12 @@ describe('generate-foia-letter handler', () => {
 
       const letter = generateFOIALetter(zeroFeeRequest);
 
-      expect(letter).not.toContain('willing to pay');
-      expect(letter).toContain('I request a fee waiver for this request');
-      expect(letter).toContain('please contact me before incurring any costs');
+      // A commercial requester is generally not entitled to a fee waiver;
+      // claiming one invites a denial on fee grounds before the substance is
+      // read. Both real agencies waived duplication costs unprompted anyway.
+      expect(letter).not.toContain('fee waiver');
+      expect(letter).toContain('reasonable statutory charges');
+      expect(letter).toContain('written cost estimate');
     });
 
     it('includes requester contact information', () => {
@@ -177,10 +214,10 @@ describe('generate-foia-letter handler', () => {
       expect(letter).not.toContain('FEE WAIVER REQUEST');
     });
 
-    it('describes requester as unsuccessful offeror', () => {
-      const letter = generateFOIALetter(mockRequest);
+    it('describes the requester as an unsuccessful offeror once verified', () => {
+      const letter = generateFOIALetter(mockRequest, { hasVerifiedSubmission: true });
 
-      expect(letter).toContain('unsuccessful offeror');
+      expect(letter).toContain('was not selected for award');
     });
 
     it('includes custom document requests', () => {
@@ -198,10 +235,13 @@ describe('generate-foia-letter handler', () => {
       expect(letter).toContain('5. Meeting minutes from the evaluation board sessions');
     });
 
-    it('includes company name in company clause', () => {
-      const letter = generateFOIALetter(mockRequest);
-
-      expect(letter).toContain('My company, Acme Corp, submitted a proposal');
+    it('names the company in both letter branches', () => {
+      // Whether or not bidder status is verified, the agency must know who is
+      // asking — only the claim about having bid changes.
+      expect(generateFOIALetter(mockRequest)).toContain('My company, Acme Corp,');
+      expect(generateFOIALetter(mockRequest, { hasVerifiedSubmission: true })).toContain(
+        'My company, Acme Corp,',
+      );
     });
 
     it('includes date in the letter', () => {
@@ -211,15 +251,42 @@ describe('generate-foia-letter handler', () => {
       expect(letter).toMatch(/\w+ \d{1,2}, \d{4}/);
     });
 
-    it('includes award date in pertains line', () => {
-      const letter = generateFOIALetter(mockRequest);
+    it('asserts an award only when the date is on record', () => {
+      const letter = generateFOIALetter(recordedAwardRequest);
 
       expect(letter).toContain('awarded on or about January 15, 2026');
     });
 
+    it('does not assert an award when the date came from the response deadline', () => {
+      // The premature-filing guard. On a real solicitation the deadline preceded
+      // the true award by 108 days; "on or about" hedges a date, not a fact.
+      const letter = generateFOIALetter({
+        ...mockRequest,
+        awardDateProvenance: 'RESPONSE_DEADLINE',
+      });
+
+      expect(letter).not.toContain('awarded on or about');
+      expect(letter).toContain('for which responses were due January 15, 2026');
+      expect(letter).toContain('If an award has been made');
+      expect(letter).toContain('remains pending or was cancelled');
+    });
+
+    it('treats a missing provenance as unverified', () => {
+      // Records written before provenance tracking must not silently assert an award.
+      const letter = generateFOIALetter(mockRequest);
+
+      expect(letter).not.toContain('awarded on or about');
+    });
+
+    it('treats a forecast announcement date as unverified', () => {
+      const letter = generateFOIALetter({ ...mockRequest, awardDateProvenance: 'FORECAST' });
+
+      expect(letter).not.toContain('awarded on or about');
+    });
+
     it('formats ISO date strings into human-readable format', () => {
       const isoDateRequest: DBFOIARequestItem = {
-        ...mockRequest,
+        ...recordedAwardRequest,
         awardDate: '2026-03-22',
       };
 

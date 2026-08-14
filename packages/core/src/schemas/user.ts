@@ -119,6 +119,8 @@ export const ALL_PERMISSIONS = [
   'notification:manage',
   'audit:read',
   'audit:report',
+  // Approving and transmitting a statutory records request to an agency.
+  'foia:send',
 ] as const;
 
 export type Permission = (typeof ALL_PERMISSIONS)[number];
@@ -161,6 +163,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'apn:read',
     'apn:retry',
     'pricing:create', 'pricing:read', 'pricing:edit', 'pricing:calculate',
+    'foia:send',
   ],
   BILLING: [
     'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read',
