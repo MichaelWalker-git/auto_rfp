@@ -47,3 +47,4 @@ export * from './company-profile';
 export * from './member-detection';
 export * from './rfp-digest';
 export * from './solution-plan';
+export * from './service-pricing-cache';
