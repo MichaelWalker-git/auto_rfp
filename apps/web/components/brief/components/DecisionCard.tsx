@@ -122,6 +122,9 @@ export function DecisionCard({
       // makes the lookup fail (or, on older backends, return an arbitrary brief
       // for a different opportunity, which swapped the summary/requirements view).
       const briefOpportunityId = opportunityId ?? briefItem?.opportunityId;
+      if (!briefOpportunityId) {
+        throw new Error('Cannot refresh brief: opportunityId is missing.');
+      }
       const latest = await getBriefByProject.trigger({
         projectId,
         opportunityId: briefOpportunityId,
