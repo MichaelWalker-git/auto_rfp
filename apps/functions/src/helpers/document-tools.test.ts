@@ -178,6 +178,32 @@ describe('executeDocumentTool — search_service_pricing', () => {
     expect(result.content).not.toContain('Error executing tool');
   });
 
+  it('passes an over-cap batch (>10 services) through to the helper instead of rejecting it', async () => {
+    // The executor's Zod schema deliberately has no .max(10): the helper caps
+    // the batch and degrades extras to "vendor quote required" rows, which the
+    // model handles better than a validation error. Guards against someone
+    // "fixing" the schema with .max(10) and breaking that degradation.
+    const services = Array.from({ length: 12 }, (_, i) => ({ serviceName: `Service ${i}` }));
+    mockSearchServicePricing.mockResolvedValue(
+      services.map((s, i) =>
+        i < 10
+          ? { ...foundResult, serviceName: s.serviceName }
+          : { ...notFoundResult, serviceName: s.serviceName },
+      ),
+    );
+
+    const { content } = await executeDocumentTool({
+      ...baseArgs,
+      toolName: 'search_service_pricing',
+      toolInput: { services },
+    });
+
+    expect(mockSearchServicePricing).toHaveBeenCalledWith({ services });
+    expect(content).not.toContain('Invalid search_service_pricing input');
+    expect(content).toContain('10 of 12 service(s) priced');
+    expect(content).toContain('| Service 11 | UNKNOWN | vendor quote required | — | — | — | — |');
+  });
+
   it('returns an instructive message (not an error) for invalid input', async () => {
     const { content } = await executeDocumentTool({
       ...baseArgs,

@@ -24,6 +24,7 @@
 
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import { executeDocumentTool, getDocumentToolsForType } from '@/helpers/document-tools';
+import type { RFPDocumentType } from '@auto-rfp/core';
 import type { QaPair } from '@/types/document-generation';
 import type { ToolResult } from '@/types/tool';
 
@@ -45,7 +46,7 @@ export interface GenerateSectionBySection {
   initialUserPrompt: string;
   sections: DocumentSection[];
   /** Determines which tools are offered (search_service_pricing is pricing-doc-only) */
-  documentType: string;
+  documentType: RFPDocumentType;
   orgId: string;
   projectId: string;
   opportunityId: string;

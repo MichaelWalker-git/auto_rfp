@@ -37,7 +37,12 @@ import {
 import type { BriefSectionName } from './executive-opportunity-brief';
 import type { ToolResult } from '@/types/tool';
 import { z } from 'zod';
-import { ServicePricingLookupSchema, type ServicePricingResult } from '@auto-rfp/core';
+import {
+  ServicePricingLookupSchema,
+  RFP_DOCUMENT_TYPES,
+  type RFPDocumentType,
+  type ServicePricingResult,
+} from '@auto-rfp/core';
 import { searchServicePricing } from './service-pricing';
 
 export type { ToolResult };
@@ -269,7 +274,11 @@ export const DOCUMENT_TOOLS = [
 export type ToolName = typeof DOCUMENT_TOOLS[number]['name'];
 
 /** Document types allowed to call the third-party pricing web lookup (T3). */
-const PRICING_TOOL_DOC_TYPES = new Set(['COST_PROPOSAL', 'PRICE_VOLUME']);
+const PRICING_TOOL_DOC_TYPES: ReadonlySet<RFPDocumentType> = new Set(
+  // `satisfies` pins these to real built-in types — a typo here would silently
+  // withhold the pricing tool with no error anywhere.
+  ['COST_PROPOSAL', 'PRICE_VOLUME'] satisfies (keyof typeof RFP_DOCUMENT_TYPES)[],
+);
 
 /**
  * Tools to offer the model for a given document type: `search_service_pricing`
@@ -277,7 +286,7 @@ const PRICING_TOOL_DOC_TYPES = new Set(['COST_PROPOSAL', 'PRICE_VOLUME']);
  * other types get the base tool set. Generation code should pass the result of
  * this — not DOCUMENT_TOOLS directly — as the request's `tools`.
  */
-export const getDocumentToolsForType = (documentType: string) =>
+export const getDocumentToolsForType = (documentType: RFPDocumentType) =>
   DOCUMENT_TOOLS.filter(
     (tool) => tool.name !== 'search_service_pricing' || PRICING_TOOL_DOC_TYPES.has(documentType),
   );
