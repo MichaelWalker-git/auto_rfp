@@ -58,6 +58,7 @@ jest.mock('@/helpers/rfp-document-version', () => ({
 }));
 jest.mock('@/helpers/document-tools', () => ({
   DOCUMENT_TOOLS: [],
+  getDocumentToolsForType: jest.fn(() => []),
   executeDocumentTool: jest.fn(),
 }));
 jest.mock('@/helpers/bedrock-http-client', () => ({ invokeModel: jest.fn() }));

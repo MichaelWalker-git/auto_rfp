@@ -27,6 +27,11 @@ Create `apps/functions/src/helpers/web-search-client.ts` — a provider-agnostic
 
 Add the `search_service_pricing` tool definition and executor branch to `apps/functions/src/helpers/document-tools.ts` with **batched input schema** `{ services: [{ serviceName, billingPeriod? }] }` (max 10); tool description instructs the model to request ALL third-party services in ONE call. Executor returns a single formatted table (one row per service), each row citing source URL + retrieval date, footer "ESTIMATES — subject to vendor quote"; failed lookups return "vendor quote required" rows. **The executor never throws into the tool loop** (ADR-15): total outage (Brave down, quota exhausted, SSM key missing) degrades all rows to "vendor quote required (lookup unavailable)" — the document always completes. Tests cover partial-failure and total-outage shapes. Offer the tool only for COST_PROPOSAL/PRICE_VOLUME (filter by `documentType` where `DOCUMENT_TOOLS` is passed in `generate-document-worker.ts`). Infra: create SSM parameter per stage (runbook, like the Bedrock key), grant `ssm:GetParameter` on the param ARN to `commonLambdaRole`, add `BRAVE_SEARCH_API_KEY_SSM_PARAM` to `commonEnv` in `api-orchestrator-stack.ts`.
 
+> **Implementation notes (as built, 2026-08-14):**
+> - Doc-type filtering is centralized in a new `getDocumentToolsForType(documentType)` export from `document-tools.ts`; every place that offered `DOCUMENT_TOOLS` to the model now uses it — single-shot + section-by-section generation (`generate-document-worker.ts` / `document-section-generator.ts`, which gained a required `documentType` arg) **and also `edit-section.ts`** (beyond spec, for consistency: the pricing tool is available when editing COST_PROPOSAL/PRICE_VOLUME sections, hidden elsewhere).
+> - **T6's `search_service_pricing` stub in `solution-plan-tools.ts` was replaced** per its `TODO(T3)`: the tool name joined `SOLUTION_PLAN_SHARED_TOOL_NAMES` and the executor now delegates to the real Brave-backed lookup via `executeDocumentTool`.
+> - **No new IAM grant was needed** — `commonLambdaRole` already has `ssm:GetParameter` on `parameter/auto-rfp/*`, which covers `/auto-rfp/brave-search/api-key`. Runbook: `docs/improvements_v1/RUNBOOK-BRAVE-SEARCH-API-KEY.md`.
+
 ---
 
 ## Track S — Source of Truth backbone (Release 2)

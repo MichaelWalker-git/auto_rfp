@@ -239,6 +239,11 @@ export class ApiOrchestratorStack extends cdk.Stack {
       BEDROCK_REGION: 'us-east-1',
       BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
       BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
+      // Brave web-search API key location (T3, search_service_pricing tool).
+      // The parameter is created manually per stage (see docs/improvements_v1/
+      // RUNBOOK-BRAVE-SEARCH-API-KEY.md); commonLambdaRole's ssm:GetParameter
+      // grant on /auto-rfp/* already covers it.
+      BRAVE_SEARCH_API_KEY_SSM_PARAM: '/auto-rfp/brave-search/api-key',
       STATE_MACHINE_ARN: documentPipelineStateMachineArn,
       QUESTION_PIPELINE_STATE_MACHINE_ARN: questionPipelineStateMachineArn,
       ANSWER_GENERATION_STATE_MACHINE_ARN: answerGenerationStateMachineArn,
