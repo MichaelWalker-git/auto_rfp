@@ -9,6 +9,7 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
 import https from 'https';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { z } from 'zod';
 
 import { apiResponse, getOrgId } from '@/helpers/api';
@@ -22,15 +23,41 @@ import {
 import { getApiKey } from '@/helpers/api-key-storage';
 import { SAM_GOV_SECRET_PREFIX } from '@/constants/samgov';
 import { DIBBS_SECRET_PREFIX } from '@/constants/dibbs';
-import { HIGHERGOV_SECRET_PREFIX, HIGHERGOV_BASE_URL } from '@/constants/highergov';
+import {
+  HIGHERGOV_SECRET_PREFIX,
+  HIGHERGOV_BASE_URL,
+  HIGHERGOV_SEARCH_WORKER_FUNCTION_NAME_ENV,
+} from '@/constants/highergov';
 import { requireEnv } from '@/helpers/env';
-import { searchSamOpportunities, searchDibbsOpportunities, searchHigherGovOpportunities, withSourceTimeout } from '@/helpers/search-opportunity';
+import { searchSamOpportunities, searchDibbsOpportunities, searchHigherGovOpportunities, withSourceTimeout, HIGHERGOV_TIMEOUT_MS } from '@/helpers/search-opportunity';
+import {
+  getHigherGovSearchCache,
+  isHigherGovSearchCacheStale,
+  markHigherGovSearchPending,
+} from '@/helpers/highergov-search-cache';
 import {
   samSlimToSearchOpportunity,
   dibbsSlimToSearchOpportunity,
   higherGovToSearchOpportunity,
+  type HigherGovSearchJob,
   type SearchOpportunity,
 } from '@auto-rfp/core';
+
+const lambdaClient = new LambdaClient({});
+
+/**
+ * Fire-and-forget the HigherGov search worker. The worker performs the slow
+ * (~30s+) saved-search fetch out of band and writes results to the cache row.
+ */
+const invokeHigherGovSearchWorker = async (job: HigherGovSearchJob): Promise<void> => {
+  const fnName = process.env[HIGHERGOV_SEARCH_WORKER_FUNCTION_NAME_ENV];
+  if (!fnName) throw new Error(`${HIGHERGOV_SEARCH_WORKER_FUNCTION_NAME_ENV} not configured`);
+  await lambdaClient.send(new InvokeCommand({
+    FunctionName: fnName,
+    InvocationType: 'Event', // fire-and-forget
+    Payload: Buffer.from(JSON.stringify(job)),
+  }));
+};
 
 const SAM_BASE_URL  = requireEnv('SAM_OPPS_BASE_URL', 'https://api.sam.gov');
 const DIBBS_BASE_URL = requireEnv('DIBBS_BASE_URL', 'https://www.dibbs.bsm.dla.mil');
@@ -62,6 +89,17 @@ const SearchRequestSchema = z.object({
 
 type SearchRequest = z.infer<typeof SearchRequestSchema>;
 
+/**
+ * HigherGov's /opportunity/ API has no keyword/NAICS/set-aside filter and no date
+ * range — those must be expressed via a saved search (search_id) built in the
+ * HigherGov UI. Firing a plain keyword search therefore can't return correct
+ * results (it would fetch a single day and client-filter a 100-row slice), so we
+ * short-circuit with this message instead of a 15s-timeout empty response.
+ */
+export const HIGHERGOV_KEYWORD_NEEDS_SEARCH_ID =
+  'Keyword, NAICS, and set-aside search for HigherGov requires a saved search. ' +
+  'Create the search on HigherGov, then paste its Search ID into the HigherGov ID field.';
+
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
 export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
@@ -84,6 +122,11 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
   let totalSamGov = 0;
   let totalDibbs  = 0;
   let totalHigherGov = 0;
+  // True while a HigherGov saved-search fetch is running in the background — the
+  // frontend polls (re-issues the search) until this clears. HigherGov can take
+  // ~30s+ per saved search, which exceeds the API Gateway ceiling, so search_id
+  // results are fetched by a worker and served from a cache row.
+  let higherGovPending = false;
 
   // ── Run all sources in parallel to stay under 29s API Gateway limit ────
   const sourcePromises: Array<Promise<void>> = [];
@@ -154,9 +197,52 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
         const apiKey = await getApiKey(orgId, HIGHERGOV_SECRET_PREFIX);
         if (apiKey) {
           const hasSearchId = !!data.higherGovSearchId;
+
+          // HigherGov's API can't filter by keyword/NAICS/set-aside — those only
+          // work through a saved search (search_id). A plain keyword search returns
+          // a single day's slice with no matches after a 15s timeout, so skip the
+          // doomed call. Only surface guidance when HigherGov is the explicitly
+          // chosen sole source — in ALL mode SAM/DIBBS carry the keyword search and
+          // a banner on every search would be noise.
+          const hasKeywordFilters = !!(data.keywords || data.naics?.length || data.setAsideCode);
+          if (!hasSearchId && hasKeywordFilters) {
+            if (data.source === 'HIGHER_GOV') {
+              errors['HIGHER_GOV'] = HIGHERGOV_KEYWORD_NEEDS_SEARCH_ID;
+            }
+            return;
+          }
+
           const pageSize = data.limit ?? 25;
 
-          const postedDate = !hasSearchId && data.postedFrom
+          // ── Saved-search (search_id): async cache path ──────────────────────
+          // HigherGov's /opportunity/ can take ~30s+ for a saved search, past
+          // the API Gateway 30s ceiling, so an inline fetch can never return.
+          // Serve from a cache row a background worker populates; poll until ready.
+          if (hasSearchId && data.higherGovSearchId) {
+            const searchId = data.higherGovSearchId;
+            const nowMs = Date.now();
+            const cache = await getHigherGovSearchCache(orgId, searchId);
+
+            if (cache && cache.status === 'READY') {
+              totalHigherGov = cache.totalCount;
+              results.push(...cache.opportunities);
+              return;
+            }
+            if (cache && cache.status === 'ERROR' && !isHigherGovSearchCacheStale(cache, nowMs)) {
+              errors['HIGHER_GOV'] = cache.error ?? 'HigherGov search failed';
+              return;
+            }
+            // No fresh row (or a dead PENDING) — kick off a worker and report pending.
+            if (isHigherGovSearchCacheStale(cache, nowMs)) {
+              await markHigherGovSearchPending(orgId, searchId, new Date().toISOString(), nowMs);
+              await invokeHigherGovSearchWorker({ orgId, searchId, pageSize: Math.min(pageSize, 100) });
+            }
+            higherGovPending = true;
+            return;
+          }
+
+          // ── Date-only / unfiltered: fast enough to run inline ───────────────
+          const postedDate = data.postedFrom
             ? `${data.postedFrom.slice(6)}-${data.postedFrom.slice(0, 2)}-${data.postedFrom.slice(3, 5)}`
             : undefined;
 
@@ -164,11 +250,10 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
             searchHigherGovOpportunities(
               { baseUrl: HIGHERGOV_BASE_URL, apiKey, httpsAgent },
               {
-                keywords:     hasSearchId ? undefined : data.keywords,
-                naics:        hasSearchId ? undefined : data.naics,
-                setAsideCode: hasSearchId ? undefined : data.setAsideCode,
-                searchId:     data.higherGovSearchId,
-                sourceType:   hasSearchId ? undefined : data.higherGovSourceType,
+                keywords:     data.keywords,
+                naics:        data.naics,
+                setAsideCode: data.setAsideCode,
+                sourceType:   data.higherGovSourceType,
                 postedDate,
                 ordering:     '-captured_date',
                 pageSize,
@@ -176,6 +261,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
               },
             ),
             'HigherGov',
+            HIGHERGOV_TIMEOUT_MS,
           );
           totalHigherGov = resp.totalCount;
           results.push(...resp.results.map(higherGovToSearchOpportunity));
@@ -211,6 +297,9 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
     totalHigherGov,
     total: totalSamGov + totalDibbs + totalHigherGov,
     errors: Object.keys(errors).length ? errors : undefined,
+    // Signals the frontend to poll again — a HigherGov saved-search fetch is
+    // still running in the background and its results will appear on a re-issue.
+    higherGovPending: higherGovPending || undefined,
   });
 };
 

@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { AlertCircle, Bookmark, Key, Layers, Loader2, Search, Settings, ChevronDown } from 'lucide-react';
+import { AlertCircle, Bookmark, Info, Key, Layers, Loader2, Search, Settings, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 
 import { PageHeader } from '@/components/layout/page-header';
@@ -338,15 +338,35 @@ export default function SearchOpportunitiesPage({ orgId }: Props) {
             </Alert>
           )}
           {result?.higherGovError && (
-            <Alert variant="default" className="border-orange-200 bg-orange-50 text-orange-900">
-              <AlertCircle className="h-4 w-4 text-orange-500" />
-              <AlertTitle>HigherGov unavailable</AlertTitle>
-              <AlertDescription className="text-xs">{result.higherGovError}</AlertDescription>
+            result.higherGovError.startsWith('Keyword, NAICS, and set-aside search for HigherGov') ? (
+              // Actionable guidance, not an outage — HigherGov keyword search needs a saved-search ID.
+              <Alert variant="default" className="border-blue-200 bg-blue-50 text-blue-900">
+                <Info className="h-4 w-4 text-blue-500" />
+                <AlertTitle>HigherGov needs a saved search</AlertTitle>
+                <AlertDescription className="text-xs">{result.higherGovError}</AlertDescription>
+              </Alert>
+            ) : (
+              <Alert variant="default" className="border-orange-200 bg-orange-50 text-orange-900">
+                <AlertCircle className="h-4 w-4 text-orange-500" />
+                <AlertTitle>HigherGov unavailable</AlertTitle>
+                <AlertDescription className="text-xs">{result.higherGovError}</AlertDescription>
+              </Alert>
+            )
+          )}
+          {result?.higherGovPending && !result.higherGovError && (
+            // HigherGov saved searches can take ~30s+ — fetched in the background,
+            // results appear here automatically once ready (the hook polls).
+            <Alert variant="default" className="border-blue-200 bg-blue-50 text-blue-900">
+              <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+              <AlertTitle>Fetching HigherGov results…</AlertTitle>
+              <AlertDescription className="text-xs">
+                HigherGov saved searches can take up to a minute. Results will appear automatically — no need to search again.
+              </AlertDescription>
             </Alert>
           )}
 
           {/* Results summary bar */}
-          {hasSearched && !isLoading && result && (
+          {hasSearched && !isLoading && !result?.higherGovPending && result && (
             <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/20 px-4 py-2.5">
               <div className="flex items-center gap-2">
                 <Layers className="h-4 w-4 text-muted-foreground" />
@@ -404,6 +424,7 @@ export default function SearchOpportunitiesPage({ orgId }: Props) {
             <SearchOpportunityResultsTable
               opportunities={result?.opportunities ?? []}
               isLoading={isLoading}
+              isPending={result?.higherGovPending}
               onImport={handleImport}
               importingId={importingId}
               orgId={orgId}

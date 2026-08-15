@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
 import type { SearchOpportunity } from '@auto-rfp/core';
@@ -41,6 +41,8 @@ export interface SearchOpportunityResult {
   samGovError: string | null;
   dibbsError: string | null;
   higherGovError: string | null;
+  /** A HigherGov saved-search fetch is still running in the background. */
+  higherGovPending: boolean;
 }
 
 /** @deprecated use SearchOpportunityResult */
@@ -65,6 +67,15 @@ export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
 export type PageSizeOption = typeof PAGE_SIZE_OPTIONS[number];
 const DEFAULT_PAGE_SIZE: PageSizeOption = 25;
 
+/**
+ * Poll cadence + ceiling for a background HigherGov saved-search fetch. The
+ * worker Lambda has a 60s timeout; a cold first fetch that times out is auto-
+ * retried by Lambda and can complete ~90s+ after the paste. Poll long enough to
+ * catch that worst case so results appear on the first paste, not a re-search.
+ */
+const HIGHERGOV_POLL_INTERVAL_MS = 4_000;
+const HIGHERGOV_POLL_MAX_ATTEMPTS = 30; // ~120s of polling before giving up
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export const useSearchOpportunities = (orgId: string | undefined) => {
@@ -75,13 +86,16 @@ export const useSearchOpportunities = (orgId: string | undefined) => {
   // Track the last criteria so "load more" can re-use it
   const [lastCriteria, setLastCriteria] = useState<SearchOpportunityCriteria | null>(null);
   const [currentOffset, setCurrentOffset] = useState(0);
+  // Incremented on each new search so a stale poll loop from a prior search
+  // (e.g. the user changed the query mid-fetch) knows to stop.
+  const searchTokenRef = useRef(0);
 
   const fetchPage = async (
     criteria: SearchOpportunityCriteria,
     offset: number,
     append: boolean,
-  ): Promise<void> => {
-    if (!orgId) return;
+  ): Promise<boolean> => {
+    if (!orgId) return false;
 
     const from   = criteria.postedFrom ?? defaultFrom();
     const to     = criteria.postedTo   ?? defaultTo();
@@ -121,9 +135,11 @@ export const useSearchOpportunities = (orgId: string | undefined) => {
       totalHigherGov: number;
       total: number;
       errors?: Record<string, string>;
+      higherGovPending?: boolean;
     };
 
     const incoming = json.opportunities ?? [];
+    const higherGovPending = json.higherGovPending ?? false;
 
     setResult((prev) => ({
       opportunities: append && prev ? [...prev.opportunities, ...incoming] : incoming,
@@ -135,20 +151,44 @@ export const useSearchOpportunities = (orgId: string | undefined) => {
       samGovError:    json.errors?.['SAM_GOV']    ?? null,
       dibbsError:     json.errors?.['DIBBS']      ?? null,
       higherGovError: json.errors?.['HIGHER_GOV'] ?? null,
+      higherGovPending,
     }));
     setCurrentOffset(offset + incoming.length);
+    return higherGovPending;
+  };
+
+  const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+  /**
+   * Re-issue the same search on an interval until the HigherGov background fetch
+   * completes (higherGovPending clears) or we hit the attempt ceiling. A new
+   * search bumps searchTokenRef, which halts any in-flight poll loop.
+   */
+  const pollHigherGov = async (criteria: SearchOpportunityCriteria, token: number): Promise<void> => {
+    for (let attempt = 0; attempt < HIGHERGOV_POLL_MAX_ATTEMPTS; attempt++) {
+      await sleep(HIGHERGOV_POLL_INTERVAL_MS);
+      if (token !== searchTokenRef.current) return; // superseded by a newer search
+      try {
+        const stillPending = await fetchPage(criteria, 0, false);
+        if (!stillPending) return;
+      } catch {
+        return; // transient error — stop polling, keep whatever we already showed
+      }
+    }
   };
 
   const search = async (criteria: SearchOpportunityCriteria): Promise<void> => {
+    const token = ++searchTokenRef.current;
     setLoading(true);
     setError(null);
     setLastCriteria(criteria);
     setCurrentOffset(0);
     try {
-      await fetchPage(criteria, 0, false);
+      const higherGovPending = await fetchPage(criteria, 0, false);
+      setLoading(false);
+      if (higherGovPending) await pollHigherGov(criteria, token);
     } catch (e) {
       setError(e instanceof Error ? e : new Error('Search failed'));
-    } finally {
       setLoading(false);
     }
   };

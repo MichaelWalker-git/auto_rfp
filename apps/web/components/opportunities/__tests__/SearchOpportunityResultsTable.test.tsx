@@ -427,3 +427,64 @@ describe('SearchOpportunityResultsTable — description disclosure', () => {
     expect(screen.getByRole('button', { name: /import/i })).toBeInTheDocument();
   });
 });
+
+describe('SearchOpportunityResultsTable — empty state vs. pending fetch', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAuthFetcher.mockReset();
+    installIntersectionObserver();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('shows "No opportunities found" when there are no results and nothing is pending', () => {
+    render(
+      <SearchOpportunityResultsTable
+        opportunities={[]}
+        isLoading={false}
+        onImport={jest.fn()}
+        importingId={null}
+        orgId="org-1"
+      />,
+    );
+
+    expect(screen.getByText(/No opportunities found/i)).toBeInTheDocument();
+  });
+
+  it('keeps skeletons up — not "No opportunities found" — while a HigherGov fetch is pending', () => {
+    // The async worker returns immediately with isLoading=false and no results
+    // while it fetches in the background; flashing the empty state would read as
+    // "nothing matched" when results are still on the way.
+    const { container } = render(
+      <SearchOpportunityResultsTable
+        opportunities={[]}
+        isLoading={false}
+        isPending
+        onImport={jest.fn()}
+        importingId={null}
+        orgId="org-1"
+      />,
+    );
+
+    expect(screen.queryByText(/No opportunities found/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('renders results even while pending, once the first page arrives', () => {
+    render(
+      <SearchOpportunityResultsTable
+        opportunities={[makeOpportunity({ source: 'HIGHER_GOV', noticeId: null })]}
+        isLoading={false}
+        isPending
+        onImport={jest.fn()}
+        importingId={null}
+        orgId="org-1"
+      />,
+    );
+
+    expect(screen.queryByText(/No opportunities found/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Test Opportunity')).toBeInTheDocument();
+  });
+});
