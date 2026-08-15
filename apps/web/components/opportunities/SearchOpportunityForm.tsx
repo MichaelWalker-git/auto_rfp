@@ -299,6 +299,8 @@ const HigherGovSearchIdSelector = ({
 
 interface Props {
   orgId?: string;
+  /** Project a saved search auto-imports into when run on schedule. */
+  projectId?: string;
   onSearch: (c: SearchOpportunityCriteria) => void;
   isLoading: boolean;
   /** Initial filter values restored from URL search params */
@@ -307,7 +309,7 @@ interface Props {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export const SearchOpportunityForm = ({ orgId, onSearch, isLoading, initialValues }: Props) => {
+export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, initialValues }: Props) => {
   const { toast } = useToast();
   const [saveOpen, setSaveOpen] = React.useState(false);
   const [saveName, setSaveName] = React.useState('My Search');
@@ -368,17 +370,28 @@ export const SearchOpportunityForm = ({ orgId, onSearch, isLoading, initialValue
     try {
       const c = buildCriteria(w);
       const fmt = (iso?: string) => iso ? `${iso.slice(5,7)}/${iso.slice(8,10)}/${iso.slice(0,4)}` : '01/01/2025';
+      const source = w.source === 'DIBBS' ? 'DIBBS' : w.source === 'HIGHER_GOV' ? 'HIGHER_GOV' : 'SAM_GOV';
+      // Daily auto-import is scoped to HigherGov: its saved-search IDs pull a
+      // stable, filtered result set, so unattended daily imports are safe. SAM/
+      // DIBBS stay opt-out (autoImport false) to avoid flooding a project.
+      const autoImport = source === 'HIGHER_GOV';
       const res = await authFetcher(`${env.BASE_API_URL}/search-opportunities/saved-search`, {
         method: 'POST',
         body: JSON.stringify({
-          source: w.source === 'DIBBS' ? 'DIBBS' : w.source === 'HIGHER_GOV' ? 'HIGHER_GOV' : 'SAM_GOV', orgId,
+          source, orgId,
           name: saveName.trim() || 'My Search',
           criteria: { postedFrom: fmt(c.postedFrom), postedTo: fmt(c.postedTo), keywords: c.keywords, naics: c.naics, setAsideCode: c.setAsideCode, closingFrom: c.closingFrom ? fmt(c.closingFrom) : undefined, closingTo: c.closingTo ? fmt(c.closingTo) : undefined, higherGovSourceType: c.higherGovSourceType, higherGovSearchId: c.higherGovSearchId },
-          frequency: 'DAILY', autoImport: false, notifyEmails: [], isEnabled: true,
+          projectId,
+          frequency: 'DAILY', autoImport, notifyEmails: [], isEnabled: true,
         }),
       });
       if (!res.ok) throw new Error('Failed');
-      toast({ title: 'Search saved', description: `"${saveName}" will run daily.` });
+      toast({
+        title: 'Search saved',
+        description: autoImport && projectId
+          ? `"${saveName}" will run daily and import new matches into this project.`
+          : `"${saveName}" will run daily.`,
+      });
       setSaveOpen(false);
     } catch { toast({ title: 'Failed to save', variant: 'destructive' }); }
     finally { setIsSaving(false); }
