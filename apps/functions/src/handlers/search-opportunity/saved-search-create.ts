@@ -52,6 +52,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     source:       data.source ?? 'SAM_GOV',
     name:         data.name.trim(),
     criteria:     data.criteria,
+    projectId:    data.projectId,
     frequency:    data.frequency ?? 'DAILY',
     autoImport:   data.autoImport ?? false,
     notifyEmails: data.notifyEmails ?? [],

@@ -154,7 +154,7 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
       <HigherGovFavoritesBanner orgId={orgId} projectId={projectId} />
 
       <div className="mb-6">
-        <SearchOpportunityForm orgId={orgId} onSearch={handleSearch} isLoading={isLoading} initialValues={initialFormValues.current ?? undefined} />
+        <SearchOpportunityForm orgId={orgId} projectId={projectId} onSearch={handleSearch} isLoading={isLoading} initialValues={initialFormValues.current ?? undefined} />
       </div>
 
       {result?.samGovError && (

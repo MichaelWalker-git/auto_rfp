@@ -162,6 +162,11 @@ export const SavedSearchSchema = z.object({
   source:        SavedSearchSourceSchema.default('SAM_GOV'),
   name:          z.string().min(1).max(120),
   criteria:      LoadSearchOpportunitiesRequestSchema,
+  /**
+   * Project the scheduled runner imports auto-import matches into. Optional for
+   * backward compat (older / org-level searches fall back to the org default).
+   */
+  projectId:     z.string().optional(),
   frequency:     SavedSearchFrequencySchema.default('DAILY'),
   autoImport:    z.boolean().default(false),
   notifyEmails:  z.array(z.string().email()).default([]),
@@ -179,6 +184,7 @@ export const CreateSavedSearchRequestSchema = z.object({
   source:       SavedSearchSourceSchema.default('SAM_GOV'),
   name:         z.string().min(1).max(120),
   criteria:     LoadSearchOpportunitiesRequestSchema,
+  projectId:    z.string().optional(),
   frequency:    SavedSearchFrequencySchema.optional(),
   autoImport:   z.boolean().optional(),
   notifyEmails: z.array(z.string().email()).optional(),
@@ -194,6 +200,7 @@ export const PatchSchema = z
   .object({
     name:         z.string().min(1).max(120).optional(),
     criteria:     LoadSearchOpportunitiesRequestSchema.optional(),
+    projectId:    z.string().optional(),
     frequency:    SavedSearchFrequencySchema.optional(),
     autoImport:   z.boolean().optional(),
     notifyEmails: z.array(z.string().email()).optional(),
