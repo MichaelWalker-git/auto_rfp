@@ -143,12 +143,6 @@ describe('buildSynthesizerSystemPrompt', () => {
     expect(buildSynthesizerSystemPrompt()).toContain('10,000');
   });
 
-  it('requires a structured bidDecision in the output (Fix C)', () => {
-    const prompt = buildSynthesizerSystemPrompt();
-    expect(prompt).toContain('"bidDecision"');
-    expect(prompt).toContain('bidDecision: output "NO_BID" ONLY when');
-    expect(prompt).toContain('Otherwise output "BID"');
-  });
 });
 
 describe('buildSynthesizerUserPrompt', () => {

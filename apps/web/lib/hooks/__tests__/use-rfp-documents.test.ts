@@ -53,49 +53,6 @@ describe('toGenerateDocumentError', () => {
     expect(mapped.solutionPlanStatus).toBeNull();
   });
 
-  it('maps a 409 SOLUTION_PLAN_NO_BID body and carries the code', () => {
-    const raw = new ApiError(
-      JSON.stringify({
-        message: 'The Solution Plan for this opportunity is a NO-BID decision — document generation is blocked.',
-        code: 'SOLUTION_PLAN_NO_BID',
-        solutionPlanStatus: 'READY',
-      }),
-      409,
-    );
-
-    const mapped = toGenerateDocumentError(raw);
-
-    expect(isSolutionPlanRequiredError(mapped)).toBe(true);
-    const err = mapped as SolutionPlanRequiredError;
-    expect(err.code).toBe('SOLUTION_PLAN_NO_BID');
-    expect(err.solutionPlanStatus).toBe('READY');
-    expect(err.message).toContain('NO-BID');
-  });
-
-  it('falls back to a No-Bid default message when the NO_BID body has none', () => {
-    const raw = new ApiError(
-      JSON.stringify({ code: 'SOLUTION_PLAN_NO_BID', solutionPlanStatus: 'READY' }),
-      409,
-    );
-
-    const mapped = toGenerateDocumentError(raw) as SolutionPlanRequiredError;
-
-    expect(isSolutionPlanRequiredError(mapped)).toBe(true);
-    expect(mapped.code).toBe('SOLUTION_PLAN_NO_BID');
-    expect(mapped.message).toContain('No-Bid');
-  });
-
-  it('defaults the carried code to SOLUTION_PLAN_REQUIRED for required bodies', () => {
-    const raw = new ApiError(
-      JSON.stringify({ code: 'SOLUTION_PLAN_REQUIRED', solutionPlanStatus: null }),
-      409,
-    );
-
-    const mapped = toGenerateDocumentError(raw) as SolutionPlanRequiredError;
-
-    expect(mapped.code).toBe('SOLUTION_PLAN_REQUIRED');
-  });
-
   it('passes through 409s with other codes', () => {
     const raw = new ApiError(JSON.stringify({ code: 'SOLUTION_PLAN_CONFLICT' }), 409);
     expect(toGenerateDocumentError(raw)).toBe(raw);

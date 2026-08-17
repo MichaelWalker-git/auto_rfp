@@ -94,28 +94,20 @@ export const baseHandler = async (
         updatedBy: userId ?? 'system',
       });
     } else {
-      // ── Solution Plan gate (T9): gated types require a READY plan; a READY
-      // plan with a NO_BID decision blocks generation entirely (Fix C) ──
-      const { allowed, solutionPlanStatus, code } = await checkSolutionPlanGate({
+      // ── Solution Plan gate (T9): gated types require a READY plan ──
+      const { allowed, solutionPlanStatus } = await checkSolutionPlanGate({
         orgId,
         projectId,
         opportunityId: effectiveOpportunityId,
         documentType,
       });
       if (!allowed) {
-        return apiResponse(409, code === 'SOLUTION_PLAN_NO_BID'
-          ? {
-              message:
-                'The Solution Plan for this opportunity is a NO-BID decision — document generation is blocked. Regenerate the Solution Plan if the decision has changed.',
-              code,
-              solutionPlanStatus,
-            }
-          : {
-              message:
-                'A ready Solution Plan is required before generating this document type. Create a Solution Plan for this opportunity first.',
-              code: 'SOLUTION_PLAN_REQUIRED',
-              solutionPlanStatus,
-            });
+        return apiResponse(409, {
+          message:
+            'A ready Solution Plan is required before generating this document type. Create a Solution Plan for this opportunity first.',
+          code: 'SOLUTION_PLAN_REQUIRED',
+          solutionPlanStatus,
+        });
       }
 
       // ── New document: create a placeholder with status GENERATING ──
