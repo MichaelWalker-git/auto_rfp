@@ -1,7 +1,7 @@
 /**
- * Tests for the Solution Plan tool set (T6): tool-list composition, the
- * search_service_pricing stub (ADR-15 degradation shape), and delegation to
- * the document-tools dispatcher.
+ * Tests for the Solution Plan tool set (T6): tool-list composition and
+ * delegation to the document-tools dispatcher (including the Brave-backed
+ * search_service_pricing since T3).
  */
 const mockExecuteDocumentTool = jest.fn();
 
@@ -15,6 +15,7 @@ jest.mock('@/helpers/document-tools', () => ({
     { name: 'get_pricing_data', description: 'd', input_schema: { type: 'object', properties: {}, required: [] } },
     { name: 'get_content_library', description: 'd', input_schema: { type: 'object', properties: {}, required: [] } },
     { name: 'get_deadlines', description: 'd', input_schema: { type: 'object', properties: {}, required: [] } },
+    { name: 'search_service_pricing', description: 'd', input_schema: { type: 'object', properties: {}, required: ['services'] } },
   ],
   executeDocumentTool: (...a: unknown[]) => mockExecuteDocumentTool(...a),
 }));
@@ -39,11 +40,9 @@ beforeEach(() => {
 });
 
 describe('SOLUTION_PLAN_TOOLS', () => {
-  it('offers exactly the shared subset plus search_service_pricing', () => {
+  it('offers exactly the shared subset (incl. search_service_pricing)', () => {
     const names = SOLUTION_PLAN_TOOLS.map((t) => t.name).sort();
-    expect(names).toEqual(
-      [...SOLUTION_PLAN_SHARED_TOOL_NAMES, 'search_service_pricing'].sort(),
-    );
+    expect(names).toEqual([...SOLUTION_PLAN_SHARED_TOOL_NAMES].sort());
   });
 
   it('excludes document-only tools like get_qa_answers and get_deadlines', () => {
@@ -52,52 +51,35 @@ describe('SOLUTION_PLAN_TOOLS', () => {
     expect(names).not.toContain('get_content_library');
     expect(names).not.toContain('get_deadlines');
   });
-
-  it('search_service_pricing uses the batched input schema', () => {
-    const tool = SOLUTION_PLAN_TOOLS.find((t) => t.name === 'search_service_pricing');
-    expect(tool?.input_schema.required).toEqual(['services']);
-    expect(tool?.description).toContain('ONE call');
-  });
 });
 
-describe('executeSolutionPlanTool — search_service_pricing stub', () => {
-  it('returns a vendor-quote-required row per service and never throws (ADR-15)', async () => {
+describe('executeSolutionPlanTool — search_service_pricing', () => {
+  it('delegates to the document-tools dispatcher (real Brave-backed lookup, T3)', async () => {
+    mockExecuteDocumentTool.mockResolvedValue({ tool_use_id: 'tu-1', content: 'pricing table' });
+
+    const toolInput = {
+      services: [
+        { serviceName: 'GitHub Enterprise', billingPeriod: 'ANNUAL' },
+        { serviceName: 'Datadog Pro' },
+      ],
+    };
     const result = await executeSolutionPlanTool({
       ...baseArgs,
       toolName: 'search_service_pricing',
-      toolInput: {
-        services: [
-          { serviceName: 'GitHub Enterprise', billingPeriod: 'ANNUAL' },
-          { serviceName: 'Datadog Pro' },
-        ],
-      },
+      toolInput,
     });
 
-    expect(result.tool_use_id).toBe('tu-1');
-    expect(result.content).toContain('| GitHub Enterprise | vendor quote required (lookup unavailable)');
-    expect(result.content).toContain('| Datadog Pro | vendor quote required (lookup unavailable)');
-    expect(result.content).toContain('ESTIMATES — subject to vendor quote');
-    expect(mockExecuteDocumentTool).not.toHaveBeenCalled();
-  });
-
-  it('handles empty/malformed input without throwing', async () => {
-    const result = await executeSolutionPlanTool({
-      ...baseArgs,
+    expect(mockExecuteDocumentTool).toHaveBeenCalledWith({
       toolName: 'search_service_pricing',
-      toolInput: { services: 'not-an-array' },
+      toolInput,
+      toolUseId: 'tu-1',
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      opportunityId: 'opp-1',
+      documentId: 'plan-1',
+      qaPairs: [],
     });
-    expect(result.content).toContain('No services provided');
-  });
-
-  it('caps the batch at 10 services', async () => {
-    const services = Array.from({ length: 12 }, (_, i) => ({ serviceName: `Service ${i + 1}` }));
-    const result = await executeSolutionPlanTool({
-      ...baseArgs,
-      toolName: 'search_service_pricing',
-      toolInput: { services },
-    });
-    expect(result.content).toContain('Service 10');
-    expect(result.content).not.toContain('Service 11');
+    expect(result.content).toBe('pricing table');
   });
 });
 

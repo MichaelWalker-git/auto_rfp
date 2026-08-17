@@ -263,6 +263,15 @@ export class ApiOrchestratorStack extends cdk.Stack {
       BEDROCK_REGION: 'us-east-1',
       BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
       BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
+      // Web-search provider for the search_service_pricing tool (T3/T15).
+      // 'tavily' (default) or 'brave' — deploy with WEB_SEARCH_PROVIDER=brave on a
+      // stage that should keep using an existing Brave key. API keys are created
+      // manually per stage in SSM (see docs/improvements_v1/
+      // RUNBOOK-WEB-SEARCH-API-KEY.md); commonLambdaRole's ssm:GetParameter
+      // grant on /auto-rfp/* already covers both parameters.
+      WEB_SEARCH_PROVIDER: process.env.WEB_SEARCH_PROVIDER || 'tavily',
+      TAVILY_API_KEY_SSM_PARAM: '/auto-rfp/tavily/api-key',
+      BRAVE_SEARCH_API_KEY_SSM_PARAM: '/auto-rfp/brave-search/api-key',
       STATE_MACHINE_ARN: documentPipelineStateMachineArn,
       QUESTION_PIPELINE_STATE_MACHINE_ARN: questionPipelineStateMachineArn,
       ANSWER_GENERATION_STATE_MACHINE_ARN: answerGenerationStateMachineArn,

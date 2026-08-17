@@ -42,6 +42,7 @@ jest.mock('@/helpers/bedrock-http-client', () => ({
 
 jest.mock('@/helpers/document-tools', () => ({
   DOCUMENT_TOOLS: [],
+  getDocumentToolsForType: jest.fn(() => []),
   executeDocumentTool: jest.fn(),
 }));
 

@@ -31,7 +31,7 @@ describe('getDefaultGuidance', () => {
     expect(guidance).toContain('Other Direct Costs');
     expect(guidance).toContain('Cost Narrative');
     expect(guidance).toContain('cost certifications and representations');
-    expect(guidance).toContain('get_pricing_data');
+    expect(guidance).toContain('Third-Party Services & Subscriptions');
   });
 
   it('falls back to generic guidance for unknown/custom types', () => {
@@ -184,6 +184,93 @@ describe('guidance/task overrides', () => {
         enrichedKbText: 'k',
       });
       expect(prompt).toContain('YOUR TASK — My Custom Type:');
+    });
+  });
+});
+
+describe('pricing document prompt rules (T1)', () => {
+  const PRICING_TYPES = ['COST_PROPOSAL', 'PRICE_VOLUME'] as const;
+
+  describe.each(PRICING_TYPES)('%s mandatory pricing rules (non-overridable)', (type) => {
+    const assertRulesPresent = (prompt: string) => {
+      expect(prompt).toContain('MANDATORY PRICING RULES');
+      expect(prompt).toContain('SOLUTION PLAN CONSISTENCY');
+      expect(prompt).toContain('If an Approved Solution Plan is provided');
+      expect(prompt).toContain('CLIN');
+      expect(prompt).toContain('period of performance');
+      expect(prompt).toContain('THIRD-PARTY PRICING');
+      expect(prompt).toContain('NEVER invent');
+      expect(prompt).toContain('search_service_pricing');
+      expect(prompt).toContain('source URL');
+      expect(prompt).toContain('retrieval date');
+      expect(prompt).toContain('vendor quote required');
+      expect(prompt).toContain('INTERNAL RATES');
+      expect(prompt).toContain('get_pricing_data');
+      expect(prompt).toContain('PAGE LIMITS');
+      expect(prompt).toContain('page limit');
+    };
+
+    it('appear in the default full-document system prompt', () => {
+      assertRulesPresent(buildSystemPromptForDocumentType(type));
+    });
+
+    it('survive an org guidance override in the full-document system prompt', () => {
+      const prompt = buildSystemPromptForDocumentType(type, null, 'ORG GUIDANCE OVERRIDE');
+      expect(prompt).toContain('ORG GUIDANCE OVERRIDE');
+      assertRulesPresent(prompt);
+    });
+
+    it('survive an org guidance override in the section system prompt', () => {
+      const prompt = buildSectionSystemPrompt(type, 'ORG GUIDANCE OVERRIDE');
+      expect(prompt).toContain('ORG GUIDANCE OVERRIDE');
+      assertRulesPresent(prompt);
+    });
+
+    it('are NOT part of the editable default guidance fragment', () => {
+      const guidance = getDefaultGuidance(type);
+      expect(guidance).not.toContain('MANDATORY PRICING RULES');
+      expect(guidance).not.toContain('SOLUTION PLAN CONSISTENCY');
+      expect(guidance).not.toContain('THIRD-PARTY PRICING');
+    });
+
+    it('keeps the Third-Party Services & Subscriptions structure subsection in the editable guidance', () => {
+      const guidance = getDefaultGuidance(type);
+      expect(guidance).toContain('Third-Party Services & Subscriptions');
+      expect(guidance).toContain('Source');
+    });
+  });
+
+  it('non-pricing doc types do not receive the mandatory pricing rules block', () => {
+    expect(buildSystemPromptForDocumentType('TECHNICAL_PROPOSAL')).not.toContain('MANDATORY PRICING RULES');
+    expect(buildSectionSystemPrompt('TECHNICAL_PROPOSAL')).not.toContain('MANDATORY PRICING RULES');
+  });
+
+  describe.each(PRICING_TYPES)('%s task', (type) => {
+    const task = getDefaultTask(type);
+
+    it('directs the model to read the Approved Solution Plan first (conditionally)', () => {
+      expect(task).toContain('If an APPROVED SOLUTION PLAN is provided');
+      expect(task).toContain('read it FIRST');
+    });
+
+    it('directs ONE batched search_service_pricing call for all third-party services', () => {
+      expect(task).toContain('search_service_pricing');
+      expect(task).toContain('ONE batched');
+      expect(task).toContain('vendor quote required');
+    });
+
+    it('keeps internal rates sourced from get_pricing_data with the RATE BASIS check', () => {
+      expect(task).toContain('get_pricing_data');
+      expect(task).toContain('RATE BASIS');
+      expect(task).toContain('NEVER relabel onshore numbers as offshore');
+    });
+
+    it('directs cross-checking totals against the Solution Plan cost drivers', () => {
+      expect(task).toContain('cost drivers');
+    });
+
+    it('directs respecting solicitation page limits', () => {
+      expect(task).toContain('page limit');
     });
   });
 });

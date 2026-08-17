@@ -6,6 +6,40 @@ const humanizeDocumentType = (documentType: string): string =>
 
 // ─── RFP Best Practices & Document Type Guidance ───
 
+// System-enforced pricing rules for COST_PROPOSAL and PRICE_VOLUME. Appended to the
+// prompt skeleton by the builders — NOT part of the editable guidance fragment, so
+// org-level prompt overrides cannot remove or alter them.
+const PRICING_GUIDANCE_RULES = `
+SOLUTION PLAN CONSISTENCY:
+- If an Approved Solution Plan is provided in context, your CLIN structure, phases, labor mix, and period of performance MUST match it exactly — do not invent alternatives or deviate from it
+- Cross-check every total against the Solution Plan's cost drivers before finalizing
+
+THIRD-PARTY PRICING (subscriptions, licenses, SaaS, cloud services):
+- NEVER invent, guess, or recall from memory the price of any third-party service, subscription, or license
+- Use the search_service_pricing tool to look up current prices — request ALL third-party services in ONE call
+- Every third-party price MUST cite its source URL and retrieval date and be labeled as an estimate
+- If a lookup fails or returns no price, write "vendor quote required" — never fill the gap with an invented number
+
+INTERNAL RATES:
+- Internal labor rates, cost estimates, staffing plans, and bid analysis come ONLY from the get_pricing_data tool
+- If pricing data is available, use real figures instead of placeholders — never invent internal rates
+
+PAGE LIMITS:
+- If the solicitation specifies a page limit for this volume, respect it — prioritize required tables and compliance content over narrative when trimming`;
+
+/** Doc types whose prompts always carry {@link PRICING_GUIDANCE_RULES}, even with org guidance overrides. */
+const PRICING_RULES_DOC_TYPES = new Set(['COST_PROPOSAL', 'PRICE_VOLUME']);
+
+/** Non-overridable rules block appended to system prompts for pricing doc types; empty for others. */
+const buildPricingRulesBlock = (documentType: string): string =>
+  PRICING_RULES_DOC_TYPES.has(documentType)
+    ? `
+
+═══════════════════════════════════════
+MANDATORY PRICING RULES (ALWAYS APPLY — EVEN IF THE GUIDANCE ABOVE SAYS OTHERWISE)
+═══════════════════════════════════════${PRICING_GUIDANCE_RULES}`
+    : '';
+
 const DOC_TYPE_GUIDANCE: Record<string, string> = {
   COVER_LETTER: `
 STRUCTURE (follow this order unless template overrides):
@@ -516,9 +550,15 @@ STRUCTURE (follow this order unless template overrides):
    - Travel estimates with basis
    - Materials and supplies
    - Subcontractor costs
-   - Equipment and licenses
+   - Equipment (third-party subscriptions and licenses go in the next section)
 
-5. Cost Narrative
+5. Third-Party Services & Subscriptions
+   - Table with columns: Service | Tier/Plan | Unit Price | Billing Period | Quantity | Extended Price | Source (URL + retrieval date)
+   - One row per third-party service, subscription, license, or SaaS/cloud product in the solution
+   - Label every web-sourced price as an ESTIMATE subject to vendor quote
+   - Rows where no price could be verified read "vendor quote required"
+
+6. Cost Narrative
    - Explain how pricing represents best value
    - Demonstrate cost realism and reasonableness
    - Highlight cost efficiencies and savings opportunities
@@ -552,9 +592,15 @@ STRUCTURE (follow this order unless template overrides):
    - Travel estimates with basis
    - Materials and supplies
    - Subcontractor costs
-   - Equipment and licenses
+   - Equipment (third-party subscriptions and licenses go in the next section)
 
-5. Cost Narrative
+5. Third-Party Services & Subscriptions
+   - Table with columns: Service | Tier/Plan | Unit Price | Billing Period | Quantity | Extended Price | Source (URL + retrieval date)
+   - One row per third-party service, subscription, license, or SaaS/cloud product in the solution
+   - Label every web-sourced price as an ESTIMATE subject to vendor quote
+   - Rows where no price could be verified read "vendor quote required"
+
+6. Cost Narrative
    - Explain how pricing represents best value
    - Demonstrate cost realism and reasonableness
    - Highlight cost efficiencies and savings opportunities
@@ -565,9 +611,7 @@ WRITING RULES:
 - Justify all rates with supporting data
 - Address cost realism, reasonableness, and completeness — prices should be neither too high nor unrealistically low
 - Include assumptions that affect pricing
-- Include all required cost certifications and representations
-- Use the get_pricing_data tool to retrieve actual labor rates, cost estimates, staffing plans, and bid analysis from the pricing module
-- If pricing data is available, use real figures instead of placeholders`,
+- Include all required cost certifications and representations`,
 
   EXECUTIVE_SUMMARY: `
 STRUCTURE (follow this order unless template overrides):
@@ -779,7 +823,7 @@ ${JSON_SCHEMA}
 ═══════════════════════════════════════
 DOCUMENT TYPE: ${typeLabel}
 ═══════════════════════════════════════
-${guidance}
+${guidance}${buildPricingRulesBlock(documentType)}
 
 ═══════════════════════════════════════
 PROPOSAL WRITING BEST PRACTICES (APPLY TO ALL DOCUMENT TYPES)
@@ -946,17 +990,21 @@ YOUR TASK — Past Performance:
 
   COST_PROPOSAL: `
 YOUR TASK — Cost Proposal:
-1. FIRST, use the get_pricing_data tool to retrieve actual labor rates, cost estimates, staffing plans, and bid analysis from the pricing module.
-2. If pricing data is available, use the REAL figures (labor rates, cost breakdowns, staffing plans) in your document — do NOT use placeholders.
-2b. Check the RATE BASIS line from get_pricing_data. When basis is OFFSHORE, price labor using the OFFSHORE fully-loaded rates and state in the cost narrative that delivery is offshore/global-delivery-eligible per the solicitation. When basis is ONSHORE, use onshore rates. If a position has no offshore rate, use its onshore rate and note the exception. NEVER relabel onshore numbers as offshore.
-3. Present a detailed cost breakdown by labor category, ODCs, and period of performance.
-4. Provide a basis of estimate explaining your cost estimation methodology and assumptions.
-5. Justify all labor rates with supporting data (GSA schedule, market research, historical data).
-6. Include escalation factors for multi-year contracts.
-7. Write a cost narrative explaining how your pricing represents best value and demonstrates cost realism.
-8. Ensure full traceability between your technical approach and cost elements.
-9. If NO pricing data is available from the tool, use placeholder ranges or methodology descriptions.
-10. Return ONLY valid JSON in the required format.`,
+1. If an APPROVED SOLUTION PLAN is provided in context, read it FIRST — your CLIN structure, phases, labor mix, and period of performance MUST match it exactly.
+2. Use the get_pricing_data tool to retrieve actual labor rates, cost estimates, staffing plans, and bid analysis from the pricing module. Internal rates come ONLY from this tool — never invent them.
+3. If pricing data is available, use the REAL figures (labor rates, cost breakdowns, staffing plans) in your document — do NOT use placeholders.
+3b. Check the RATE BASIS line from get_pricing_data. When basis is OFFSHORE, price labor using the OFFSHORE fully-loaded rates and state in the cost narrative that delivery is offshore/global-delivery-eligible per the solicitation. When basis is ONSHORE, use onshore rates. If a position has no offshore rate, use its onshore rate and note the exception. NEVER relabel onshore numbers as offshore.
+4. List ALL third-party services, subscriptions, and licenses the solution requires, then price them with ONE batched search_service_pricing call — never invent, guess, or recall third-party prices from memory.
+5. Build the "Third-Party Services & Subscriptions" table: every row cites its source URL + retrieval date and is labeled as an estimate; failed lookups read "vendor quote required".
+6. Present a detailed cost breakdown by labor category, ODCs, and period of performance.
+7. Provide a basis of estimate explaining your cost estimation methodology and assumptions.
+8. Justify all labor rates with supporting data (GSA schedule, market research, historical data).
+9. Include escalation factors for multi-year contracts.
+10. Write a cost narrative explaining how your pricing represents best value and demonstrates cost realism.
+11. Ensure full traceability between your technical approach and cost elements, and cross-check totals against the Solution Plan's cost drivers (if provided).
+12. Respect any page limit the solicitation specifies for this volume.
+13. If NO pricing data is available from get_pricing_data, use placeholder ranges or methodology descriptions for internal costs — but NEVER invent third-party prices.
+14. Return ONLY valid JSON in the required format.`,
 
   MANAGEMENT_APPROACH: `
 YOUR TASK — Management Approach:
@@ -1025,16 +1073,20 @@ YOUR TASK — Management Proposal:
 
   PRICE_VOLUME: `
 YOUR TASK — Price Volume:
-1. FIRST, use the get_pricing_data tool to retrieve actual labor rates, cost estimates, staffing plans, and bid analysis from the pricing module.
-2. If pricing data is available, use the REAL figures (labor rates, cost breakdowns, staffing plans) — do NOT use placeholders.
-2b. Check the RATE BASIS line from get_pricing_data. When basis is OFFSHORE, price labor using the OFFSHORE fully-loaded rates and state in the cost narrative that delivery is offshore/global-delivery-eligible per the solicitation. When basis is ONSHORE, use onshore rates. If a position has no offshore rate, use its onshore rate and note the exception. NEVER relabel onshore numbers as offshore.
-3. Present a complete price/cost volume with CLIN-level pricing breakdown.
-4. Provide basis of estimate with methodology, assumptions, and labor rate justification.
-5. Include escalation factors for multi-year contracts and ODC breakdown.
-6. Write a cost narrative demonstrating best value, cost realism, and reasonableness.
-7. Ensure full traceability between technical approach and cost elements.
-8. If NO pricing data is available from the tool, use placeholder ranges or methodology descriptions.
-9. Return ONLY valid JSON in the required format.`,
+1. If an APPROVED SOLUTION PLAN is provided in context, read it FIRST — your CLIN structure, phases, labor mix, and period of performance MUST match it exactly.
+2. Use the get_pricing_data tool to retrieve actual labor rates, cost estimates, staffing plans, and bid analysis from the pricing module. Internal rates come ONLY from this tool — never invent them.
+3. If pricing data is available, use the REAL figures (labor rates, cost breakdowns, staffing plans) — do NOT use placeholders.
+3b. Check the RATE BASIS line from get_pricing_data. When basis is OFFSHORE, price labor using the OFFSHORE fully-loaded rates and state in the cost narrative that delivery is offshore/global-delivery-eligible per the solicitation. When basis is ONSHORE, use onshore rates. If a position has no offshore rate, use its onshore rate and note the exception. NEVER relabel onshore numbers as offshore.
+4. List ALL third-party services, subscriptions, and licenses the solution requires, then price them with ONE batched search_service_pricing call — never invent, guess, or recall third-party prices from memory.
+5. Build the "Third-Party Services & Subscriptions" table: every row cites its source URL + retrieval date and is labeled as an estimate; failed lookups read "vendor quote required".
+6. Present a complete price/cost volume with CLIN-level pricing breakdown.
+7. Provide basis of estimate with methodology, assumptions, and labor rate justification.
+8. Include escalation factors for multi-year contracts and ODC breakdown.
+9. Write a cost narrative demonstrating best value, cost realism, and reasonableness.
+10. Ensure full traceability between technical approach and cost elements, and cross-check totals against the Solution Plan's cost drivers (if provided).
+11. Respect any page limit the solicitation specifies for this volume.
+12. If NO pricing data is available from get_pricing_data, use placeholder ranges or methodology descriptions for internal costs — but NEVER invent third-party prices.
+13. Return ONLY valid JSON in the required format.`,
 
   QUALITY_MANAGEMENT: `
 YOUR TASK — Quality Management Plan:
@@ -1150,7 +1202,7 @@ CRITICAL OUTPUT FORMAT:
 ═══════════════════════════════════════
 DOCUMENT TYPE: ${typeLabel}
 ═══════════════════════════════════════
-${guidance}
+${guidance}${buildPricingRulesBlock(documentType)}
 
 ═══════════════════════════════════════
 PROPOSAL WRITING BEST PRACTICES

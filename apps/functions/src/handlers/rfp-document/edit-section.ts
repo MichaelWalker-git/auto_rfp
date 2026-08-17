@@ -22,7 +22,7 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { getRFPDocument } from '@/helpers/rfp-document';
-import { DOCUMENT_TOOLS, executeDocumentTool } from '@/helpers/document-tools';
+import { executeDocumentTool, getDocumentToolsForType } from '@/helpers/document-tools';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import type { QaPair } from '@/helpers/document-generation';
 import { loadQaPairs, loadSolicitation } from '@/helpers/document-generation';
@@ -326,7 +326,8 @@ export const baseHandler = async (
         messages,
         max_tokens: MAX_TOKENS,
         temperature: TEMPERATURE,
-        tools: DOCUMENT_TOOLS,
+        // search_service_pricing is offered only for COST_PROPOSAL / PRICE_VOLUME (T3)
+        tools: getDocumentToolsForType(documentType),
       };
 
       const responseBody = await invokeModelWithRetry(EDIT_SECTION_MODEL_ID, JSON.stringify(requestBody));

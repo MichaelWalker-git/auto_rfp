@@ -43,7 +43,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getRFPDocument } from '@/helpers/rfp-document';
 import { BEDROCK_MODEL_ID, MAX_TOKENS, TEMPERATURE } from '@/constants/document-generation';
 import { RFPDocumentContentSchema, RFPDocumentTypeSchema, RFP_DOCUMENT_TYPES, type RFPDocumentContent, type SolutionPlanDBItem, type SolutionPlanKey } from '@auto-rfp/core';
-import { DOCUMENT_TOOLS, executeDocumentTool } from '@/helpers/document-tools';
+import { executeDocumentTool, getDocumentToolsForType } from '@/helpers/document-tools';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import {
   generateDocumentSectionBySectionHtml,
@@ -633,6 +633,7 @@ export const generateWithTemplateSections = async (args: {
     systemPrompt: sectionSystemPrompt,
     initialUserPrompt: userPrompt,
     sections: templateSections,
+    documentType,
     orgId,
     projectId,
     opportunityId,
@@ -727,7 +728,8 @@ export const generateSingleShot = async (args: {
     };
 
     if (!isLastRound) {
-      requestBody.tools = DOCUMENT_TOOLS;
+      // search_service_pricing is offered only for COST_PROPOSAL / PRICE_VOLUME (T3)
+      requestBody.tools = getDocumentToolsForType(documentType);
     }
 
     const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody));
