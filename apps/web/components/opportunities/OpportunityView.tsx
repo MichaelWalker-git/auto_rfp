@@ -12,6 +12,7 @@ import {
   Paperclip,
   FileEdit,
   Sparkles,
+  Link2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ import { RequiredFormsList } from '@/features/required-forms';
 import { ComplianceReviewPanel } from '@/features/compliance-review';
 import { SolutionPlanPanel } from '@/features/solution-plan';
 import { OpportunityApprovalPanel } from '@/features/opportunity-approval';
+import { RelatedRfpsSection } from '@/features/related-rfp';
 import PermissionWrapper from '@/components/permission-wrapper';
 
 interface OpportunityViewProps {
@@ -87,6 +89,7 @@ const SECTION_NAV_ITEMS: SectionNavItem[] = [
   { id: 'solicitation-documents', label: 'Solicitations', icon: <Paperclip className="h-3.5 w-3.5" /> },
   { id: 'required-forms', label: 'Required Forms', icon: <FileEdit className="h-3.5 w-3.5" /> },
   { id: 'rfp-documents', label: 'RFP Documents', icon: <FileEdit className="h-3.5 w-3.5" /> },
+  { id: 'related-rfps', label: 'Related RFPs', icon: <Link2 className="h-3.5 w-3.5" /> },
   { id: 'ai-compliance-review', label: 'AI Review', icon: <Sparkles className="h-3.5 w-3.5" /> },
   { id: 'submission-compliance', label: 'Submission', icon: <ShieldCheck className="h-3.5 w-3.5" /> },
   { id: 'post-award', label: 'Post-Award', icon: <Trophy className="h-3.5 w-3.5" /> },
@@ -224,9 +227,12 @@ const OpportunityContent = ({ className }: { className?: string }) => {
   // Solution Plan ("Source of Truth") ships behind the org-level
   // enableSolutionPlan flag until Release 3 flips gating on per org.
   const solutionPlanEnabled = !!currentOrganization?.enableSolutionPlan;
+  // Related RFPs (HOR-2610) auto-discover from the issuing agency — HigherGov opps only.
+  const isHigherGov = !!opportunity?.higherGovOppKey;
   const hiddenSectionIds = [
     ...(complianceReviewEnabled ? [] : ['ai-compliance-review']),
     ...(solutionPlanEnabled ? [] : ['solution-plan']),
+    ...(isHigherGov ? [] : ['related-rfps']),
   ];
   const [isChatOpen, setIsChatOpen] = useState(false);
 
@@ -314,6 +320,13 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       <section id="rfp-documents" className="scroll-mt-4">
         <OpportunityRFPDocuments />
       </section>
+
+      {/* ── Related RFPs (HigherGov-sourced opps only) ─────────────────── */}
+      {isHigherGov && (
+        <section id="related-rfps" className="scroll-mt-4">
+          <RelatedRfpsSection orgId={orgId} projectId={projectId} oppId={oppId} />
+        </section>
+      )}
 
       {/* ── Context & Knowledge Base ───────────────────────────────────── */}
       <section className="scroll-mt-4">
