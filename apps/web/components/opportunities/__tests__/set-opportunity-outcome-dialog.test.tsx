@@ -354,6 +354,37 @@ describe('SetOpportunityOutcomeDialog — loss pricing and evaluation scores', (
       expect(screen.getByLabelText(/^past performance$/i)).toHaveValue(null);
     });
 
+    /**
+     * A stored score of exactly 0 must still open the disclosure.
+     *
+     * The guard is `typeof v === 'number'` rather than a truthiness check precisely
+     * because 0 is a real score. With `Boolean(v)` the section stays collapsed, the
+     * person editing reasonably concludes nothing was scored, and re-submitting from
+     * that state drops the 0 from evaluationScores entirely.
+     */
+    it('opens the disclosure for a stored score of exactly 0', () => {
+      renderDialog({
+        ...baseOpportunity,
+        lossData: {
+          lossDate: '2026-01-29T00:00:00.000Z',
+          lossReason: 'PRICE_TOO_HIGH',
+          evaluationScores: { technical: 0 },
+        },
+      });
+
+      // Visible without clicking the disclosure open.
+      expect(screen.getByLabelText(/^technical$/i)).toHaveValue(0);
+    });
+
+    it('leaves the disclosure closed when no criterion is scored', () => {
+      renderDialog({
+        ...baseOpportunity,
+        lossData: { lossDate: '2026-01-29T00:00:00.000Z', lossReason: 'UNKNOWN' },
+      });
+
+      expect(screen.queryByLabelText(/^technical$/i)).not.toBeInTheDocument();
+    });
+
     it('leaves the amount inputs blank — not 0 — when nothing is stored', () => {
       renderDialog({
         ...baseOpportunity,
