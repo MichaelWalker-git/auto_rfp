@@ -19,6 +19,7 @@ import {
   useRFPDocumentPolling,
   useUpdateRFPDocument,
   isSolutionPlanRequiredError,
+  SOLUTION_PLAN_GATE_ERROR_TITLES,
 } from '@/lib/hooks/use-rfp-documents';
 import { uploadFileToS3, usePresignDownload, usePresignUpload } from '@/lib/hooks/use-presign';
 import { useRevertVersion, useCherryPick } from '@/lib/hooks/use-document-versions';
@@ -313,7 +314,9 @@ export const OpportunityDocumentEditorPage = ({
       // Regenerating an existing document is grandfathered past the Solution
       // Plan gate on the server (ADR-10) — this branch is defense-in-depth.
       toast({
-        title: isSolutionPlanRequiredError(err) ? 'Solution Plan required' : 'Regeneration failed',
+        title: isSolutionPlanRequiredError(err)
+          ? SOLUTION_PLAN_GATE_ERROR_TITLES[err.code]
+          : 'Regeneration failed',
         description: err instanceof Error ? err.message : 'Could not start regeneration.',
         variant: 'destructive',
       });

@@ -5,7 +5,7 @@ import { isSolutionPlanGatedDocumentType, type SolutionPlanItem } from '@auto-rf
 import { useCurrentOrganization } from '@/context/organization-context';
 import { useRFPDocuments } from '@/lib/hooks/use-rfp-documents';
 import { useSolutionPlan } from './useSolutionPlan';
-import { canGenerateDocuments } from '../lib/status';
+import { canGenerateDocuments, isNoBidPlan } from '../lib/status';
 import { hasGrandfatheredDocument } from '../lib/gating';
 
 export interface SolutionPlanGate {
@@ -20,6 +20,12 @@ export interface SolutionPlanGate {
    * blocks on incomplete data; the server 409 is the backstop.
    */
   isGateActive: boolean;
+  /**
+   * True when the plan is READY but its decision is NO_BID — the gate is
+   * active regardless of grandfathering, and the callout explains the
+   * no-bid block instead of the "create a plan" CTA.
+   */
+  isNoBid: boolean;
   /**
    * True when the gate is open only because existing generated documents
    * grandfather the opportunity (ADR-10) — surfaces the non-blocking nudge
@@ -54,8 +60,12 @@ export const useSolutionPlanGate = (
     isEnabled ? effectiveOpportunityId : undefined,
   );
 
+  // A READY plan with an explicit NO_BID decision closes the gate outright —
+  // grandfathering never overrides a no-bid decision (mirrors the server gate).
+  const isNoBid = isEnabled && !isPlanLoading && isNoBidPlan(plan);
+
   // Only look at existing documents when the plan alone wouldn't open the gate.
-  const needsGrandfatherCheck = isEnabled && !isPlanLoading && !canGenerateDocuments(plan);
+  const needsGrandfatherCheck = isEnabled && !isPlanLoading && !isNoBid && !canGenerateDocuments(plan);
   const { documents, isLoading: isDocumentsLoading } = useRFPDocuments(
     needsGrandfatherCheck ? (projectId ?? null) : null,
     needsGrandfatherCheck ? (orgId ?? null) : null,
@@ -64,12 +74,13 @@ export const useSolutionPlanGate = (
 
   const isGrandfathered =
     needsGrandfatherCheck && !isDocumentsLoading && hasGrandfatheredDocument(documents);
-  const isGateActive = needsGrandfatherCheck && !isDocumentsLoading && !isGrandfathered;
+  const isGateActive =
+    isNoBid || (needsGrandfatherCheck && !isDocumentsLoading && !isGrandfathered);
 
   const isDocumentTypeBlocked = useCallback(
     (documentType: string) => isGateActive && isSolutionPlanGatedDocumentType(documentType),
     [isGateActive],
   );
 
-  return { isEnabled, plan, isGateActive, isGrandfathered, isDocumentTypeBlocked };
+  return { isEnabled, plan, isGateActive, isNoBid, isGrandfathered, isDocumentTypeBlocked };
 };

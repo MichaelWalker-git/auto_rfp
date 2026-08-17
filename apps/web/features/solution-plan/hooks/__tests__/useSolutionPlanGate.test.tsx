@@ -122,6 +122,48 @@ describe('useSolutionPlanGate', () => {
     expect(result.current.isGrandfathered).toBe(false);
   });
 
+  it('closes the gate for a READY NO_BID plan and reports isNoBid', () => {
+    mockUseSolutionPlan.mockReturnValue({
+      plan: plan({ bidDecision: 'NO_BID' }),
+      isLoading: false,
+    });
+
+    const result = render();
+
+    expect(result.current.isNoBid).toBe(true);
+    expect(result.current.isGateActive).toBe(true);
+    expect(result.current.isDocumentTypeBlocked('COST_PROPOSAL')).toBe(true);
+    expect(result.current.isDocumentTypeBlocked('CLARIFYING_QUESTIONS')).toBe(false);
+  });
+
+  it('does not let grandfathered documents override a NO_BID decision', () => {
+    mockUseSolutionPlan.mockReturnValue({
+      plan: plan({ bidDecision: 'NO_BID' }),
+      isLoading: false,
+    });
+    mockUseRFPDocuments.mockReturnValue({ documents: [generatedDoc], isLoading: false });
+
+    const result = render();
+
+    expect(result.current.isGateActive).toBe(true);
+    expect(result.current.isGrandfathered).toBe(false);
+    // The grandfather check is skipped entirely for NO_BID plans
+    expect(mockUseRFPDocuments).toHaveBeenCalledWith(null, null, 'opp-1');
+  });
+
+  it('opens the gate for READY plans with BID or no decision (legacy)', () => {
+    mockUseSolutionPlan.mockReturnValue({
+      plan: plan({ bidDecision: 'BID' }),
+      isLoading: false,
+    });
+    expect(render().current.isGateActive).toBe(false);
+
+    mockUseSolutionPlan.mockReturnValue({ plan: plan(), isLoading: false });
+    const result = render();
+    expect(result.current.isGateActive).toBe(false);
+    expect(result.current.isNoBid).toBe(false);
+  });
+
   it("resolves a missing opportunityId to 'default' like the server", () => {
     renderHook(() => useSolutionPlanGate('org-1', 'proj-1', undefined));
 

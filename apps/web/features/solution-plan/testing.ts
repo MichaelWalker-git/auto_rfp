@@ -12,6 +12,7 @@ export const gateState = (over: Partial<SolutionPlanGate> = {}): SolutionPlanGat
   isEnabled: true,
   plan: null,
   isGateActive: false,
+  isNoBid: false,
   isGrandfathered: false,
   isDocumentTypeBlocked: () => false,
   ...over,

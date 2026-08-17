@@ -42,6 +42,23 @@ export const SOLUTION_PLAN_STATUS_LABELS: Record<SolutionPlanStatus, string> = {
   FAILED: 'Failed',
 };
 
+// ─── Bid decision ───────────────────────────────────────────────────────────────
+
+/**
+ * Structured go/no-go decision emitted by plan synthesis. `NO_BID` closes the
+ * document-generation gate for gated types; plans synthesized before this
+ * field existed carry no value and are treated as `BID`.
+ */
+export const SolutionPlanBidDecisionSchema = z.enum(['BID', 'NO_BID']);
+
+export type SolutionPlanBidDecision = z.infer<typeof SolutionPlanBidDecisionSchema>;
+
+/** Human-readable labels for the bid decision badge. */
+export const SOLUTION_PLAN_BID_DECISION_LABELS: Record<SolutionPlanBidDecision, string> = {
+  BID: 'Bid',
+  NO_BID: 'No-Bid',
+};
+
 // ─── Key ────────────────────────────────────────────────────────────────────────
 
 /**
@@ -106,6 +123,7 @@ export const SolutionPlanErrorCodeSchema = z.enum([
   'SOLUTION_PLAN_CONFLICT',
   'SOLUTION_PLAN_RUN_IN_PROGRESS',
   'SOLUTION_PLAN_REQUIRED',
+  'SOLUTION_PLAN_NO_BID',
 ]);
 
 export type SolutionPlanErrorCode = z.infer<typeof SolutionPlanErrorCodeSchema>;
@@ -168,6 +186,11 @@ export const SolutionPlanItemSchema = SolutionPlanCreateRequestSchema.extend({
   grillingRounds: z.number().int().nonnegative().optional(),
   /** ISO datetime the grilling interview finished (synthesis started). */
   grillingCompletedAt: z.string().datetime().optional(),
+  /**
+   * Structured go/no-go decision emitted by synthesis. Absent on plans
+   * synthesized before this feature — treated as 'BID' by the generation gate.
+   */
+  bidDecision: SolutionPlanBidDecisionSchema.optional(),
   /** Failure message when status is FAILED. */
   error: z.string().optional(),
   // Audit fields
@@ -195,6 +218,7 @@ export const SolutionPlanStatusPatchSchema = SolutionPlanItemSchema.pick({
   editedBy: true,
   grillingRounds: true,
   grillingCompletedAt: true,
+  bidDecision: true,
   error: true,
   updatedBy: true,
   updatedByName: true,
@@ -228,6 +252,7 @@ export const SolutionPlanListItemSchema = z.object({
   version: z.number().int().nonnegative(),
   isUserEdited: z.boolean().optional(),
   grillingCompletedAt: z.string().optional(),
+  bidDecision: SolutionPlanBidDecisionSchema.optional(),
   updatedAt: z.string().optional(),
 });
 

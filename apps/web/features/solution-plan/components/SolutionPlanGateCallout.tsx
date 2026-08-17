@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { AlertTriangle, Lightbulb } from 'lucide-react';
+import { AlertTriangle, Ban, Lightbulb } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 /** Tooltip / short label for controls disabled by the generation gate. */
@@ -14,10 +14,22 @@ export const buildSolutionPlanSectionHref = (
 ): string =>
   `/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}#solution-plan`;
 
+export const buildSolutionPlanEditorHref = (
+  orgId: string,
+  projectId: string,
+  opportunityId: string,
+): string =>
+  `/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}/solution-plan/edit`;
+
 interface SolutionPlanGateCalloutProps {
   orgId: string;
   projectId: string;
   opportunityId: string;
+  /**
+   * Why the gate is closed: no READY plan ('required', default) or the plan
+   * is an explicit No-Bid decision ('no-bid', SOLUTION_PLAN_NO_BID).
+   */
+  variant?: 'required' | 'no-bid';
   /** Invoked when the link is followed (e.g. to close a containing dialog). */
   onNavigate?: () => void;
 }
@@ -25,27 +37,51 @@ interface SolutionPlanGateCalloutProps {
 /**
  * Inline callout shown at generation entry points while the Solution Plan
  * gate is active (T12), linking to the opportunity page's plan section.
+ * The 'no-bid' variant explains that the plan's decision blocks generation
+ * and links to the plan editor instead of the "create a plan" CTA.
  */
 export const SolutionPlanGateCallout = ({
   orgId,
   projectId,
   opportunityId,
+  variant = 'required',
   onNavigate,
-}: SolutionPlanGateCalloutProps) => (
-  <Alert data-testid="solution-plan-gate-callout">
-    <AlertTriangle className="h-4 w-4" />
-    <AlertDescription>
-      {SOLUTION_PLAN_GATE_BLOCKED_LABEL} — proposal documents are generated from it.{' '}
-      <Link
-        href={buildSolutionPlanSectionHref(orgId, projectId, opportunityId)}
-        className="font-medium underline underline-offset-2"
-        onClick={onNavigate}
-      >
-        Go to Solution Plan
-      </Link>
-    </AlertDescription>
-  </Alert>
-);
+}: SolutionPlanGateCalloutProps) => {
+  if (variant === 'no-bid') {
+    return (
+      <Alert variant="destructive" data-testid="solution-plan-no-bid-callout">
+        <Ban className="h-4 w-4" />
+        <AlertDescription>
+          The Solution Plan for this opportunity is a No-Bid decision — document generation is
+          blocked. Regenerate or edit the Solution Plan if the decision has changed.{' '}
+          <Link
+            href={buildSolutionPlanEditorHref(orgId, projectId, opportunityId)}
+            className="font-medium underline underline-offset-2"
+            onClick={onNavigate}
+          >
+            Open Solution Plan
+          </Link>
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <Alert data-testid="solution-plan-gate-callout">
+      <AlertTriangle className="h-4 w-4" />
+      <AlertDescription>
+        {SOLUTION_PLAN_GATE_BLOCKED_LABEL} — proposal documents are generated from it.{' '}
+        <Link
+          href={buildSolutionPlanSectionHref(orgId, projectId, opportunityId)}
+          className="font-medium underline underline-offset-2"
+          onClick={onNavigate}
+        >
+          Go to Solution Plan
+        </Link>
+      </AlertDescription>
+    </Alert>
+  );
+};
 
 /**
  * Non-blocking nudge shown when generation is allowed only because the

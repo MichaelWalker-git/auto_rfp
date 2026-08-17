@@ -192,38 +192,64 @@ describe('pricing document prompt rules (T1)', () => {
   const PRICING_TYPES = ['COST_PROPOSAL', 'PRICE_VOLUME'] as const;
 
   describe.each(PRICING_TYPES)('%s mandatory pricing rules (non-overridable)', (type) => {
-    const assertRulesPresent = (prompt: string) => {
+    const assertSharedRulesPresent = (prompt: string) => {
       expect(prompt).toContain('MANDATORY PRICING RULES');
       expect(prompt).toContain('SOLUTION PLAN CONSISTENCY');
       expect(prompt).toContain('If an Approved Solution Plan is provided');
       expect(prompt).toContain('CLIN');
       expect(prompt).toContain('period of performance');
       expect(prompt).toContain('THIRD-PARTY PRICING');
-      expect(prompt).toContain('NEVER invent');
-      expect(prompt).toContain('search_service_pricing');
-      expect(prompt).toContain('source URL');
-      expect(prompt).toContain('retrieval date');
       expect(prompt).toContain('vendor quote required');
+      expect(prompt).toContain('ONE row per service');
       expect(prompt).toContain('INTERNAL RATES');
       expect(prompt).toContain('get_pricing_data');
       expect(prompt).toContain('PAGE LIMITS');
       expect(prompt).toContain('page limit');
+      // Fix A: no variant may instruct citing source URLs in the document
+      expect(prompt).not.toContain('MUST cite its source URL');
+      expect(prompt).toContain('Do NOT include source URLs or retrieval dates in this document');
     };
 
-    it('appear in the default full-document system prompt', () => {
-      assertRulesPresent(buildSystemPromptForDocumentType(type));
+    const assertPlanAbsentVariant = (prompt: string) => {
+      assertSharedRulesPresent(prompt);
+      expect(prompt).toContain('NEVER invent');
+      expect(prompt).toContain('search_service_pricing');
+    };
+
+    const assertPlanPresentVariant = (prompt: string) => {
+      assertSharedRulesPresent(prompt);
+      expect(prompt).toContain('ONLY source of third-party prices');
+      expect(prompt).toContain('VERBATIM');
+      expect(prompt).toContain('vendor quote required — not in Approved Solution Plan');
+      // The tool is withheld when a plan exists — the rules must not reference it
+      expect(prompt).not.toContain('search_service_pricing');
+    };
+
+    it('appear in the default full-document system prompt (plan-absent variant)', () => {
+      assertPlanAbsentVariant(buildSystemPromptForDocumentType(type));
+    });
+
+    it('switch to the plan-as-single-price-source variant when a plan exists (Fix A)', () => {
+      assertPlanPresentVariant(buildSystemPromptForDocumentType(type, null, null, true));
+      assertPlanPresentVariant(buildSectionSystemPrompt(type, null, true));
     });
 
     it('survive an org guidance override in the full-document system prompt', () => {
       const prompt = buildSystemPromptForDocumentType(type, null, 'ORG GUIDANCE OVERRIDE');
       expect(prompt).toContain('ORG GUIDANCE OVERRIDE');
-      assertRulesPresent(prompt);
+      assertPlanAbsentVariant(prompt);
     });
 
     it('survive an org guidance override in the section system prompt', () => {
       const prompt = buildSectionSystemPrompt(type, 'ORG GUIDANCE OVERRIDE');
       expect(prompt).toContain('ORG GUIDANCE OVERRIDE');
-      assertRulesPresent(prompt);
+      assertPlanAbsentVariant(prompt);
+    });
+
+    it('survive an org guidance override in the plan-present variant too', () => {
+      const prompt = buildSystemPromptForDocumentType(type, null, 'ORG GUIDANCE OVERRIDE', true);
+      expect(prompt).toContain('ORG GUIDANCE OVERRIDE');
+      assertPlanPresentVariant(prompt);
     });
 
     it('are NOT part of the editable default guidance fragment', () => {
@@ -233,10 +259,13 @@ describe('pricing document prompt rules (T1)', () => {
       expect(guidance).not.toContain('THIRD-PARTY PRICING');
     });
 
-    it('keeps the Third-Party Services & Subscriptions structure subsection in the editable guidance', () => {
+    it('keeps the Third-Party Services & Subscriptions subsection without a Source column (Fix A)', () => {
       const guidance = getDefaultGuidance(type);
       expect(guidance).toContain('Third-Party Services & Subscriptions');
-      expect(guidance).toContain('Source');
+      expect(guidance).toContain('Service | Tier/Plan | Unit Price | Billing Period | Quantity | Extended Price');
+      expect(guidance).not.toContain('Source (URL + retrieval date)');
+      expect(guidance).not.toContain('| Source');
+      expect(guidance).toContain('Do NOT include source URLs, retrieval dates, or a pricing-sources footnote');
     });
   });
 
@@ -253,10 +282,17 @@ describe('pricing document prompt rules (T1)', () => {
       expect(task).toContain('read it FIRST');
     });
 
-    it('directs ONE batched search_service_pricing call for all third-party services', () => {
+    it('directs ONE batched search_service_pricing call only when no plan is provided', () => {
       expect(task).toContain('search_service_pricing');
       expect(task).toContain('ONE batched');
       expect(task).toContain('vendor quote required');
+      expect(task).toContain('copy each service\'s price data VERBATIM');
+      expect(task).toContain('vendor quote required — not in Approved Solution Plan');
+    });
+
+    it('forbids printing source URLs or a sources footnote in the document (Fix A)', () => {
+      expect(task).toContain('Do NOT include source URLs, retrieval dates, or a pricing-sources footnote');
+      expect(task).not.toContain('cites its source URL');
     });
 
     it('keeps internal rates sourced from get_pricing_data with the RATE BASIS check', () => {

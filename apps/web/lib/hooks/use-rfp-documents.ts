@@ -339,19 +339,30 @@ const GenerateRFPDocumentResponseSchema = z.object({
 
 export type GenerateRFPDocumentResponse = z.infer<typeof GenerateRFPDocumentResponseSchema>;
 
+/** 409 codes the server gate can return: no READY plan, or the plan is a No-Bid decision. */
+const SolutionPlanGateErrorCodeSchema = z.enum(['SOLUTION_PLAN_REQUIRED', 'SOLUTION_PLAN_NO_BID']);
+
+export type SolutionPlanGateErrorCode = z.infer<typeof SolutionPlanGateErrorCodeSchema>;
+
 /**
- * 409 from generate-document when the org requires a READY Solution Plan
- * before generating gated document types (T9/T12). Components branch on this
- * via `isSolutionPlanRequiredError` to show a specific toast.
+ * 409 from generate-document when the Solution Plan gate blocks generation
+ * (T9/T12): either no READY plan exists (`SOLUTION_PLAN_REQUIRED`) or the plan
+ * is an explicit No-Bid decision (`SOLUTION_PLAN_NO_BID`). Components branch
+ * on this via `isSolutionPlanRequiredError` and the carried `code`.
  */
 export class SolutionPlanRequiredError extends ApiError {
-  code = 'SOLUTION_PLAN_REQUIRED' as const;
+  code: SolutionPlanGateErrorCode;
   solutionPlanStatus: SolutionPlanStatus | null;
 
-  constructor(message: string, solutionPlanStatus: SolutionPlanStatus | null = null) {
+  constructor(
+    message: string,
+    solutionPlanStatus: SolutionPlanStatus | null = null,
+    code: SolutionPlanGateErrorCode = 'SOLUTION_PLAN_REQUIRED',
+  ) {
     super(message, 409);
     this.name = 'SolutionPlanRequiredError';
     this.solutionPlanStatus = solutionPlanStatus;
+    this.code = code;
   }
 }
 
@@ -361,20 +372,34 @@ export const isSolutionPlanRequiredError = (err: unknown): err is SolutionPlanRe
 const SOLUTION_PLAN_REQUIRED_MESSAGE =
   'A ready Solution Plan is required before generating this document. Create one from the Solution Plan section of the opportunity page.';
 
+const SOLUTION_PLAN_NO_BID_MESSAGE =
+  'The Solution Plan for this opportunity is a No-Bid decision — generation is blocked.';
+
+const SOLUTION_PLAN_GATE_FALLBACK_MESSAGES: Record<SolutionPlanGateErrorCode, string> = {
+  SOLUTION_PLAN_REQUIRED: SOLUTION_PLAN_REQUIRED_MESSAGE,
+  SOLUTION_PLAN_NO_BID: SOLUTION_PLAN_NO_BID_MESSAGE,
+};
+
+/** Toast titles for the two gate 409 codes. */
+export const SOLUTION_PLAN_GATE_ERROR_TITLES: Record<SolutionPlanGateErrorCode, string> = {
+  SOLUTION_PLAN_REQUIRED: 'Solution Plan required',
+  SOLUTION_PLAN_NO_BID: 'No-Bid decision',
+};
+
 /**
  * 409 body produced by the server gate (T9). An unrecognized
  * `solutionPlanStatus` degrades to null rather than failing the whole parse.
  */
 const SolutionPlanRequiredBodySchema = z.object({
-  code: z.literal('SOLUTION_PLAN_REQUIRED'),
+  code: SolutionPlanGateErrorCodeSchema,
   message: z.string().optional(),
   solutionPlanStatus: SolutionPlanStatusSchema.nullable().catch(null).optional(),
 });
 
 /**
  * Map a raw generate-document failure to `SolutionPlanRequiredError` when the
- * 409 body carries `code: 'SOLUTION_PLAN_REQUIRED'`; all other errors pass
- * through unchanged. Exported for tests.
+ * 409 body carries a Solution Plan gate code; all other errors pass through
+ * unchanged. Exported for tests.
  */
 export const toGenerateDocumentError = (err: unknown): unknown => {
   if (!(err instanceof ApiError) || err.status !== 409) return err;
@@ -387,8 +412,9 @@ export const toGenerateDocumentError = (err: unknown): unknown => {
   const { success, data: body } = SolutionPlanRequiredBodySchema.safeParse(raw);
   if (!success) return err;
   return new SolutionPlanRequiredError(
-    body.message || SOLUTION_PLAN_REQUIRED_MESSAGE,
+    body.message || SOLUTION_PLAN_GATE_FALLBACK_MESSAGES[body.code],
     body.solutionPlanStatus ?? null,
+    body.code,
   );
 };
 

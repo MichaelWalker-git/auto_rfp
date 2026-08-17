@@ -22,7 +22,8 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { getRFPDocument } from '@/helpers/rfp-document';
-import { executeDocumentTool, getDocumentToolsForType } from '@/helpers/document-tools';
+import { executeDocumentTool, getDocumentToolsForType, PRICING_TOOL_DOC_TYPES } from '@/helpers/document-tools';
+import { correctPricingTableTotals } from '@/helpers/pricing-table-math';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import type { QaPair } from '@/helpers/document-generation';
 import { loadQaPairs, loadSolicitation } from '@/helpers/document-generation';
@@ -209,6 +210,11 @@ export const baseHandler = async (
     const doc = await getRFPDocument(projectId, opportunityId, documentId);
     if (!doc) return apiResponse(404, { message: 'Document not found' });
 
+    // ADR-7 stamp: a document generated from an Approved Solution Plan keeps the
+    // plan as its only third-party price source — search_service_pricing is
+    // withheld for its section edits too (Fix A).
+    const hasSolutionPlan = Boolean(doc.solutionPlanId);
+
     // Set audit context early
     setAuditContext(event, {
       action: 'DOCUMENT_SECTION_EDIT_STARTED',
@@ -326,8 +332,9 @@ export const baseHandler = async (
         messages,
         max_tokens: MAX_TOKENS,
         temperature: TEMPERATURE,
-        // search_service_pricing is offered only for COST_PROPOSAL / PRICE_VOLUME (T3)
-        tools: getDocumentToolsForType(documentType),
+        // search_service_pricing is offered only for COST_PROPOSAL / PRICE_VOLUME (T3),
+        // and withheld when the document was generated from a Solution Plan (Fix A)
+        tools: getDocumentToolsForType(documentType, { hasSolutionPlan }),
       };
 
       const responseBody = await invokeModelWithRetry(EDIT_SECTION_MODEL_ID, JSON.stringify(requestBody));
@@ -469,6 +476,19 @@ export const baseHandler = async (
         message: resultHtml,
         toolRoundsUsed: toolRounds,
       });
+    }
+
+    // 7b. Deterministic pricing-math pass (Fix B): recompute pricing-table
+    // totals in the regenerated section and auto-correct mismatches.
+    if (PRICING_TOOL_DOC_TYPES.has(documentType)) {
+      const { html: correctedHtml, corrections } = correctPricingTableTotals(resultHtml);
+      if (corrections.length > 0) {
+        console.warn(
+          `[edit-section] Pricing math auto-corrected ${corrections.length} total(s) for documentId=${documentId}: ` +
+          corrections.map((c) => `"${c.rowLabel}": ${c.previousValue} → ${c.correctedValue}`).join('; '),
+        );
+        resultHtml = correctedHtml;
+      }
     }
 
     // 8. Persist chat messages (non-blocking — don't delay the response)

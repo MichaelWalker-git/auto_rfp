@@ -47,6 +47,12 @@ export interface GenerateSectionBySection {
   sections: DocumentSection[];
   /** Determines which tools are offered (search_service_pricing is pricing-doc-only) */
   documentType: RFPDocumentType;
+  /**
+   * True when an Approved Solution Plan rides in `initialUserPrompt` — the plan
+   * is then the only third-party price source, so search_service_pricing is
+   * withheld (Fix A).
+   */
+  hasSolutionPlan?: boolean;
   orgId: string;
   projectId: string;
   opportunityId: string;
@@ -334,6 +340,7 @@ export const generateDocumentSectionBySectionHtml = async (
     initialUserPrompt,
     sections,
     documentType,
+    hasSolutionPlan = false,
     orgId,
     projectId,
     opportunityId,
@@ -345,7 +352,7 @@ export const generateDocumentSectionBySectionHtml = async (
   } = args;
 
   const toolExecutorBase = { orgId, projectId, opportunityId, documentId, qaPairs };
-  const tools = getDocumentToolsForType(documentType);
+  const tools = getDocumentToolsForType(documentType, { hasSolutionPlan });
 
   const htmlFragments: string[] = [];
   const completedSectionTitles: string[] = [];
