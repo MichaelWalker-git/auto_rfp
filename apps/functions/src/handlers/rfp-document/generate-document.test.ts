@@ -104,39 +104,6 @@ describe('generate-document handler — solution plan gate', () => {
     expect(mockEnqueue).not.toHaveBeenCalled();
   });
 
-  it('returns 409 SOLUTION_PLAN_NO_BID when the plan decision is NO_BID', async () => {
-    mockCheckGate.mockResolvedValue({
-      allowed: false,
-      solutionPlanStatus: 'READY',
-      code: 'SOLUTION_PLAN_NO_BID',
-    });
-
-    const res = await baseHandler(buildEvent(gatedBody));
-
-    expect(statusOf(res)).toBe(409);
-    const body = bodyOf(res);
-    expect(body).toMatchObject({
-      code: 'SOLUTION_PLAN_NO_BID',
-      solutionPlanStatus: 'READY',
-    });
-    expect(String(body.message)).toMatch(/NO-BID/i);
-    expect(mockPutRFPDocument).not.toHaveBeenCalled();
-    expect(mockEnqueue).not.toHaveBeenCalled();
-  });
-
-  it('keeps the SOLUTION_PLAN_REQUIRED body when the gate blocks with that code', async () => {
-    mockCheckGate.mockResolvedValue({
-      allowed: false,
-      solutionPlanStatus: null,
-      code: 'SOLUTION_PLAN_REQUIRED',
-    });
-
-    const res = await baseHandler(buildEvent(gatedBody));
-
-    expect(statusOf(res)).toBe(409);
-    expect(bodyOf(res)).toMatchObject({ code: 'SOLUTION_PLAN_REQUIRED' });
-  });
-
   it('surfaces the in-progress plan status in the 409 body', async () => {
     mockCheckGate.mockResolvedValue({ allowed: false, solutionPlanStatus: 'GRILLING' });
 

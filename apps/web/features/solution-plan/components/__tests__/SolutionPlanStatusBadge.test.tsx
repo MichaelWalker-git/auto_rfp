@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { SolutionPlanBidDecisionBadge, SolutionPlanStatusBadge } from '../SolutionPlanStatusBadge';
+import { SolutionPlanStatusBadge } from '../SolutionPlanStatusBadge';
 
 describe('SolutionPlanStatusBadge', () => {
   it.each([
@@ -18,23 +18,5 @@ describe('SolutionPlanStatusBadge', () => {
 
     const { container: ready } = render(<SolutionPlanStatusBadge status="READY" />);
     expect(ready.querySelector('.animate-spin')).toBeNull();
-  });
-});
-
-describe('SolutionPlanBidDecisionBadge', () => {
-  it('renders a destructive No-Bid badge for a NO_BID decision', () => {
-    render(<SolutionPlanBidDecisionBadge bidDecision="NO_BID" />);
-    expect(screen.getByText('No-Bid')).toBeTruthy();
-    expect(screen.getByTestId('solution-plan-no-bid-badge')).toBeTruthy();
-  });
-
-  it('renders nothing for a BID decision', () => {
-    const { container } = render(<SolutionPlanBidDecisionBadge bidDecision="BID" />);
-    expect(container.firstChild).toBeNull();
-  });
-
-  it('renders nothing for legacy plans without a decision', () => {
-    const { container } = render(<SolutionPlanBidDecisionBadge />);
-    expect(container.firstChild).toBeNull();
   });
 });

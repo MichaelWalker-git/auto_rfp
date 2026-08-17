@@ -11,7 +11,6 @@ import {
   useRFPDocuments,
   RFP_DOCUMENT_TYPES,
   isSolutionPlanRequiredError,
-  SOLUTION_PLAN_GATE_ERROR_TITLES,
 } from '@/lib/hooks/use-rfp-documents';
 import { useCurrentOrganization } from '@/context/organization-context';
 import {
@@ -48,7 +47,7 @@ export const RequiredDocumentsPanel = ({
 
   // Solution Plan gate (T12): gated doc types require a READY plan (server
   // enforces the same rule via 409 SOLUTION_PLAN_REQUIRED, T9).
-  const { isGateActive, isNoBid, isGrandfathered, isDocumentTypeBlocked } = useSolutionPlanGate(
+  const { isGateActive, isGrandfathered, isDocumentTypeBlocked } = useSolutionPlanGate(
     orgId || undefined,
     projectId,
     opportunityId,
@@ -84,7 +83,7 @@ export const RequiredDocumentsPanel = ({
     } catch (err: unknown) {
       toast({
         title: isSolutionPlanRequiredError(err)
-          ? SOLUTION_PLAN_GATE_ERROR_TITLES[err.code]
+          ? 'Solution Plan required'
           : `Failed to generate "${doc.name}"`,
         description: err instanceof Error ? err.message : 'Generation failed',
         variant: 'destructive',
@@ -161,7 +160,6 @@ export const RequiredDocumentsPanel = ({
             orgId={orgId}
             projectId={projectId}
             opportunityId={opportunityId}
-            variant={isNoBid ? 'no-bid' : 'required'}
           />
         )}
         {/* Grandfathered opportunities generate without a plan, but get the ADR-10 nudge */}

@@ -14,7 +14,7 @@
 | **Problem 3** | Pricing documents were generated against a Solution Plan whose decision was NO-BID ("No ROM will be submitted") — the gate only checks that a READY plan *exists*. |
 | **Fix A** | **Plan as single price source** — when an approved Solution Plan exists, withhold the `search_service_pricing` tool from COST_PROPOSAL / PRICE_VOLUME generation and require documents to copy the plan's "Selected Services & Licenses" prices verbatim. Source URLs stay in the plan only — customer-facing pricing documents no longer print them. |
 | **Fix B** | **Deterministic totals validation** — post-generation pass that parses pricing tables, recomputes column totals, and **auto-corrects** mismatched total cells before saving. |
-| **Fix C** | **NO-BID gate** — the Solution Plan synthesis emits a structured `bidDecision`; the generation gate refuses (409) gated document types when the plan says `NO_BID`. |
+| **Fix C** | ~~NO-BID gate~~ **REMOVED by product decision (2026-08-17)**: the Solution Plan does not make bid/no-bid decisions and never blocks generation on one. Only Fixes A and B ship. |
 | **Packages touched** | `packages/core`, `apps/functions`, `apps/web` |
 | **Infra changes** | None (no new Lambdas, routes, tables, or stacks) |
 
@@ -60,7 +60,7 @@ Out of scope (deliberately): target-solicitation picker for bundled opportunitie
 
 ---
 
-## 3. Data Models & Zod Schemas <!-- ✅ IMPLEMENTED -->
+## 3. Data Models & Zod Schemas <!-- ⏭️ SKIPPED (Fix C removed by product decision — the Solution Plan does not decide bid/no-bid) -->
 
 All changes in `packages/core/src/schemas/solution-plan.ts` (existing file — no new schema file, no new entity).
 
@@ -110,7 +110,7 @@ export const SolutionPlanGateResultSchema = z.object({
 
 ---
 
-## 4. DynamoDB Design <!-- ✅ IMPLEMENTED -->
+## 4. DynamoDB Design <!-- ⏭️ SKIPPED (Fix C removed by product decision — the Solution Plan does not decide bid/no-bid) -->
 
 No new partitions, SKs, GSIs, or TTLs. One new **attribute** on the existing `SOLUTION_PLAN` item: `bidDecision` (string, optional), written by the synthesis step through the existing plan update helper in `apps/functions/src/helpers/solution-plan.ts`. No migration needed — absent means `BID`.
 
@@ -296,7 +296,7 @@ No new routes. `POST` generate-document response gains the `SOLUTION_PLAN_NO_BID
 
 ---
 
-## 8. Frontend — Hooks & Components <!-- ✅ IMPLEMENTED -->
+## 8. Frontend — Hooks & Components <!-- ⏭️ SKIPPED (Fix C removed by product decision — the Solution Plan does not decide bid/no-bid) -->
 
 Minimal changes, all in existing files:
 
@@ -326,19 +326,19 @@ None — no new Lambdas, queues, tables, env vars, or IAM permissions.
 
 ## 12. Implementation Tickets <!-- ✅ IMPLEMENTED -->
 
-### PC-1 · Core schema: `bidDecision` + error code (30 min) <!-- ✅ IMPLEMENTED -->
+### PC-1 · Core schema: `bidDecision` + error code (30 min) <!-- ⏭️ SKIPPED (Fix C removed by product decision — the Solution Plan does not decide bid/no-bid) -->
 - Files: `packages/core/src/schemas/solution-plan.ts` (+ its vitest file)
 - Add `SolutionPlanBidDecisionSchema`, labels, `bidDecision` on `SolutionPlanItemSchema`, `SOLUTION_PLAN_NO_BID` error code.
 - Tests: enum validation, optional field omission, labels completeness.
 - Rebuild core: `pnpm --filter @auto-rfp/core build`.
 - ✅ Done when: core builds; `apps/functions` and `apps/web` typecheck.
 
-### PC-2 · Synthesis emits & persists `bidDecision` (1 h) <!-- ✅ IMPLEMENTED -->
+### PC-2 · Synthesis emits & persists `bidDecision` (1 h) <!-- ⏭️ SKIPPED (Fix C removed by product decision — the Solution Plan does not decide bid/no-bid) -->
 - Files: `helpers/solution-plan-prompts.ts`, `helpers/solution-plan-worker.ts` (+ both test files)
 - Synthesizer prompt outputs `bidDecision`; `SynthesisResponseSchema` validates with `.default('BID')`; persisted with the READY update.
 - Tests: prompt contains the rule; worker persists `NO_BID`; missing field defaults to `BID`.
 
-### PC-3 · Gate blocks NO_BID + handler 409 (1 h) <!-- ✅ IMPLEMENTED -->
+### PC-3 · Gate blocks NO_BID + handler 409 (1 h) <!-- ⏭️ SKIPPED (Fix C removed by product decision — the Solution Plan does not decide bid/no-bid) -->
 - Files: `helpers/solution-plan-gate.ts`, `handlers/rfp-document/generate-document.ts` (+ both test files)
 - Gate returns `{ allowed: false, code: 'SOLUTION_PLAN_NO_BID' }` for READY+NO_BID plans **before** grandfathering; handler branches the 409 body.
 - Tests: NO_BID blocked (grandfathered docs do NOT open it), BID allowed, legacy plan (no field) allowed, exempt doc types unaffected, kill switch still bypasses.
@@ -354,7 +354,7 @@ None — no new Lambdas, queues, tables, env vars, or IAM permissions.
 - Pure `correctPricingTableTotals`; hooked before S3 upload for pricing doc types only; corrections logged.
 - Tests (validator): correct total untouched; wrong total rewritten (the $866 table from the incident as a fixture); subtotal+grand-total tables; $1 tolerance; cells with formula labels; tables without totals; non-money tables; malformed HTML passthrough. Tests (worker): hook applied only for COST_PROPOSAL/PRICE_VOLUME.
 
-### PC-6 · Frontend: NO_BID handling + badge (1.5 h) <!-- ✅ IMPLEMENTED -->
+### PC-6 · Frontend: NO_BID handling + badge (1.5 h) <!-- ⏭️ SKIPPED (Fix C removed by product decision — the Solution Plan does not decide bid/no-bid) -->
 - Files: `lib/hooks/use-rfp-documents.ts`, `features/solution-plan/components/SolutionPlanGateCallout.tsx`, `features/solution-plan/components/SolutionPlanStatusBadge.tsx` (+ `__tests__`)
 - Parse the new 409 code, branch the callout copy, render the No-Bid badge.
 - Tests: 409 body parsing for both codes; callout renders no-bid variant; badge shows for `NO_BID`, hidden otherwise.

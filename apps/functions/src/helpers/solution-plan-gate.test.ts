@@ -50,22 +50,14 @@ describe('isGatedDocumentType', () => {
 describe('checkSolutionPlanGate', () => {
   it('blocks a gated type when no plan exists', async () => {
     const result = await checkSolutionPlanGate(args);
-    expect(result).toEqual({
-      allowed: false,
-      solutionPlanStatus: null,
-      code: 'SOLUTION_PLAN_REQUIRED',
-    });
+    expect(result).toEqual({ allowed: false, solutionPlanStatus: null });
     expect(mockGetPlan).toHaveBeenCalledWith(key);
   });
 
   it('blocks with the plan status when the plan is not READY', async () => {
     mockGetPlan.mockResolvedValue({ status: 'GRILLING' });
     const result = await checkSolutionPlanGate(args);
-    expect(result).toEqual({
-      allowed: false,
-      solutionPlanStatus: 'GRILLING',
-      code: 'SOLUTION_PLAN_REQUIRED',
-    });
+    expect(result).toEqual({ allowed: false, solutionPlanStatus: 'GRILLING' });
   });
 
   it('passes when the plan is READY', async () => {
@@ -75,53 +67,6 @@ describe('checkSolutionPlanGate', () => {
     expect(mockListDocs).not.toHaveBeenCalled();
   });
 
-  it('blocks a READY plan whose decision is NO_BID with SOLUTION_PLAN_NO_BID', async () => {
-    mockGetPlan.mockResolvedValue({ status: 'READY', bidDecision: 'NO_BID' });
-    const result = await checkSolutionPlanGate(args);
-    expect(result).toEqual({
-      allowed: false,
-      solutionPlanStatus: 'READY',
-      code: 'SOLUTION_PLAN_NO_BID',
-    });
-  });
-
-  it('does NOT let grandfathered documents override a NO_BID decision', async () => {
-    mockGetPlan.mockResolvedValue({ status: 'READY', bidDecision: 'NO_BID' });
-    mockListDocs.mockResolvedValue({
-      items: [{ documentType: 'TECHNICAL_PROPOSAL', htmlContentKey: 'org-1/p/o/rfp-documents/d1/content.html' }],
-      nextToken: null,
-    });
-    const result = await checkSolutionPlanGate(args);
-    expect(result.allowed).toBe(false);
-    expect(result.code).toBe('SOLUTION_PLAN_NO_BID');
-    expect(mockListDocs).not.toHaveBeenCalled();
-  });
-
-  it('passes when the plan is READY with an explicit BID decision', async () => {
-    mockGetPlan.mockResolvedValue({ status: 'READY', bidDecision: 'BID' });
-    const result = await checkSolutionPlanGate(args);
-    expect(result).toEqual({ allowed: true, solutionPlanStatus: 'READY' });
-  });
-
-  it('passes a legacy READY plan with no bidDecision (treated as BID)', async () => {
-    mockGetPlan.mockResolvedValue({ status: 'READY' });
-    const result = await checkSolutionPlanGate(args);
-    expect(result).toEqual({ allowed: true, solutionPlanStatus: 'READY' });
-  });
-
-  it('passes exempt types even when the plan decision is NO_BID', async () => {
-    mockGetPlan.mockResolvedValue({ status: 'READY', bidDecision: 'NO_BID' });
-    const result = await checkSolutionPlanGate({ ...key, documentType: 'CLARIFYING_QUESTIONS' });
-    expect(result.allowed).toBe(true);
-  });
-
-  it('kill switch bypasses the NO_BID block', async () => {
-    process.env.SOLUTION_PLAN_GATING = 'off';
-    mockGetPlan.mockResolvedValue({ status: 'READY', bidDecision: 'NO_BID' });
-    const result = await checkSolutionPlanGate(args);
-    expect(result.allowed).toBe(true);
-    expect(mockGetPlan).not.toHaveBeenCalled();
-  });
 
   it('passes when the plan is READY but stale — isStale does not close the gate', async () => {
     mockGetPlan.mockResolvedValue({ status: 'READY', isStale: true, staleReason: 'brief regenerated' });

@@ -3,9 +3,7 @@
  *
  * For gated document types, generation is refused (409 SOLUTION_PLAN_REQUIRED)
  * until the opportunity has a Solution Plan with status READY. A stale plan is
- * still READY — `isStale` never closes the gate (ADR-3). A READY plan whose
- * `bidDecision` is NO_BID closes the gate (409 SOLUTION_PLAN_NO_BID) — an
- * explicit no-bid decision outranks grandfathering.
+ * still READY — `isStale` never closes the gate (ADR-3).
  *
  * Escape hatches, checked cheapest-first:
  *  - exempt document types (Q&A-style exports don't need a plan)
@@ -17,7 +15,6 @@
 import { z } from 'zod';
 import {
   SOLUTION_PLAN_GATE_EXEMPT_DOCUMENT_TYPES,
-  SolutionPlanErrorCodeSchema,
   SolutionPlanStatusSchema,
   isSolutionPlanGatedDocumentType,
   type RFPDocumentType,
@@ -43,8 +40,6 @@ export const isGatedDocumentType = (documentType: RFPDocumentType): boolean =>
 export const SolutionPlanGateResultSchema = z.object({
   allowed: z.boolean(),
   solutionPlanStatus: SolutionPlanStatusSchema.nullable(),
-  /** Set when allowed=false; distinguishes "no plan" from "plan says NO_BID". */
-  code: SolutionPlanErrorCodeSchema.optional(),
 });
 
 export type SolutionPlanGateResult = z.infer<typeof SolutionPlanGateResultSchema>;
@@ -106,18 +101,11 @@ export const checkSolutionPlanGate = async (
 
   const plan = await getSolutionPlanByOpportunity({ orgId, projectId, opportunityId });
   const solutionPlanStatus = plan?.status ?? null;
-  if (solutionPlanStatus === 'READY') {
-    // An explicit NO_BID decision outranks everything — including ADR-10
-    // grandfathering below. Legacy plans without the field count as BID.
-    if (plan?.bidDecision === 'NO_BID') {
-      return { allowed: false, solutionPlanStatus, code: 'SOLUTION_PLAN_NO_BID' };
-    }
-    return { allowed: true, solutionPlanStatus };
-  }
+  if (solutionPlanStatus === 'READY') return { allowed: true, solutionPlanStatus };
 
   if (await hasExistingGatedDocument({ projectId, opportunityId })) {
     return { allowed: true, solutionPlanStatus };
   }
 
-  return { allowed: false, solutionPlanStatus, code: 'SOLUTION_PLAN_REQUIRED' };
+  return { allowed: false, solutionPlanStatus };
 };

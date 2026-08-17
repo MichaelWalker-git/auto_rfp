@@ -17,7 +17,7 @@ import { useSolutionPlan } from '../hooks/useSolutionPlan';
 import { useGrillingTranscript } from '../hooks/useGrillingTranscript';
 import { useSolutionPlanActions } from '../hooks/useSolutionPlanActions';
 import { GrillingTranscriptView } from './GrillingTranscriptView';
-import { SolutionPlanBidDecisionBadge, SolutionPlanStatusBadge } from './SolutionPlanStatusBadge';
+import { SolutionPlanStatusBadge } from './SolutionPlanStatusBadge';
 
 interface SolutionPlanPanelProps {
   orgId: string;
@@ -158,14 +158,7 @@ export const SolutionPlanPanel = ({ orgId, projectId, opportunityId }: SolutionP
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle>Solution Plan</CardTitle>
-          {plan && (
-            <div className="flex items-center gap-2">
-              <SolutionPlanStatusBadge status={plan.status} />
-              {plan.status === 'READY' && (
-                <SolutionPlanBidDecisionBadge bidDecision={plan.bidDecision} />
-              )}
-            </div>
-          )}
+          {plan && <SolutionPlanStatusBadge status={plan.status} />}
         </div>
         <CardDescription>
           The approved technical and delivery plan for this opportunity — the source of truth

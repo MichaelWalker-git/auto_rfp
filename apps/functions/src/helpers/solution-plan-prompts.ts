@@ -165,7 +165,7 @@ export const buildSynthesizerSystemPrompt = (): string =>
 
 OUTPUT FORMAT:
 Respond with ONLY a JSON object, no markdown fences or commentary:
-{"title": "<short plan title>", "bidDecision": "BID" | "NO_BID", "htmlContent": "<the plan as an HTML fragment>"}
+{"title": "<short plan title>", "htmlContent": "<the plan as an HTML fragment>"}
 
 HTML RULES:
 - Produce an HTML FRAGMENT for a rich-text editor: use <h2>, <h3>, <p>, <ul>, <ol>, <table> only. NO <html>, <head>, <body>, <style>, or <script> tags.
@@ -181,7 +181,6 @@ HTML RULES:
 
 CONTENT RULES:
 - State DECISIONS, not options. The transcript's final resolution of each question wins; drop anything that was superseded.
-- bidDecision: output "NO_BID" ONLY when the transcript's final resolution is not to submit a proposal (no-bid / no ROM / decline). Otherwise output "BID".
 - Keep the total body text around ${SYNTHESIS_TARGET_BODY_CHARS.toLocaleString('en-US')} characters — dense and specific, not padded. Do NOT exceed it by more than ~15%: downstream consumers truncate at 12,000 characters and the last sections must survive.
 - Do not mention the interview, the interviewer, or this instruction set anywhere in the output.`;
 
