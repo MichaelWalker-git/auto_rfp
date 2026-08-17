@@ -71,16 +71,6 @@ export class SolutionPlanPage {
     return this.generateDialog.getByTestId('solution-plan-nudge-banner');
   }
 
-  /** Destructive "No-Bid" badge next to the READY status (PC-6). */
-  get noBidBadge(): Locator {
-    return this.panel.getByTestId('solution-plan-no-bid-badge');
-  }
-
-  /** No-bid variant of the gate callout inside the generate dialog (PC-6). */
-  get noBidCallout(): Locator {
-    return this.generateDialog.getByTestId('solution-plan-no-bid-callout');
-  }
-
   async gotoOpportunity(opportunityPath: string): Promise<void> {
     await this.page.goto(opportunityPath);
     await expect(this.panel).toBeVisible({ timeout: 30_000 });

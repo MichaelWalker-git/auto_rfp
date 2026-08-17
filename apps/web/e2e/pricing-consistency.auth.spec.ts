@@ -16,10 +16,8 @@ import {
  *
  *   PLAYWRIGHT_BASE_URL=...            frontend under test
  *   E2E_TEST_EMAIL / E2E_TEST_PASSWORD real Cognito login
- *   E2E_SP_NOBID_OPP_PATH              opportunity whose Solution Plan is
- *                                      READY with bidDecision NO_BID (Fix C)
  *   E2E_SP_PRICING_OPP_PATH            opportunity whose Solution Plan is
- *                                      READY with a BID decision AND a priced
+ *                                      READY with a priced
  *                                      "Selected Services & Licenses" table
  *                                      (Fixes A + B) — do NOT reuse the
  *                                      solution-plan spec's happy-path
@@ -31,7 +29,7 @@ import {
  *                                      responses
  *
  * Paths look like /organizations/{orgId}/projects/{projectId}/opportunities/{oppId}.
- * Each block auto-skips when its env var is unset, mirroring the other specs.
+ * The block auto-skips when its env var is unset, mirroring the other specs.
  * The org must have `enableSolutionPlan` on.
  *
  * Intentional non-cleanup: the pricing test leaves one Cost Proposal and one
@@ -39,56 +37,10 @@ import {
  * the artifacts make runs inspectable on dev); prune occasionally.
  */
 
-const NOBID_OPP_PATH = process.env.E2E_SP_NOBID_OPP_PATH;
 const PRICING_OPP_PATH = process.env.E2E_SP_PRICING_OPP_PATH;
 
 /** Ceiling for the async generation worker per queued document. */
 const DOCUMENT_GENERATED_TIMEOUT_MS = 10 * 60_000;
-
-test.describe('Pricing consistency — NO-BID gate (Fix C)', () => {
-  test.skip(!NOBID_OPP_PATH, 'E2E_SP_NOBID_OPP_PATH not set');
-
-  test('READY No-Bid plan shows the badge and blocks gated generation', async ({
-    solutionPlanPage,
-  }) => {
-    test.setTimeout(180_000);
-    await solutionPlanPage.gotoOpportunity(NOBID_OPP_PATH!);
-
-    // Precondition on dev data: the plan must be READY with bidDecision
-    // NO_BID. If the badge is missing, repoint E2E_SP_NOBID_OPP_PATH.
-    await expect(
-      solutionPlanPage.statusBadge(/^ready$/i).first(),
-      'no READY plan on the no-bid opportunity — repoint E2E_SP_NOBID_OPP_PATH',
-    ).toBeVisible({ timeout: 30_000 });
-    await expect(
-      solutionPlanPage.noBidBadge,
-      'plan is READY but not NO_BID — repoint E2E_SP_NOBID_OPP_PATH',
-    ).toBeVisible();
-    await expect(solutionPlanPage.noBidBadge).toHaveText(/no-bid/i);
-
-    // The generate dialog gets the no-bid callout variant, not the
-    // "create a plan" CTA, and links to the plan editor.
-    await solutionPlanPage.openGenerateDialog();
-    await expect(solutionPlanPage.noBidCallout).toBeVisible({ timeout: 15_000 });
-    await expect(solutionPlanPage.noBidCallout).toContainText(
-      /no-bid decision[\s\S]*generation is\s*blocked/i,
-    );
-    await expect(
-      solutionPlanPage.noBidCallout.getByRole('link', { name: /open solution plan/i }),
-    ).toBeVisible();
-    await expect(solutionPlanPage.gateCallout).not.toBeVisible();
-    await expect(solutionPlanPage.nudgeBanner).not.toBeVisible();
-
-    // Gated types stay blocked even though the plan is READY (NO_BID outranks
-    // grandfathering); exempt Q&A-style types stay generatable.
-    await expect(solutionPlanPage.documentTypeCheckbox('COST_PROPOSAL')).toBeDisabled();
-    await expect(solutionPlanPage.documentTypeCheckbox('PRICE_VOLUME')).toBeDisabled();
-    await expect(solutionPlanPage.documentTypeCheckbox('TECHNICAL_PROPOSAL')).toBeDisabled();
-    await expect(solutionPlanPage.documentTypeCheckbox('CLARIFYING_QUESTIONS')).toBeEnabled();
-
-    await solutionPlanPage.closeGenerateDialog();
-  });
-});
 
 test.describe('Pricing consistency — plan as price source + verified totals (Fixes A + B)', () => {
   test.skip(!PRICING_OPP_PATH, 'E2E_SP_PRICING_OPP_PATH not set');
@@ -100,12 +52,11 @@ test.describe('Pricing consistency — plan as price source + verified totals (F
     test.setTimeout(2 * DOCUMENT_GENERATED_TIMEOUT_MS + 10 * 60_000);
     await solutionPlanPage.gotoOpportunity(PRICING_OPP_PATH!);
 
-    // Precondition on dev data: READY plan, BID (or legacy) decision.
+    // Precondition on dev data: READY plan.
     await expect(
       solutionPlanPage.statusBadge(/^ready$/i).first(),
       'no READY plan on the pricing opportunity — repoint E2E_SP_PRICING_OPP_PATH',
     ).toBeVisible({ timeout: 30_000 });
-    await expect(solutionPlanPage.noBidBadge).not.toBeVisible();
 
     // Queue BOTH pricing documents from one dialog so they share the same
     // plan version.
