@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { PK_NAME, SK_NAME } from '../constants';
 import {
   SolutionPlanStatusSchema,
+  SolutionPlanBidDecisionSchema,
+  SOLUTION_PLAN_BID_DECISION_LABELS,
   SolutionPlanErrorCodeSchema,
   SolutionPlanKeySchema,
   SolutionPlanCreateRequestSchema,
@@ -49,12 +51,30 @@ describe('SolutionPlanStatusSchema', () => {
   });
 });
 
+describe('SolutionPlanBidDecisionSchema', () => {
+  it.each(['BID', 'NO_BID'])('should accept %s', (decision) => {
+    expect(SolutionPlanBidDecisionSchema.parse(decision)).toBe(decision);
+  });
+
+  it('should reject unknown decisions', () => {
+    expect(() => SolutionPlanBidDecisionSchema.parse('MAYBE')).toThrow();
+    expect(() => SolutionPlanBidDecisionSchema.parse('')).toThrow();
+  });
+
+  it('should have a label for every decision', () => {
+    for (const decision of SolutionPlanBidDecisionSchema.options) {
+      expect(SOLUTION_PLAN_BID_DECISION_LABELS[decision]).toBeTruthy();
+    }
+  });
+});
+
 describe('SolutionPlanErrorCodeSchema', () => {
   it.each([
     'SOLUTION_PLAN_NOT_READY',
     'SOLUTION_PLAN_CONFLICT',
     'SOLUTION_PLAN_RUN_IN_PROGRESS',
     'SOLUTION_PLAN_REQUIRED',
+    'SOLUTION_PLAN_NO_BID',
   ])('should accept %s', (code) => {
     expect(SolutionPlanErrorCodeSchema.parse(code)).toBe(code);
   });
@@ -294,6 +314,25 @@ describe('SolutionPlanItemSchema', () => {
   it('should NOT contain DynamoDB key fields', () => {
     expect(SolutionPlanItemSchema.shape).not.toHaveProperty(PK_NAME);
     expect(SolutionPlanItemSchema.shape).not.toHaveProperty(SK_NAME);
+  });
+
+  it('should accept a bidDecision and allow its omission (legacy plans)', () => {
+    const { success: omitted, data: legacy } = SolutionPlanItemSchema.safeParse(validItem);
+    expect(omitted).toBe(true);
+    expect(legacy?.bidDecision).toBeUndefined();
+
+    const { success, data } = SolutionPlanItemSchema.safeParse({
+      ...validItem,
+      bidDecision: 'NO_BID',
+    });
+    expect(success).toBe(true);
+    expect(data?.bidDecision).toBe('NO_BID');
+  });
+
+  it('should reject an invalid bidDecision', () => {
+    expect(
+      SolutionPlanItemSchema.safeParse({ ...validItem, bidDecision: 'MAYBE' }).success
+    ).toBe(false);
   });
 
   it('should accept a FAILED item carrying an error message', () => {

@@ -37,7 +37,7 @@ jest.mock('./service-pricing', () => ({
   searchServicePricing: (...a: unknown[]) => mockSearchServicePricing(...a),
 }));
 
-import { DOCUMENT_TOOLS, executeDocumentTool, getDocumentToolsForType } from './document-tools';
+import { DOCUMENT_TOOLS, PRICING_TOOL_DOC_TYPES, executeDocumentTool, getDocumentToolsForType } from './document-tools';
 
 const baseArgs = {
   toolUseId: 'tu-1',
@@ -98,6 +98,39 @@ describe('getDocumentToolsForType', () => {
     ]);
   });
 
+  it('withholds search_service_pricing from pricing types when an Approved Solution Plan exists (Fix A)', () => {
+    for (const documentType of ['COST_PROPOSAL', 'PRICE_VOLUME']) {
+      const names = getDocumentToolsForType(documentType, { hasSolutionPlan: true }).map((t) => t.name);
+      expect(names).not.toContain('search_service_pricing');
+    }
+  });
+
+  it('keeps offering search_service_pricing to pricing types when no plan exists', () => {
+    for (const documentType of ['COST_PROPOSAL', 'PRICE_VOLUME']) {
+      expect(getDocumentToolsForType(documentType, { hasSolutionPlan: false }).map((t) => t.name))
+        .toContain('search_service_pricing');
+      expect(getDocumentToolsForType(documentType, {}).map((t) => t.name))
+        .toContain('search_service_pricing');
+    }
+  });
+
+  it('never offers search_service_pricing to non-pricing types, plan or not', () => {
+    for (const hasSolutionPlan of [true, false]) {
+      const names = getDocumentToolsForType('TECHNICAL_PROPOSAL', { hasSolutionPlan }).map((t) => t.name);
+      expect(names).not.toContain('search_service_pricing');
+    }
+  });
+
+  it('keeps all other tools intact when the plan withholds the pricing tool', () => {
+    const baseNames = DOCUMENT_TOOLS.map((t) => t.name).filter((n) => n !== 'search_service_pricing');
+    expect(getDocumentToolsForType('COST_PROPOSAL', { hasSolutionPlan: true }).map((t) => t.name))
+      .toEqual(baseNames);
+  });
+
+  it('exports PRICING_TOOL_DOC_TYPES covering exactly the pricing documents', () => {
+    expect([...PRICING_TOOL_DOC_TYPES].sort()).toEqual(['COST_PROPOSAL', 'PRICE_VOLUME']);
+  });
+
   it('defines the batched input schema (services array, max 10, one call)', () => {
     const tool = DOCUMENT_TOOLS.find((t) => t.name === 'search_service_pricing');
     expect(tool?.input_schema.required).toEqual(['services']);
@@ -134,6 +167,9 @@ describe('executeDocumentTool — search_service_pricing', () => {
       '| Datadog Pro | MONTHLY | 23 USD per host/month | Pro | HIGH | https://www.datadoghq.com/pricing/ | 2026-08-14 |',
     );
     expect(result.content).toContain('ESTIMATES — subject to vendor quote');
+    // Fix A: source URLs stay internal — the model must not print them in the document
+    expect(result.content).toContain('Do NOT print the Source URLs');
+    expect(result.content).not.toContain("cite each price's Source URL");
   });
 
   it('renders failed lookups as "vendor quote required" rows (partial failure)', async () => {

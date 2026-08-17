@@ -18,7 +18,7 @@
 
 import { z } from 'zod';
 
-import type { SolutionPlanItem, SolutionPlanKey } from '@auto-rfp/core';
+import { SolutionPlanBidDecisionSchema, type SolutionPlanItem, type SolutionPlanKey } from '@auto-rfp/core';
 
 import { fetchExecutiveBriefAnalysis } from './db-tool-helpers';
 import { loadSolicitation } from './document-generation';
@@ -136,6 +136,8 @@ const loadRoundContext = async (message: GrillingRoundMessage): Promise<RoundCon
 
 const SynthesisResponseSchema = z.object({
   title: z.string().min(1),
+  // Default guards model omission — a legacy-shaped response still counts as a bid
+  bidDecision: SolutionPlanBidDecisionSchema.default('BID'),
   htmlContent: z.string().min(1),
 });
 
@@ -330,7 +332,7 @@ export const processSynthesis = async (message: GrillingRoundMessage): Promise<v
       throw new Error('No Tech Lead answers in transcript — nothing to synthesize');
     }
 
-    const { title, htmlContent } = await invokeClaudeJson({
+    const { title, bidDecision, htmlContent } = await invokeClaudeJson({
       modelId: resolveModelId(),
       system: buildSynthesizerSystemPrompt(),
       user: buildSynthesizerUserPrompt({
@@ -350,6 +352,9 @@ export const processSynthesis = async (message: GrillingRoundMessage): Promise<v
     await updateSolutionPlanStatus(key, 'READY', {
       contentKey,
       version,
+      // Structured go/no-go decision from synthesis — NO_BID closes the
+      // document-generation gate for gated types (Fix C).
+      bidDecision,
       // A fresh synthesis is current by definition and carries no user edits
       isStale: false,
       staleReason: '',

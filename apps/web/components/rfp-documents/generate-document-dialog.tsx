@@ -22,6 +22,7 @@ import {
   useGenerateRFPDocument,
   useCustomDocumentTypes,
   isSolutionPlanRequiredError,
+  SOLUTION_PLAN_GATE_ERROR_TITLES,
 } from '@/lib/hooks/use-rfp-documents';
 import { useGetExecutiveBriefByProject } from '@/lib/hooks/use-executive-brief';
 import { useCurrentOrganization } from '@/context/organization-context';
@@ -98,7 +99,7 @@ export const GenerateDocumentDialog = ({
 
   // Solution Plan gate (T12): gated doc types require a READY plan; exempt
   // types (Q&A-style) stay generatable. Server enforces the same rule (T9).
-  const { isGateActive, isGrandfathered, isDocumentTypeBlocked } = useSolutionPlanGate(
+  const { isGateActive, isNoBid, isGrandfathered, isDocumentTypeBlocked } = useSolutionPlanGate(
     orgId,
     projectId,
     opportunityId,
@@ -267,7 +268,9 @@ export const GenerateDocumentDialog = ({
       setOpen(false);
     } catch (err) {
       toast({
-        title: isSolutionPlanRequiredError(err) ? 'Solution Plan required' : 'Generation failed',
+        title: isSolutionPlanRequiredError(err)
+          ? SOLUTION_PLAN_GATE_ERROR_TITLES[err.code]
+          : 'Generation failed',
         description: err instanceof Error ? err.message : 'Failed to start generation',
         variant: 'destructive',
       });
@@ -306,6 +309,7 @@ export const GenerateDocumentDialog = ({
               orgId={orgId}
               projectId={projectId}
               opportunityId={opportunityId}
+              variant={isNoBid ? 'no-bid' : 'required'}
               onNavigate={() => setOpen(false)}
             />
           )}

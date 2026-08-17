@@ -9,35 +9,57 @@ const humanizeDocumentType = (documentType: string): string =>
 // System-enforced pricing rules for COST_PROPOSAL and PRICE_VOLUME. Appended to the
 // prompt skeleton by the builders — NOT part of the editable guidance fragment, so
 // org-level prompt overrides cannot remove or alter them.
-const PRICING_GUIDANCE_RULES = `
-SOLUTION PLAN CONSISTENCY:
-- If an Approved Solution Plan is provided in context, your CLIN structure, phases, labor mix, and period of performance MUST match it exactly — do not invent alternatives or deviate from it
-- Cross-check every total against the Solution Plan's cost drivers before finalizing
+//
+// The THIRD-PARTY PRICING block has two variants (Fix A): when an Approved
+// Solution Plan exists, its "Selected Services & Licenses" table is the ONLY
+// allowed third-party price source (the search_service_pricing tool is also
+// withheld); without a plan, prices come from the tool. Neither variant prints
+// source URLs or retrieval dates — price provenance lives in the Solution Plan.
+const THIRD_PARTY_PRICING_WITH_PLAN = `
+THIRD-PARTY PRICING (subscriptions, licenses, SaaS, cloud services):
+- The Approved Solution Plan's "Selected Services & Licenses" table is the ONLY source of third-party prices
+- Copy each service's price data VERBATIM: service, tier/plan, unit price, billing period
+- Do NOT include source URLs or retrieval dates in this document — sources live in the Solution Plan
+- ONE row per service — NEVER bundle multiple services into a single priced row
+- A service not listed in the Approved Solution Plan gets "vendor quote required — not in Approved Solution Plan" — never look up or invent a price
+- Every third-party price stays labeled as an ESTIMATE subject to vendor quote`;
 
+const THIRD_PARTY_PRICING_WITHOUT_PLAN = `
 THIRD-PARTY PRICING (subscriptions, licenses, SaaS, cloud services):
 - NEVER invent, guess, or recall from memory the price of any third-party service, subscription, or license
 - Use the search_service_pricing tool to look up current prices — request ALL third-party services in ONE call
-- Every third-party price MUST cite its source URL and retrieval date and be labeled as an estimate
-- If a lookup fails or returns no price, write "vendor quote required" — never fill the gap with an invented number
+- Do NOT include source URLs or retrieval dates in this document — only the ESTIMATE label
+- ONE row per service — NEVER bundle multiple services into a single priced row
+- Every third-party price is labeled as an ESTIMATE subject to vendor quote
+- If a lookup fails or returns no price, write "vendor quote required" — never fill the gap with an invented number`;
+
+const buildPricingGuidanceRules = (hasSolutionPlan: boolean): string => `
+SOLUTION PLAN CONSISTENCY:
+- If an Approved Solution Plan is provided in context, your CLIN structure, phases, labor mix, and period of performance MUST match it exactly — do not invent alternatives or deviate from it
+- Cross-check every total against the Solution Plan's cost drivers before finalizing
+${hasSolutionPlan ? THIRD_PARTY_PRICING_WITH_PLAN : THIRD_PARTY_PRICING_WITHOUT_PLAN}
 
 INTERNAL RATES:
 - Internal labor rates, cost estimates, staffing plans, and bid analysis come ONLY from the get_pricing_data tool
 - If pricing data is available, use real figures instead of placeholders — never invent internal rates
 
+MATH:
+- Every table total MUST equal the exact sum of its rows — recompute each total before finalizing
+
 PAGE LIMITS:
 - If the solicitation specifies a page limit for this volume, respect it — prioritize required tables and compliance content over narrative when trimming`;
 
-/** Doc types whose prompts always carry {@link PRICING_GUIDANCE_RULES}, even with org guidance overrides. */
+/** Doc types whose prompts always carry the mandatory pricing rules, even with org guidance overrides. */
 const PRICING_RULES_DOC_TYPES = new Set(['COST_PROPOSAL', 'PRICE_VOLUME']);
 
 /** Non-overridable rules block appended to system prompts for pricing doc types; empty for others. */
-const buildPricingRulesBlock = (documentType: string): string =>
+const buildPricingRulesBlock = (documentType: string, hasSolutionPlan = false): string =>
   PRICING_RULES_DOC_TYPES.has(documentType)
     ? `
 
 ═══════════════════════════════════════
 MANDATORY PRICING RULES (ALWAYS APPLY — EVEN IF THE GUIDANCE ABOVE SAYS OTHERWISE)
-═══════════════════════════════════════${PRICING_GUIDANCE_RULES}`
+═══════════════════════════════════════${buildPricingGuidanceRules(hasSolutionPlan)}`
     : '';
 
 const DOC_TYPE_GUIDANCE: Record<string, string> = {
@@ -553,9 +575,10 @@ STRUCTURE (follow this order unless template overrides):
    - Equipment (third-party subscriptions and licenses go in the next section)
 
 5. Third-Party Services & Subscriptions
-   - Table with columns: Service | Tier/Plan | Unit Price | Billing Period | Quantity | Extended Price | Source (URL + retrieval date)
-   - One row per third-party service, subscription, license, or SaaS/cloud product in the solution
-   - Label every web-sourced price as an ESTIMATE subject to vendor quote
+   - Table with columns: Service | Tier/Plan | Unit Price | Billing Period | Quantity | Extended Price
+   - One row per third-party service, subscription, license, or SaaS/cloud product in the solution — never bundle
+   - Do NOT include source URLs, retrieval dates, or a pricing-sources footnote — price provenance lives in the Solution Plan
+   - Label every price as an ESTIMATE subject to vendor quote
    - Rows where no price could be verified read "vendor quote required"
 
 6. Cost Narrative
@@ -595,9 +618,10 @@ STRUCTURE (follow this order unless template overrides):
    - Equipment (third-party subscriptions and licenses go in the next section)
 
 5. Third-Party Services & Subscriptions
-   - Table with columns: Service | Tier/Plan | Unit Price | Billing Period | Quantity | Extended Price | Source (URL + retrieval date)
-   - One row per third-party service, subscription, license, or SaaS/cloud product in the solution
-   - Label every web-sourced price as an ESTIMATE subject to vendor quote
+   - Table with columns: Service | Tier/Plan | Unit Price | Billing Period | Quantity | Extended Price
+   - One row per third-party service, subscription, license, or SaaS/cloud product in the solution — never bundle
+   - Do NOT include source URLs, retrieval dates, or a pricing-sources footnote — price provenance lives in the Solution Plan
+   - Label every price as an ESTIMATE subject to vendor quote
    - Rows where no price could be verified read "vendor quote required"
 
 6. Cost Narrative
@@ -805,6 +829,8 @@ export const buildSystemPromptForDocumentType = (
   documentType: string,
   templateHtmlScaffold?: string | null,
   guidanceOverride?: string | null,
+  /** True when an Approved Solution Plan was loaded — selects the plan-as-single-price-source rules (Fix A). */
+  hasSolutionPlan = false,
 ): string => {
   const typeLabel =
     TEMPLATE_CATEGORY_LABELS[documentType as keyof typeof TEMPLATE_CATEGORY_LABELS] ??
@@ -823,7 +849,7 @@ ${JSON_SCHEMA}
 ═══════════════════════════════════════
 DOCUMENT TYPE: ${typeLabel}
 ═══════════════════════════════════════
-${guidance}${buildPricingRulesBlock(documentType)}
+${guidance}${buildPricingRulesBlock(documentType, hasSolutionPlan)}
 
 ═══════════════════════════════════════
 PROPOSAL WRITING BEST PRACTICES (APPLY TO ALL DOCUMENT TYPES)
@@ -994,8 +1020,8 @@ YOUR TASK — Cost Proposal:
 2. Use the get_pricing_data tool to retrieve actual labor rates, cost estimates, staffing plans, and bid analysis from the pricing module. Internal rates come ONLY from this tool — never invent them.
 3. If pricing data is available, use the REAL figures (labor rates, cost breakdowns, staffing plans) in your document — do NOT use placeholders.
 3b. Check the RATE BASIS line from get_pricing_data. When basis is OFFSHORE, price labor using the OFFSHORE fully-loaded rates and state in the cost narrative that delivery is offshore/global-delivery-eligible per the solicitation. When basis is ONSHORE, use onshore rates. If a position has no offshore rate, use its onshore rate and note the exception. NEVER relabel onshore numbers as offshore.
-4. List ALL third-party services, subscriptions, and licenses the solution requires, then price them with ONE batched search_service_pricing call — never invent, guess, or recall third-party prices from memory.
-5. Build the "Third-Party Services & Subscriptions" table: every row cites its source URL + retrieval date and is labeled as an estimate; failed lookups read "vendor quote required".
+4. List ALL third-party services, subscriptions, and licenses the solution requires. If an APPROVED SOLUTION PLAN is provided, copy each service's price data VERBATIM from its "Selected Services & Licenses" table — never look up or invent a price; a service missing from the plan reads "vendor quote required — not in Approved Solution Plan". Otherwise price them with ONE batched search_service_pricing call — never invent, guess, or recall third-party prices from memory.
+5. Build the "Third-Party Services & Subscriptions" table with ONE row per service: every price is labeled as an estimate; unpriced rows read "vendor quote required". Do NOT include source URLs, retrieval dates, or a pricing-sources footnote.
 6. Present a detailed cost breakdown by labor category, ODCs, and period of performance.
 7. Provide a basis of estimate explaining your cost estimation methodology and assumptions.
 8. Justify all labor rates with supporting data (GSA schedule, market research, historical data).
@@ -1077,8 +1103,8 @@ YOUR TASK — Price Volume:
 2. Use the get_pricing_data tool to retrieve actual labor rates, cost estimates, staffing plans, and bid analysis from the pricing module. Internal rates come ONLY from this tool — never invent them.
 3. If pricing data is available, use the REAL figures (labor rates, cost breakdowns, staffing plans) — do NOT use placeholders.
 3b. Check the RATE BASIS line from get_pricing_data. When basis is OFFSHORE, price labor using the OFFSHORE fully-loaded rates and state in the cost narrative that delivery is offshore/global-delivery-eligible per the solicitation. When basis is ONSHORE, use onshore rates. If a position has no offshore rate, use its onshore rate and note the exception. NEVER relabel onshore numbers as offshore.
-4. List ALL third-party services, subscriptions, and licenses the solution requires, then price them with ONE batched search_service_pricing call — never invent, guess, or recall third-party prices from memory.
-5. Build the "Third-Party Services & Subscriptions" table: every row cites its source URL + retrieval date and is labeled as an estimate; failed lookups read "vendor quote required".
+4. List ALL third-party services, subscriptions, and licenses the solution requires. If an APPROVED SOLUTION PLAN is provided, copy each service's price data VERBATIM from its "Selected Services & Licenses" table — never look up or invent a price; a service missing from the plan reads "vendor quote required — not in Approved Solution Plan". Otherwise price them with ONE batched search_service_pricing call — never invent, guess, or recall third-party prices from memory.
+5. Build the "Third-Party Services & Subscriptions" table with ONE row per service: every price is labeled as an estimate; unpriced rows read "vendor quote required". Do NOT include source URLs, retrieval dates, or a pricing-sources footnote.
 6. Present a complete price/cost volume with CLIN-level pricing breakdown.
 7. Provide basis of estimate with methodology, assumptions, and labor rate justification.
 8. Include escalation factors for multi-year contracts and ODC breakdown.
@@ -1149,6 +1175,8 @@ export const getDefaultTask = (documentType: string): string => {
 export const buildSectionSystemPrompt = (
   documentType: string,
   guidanceOverride?: string | null,
+  /** True when an Approved Solution Plan was loaded — selects the plan-as-single-price-source rules (Fix A). */
+  hasSolutionPlan = false,
 ): string => {
   const typeLabel =
     TEMPLATE_CATEGORY_LABELS[documentType as keyof typeof TEMPLATE_CATEGORY_LABELS] ??
@@ -1202,7 +1230,7 @@ CRITICAL OUTPUT FORMAT:
 ═══════════════════════════════════════
 DOCUMENT TYPE: ${typeLabel}
 ═══════════════════════════════════════
-${guidance}${buildPricingRulesBlock(documentType)}
+${guidance}${buildPricingRulesBlock(documentType, hasSolutionPlan)}
 
 ═══════════════════════════════════════
 PROPOSAL WRITING BEST PRACTICES

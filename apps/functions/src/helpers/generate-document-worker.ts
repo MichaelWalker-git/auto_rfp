@@ -43,7 +43,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { getRFPDocument } from '@/helpers/rfp-document';
 import { BEDROCK_MODEL_ID, MAX_TOKENS, TEMPERATURE } from '@/constants/document-generation';
 import { RFPDocumentContentSchema, RFPDocumentTypeSchema, RFP_DOCUMENT_TYPES, type RFPDocumentContent, type SolutionPlanDBItem, type SolutionPlanKey } from '@auto-rfp/core';
-import { executeDocumentTool, getDocumentToolsForType } from '@/helpers/document-tools';
+import { executeDocumentTool, getDocumentToolsForType, PRICING_TOOL_DOC_TYPES } from '@/helpers/document-tools';
+import { correctPricingTableTotals } from '@/helpers/pricing-table-math';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import {
   generateDocumentSectionBySectionHtml,
@@ -603,8 +604,10 @@ export const generateWithTemplateSections = async (args: {
   opportunityId: string;
   documentId: string;
   qaPairs: QaPair[];
+  /** True when an Approved Solution Plan was loaded — withholds search_service_pricing (Fix A). */
+  hasSolutionPlan: boolean;
 }): Promise<RFPDocumentContent | null> => {
-  const { templateHtml, sectionSystemPrompt, userPrompt, documentType, orgId, projectId, opportunityId, documentId, qaPairs } = args;
+  const { templateHtml, sectionSystemPrompt, userPrompt, documentType, orgId, projectId, opportunityId, documentId, qaPairs, hasSolutionPlan } = args;
 
   // 1. Parse template into sections
   const templateSections = parseTemplateSections(templateHtml);
@@ -639,6 +642,7 @@ export const generateWithTemplateSections = async (args: {
     opportunityId,
     documentId,
     qaPairs,
+    hasSolutionPlan,
     maxTokensPerSection: 6000,
     temperature: TEMPERATURE,
     maxToolRoundsPerSection: 2,
@@ -701,8 +705,10 @@ export const generateSingleShot = async (args: {
   documentId: string;
   qaPairs: QaPair[];
   enrichedKbTextLength: number;
+  /** True when an Approved Solution Plan was loaded — withholds search_service_pricing (Fix A). */
+  hasSolutionPlan: boolean;
 }): Promise<RFPDocumentContent | null> => {
-  const { templateHtml, systemPrompt, userPrompt, documentType, orgId, projectId, opportunityId, documentId, qaPairs, enrichedKbTextLength } = args;
+  const { templateHtml, systemPrompt, userPrompt, documentType, orgId, projectId, opportunityId, documentId, qaPairs, enrichedKbTextLength, hasSolutionPlan } = args;
 
   console.log(`[single-shot] Using single-shot generation with template scaffold (${templateHtml.length} chars)`);
 
@@ -728,8 +734,9 @@ export const generateSingleShot = async (args: {
     };
 
     if (!isLastRound) {
-      // search_service_pricing is offered only for COST_PROPOSAL / PRICE_VOLUME (T3)
-      requestBody.tools = getDocumentToolsForType(documentType);
+      // search_service_pricing is offered only for COST_PROPOSAL / PRICE_VOLUME (T3),
+      // and withheld when an Approved Solution Plan is the price source (Fix A)
+      requestBody.tools = getDocumentToolsForType(documentType, { hasSolutionPlan });
     }
 
     const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody));
@@ -1097,7 +1104,10 @@ export const processJobInner = async (job: Job): Promise<void> => {
   // Org-level fragment overrides are fetched once per job; null fields fall back
   // to the hardcoded defaults inside the builders.
   const fragments = await resolveDocumentPromptFragments(orgId, documentType);
-  const systemPrompt = buildSystemPromptForDocumentType(documentType, templateHtmlScaffold, fragments.guidance);
+  // Plan present → the plan's priced table is the only third-party price source:
+  // prompt variant switches and search_service_pricing is withheld (Fix A).
+  const hasSolutionPlan = Boolean(solutionPlanContext);
+  const systemPrompt = buildSystemPromptForDocumentType(documentType, templateHtmlScaffold, fragments.guidance, hasSolutionPlan);
   // The solution-plan block rides inside the user prompt, so section-by-section
   // mode receives it too (the section generator prepends `initialUserPrompt`).
   const userPrompt = buildUserPromptForDocumentType(documentType, {
@@ -1128,7 +1138,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
   let finalDocument: RFPDocumentContent | null = null;
   // Strategy 1: Section-by-section generation (template with headings AND placeholders)
   if (templateHtmlScaffold) {
-    const sectionSystemPrompt = buildSectionSystemPrompt(documentType, fragments.guidance);
+    const sectionSystemPrompt = buildSectionSystemPrompt(documentType, fragments.guidance, hasSolutionPlan);
     console.log(`Section system prompt: ${sectionSystemPrompt.length} chars`);
 
     finalDocument = await generateWithTemplateSections({
@@ -1142,6 +1152,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
       opportunityId,
       documentId,
       qaPairs,
+      hasSolutionPlan,
     });
   }
 
@@ -1151,7 +1162,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
   if (!finalDocument) {
     const singleShotTemplate = templateHtmlScaffold || buildDefaultTemplate();
     // Pass the template scaffold to the system prompt so the AI sees the template structure
-    const singleShotSystemPrompt = buildSystemPromptForDocumentType(documentType, templateHtmlScaffold ?? null, fragments.guidance);
+    const singleShotSystemPrompt = buildSystemPromptForDocumentType(documentType, templateHtmlScaffold ?? null, fragments.guidance, hasSolutionPlan);
 
     console.log(`[worker] Using single-shot generation for documentId=${documentId} (template: ${templateHtmlScaffold ? 'yes' : 'default'})`);
     finalDocument = await generateSingleShot({
@@ -1165,6 +1176,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
       documentId,
       qaPairs,
       enrichedKbTextLength: enrichedKbText.length,
+      hasSolutionPlan,
     });
   }
 
@@ -1373,7 +1385,22 @@ export const processJobInner = async (job: Job): Promise<void> => {
   }
 
   // ─── Step 7: Validate & Save result ───
-  const htmlContent = finalDocument?.content ?? '';
+  let htmlContent = finalDocument?.content ?? '';
+
+  // Deterministic pricing-math pass (Fix B): recompute every pricing-table
+  // total and auto-correct mismatches before the document is saved.
+  if (htmlContent && PRICING_TOOL_DOC_TYPES.has(documentType)) {
+    const { html: correctedHtml, corrections } = correctPricingTableTotals(htmlContent);
+    if (corrections.length > 0) {
+      console.warn(
+        `[worker] Pricing math auto-corrected ${corrections.length} total(s) for documentId=${documentId}: ` +
+        corrections.map((c) => `"${c.rowLabel}": ${c.previousValue} → ${c.correctedValue}`).join('; '),
+      );
+      htmlContent = correctedHtml;
+      finalDocument = finalDocument ? { ...finalDocument, content: correctedHtml } : finalDocument;
+    }
+  }
+
   const contentText = htmlContent
     .replace(/<[^>]*>/g, '')  // Strip HTML tags
     .replace(/\s+/g, ' ')     // Collapse whitespace

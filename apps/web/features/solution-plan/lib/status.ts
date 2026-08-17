@@ -1,7 +1,7 @@
-import type { SolutionPlanStatus } from '@auto-rfp/core';
+import type { SolutionPlanBidDecision, SolutionPlanStatus } from '@auto-rfp/core';
 
 /** The minimal plan shape the status predicates need. */
-type PlanLike = { status: SolutionPlanStatus } | null | undefined;
+type PlanLike = { status: SolutionPlanStatus; bidDecision?: SolutionPlanBidDecision } | null | undefined;
 
 /** Statuses in which a grilling run is in flight (interview or synthesis). */
 export const SOLUTION_PLAN_RUNNING_STATUSES: readonly SolutionPlanStatus[] = [
@@ -17,8 +17,18 @@ export const isSolutionPlanRunning = (plan: PlanLike): boolean =>
   plan != null && SOLUTION_PLAN_RUNNING_STATUSES.includes(plan.status);
 
 /**
+ * Whether the plan is READY with an explicit No-Bid decision — blocks
+ * generation of gated document types (grandfathering does not override).
+ * Legacy plans without `bidDecision` count as a bid.
+ */
+export const isNoBidPlan = (plan: PlanLike): boolean =>
+  plan?.status === 'READY' && plan.bidDecision === 'NO_BID';
+
+/**
  * Whether document generation is allowed for this opportunity (ADR-3):
  * the plan must be READY — `isStale` does NOT close the gate, a stale plan
- * only shows the warning banner.
+ * only shows the warning banner. A READY plan with a NO_BID decision does
+ * NOT open the gate.
  */
-export const canGenerateDocuments = (plan: PlanLike): boolean => plan?.status === 'READY';
+export const canGenerateDocuments = (plan: PlanLike): boolean =>
+  plan?.status === 'READY' && !isNoBidPlan(plan);

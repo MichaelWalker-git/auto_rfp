@@ -40,9 +40,11 @@ jest.mock('@/helpers/bedrock-http-client', () => ({
   invokeModel: (...args: unknown[]) => mockInvokeModel(...args),
 }));
 
+const mockGetDocumentToolsForType = jest.fn(() => []);
 jest.mock('@/helpers/document-tools', () => ({
   DOCUMENT_TOOLS: [],
-  getDocumentToolsForType: jest.fn(() => []),
+  PRICING_TOOL_DOC_TYPES: new Set(['COST_PROPOSAL', 'PRICE_VOLUME']),
+  getDocumentToolsForType: (...args: unknown[]) => mockGetDocumentToolsForType(...(args as [])),
   executeDocumentTool: jest.fn(),
 }));
 
@@ -187,5 +189,78 @@ describe('edit-section handler — override wiring', () => {
     const body = JSON.parse((result as { body: string }).body);
     expect(body.ok).toBe(true);
     expect(body.updatedHtml).toBe('<h2>Approach</h2><p>Updated content</p>');
+  });
+});
+
+describe('edit-section handler — Solution Plan pricing-tool gating (Fix A)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockResolveFragments.mockResolvedValue({ guidance: null, task: null });
+    mockInvokeModel.mockResolvedValue(
+      bedrockTextResponse('<h2>Approach</h2><p>Updated content</p>'),
+    );
+  });
+
+  it('withholds the pricing tool when the document carries an ADR-7 solutionPlanId stamp', async () => {
+    mockGetRFPDocument.mockResolvedValue({
+      documentId: 'doc-1',
+      documentType: 'COST_PROPOSAL',
+      solutionPlanId: 'plan-1',
+    });
+
+    await baseHandler(makeEvent());
+
+    expect(mockGetDocumentToolsForType).toHaveBeenCalledWith('COST_PROPOSAL', {
+      hasSolutionPlan: true,
+    });
+  });
+
+  it('offers the pricing tool when the document has no solutionPlanId stamp', async () => {
+    mockGetRFPDocument.mockResolvedValue({
+      documentId: 'doc-1',
+      documentType: 'COST_PROPOSAL',
+      solutionPlanId: null,
+    });
+
+    await baseHandler(makeEvent());
+
+    expect(mockGetDocumentToolsForType).toHaveBeenCalledWith('COST_PROPOSAL', {
+      hasSolutionPlan: false,
+    });
+  });
+});
+
+describe('edit-section handler — pricing-table math auto-correction (Fix B)', () => {
+  const WRONG_TOTAL_TABLE =
+    '<h2>Pricing</h2><table>' +
+    '<tr><th>Service</th><th>Price</th></tr>' +
+    '<tr><td>Datadog Pro</td><td>$100.00</td></tr>' +
+    '<tr><td>GitHub Enterprise</td><td>$250.00</td></tr>' +
+    '<tr><td>Total</td><td>$275.00</td></tr>' +
+    '</table>';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockResolveFragments.mockResolvedValue({ guidance: null, task: null });
+    mockInvokeModel.mockResolvedValue(bedrockTextResponse(WRONG_TOTAL_TABLE));
+  });
+
+  it('auto-corrects a wrong table total for pricing document types', async () => {
+    mockGetRFPDocument.mockResolvedValue({ documentId: 'doc-1', documentType: 'COST_PROPOSAL' });
+
+    const result = await baseHandler(makeEvent({ sectionTitle: 'Pricing' }));
+
+    const body = JSON.parse((result as { body: string }).body);
+    expect(body.updatedHtml).toContain('$350.00');
+    expect(body.updatedHtml).not.toContain('$275.00');
+  });
+
+  it('leaves non-pricing document types untouched', async () => {
+    mockGetRFPDocument.mockResolvedValue({ documentId: 'doc-1', documentType: 'TECHNICAL_PROPOSAL' });
+
+    const result = await baseHandler(makeEvent({ sectionTitle: 'Pricing' }));
+
+    const body = JSON.parse((result as { body: string }).body);
+    expect(body.updatedHtml).toContain('$275.00');
   });
 });

@@ -134,6 +134,7 @@ beforeEach(() => {
   mockInvokeClaudeWithTools.mockResolvedValue({ answer: 'Concrete answer.' });
   mockInvokeClaudeJson.mockResolvedValue({
     title: 'Solution Plan',
+    bidDecision: 'BID',
     htmlContent: '<h2>Solution Architecture</h2><p>…</p>',
   });
 });
@@ -353,12 +354,48 @@ describe('processSynthesis', () => {
     expect(mockUpdateStatus).toHaveBeenCalledWith(planKey, 'READY', {
       contentKey: 'org-1/proj-1/opp-1/solution-plan/v1/solution-plan.html',
       version: 3,
+      bidDecision: 'BID',
       isStale: false,
       staleReason: '',
       isUserEdited: false,
       error: '',
     });
     expect(appendedRoles()).toEqual(['SYSTEM']);
+  });
+
+  it('persists a NO_BID synthesis decision with the READY update (Fix C)', async () => {
+    mockInvokeClaudeJson.mockResolvedValue({
+      title: 'Solution Plan',
+      bidDecision: 'NO_BID',
+      htmlContent: '<h2>Solution Architecture</h2><p>No ROM will be submitted.</p>',
+    });
+
+    await processSynthesis(synthMessage);
+
+    expect(mockUpdateStatus).toHaveBeenCalledWith(
+      planKey,
+      'READY',
+      expect.objectContaining({ bidDecision: 'NO_BID' }),
+    );
+  });
+
+  it('defaults a missing bidDecision to BID via the synthesis output schema', async () => {
+    // Run the real output schema over a legacy-shaped model response — the
+    // .default('BID') must fill the omitted field.
+    mockInvokeClaudeJson.mockImplementation(async (args: { outputSchema: { parse: (v: unknown) => unknown } }) =>
+      args.outputSchema.parse({
+        title: 'Solution Plan',
+        htmlContent: '<h2>Solution Architecture</h2><p>…</p>',
+      }),
+    );
+
+    await processSynthesis(synthMessage);
+
+    expect(mockUpdateStatus).toHaveBeenCalledWith(
+      planKey,
+      'READY',
+      expect.objectContaining({ bidDecision: 'BID' }),
+    );
   });
 
   it('prepends the title as <h1> when the model omitted a heading', async () => {

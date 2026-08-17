@@ -274,7 +274,7 @@ export const DOCUMENT_TOOLS = [
 export type ToolName = typeof DOCUMENT_TOOLS[number]['name'];
 
 /** Document types allowed to call the third-party pricing web lookup (T3). */
-const PRICING_TOOL_DOC_TYPES: ReadonlySet<RFPDocumentType> = new Set(
+export const PRICING_TOOL_DOC_TYPES: ReadonlySet<RFPDocumentType> = new Set(
   // `satisfies` pins these to real built-in types — a typo here would silently
   // withhold the pricing tool with no error anywhere.
   ['COST_PROPOSAL', 'PRICE_VOLUME'] satisfies (keyof typeof RFP_DOCUMENT_TYPES)[],
@@ -282,14 +282,22 @@ const PRICING_TOOL_DOC_TYPES: ReadonlySet<RFPDocumentType> = new Set(
 
 /**
  * Tools to offer the model for a given document type: `search_service_pricing`
- * is only offered for pricing documents (COST_PROPOSAL / PRICE_VOLUME); all
- * other types get the base tool set. Generation code should pass the result of
- * this — not DOCUMENT_TOOLS directly — as the request's `tools`.
+ * is only offered for pricing documents (COST_PROPOSAL / PRICE_VOLUME), and
+ * even then only when NO approved Solution Plan exists — a plan's "Selected
+ * Services & Licenses" table is the single allowed third-party price source,
+ * so live lookups are withheld (pricing single source, Fix A). All other types
+ * get the base tool set. Generation code should pass the result of this — not
+ * DOCUMENT_TOOLS directly — as the request's `tools`.
  */
-export const getDocumentToolsForType = (documentType: RFPDocumentType) =>
-  DOCUMENT_TOOLS.filter(
-    (tool) => tool.name !== 'search_service_pricing' || PRICING_TOOL_DOC_TYPES.has(documentType),
-  );
+export const getDocumentToolsForType = (
+  documentType: RFPDocumentType,
+  opts?: { hasSolutionPlan?: boolean },
+) =>
+  DOCUMENT_TOOLS.filter((tool) => {
+    if (tool.name !== 'search_service_pricing') return true;
+    if (!PRICING_TOOL_DOC_TYPES.has(documentType)) return false;
+    return !opts?.hasSolutionPlan;
+  });
 
 // ─── Tool executors ───────────────────────────────────────────────────────────
 
@@ -595,9 +603,9 @@ const formatPricingTable = (results: ServicePricingResult[], lookupUnavailable: 
     '|---|---|---|---|---|---|---|',
     ...results.map(r => formatPricingRow(r, lookupUnavailable)),
     '',
-    'ESTIMATES — subject to vendor quote. In the document, cite each price\'s Source URL and ' +
-    'Retrieved date, label it as an estimate, and write "vendor quote required" for services ' +
-    'without a price.',
+    'ESTIMATES — subject to vendor quote. In the document, label each price as an estimate and ' +
+    'write "vendor quote required" for services without a price. Do NOT print the Source URLs or ' +
+    'Retrieved dates in the document — they are internal traceability only.',
   ].join('\n');
 };
 
