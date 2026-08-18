@@ -27,7 +27,9 @@ import {
 } from '@/helpers/executive-opportunity-brief';
 import { getEmbedding } from '@/helpers/embeddings';
 import { semanticSearchContentLibrary } from '@/helpers/semantic-search';
-import { searchPastProjects, listPastProjects } from '@/helpers/past-performance';
+import { searchPastProjects, listPastProjects, getPastProject } from '@/helpers/past-performance';
+import { isUsableInMatching, redactForGeneration } from '@/helpers/past-performance-disclosure';
+import type { PastProject } from '@auto-rfp/core';
 import { loadTextFromS3 } from '@/helpers/s3';
 import { requireEnv } from '@/helpers/env';
 import type { PineconeHit } from '@/types/pinecone';
@@ -120,54 +122,58 @@ async function searchKnowledgeBase(orgId: string, searchQuery: string): Promise<
   }
 }
 
+// Build a context item from an authoritative (already gate-redacted) project.
+const pastProjectToContextItem = (
+  project: PastProject,
+  relevanceScore: number | undefined,
+): ContextItem => ({
+  id: project.projectId,
+  source: 'PAST_PERFORMANCE',
+  title: project.title,
+  preview: makePreview(
+    [
+      project.client ? `Client: ${project.client}` : '',
+      project.domain ? `Domain: ${project.domain}` : '',
+      project.description ?? '',
+    ]
+      .filter(Boolean)
+      .join(' | '),
+  ),
+  relevanceScore,
+  metadata: {
+    client: project.client,
+    domain: project.domain,
+    technologies: project.technologies,
+    value: project.value,
+    performanceRating: project.performanceRating,
+  },
+});
+
 async function searchPastPerformance(orgId: string, searchQuery: string): Promise<ContextItem[]> {
   try {
     const results = await searchPastProjects(orgId, searchQuery, PAST_PERF_TOP_K);
     const relevant = (results ?? []).filter((r) => (r.score ?? 0) >= PAST_PERF_MIN_SCORE);
 
     if (relevant.length) {
-      return relevant.map((r): ContextItem => ({
-        id: r.metadata?.projectId as string ?? `pp-${r.score}`,
-        source: 'PAST_PERFORMANCE',
-        title: (r.metadata?.title as string | undefined) ?? 'Past Performance Project',
-        preview: makePreview(
-          [
-            r.metadata?.client ? `Client: ${r.metadata.client}` : '',
-            r.metadata?.domain ? `Domain: ${r.metadata.domain}` : '',
-            r.metadata?.description as string | undefined ?? '',
-          ]
-            .filter(Boolean)
-            .join(' | '),
-        ),
-        relevanceScore: r.score,
-        metadata: r.metadata as Record<string, unknown>,
-      }));
+      // These items are persisted and feed the opportunity assistant (generation),
+      // so don't trust Pinecone metadata for the client name. Re-read the
+      // authoritative record, drop DO_NOT_USE, and redact non-NAMEABLE.
+      const items = await Promise.all(
+        relevant.map(async (r) => {
+          const projectId = r.metadata?.projectId as string | undefined;
+          const loaded = projectId ? await getPastProject(orgId, projectId).catch(() => null) : null;
+          if (!loaded || !isUsableInMatching(loaded)) return null;
+          return pastProjectToContextItem(redactForGeneration(loaded), r.score);
+        }),
+      );
+      return items.filter((it): it is ContextItem => it !== null);
     }
 
     // Fallback: list all projects if semantic search returned nothing
     const { items } = await listPastProjects(orgId, false, PAST_PERF_TOP_K);
-    return items.map((p): ContextItem => ({
-      id: p.projectId,
-      source: 'PAST_PERFORMANCE',
-      title: p.title,
-      preview: makePreview(
-        [
-          p.client ? `Client: ${p.client}` : '',
-          p.domain ? `Domain: ${p.domain}` : '',
-          p.description ?? '',
-        ]
-          .filter(Boolean)
-          .join(' | '),
-      ),
-      relevanceScore: undefined,
-      metadata: {
-        client: p.client,
-        domain: p.domain,
-        technologies: p.technologies,
-        value: p.value,
-        performanceRating: p.performanceRating,
-      },
-    }));
+    return items
+      .filter((p) => isUsableInMatching(p))
+      .map((p) => pastProjectToContextItem(redactForGeneration(p), undefined));
   } catch (err) {
     console.warn('Past performance search failed:', (err as Error)?.message);
     return [];

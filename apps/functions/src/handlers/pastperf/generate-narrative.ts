@@ -4,6 +4,8 @@ import middy from '@middy/core';
 import { withSentryLambda } from '@/sentry-lambda';
 import { type ExecutiveBriefItem } from '@auto-rfp/core';
 import { getPastProject } from '@/helpers/past-performance';
+import { isUsableInMatching, redactForGeneration, anonymizationNotice } from '@/helpers/past-performance-disclosure';
+import type { PastProject } from '@auto-rfp/core';
 import {
   getExecutiveBrief,
   loadSolicitationForBrief,
@@ -64,7 +66,9 @@ ANTI-HALLUCINATION RULES:
 - If the project's domain, technologies, or scope do not overlap with the opportunity, say so honestly
 - Do NOT claim technical similarity when the technologies are fundamentally different (e.g., AWS vs Microsoft, web dev vs physical services)
 - A project in a different industry with different technologies has LOW relevance — do not spin it as relevant
-- Focus on ACTUAL overlaps, not hypothetical transferable skills`;
+- Focus on ACTUAL overlaps, not hypothetical transferable skills
+
+CLIENT CONFIDENTIALITY (non-negotiable): If the client is shown as "[Client name withheld]" / "[client withheld]" or tagged "⚠️ CONFIDENTIAL CLIENT", you MUST NOT name that client anywhere in the narrative. Refer to it only by domain/industry. Do NOT infer or expand the name from any partial reference, contract number, or brand you recognize.`;
 
 const NARRATIVE_USER_PROMPT = `Generate a past performance narrative for the following project that demonstrates its relevance to the current opportunity.
 
@@ -133,8 +137,16 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
         });
       }
 
+      // Disclosure gate: DO_NOT_USE projects must never reach generation.
+      if (!isUsableInMatching(project)) {
+        return apiResponse(409, {
+          ok: false,
+          error: 'Project is marked DO_NOT_USE and cannot be used in generation',
+        });
+      }
+
       const narrative = await generateProjectNarrative(
-        project,
+        redactForGeneration(project),
         requirements,
         solicitationSummary
       );
@@ -159,8 +171,12 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
 
     for (const match of pastPerfSection.topMatches.slice(0, 5)) {
       try {
+        // Persisted matches are already redacted at match time, but re-apply the
+        // gate defensively: skip DO_NOT_USE and re-redact non-NAMEABLE projects.
+        const matchProject = match.project as PastProject;
+        if (!isUsableInMatching(matchProject)) continue;
         const narrative = await generateProjectNarrative(
-          match.project,
+          redactForGeneration(matchProject),
           requirements,
           solicitationSummary
         );
@@ -200,7 +216,10 @@ async function generateProjectNarrative(
   requirements: string,
   solicitationSummary: string
 ): Promise<z.infer<typeof NarrativeOutputSchema>> {
-  const userPrompt = NARRATIVE_USER_PROMPT
+  // `project` is already redacted, but retains disclosure fields — so we can tell
+  // the model NOT to reconstruct the withheld client name from context.
+  const notice = anonymizationNotice(project);
+  const userPrompt = (notice ? `${notice}\n\n` : '') + NARRATIVE_USER_PROMPT
     .replace('{{PROJECT_TITLE}}', project.title || 'N/A')
     .replace('{{PROJECT_CLIENT}}', project.client || 'N/A')
     .replace('{{CONTRACT_NUMBER}}', project.contractNumber || 'N/A')

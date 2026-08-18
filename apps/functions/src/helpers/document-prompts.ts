@@ -6,6 +6,23 @@ import {
 
 import { renderCostScheduleBlock } from './cost-schedule';
 
+/**
+ * Standing client-confidentiality rule appended to every generation system
+ * prompt. Backstop for the per-project disclosure gate: if any past-performance
+ * entry carries a "[Client name withheld]" label or a CONFIDENTIAL CLIENT
+ * notice, the model must never name that client — even one it recognizes from
+ * the description or world knowledge. Deterministic redaction (the gate) is the
+ * primary control; this is defense-in-depth.
+ */
+export const CLIENT_CONFIDENTIALITY_RULE =
+  `CLIENT CONFIDENTIALITY (non-negotiable): Some past-performance entries are ` +
+  `disclosure-restricted. If an entry's client is shown as "[Client name withheld]" / ` +
+  `"[client withheld]", or is tagged "⚠️ CONFIDENTIAL CLIENT", you MUST NOT state that ` +
+  `client's name anywhere in the output. Refer to it only by domain/industry (e.g. ` +
+  `"a federal healthcare client"). Do NOT infer, expand, or guess the name from a partial ` +
+  `reference, abbreviation, contract number, or a brand you recognize. This overrides any ` +
+  `instinct to be specific.`;
+
 /** Fallback label for document types not present in the label maps: "MY_CUSTOM_TYPE" → "My Custom Type". */
 const humanizeDocumentType = (documentType: string): string =>
   documentType.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
@@ -947,7 +964,7 @@ TEMPLATE SCAFFOLD (FOLLOW EXACTLY):
 ${templateHtmlScaffold}`;
   }
 
-  return prompt;
+  return `${prompt}\n\n${CLIENT_CONFIDENTIALITY_RULE}`;
 }
 
 // ─── Per-document-type task instructions ───
@@ -1294,7 +1311,9 @@ You have access to tools to gather specific data for this section:
 - get_deadlines: Get deadline information
 
 Use these tools proactively to gather data relevant to the section you are writing.
-${stylingSection}`;
+${stylingSection}
+
+${CLIENT_CONFIDENTIALITY_RULE}`;
 };
 
 // ─── User Prompt Builder ──────────────────────────────────────────────────────

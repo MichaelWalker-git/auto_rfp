@@ -65,6 +65,7 @@ import { companyProfileDomain } from './routes/company-profile.routes';
 import { requiredFormsDomain } from './routes/required-forms.routes';
 import { dashboardDomain } from './routes/dashboard.routes';
 import { solutionPlanDomain } from './routes/solution-plan.routes';
+import { relatedRfpDomain } from './routes/related-rfp.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -744,6 +745,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       requiredFormsDomain(),
       dashboardDomain(),
       solutionPlanDomain(),
+      relatedRfpDomain(),
     ];
 
     // ─── Compliance Review worker ─────────────────────────────────────────
@@ -949,6 +951,46 @@ export class ApiOrchestratorStack extends cdk.Stack {
 
     sharedInfraStack.commonEnv.HIGHERGOV_SEARCH_FUNCTION_NAME = higherGovSearchFunctionName;
 
+    // ─── Find Related RFPs worker (HOR-2610) ──────────────────────────────
+    // Auto-discovers past/present RFPs from the same solicitation agency via
+    // HigherGov (not fronted by API Gateway — invoked fire-and-forget after a
+    // HigherGov-sourced import and by the manual `refresh` route). Created BEFORE
+    // the domain stacks so its function name lands in commonEnv first.
+    const findRelatedRfpsFunctionName = `auto-rfp-find-related-rfps-${stage}`;
+    new lambdaNodejs.NodejsFunction(this, `FindRelatedRfpsWorker-${stage}`, {
+      functionName: findRelatedRfpsFunctionName,
+      entry: path.join(__dirname, '../../../apps/functions/src/handlers/related-rfp/find-related-rfps.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.minutes(2),
+      memorySize: 512,
+      role: sharedInfraStack.commonLambdaRole,
+      environment: { ...commonEnv },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        externalModules: ['@aws-sdk/*', '@smithy/*'],
+      },
+    });
+
+    new logs.LogGroup(this, `FindRelatedRfpsWorkerLogs-${stage}`, {
+      logGroupName: `/aws/lambda/${findRelatedRfpsFunctionName}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        sid: 'InvokeFindRelatedRfpsWorker',
+        actions: ['lambda:InvokeFunction'],
+        resources: [
+          `arn:aws:lambda:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:function:${findRelatedRfpsFunctionName}`,
+        ],
+      }),
+    );
+
+    sharedInfraStack.commonEnv.FIND_RELATED_RFPS_FUNCTION_NAME = findRelatedRfpsFunctionName;
+
     // 4. Create nested stacks per domain (Lambda + LogGroup + Route registration)
     //    Each nested stack stays under CloudFormation's 500 resource limit.
     //    Routes are HttpApi routes (no resource tree limit like REST API).
@@ -974,6 +1016,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'RequiredFormsRoutes',
       'DashboardRoutes',
       'SolutionPlanRoutes',
+      'RelatedRfpRoutes',
     ];
 
     // allDomains and domainStackNames are mapped 1:1 by index. A mismatch silently

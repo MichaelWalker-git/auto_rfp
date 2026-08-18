@@ -52,6 +52,12 @@ describe('buildGrillerSystemPrompt', () => {
     expect(prompt).toContain('1-3');
     expect(prompt).toContain(INTERVIEW_COMPLETE_TOKEN);
   });
+
+  it('treats the bid decision as out of scope — the org is bidding', () => {
+    const prompt = buildGrillerSystemPrompt();
+    expect(prompt).toContain('IS bidding');
+    expect(prompt).toContain('Never ask whether to bid');
+  });
 });
 
 describe('buildGrillerUserPrompt', () => {
@@ -105,6 +111,12 @@ describe('buildTechLeadSystemPrompt', () => {
     expect(prompt).toContain('{"answer"');
     expect(prompt).toContain('vendor quote required');
   });
+
+  it('forbids no-bid recommendations — the bid decision is out of scope', () => {
+    const prompt = buildTechLeadSystemPrompt();
+    expect(prompt).toContain('IS submitting a proposal');
+    expect(prompt).toContain('Never recommend a no-bid');
+  });
 });
 
 describe('buildTechLeadUserPrompt', () => {
@@ -143,6 +155,12 @@ describe('buildSynthesizerSystemPrompt', () => {
     expect(buildSynthesizerSystemPrompt()).toContain('10,000');
   });
 
+  it('forbids bid/no-bid statements in the plan — the org is assumed bidding', () => {
+    const prompt = buildSynthesizerSystemPrompt();
+    expect(prompt).toContain('IS bidding');
+    expect(prompt).toContain('NEVER state a bid, no-bid, go, or no-go decision');
+    expect(prompt).toContain('NEVER write that no proposal or ROM will be submitted');
+  });
   it('requires the costSchedule in the output shape with the billing enum', () => {
     const prompt = buildSynthesizerSystemPrompt();
     expect(prompt).toContain('"costSchedule"');

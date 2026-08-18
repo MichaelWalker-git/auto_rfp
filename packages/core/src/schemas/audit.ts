@@ -125,6 +125,9 @@ export const AuditActionSchema = z.enum([
   // Opportunity go/no-go approval (RFP tracking dashboard)
   'OPPORTUNITY_APPROVED',
   'OPPORTUNITY_REJECTED',
+  // Related RFPs (auto-find past related RFPs, HOR-2610)
+  'RELATED_RFP_ADDED',
+  'RELATED_RFP_REMOVED',
   // Extraction (auto-populate from documents)
   'EXTRACTION_JOB_STARTED',
   'EXTRACTION_JOB_COMPLETED',
@@ -152,6 +155,8 @@ export const AuditActionSchema = z.enum([
   'FORM_VERSION_REVERTED',
   // Questionnaire version history
   'QUESTIONNAIRE_VERSION_REVERTED',
+  // Past-performance disclosure (NDA / permission) review
+  'PAST_PERF_DISCLOSURE_CONFIRMED',
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 

@@ -29,6 +29,7 @@ import { syncOpportunityToApn } from '@/helpers/apn-db';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
 import { resolveUserNames } from '@/helpers/resolve-users';
 import { importAttachments } from '@/helpers/attachment-importer';
+import { triggerRelatedRfpDiscovery } from '@/helpers/related-rfp';
 import {
   httpsGetBuffer,
   fetchOpportunityViaSearch,
@@ -507,6 +508,10 @@ const importHigherGov = async (
     orgId: data.orgId,
     changes: { after: { source: 'HIGHER_GOV', higherGovOppKey: opp.opp_key, projectId: data.projectId, filesImported: files.length } },
   });
+
+  // Auto-find past/present RFPs from the same agency (HOR-2610). Fire-and-forget —
+  // never blocks the import; re-runnable via the manual refresh route.
+  await triggerRelatedRfpDiscovery(data.orgId, data.projectId, oppId);
 
   const userId = getUserId(event);
   if (userId) {
