@@ -15,6 +15,8 @@
  * agency, for a contract that was never awarded.
  */
 
+import { stripQuotedReply } from '@/helpers/foia-mail-parse';
+
 /** What a message appears to be about. */
 export const MAIL_CLASSIFICATIONS = [
   /** An award was made — to us or (far more often) to a competitor. */
@@ -110,8 +112,39 @@ const AWARD_PATTERNS: ReadonlyArray<{ re: RegExp; label: string }> = [
   { re: /\bwas\s+not\s+successful\b/i, label: 'not-successful' },
 ];
 
+/**
+ * An AWARD POSTING being retracted, which is not a cancelled solicitation.
+ *
+ * BidNet publishes "The following award has been cancelled: Solicitation: 4142 —
+ * Award Type: Award" when a posting is withdrawn. The solicitation is alive and a new
+ * award will follow, so suppressing the FOIA is the exact inverse of correct — and
+ * verified by replay, a message like this DID produce `SUPPRESSED` whenever we held
+ * the matching opportunity. It escaped only because no stored opportunity is
+ * numbered 4142.
+ *
+ * Checked before the cancellation patterns, which otherwise both match: the subject
+ * "'Award' for the 4142 solicitation has been cancelled" satisfies
+ * `has-been-cancelled` and (with no sentence boundary between the words)
+ * `solicitation-cancelled` too.
+ */
+const AWARD_RETRACTION_PATTERNS: ReadonlyArray<RegExp> = [
+  /\b(?:the\s+)?(?:following\s+)?award\b[^.]{0,40}\bhas\s+been\s+cancel(?:l)?ed\b/i,
+  /\baward\s+type\s*:?\s*award\b/i,
+  /\b["']?award["']?\s+for\s+the\b[^.]{0,40}\bsolicitation\s+has\s+been\s+cancel(?:l)?ed\b/i,
+];
+
 const CANCELLED_PATTERNS: ReadonlyArray<{ re: RegExp; label: string }> = [
   { re: /\b(solicitation|rfp|rfq|ifb)\b[^.]{0,40}\bcancel(l)?ed\b/i, label: 'solicitation-cancelled' },
+  /**
+   * "was cancelled" — the form real agencies use in a reply.
+   *
+   * CA State Parks wrote "Unfortunately, C25910004 was cancelled and not awarded via
+   * IFB" (`i3o2h82ak04i`, `pm4tl45k4m77`). `has-been-cancelled` requires "has been",
+   * and `solicitation-cancelled` requires the solicitation keyword to PRECEDE the
+   * verb — here "IFB" trails it — so a stated cancellation matched nothing.
+   */
+  { re: /\bwas\s+cancel(l)?ed\b/i, label: 'was-cancelled' },
+  { re: /\bcancel(l)?ed\s+and\s+not\s+awarded\b/i, label: 'cancelled-not-awarded' },
   { re: /\bcancel(l)?ation\s+of\s+(solicitation|rfp|rfq)\b/i, label: 'cancellation-of' },
   { re: /\bnotice\s+of\s+cancel(l)?ation\b/i, label: 'notice-of-cancellation' },
   { re: /\bhas\s+been\s+cancel(l)?ed\b/i, label: 'has-been-cancelled' },
@@ -169,6 +202,27 @@ const FOIA_RESPONSE_PATTERNS: ReadonlyArray<{ re: RegExp; label: string }> = [
     label: 'no-records-located',
   },
   { re: /\brequest\s*#?\s*[\w-]+\s+has\s+been\s+(closed|completed|fulfilled)\b/i, label: 'request-closed' },
+  /**
+   * "We have received your CPRA / FOIA request." — LAFPP's real acknowledgement
+   * (`cvfodjo47ucp`), which classified UNRELATED with `matchedOn: []`.
+   *
+   * `we-received-your-request` requires `request|records` IMMEDIATELY after "your",
+   * so the interposed statute name defeated it. Allowing a short gap covers every
+   * variant agencies actually write ("your CPRA request", "your public records
+   * request", "your CPRA / FOIA request") without loosening it into prose.
+   */
+  {
+    re: /\b(?:we|this\s+office|our\s+office)\s+(?:have|has)\s+received\s+your\b[^.]{0,40}\brequest\b/i,
+    label: 'we-received-your-request-gapped',
+  },
+  /**
+   * An agency issuing its own tracking number is replying, by definition. Real forms:
+   * "Your request number is CPRA-0319", "your reference number is 26-528".
+   */
+  {
+    re: /\byour\s+(?:request|reference|case|control)\s+number\s+is\b/i,
+    label: 'assigned-tracking-number',
+  },
   // Real agency reply openings. Without these, a reply that happens to explain a
   // cancellation was classified as a CANCELLATION TRIGGER — which would suppress
   // the automation off the agency's own answer to a request we already filed.
@@ -260,6 +314,18 @@ const NOTICE_ID_PATTERN = /\b([0-9a-f]{32})\b/i;
 const TRACKING_NUMBER_PATTERNS: ReadonlyArray<RegExp> = [
   // Acronym-anchored: "PRA 26-528", "FOIA 2026-278", "PIA #26-112".
   /\b(?:FOIA|PRA|CPRA|PIA|OPRA|FOIL|APRA|GRAMA)\b[\s#:.-]*(\d{2,4}[-–]\d{2,6})\b/i,
+  /**
+   * Acronym plus a SINGLE digit group: "CPRA-0319" (LAFPP's real number).
+   *
+   * The pattern above needs two dash-separated groups, so an acronym-and-sequence
+   * number was discarded — and that is the number the agency asks us to quote on
+   * every follow-up ("Please reference your request number"). Losing it means the
+   * next reply in the thread has nothing to correlate against either.
+   *
+   * Captures the acronym too, since "0319" alone identifies nothing. Requires a
+   * hyphen so a bare "FOIA 2026" cannot match.
+   */
+  /\b((?:FOIA|PRA|CPRA|PIA|OPRA|FOIL|APRA|GRAMA)-\d{3,6})\b/i,
   // Federal agency style: 2026-ARMY-01234 / NAVY-2026-004567.
   /\b(\d{4}-[A-Z]{2,6}-\d{4,6})\b/,
   /\b([A-Z]{2,6}-\d{4}-\d{4,6})\b/,
@@ -304,6 +370,35 @@ export const isGovernmentSender = (from: string): boolean =>
   /@[^\s>]*\.(gov|mil|edu|us)\b/i.test(from);
 
 /**
+ * The public-body author of a forwarded message, when the envelope hides them.
+ *
+ * The monitored mailbox is a Google Group, and the relay rewrites `From:` to
+ * `proposals@horustech.dev` — so `isGovernmentSender` returns false for genuine
+ * agency replies, and the sender evidence is lost exactly when it matters. The real
+ * author survives in the forwarded header block inside the body.
+ *
+ * Scans the quoted `From:` lines and returns true on the first public-body address,
+ * stopping at the first line naming us: past that point we are reading OUR original
+ * letter's own headers, and the agency addresses below it are the ones we wrote TO,
+ * not from. Without that stop, every outbound request addressed to a `.gov` would
+ * look agency-authored.
+ *
+ * Verified against the corpus: recovers the two CA Parks messages whose agency
+ * identity is only in the body, and misfires on none of the 11 genuine outbound
+ * letters.
+ */
+const QUOTED_FROM_PATTERN = /^[ \t>]*\*?From:\*?[ \t]*(.{0,180})$/gim;
+
+export const hasGovernmentAuthorInThread = (body: string): boolean => {
+  for (const match of body.matchAll(QUOTED_FROM_PATTERN)) {
+    const value = match[1] ?? '';
+    if (/horustech/i.test(value)) return false;
+    if (isGovernmentSender(value)) return true;
+  }
+  return false;
+};
+
+/**
  * Classifies a message using deterministic rules only.
  *
  * Returns LOW confidence with `UNRELATED` when nothing matches, which is the
@@ -311,6 +406,22 @@ export const isGovernmentSender = (from: string): boolean =>
  */
 export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMail => {
   const haystack = `${mail.subject}\n${mail.body}`;
+
+  /**
+   * The same message with our own quoted letter removed.
+   *
+   * Everything that decides WHO WROTE THE MESSAGE must be judged on this, not on the
+   * full body. Agencies quote our request in full, so the full body always contains
+   * our letter's wording — and reading it there is what made seven live agency
+   * replies classify as our own outgoing mail, discarded a stated cancellation, and
+   * produced a `DENIED` outcome off our own boilerplate.
+   *
+   * Patterns describing WHAT HAPPENED (records statutes, identifiers, tracking
+   * numbers) still read the full body: a solicitation number quoted lower in the
+   * thread is equally true wherever it appears, and the terse replies have almost no
+   * body of their own.
+   */
+  const ownWordsHaystack = `${mail.subject}\n${stripQuotedReply(mail.body)}`;
   const matchedOn: string[] = [];
 
   if (isKnownSolicitationSender(mail.from)) matchedOn.push('known-sender');
@@ -319,9 +430,20 @@ export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMa
   const hit = (patterns: ReadonlyArray<{ re: RegExp; label: string }>): string[] =>
     patterns.filter((p) => p.re.test(haystack)).map((p) => p.label);
 
+  /** Matches only text the sender actually wrote, ignoring anything quoted from us. */
+  const hitOwnWords = (patterns: ReadonlyArray<{ re: RegExp; label: string }>): string[] =>
+    patterns.filter((p) => p.re.test(ownWordsHaystack)).map((p) => p.label);
+
   const foiaHits = hit(FOIA_RESPONSE_PATTERNS);
   const recordsHits = hit(RECORDS_REQUEST_PATTERNS);
-  const outboundHits = hit(OUTBOUND_MARKERS);
+  /**
+   * Outbound markers are an authorship claim, so they only count in our own words.
+   *
+   * This is the fix for the whole class: "pursuant to the ... Act" proves the message
+   * is ours only when WE wrote that line. Quoted back to us beneath an agency's
+   * reply it proves the opposite — that someone is replying to us.
+   */
+  const outboundHits = hitOwnWords(OUTBOUND_MARKERS);
 
   /**
    * A message that itemises records to produce is a request, not an announcement.
@@ -330,11 +452,41 @@ export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMa
    * "the notice of award and the awarded contract value" line from reading as an
    * agency announcing an award. Records-request wording is left intact, since that
    * is genuinely what the message is.
+   *
+   * Also scoped to our own words: when an agency quotes our numbered request list
+   * and then states that the solicitation was cancelled, the quoted list must not
+   * suppress the agency's own statement (real messages `i3o2h82ak04i`,
+   * `pm4tl45k4m77`).
    */
-  const isRequestContext = REQUEST_CONTEXT_MARKERS.some((re) => re.test(haystack));
+  const isRequestContext = REQUEST_CONTEXT_MARKERS.some((re) => re.test(ownWordsHaystack));
 
-  const cancelledHits = isRequestContext ? [] : hit(CANCELLED_PATTERNS);
-  const awardHits = isRequestContext ? [] : hit(AWARD_PATTERNS);
+  /**
+   * A retracted award posting must not read as a cancelled solicitation.
+   *
+   * It is an award-side event: the solicitation continues and a new award follows, so
+   * suppressing the FOIA would withdraw the automation precisely when an award is
+   * coming. Cancellation hits are dropped and the message falls through to the award
+   * branch, which flags rather than suppresses.
+   */
+  const isAwardRetraction = AWARD_RETRACTION_PATTERNS.some((re) => re.test(ownWordsHaystack));
+
+  const cancelledHits =
+    isRequestContext || isAwardRetraction ? [] : hitOwnWords(CANCELLED_PATTERNS);
+  /**
+   * A retraction is award-side news, so it is recorded as an AWARD_NOTICE rather than
+   * discarded. Without this it falls through to UNRELATED — the one class that leaves
+   * nothing behind — even though it says something real about a live procurement.
+   *
+   * It cannot act on its own: no award date is stated, so `awardDateFromMail` returns
+   * the receipt-date fallback, whose `RECORDED_OUTCOME` provenance is refused by the
+   * `RECORDED_AWARD` guard in `applyAwardNotice`. The outcome is a flag for review,
+   * which is the right answer for "the award you were told about was withdrawn".
+   */
+  const awardHits = isRequestContext
+    ? []
+    : isAwardRetraction
+      ? [...hitOwnWords(AWARD_PATTERNS), 'award-retracted']
+      : hitOwnWords(AWARD_PATTERNS);
 
   const noticeId = NOTICE_ID_PATTERN.exec(haystack)?.[1];
   const solicitationNumber = matchFirst(haystack, SOLICITATION_NUMBER_PATTERNS);
@@ -417,10 +569,33 @@ export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMa
    * Most likely our own request seen without its body (a forwarded subject line
    * only). Recorded as our own rather than as an agency reply, since misfiling it
    * as a response would mark a request answered that never was.
+   *
+   * UNLESS a public body sent it AND wrote something of its own. We do not send
+   * mail from a `.gov`/`.mil`/`.edu`/`.us` address, so an agency-domain sender who
+   * has written prose above the quoted thread is corresponding with us about a
+   * request — it cannot be our own outgoing letter. This is where `gov-sender`
+   * finally earns its keep: it was computed above and then ignored, which let a
+   * school-district buyer's genuine reply (`obc93sn2d5kk`) be filed as our own
+   * request even after its quoted text was discounted. Terse agency replies
+   * routinely carry no recognised reply marker at all, so without this they land
+   * here.
+   *
+   * The "wrote something of its own" half matters: a bare forwarded SUBJECT LINE
+   * with no body is most likely our own letter relayed onward, and the sender
+   * address of a forward tells you nothing about who wrote the original. Requiring
+   * some first-party prose keeps that case as ours while catching the real replies.
+   *
+   * MEDIUM, not HIGH: a reply is never a trigger, and correlation still gates
+   * whether anything is attached, so being wrong here costs a review rather than a
+   * filing.
    */
   if (recordsHits.length > 0) {
+    const isPublicBodySender =
+      isGovernmentSender(mail.from) || hasGovernmentAuthorInThread(mail.body);
+    const wroteOwnProse = stripQuotedReply(mail.body).trim().length > 0;
+
     return {
-      classification: 'OUR_OWN_REQUEST',
+      classification: isPublicBodySender && wroteOwnProse ? 'FOIA_RESPONSE' : 'OUR_OWN_REQUEST',
       confidence: 'MEDIUM',
       matchedOn: [...matchedOn, ...recordsHits],
       ...(noticeId ? { noticeId } : {}),

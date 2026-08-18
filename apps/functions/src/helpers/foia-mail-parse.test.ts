@@ -1,4 +1,4 @@
-import { parseRawMail, readMailHeader } from './foia-mail-parse';
+import { parseRawMail, readMailHeader, stripQuotedReply } from './foia-mail-parse';
 
 /** Builds a raw message with CRLF line endings, as SES delivers them. */
 const raw = (lines: string[]): string => lines.join('\r\n');
@@ -234,5 +234,70 @@ describe('parseRawMail — hostile and malformed input', () => {
   it('returns empty text for an empty message rather than throwing', () => {
     expect(parseRawMail('').text).toBe('');
     expect(parseRawMail('').attachmentNames).toEqual([]);
+  });
+});
+
+describe('stripQuotedReply', () => {
+  it('keeps only the agency prose above a Gmail attribution line', () => {
+    // Real shape from obc93sn2d5kk. Note the narrow no-break space (U+202F) before
+    // "AM", which Gmail emits and which broke a first attempt at this pattern, and
+    // the attribution wrapping across two lines.
+    const body = [
+      'Hi Krystal,',
+      '',
+      'I am forwarding you the request for records I received.',
+      '',
+      'On Mon, Aug 17, 2026 at 10:33 AM Brennen Stones <brennen@horustech.dev>',
+      'wrote:',
+      '',
+      '> Pursuant to the California Public Records Act, I am requesting copies of the',
+      '> following public records related to RFP No. 26-22.',
+    ].join('\n');
+
+    const stripped = stripQuotedReply(body);
+
+    expect(stripped).toContain('I am forwarding you the request for records I received.');
+    expect(stripped).not.toContain('Pursuant to the California Public Records Act');
+  });
+
+  it('cuts at an Outlook From: block naming us', () => {
+    const body = [
+      'All requests that fall under CPRA must be submitted through this link.',
+      '',
+      '________________________________',
+      '*From:* Brennen Stones <brennen@horustech.dev>',
+      '*Sent:* Monday, August 17, 2026',
+      '',
+      'This is a request under the California Public Records Act.',
+    ].join('\n');
+
+    expect(stripQuotedReply(body)).not.toContain('This is a request under');
+  });
+
+  it('returns the whole body when nothing is quoted from us', () => {
+    // A genuine outbound letter is entirely ours, and the outbound rules are meant
+    // to match it — stripping here would make our own request unrecognisable.
+    const ourLetter =
+      'Pursuant to the California Public Records Act, I am requesting copies of the ' +
+      'following public records. The undersigned will pay statutory fees.';
+
+    expect(stripQuotedReply(ourLetter)).toBe(ourLetter);
+  });
+
+  it('does not cut at a marker naming the agency', () => {
+    /**
+     * Two real messages (`i3o2h82ak04i`, `615sciteu2kj`) open with a forwarded
+     * separator at offset 0, because we forwarded the agency's reply to the mailbox.
+     * Cutting at the first marker of any kind would discard the agency's words
+     * entirely — the opposite of the intent.
+     */
+    const body = [
+      '---------- Forwarded message ---------',
+      'From: Channel Coast District Contract Bids <ccdbid@parks.ca.gov>',
+      '',
+      'Unfortunately, C25910004 was cancelled and not awarded via IFB.',
+    ].join('\n');
+
+    expect(stripQuotedReply(body)).toContain('was cancelled and not awarded');
   });
 });

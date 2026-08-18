@@ -12,7 +12,7 @@ import {
   classifyMailDeterministic,
   type ClassifiedMail,
 } from '@/helpers/foia-mail-classify';
-import { parseRawMail } from '@/helpers/foia-mail-parse';
+import { parseRawMail, stripQuotedReply } from '@/helpers/foia-mail-parse';
 import {
   correlateMailToOpportunities,
   type CorrelationCandidate,
@@ -81,13 +81,44 @@ export const readResponseOutcome = (args: {
   bodyText: string;
   attachmentNames: readonly string[];
 }): FoiaResponseOutcome => {
-  const { bodyText, attachmentNames } = args;
+  const { attachmentNames } = args;
 
-  // Both singular and plural: agencies write "no record ... was located" and "no
-  // records were located" interchangeably, and a singular-only pattern silently
-  // misses half of them.
+  /**
+   * Read only what the AGENCY wrote.
+   *
+   * Every pattern below is a claim about what the agency did, so our own quoted
+   * letter must not be able to satisfy one. The `withheld` case was fixed once by
+   * rewording the pattern; the `denied` case was not, and
+   * `/\b(?:your\s+)?request\s+(?:is|has\s+been)\s+denied\b/` still fires on our
+   * template's conditional "If any portion of this request is denied…". Measured on
+   * the live corpus it matched 8 of 110 bodies and was OUR OWN boilerplate every
+   * time. Stripping the quoted reply removes the whole class rather than one phrase.
+   */
+  const bodyText = stripQuotedReply(args.bodyText);
+
+  /**
+   * Both singular and plural: agencies write "no record ... was located" and "no
+   * records were located" interchangeably, and a singular-only pattern silently
+   * misses half of them.
+   *
+   * The second and third forms come from real replies the first could not reach.
+   * South Carolina Procurement Services wrote "We do not have any evaluation/scoring
+   * or debriefing documents" (`615sciteu2kj`, `p1a3vs5829u7`) — a plain statement of
+   * holding nothing that never uses "located". Agencies also write "no responsive
+   * records exist" and "we have no records". This is the one fact observable nowhere
+   * else: it means either we never bid, or the solicitation ended before award.
+   */
   if (
     /\bno\s+(?:records?|documents?|responsive\s+records?)\b[^.]{0,80}\b(?:was|were)\s+(?:located|found|identified)\b/i.test(
+      bodyText,
+    ) ||
+    /\b(?:we|this\s+office|the\s+\w+)\s+(?:do|does)\s+not\s+have\s+any\b[^.]{0,80}\b(?:records?|documents?)\b/i.test(
+      bodyText,
+    ) ||
+    /\bno\s+(?:responsive\s+)?(?:records?|documents?)\b[^.]{0,40}\b(?:exist|are\s+available)\b/i.test(
+      bodyText,
+    ) ||
+    /\b(?:we|this\s+office)\s+have\s+no\s+(?:responsive\s+)?(?:records?|documents?)\b/i.test(
       bodyText,
     )
   ) {
@@ -107,23 +138,54 @@ export const readResponseOutcome = (args: {
    * quoted text, so they settle it first. Redaction is partial disclosure, not
    * denial: a `_Redacted` filename means records arrived.
    */
-  if (attachmentNames.length > 0 || /\battached\s+responsive\b/i.test(bodyText)) {
+  /**
+   * `attachmentNames` now excludes inline images (see `parseRawMail`), so a
+   * letterhead logo no longer counts as a produced record.
+   *
+   * The wording alternatives matter more than they used to as a result. Records are
+   * frequently delivered WITHOUT an attachment — Las Virgenes MWD wrote "District
+   * staff members have located records responsive to your request. We are providing
+   * the documents in electronic format through the link below" and shared a
+   * SharePoint folder (`vrl3d7c7m5q2`). Scoring that ACKNOWLEDGED would under-report
+   * a real production, so the agency's own statement of having located or provided
+   * records counts on its own.
+   */
+  if (
+    attachmentNames.length > 0 ||
+    /\battached\s+responsive\b/i.test(bodyText) ||
+    /\b(?:has|have)\s+located\b[^.]{0,40}\b(?:responsive|records?)\b/i.test(bodyText) ||
+    /\b(?:are|is)\s+providing\s+the\s+(?:documents|records)\b/i.test(bodyText) ||
+    /\brecords?\s+(?:are|is)\s+(?:available|enclosed)\b/i.test(bodyText)
+  ) {
     return 'RECORDS_RECEIVED';
   }
 
   /**
    * A denial, stated by the agency about what it is doing.
    *
-   * Every pattern requires the agency as the actor — "we are withholding", "the
-   * request is denied", "records are exempt". The passive and conditional forms
-   * that appear in our own letter ("if any portion is withheld") cannot match.
+   * Every pattern requires the agency as the actor — "we are withholding", "your
+   * request is denied", "records are exempt". The passive and conditional forms in
+   * our own letter ("if any portion is withheld") must not match.
+   *
+   * The `denied` pattern previously made "your" optional, which broke that
+   * guarantee: it fired on our template's "If any portion of this request is
+   * denied…". Two changes close it — a leading `if`/`should`/`unless`/`in the event`
+   * makes the sentence hypothetical rather than an act, and the possessive is now
+   * required, since an agency writes "your request is denied" while our letter
+   * writes "this request". Measured on the live corpus: 8 false DENIED before,
+   * 0 after, with genuine agency denials still matching.
    */
+  const isConditional = /\b(?:if|should|unless|in\s+the\s+event)\b[^.]{0,80}\bdenied\b/i.test(
+    bodyText,
+  );
+
   if (
-    /\b(?:we|the\s+\w+)\s+(?:are|is|has|have)\s+(?:withholding|withheld)\b/i.test(bodyText) ||
-    /\b(?:your\s+)?request\s+(?:is|has\s+been)\s+denied\b/i.test(bodyText) ||
-    /\brecords?\s+(?:are|is)\s+exempt\s+from\s+disclosure\b/i.test(bodyText) ||
-    /\bwe\s+(?:have\s+)?referred\b[^.]{0,60}\battorney general\b/i.test(bodyText) ||
-    /\bdenying\s+(?:your\s+)?request\b/i.test(bodyText)
+    !isConditional &&
+    (/\b(?:we|the\s+\w+)\s+(?:are|is|has|have)\s+(?:withholding|withheld)\b/i.test(bodyText) ||
+      /\byour\s+request\s+(?:is|has\s+been)\s+denied\b/i.test(bodyText) ||
+      /\brecords?\s+(?:are|is)\s+exempt\s+from\s+disclosure\b/i.test(bodyText) ||
+      /\bwe\s+(?:have\s+)?referred\b[^.]{0,60}\battorney general\b/i.test(bodyText) ||
+      /\bdenying\s+(?:your\s+)?request\b/i.test(bodyText))
   ) {
     return 'DENIED';
   }

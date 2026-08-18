@@ -129,7 +129,7 @@ const applyAwardNotice = async (args: {
       orgId,
       projectId,
       oppId,
-      patch: { outcomeDate: date },
+      patch: { agencyStatedAwardDate: date },
     });
   } else {
     console.info(
