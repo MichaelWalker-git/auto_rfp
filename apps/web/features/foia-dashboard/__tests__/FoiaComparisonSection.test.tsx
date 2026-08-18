@@ -98,6 +98,50 @@ describe('FoiaComparisonSection', () => {
     expect(screen.getByText(/all time/i)).toBeInTheDocument();
   });
 
+  /**
+   * A failed fetch must not render as an empty result.
+   *
+   * Caught in manual testing: an org with 6 losses, 2 wins and 4 charted pricing bars
+   * displayed "0 tracked solicitations" and "No pricing recorded yet" because the
+   * endpoint was unreachable. Every card treats absent data as "nothing has happened
+   * yet", so a loading failure became a confident false statement about the business.
+   */
+  it('shows a load failure instead of the empty states', () => {
+    mockUseFoiaDashboard.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error('network'),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    render(<FoiaComparisonSection orgId="org-1" />);
+
+    expect(screen.getByText(/loading failure, not an empty result/i)).toBeInTheDocument();
+    // None of the cards render, so no figure can be misread as real.
+    expect(screen.queryByText('FOIA Outcomes')).not.toBeInTheDocument();
+    expect(screen.queryByText(/no completed solicitations yet/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no pricing recorded yet/i)).not.toBeInTheDocument();
+  });
+
+  it('still shows the empty states for a genuinely empty org', () => {
+    // The complement: absent data with NO error is a real "nothing yet".
+    mockUseFoiaDashboard.mockReturnValue(
+      asHook({
+        dashboard: dashboard({
+          counts: { WON: 0, LOST: 0, NOT_PRESENT: 0, CANCELLED: 0 },
+          pricing: [],
+          pricingCoverage: { withPricing: 0, total: 0 },
+          scores: [],
+        }),
+      }),
+    );
+
+    render(<FoiaComparisonSection orgId="org-1" />);
+
+    expect(screen.getByText(/no completed solicitations yet/i)).toBeInTheDocument();
+    expect(screen.queryByText(/loading failure/i)).not.toBeInTheDocument();
+  });
+
   it('passes the orgId to the hook', () => {
     render(<FoiaComparisonSection orgId="org-42" />);
 
@@ -212,6 +256,98 @@ describe('FoiaScoreComparison', () => {
     // The fixture has no management score, so the row must not appear at all rather
     // than render as zero.
     expect(screen.queryByText('Management')).not.toBeInTheDocument();
+  });
+
+  it('shows both sides and the gap when the winner is on file', () => {
+    render(
+      <FoiaScoreComparison
+        scores={[
+          {
+            ...dashboard().scores[0]!,
+            ourScores: { technical: 61, price: 70 },
+            winnerScores: { technical: 92, price: 70 },
+          },
+        ]}
+        isLoading={false}
+      />,
+    );
+
+    expect(screen.getByText('61')).toBeInTheDocument();
+    expect(screen.getByText('92')).toBeInTheDocument();
+    // The gap is what a reader is actually looking for.
+    expect(screen.getByText('-31')).toBeInTheDocument();
+
+    // Assert the BARS, not just the numbers: a version that printed both figures but
+    // drew only our own bar passed the assertions above, so the visual comparison —
+    // the whole point of the card — was unprotected.
+    expect(screen.getByRole('img', { name: 'ours 61' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'winner 92' })).toBeInTheDocument();
+    // Two criteria x two sides = 4 bars.
+    expect(screen.getAllByRole('img')).toHaveLength(4);
+  });
+
+  it('omits the gap when the two sides are level', () => {
+    render(
+      <FoiaScoreComparison
+        scores={[
+          {
+            ...dashboard().scores[0]!,
+            ourScores: { price: 70 },
+            winnerScores: { price: 70 },
+          },
+        ]}
+        isLoading={false}
+      />,
+    );
+
+    expect(screen.queryByText('+0')).not.toBeInTheDocument();
+    expect(screen.queryByText('-0')).not.toBeInTheDocument();
+  });
+
+  /**
+   * An undisclosed score must read as unknown, never as zero.
+   *
+   * Agencies routinely release a total while withholding the criterion breakdown, so a
+   * half-populated row is the common case. Rendering the missing side as 0 — or as a
+   * flat bar at the origin — would assert a result the agency never gave.
+   */
+  it('renders an undisclosed side as a dash with no bar', () => {
+    const { container } = render(
+      <FoiaScoreComparison
+        scores={[
+          {
+            ...dashboard().scores[0]!,
+            ourScores: { technical: 61 },
+            winnerScores: {},
+          },
+        ]}
+        isLoading={false}
+      />,
+    );
+
+    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(screen.queryByText('0')).not.toBeInTheDocument();
+    // One bar rendered (ours), not two.
+    expect(container.querySelectorAll('[role="img"]')).toHaveLength(1);
+  });
+
+  it('shows a criterion the winner was scored on but we were not', () => {
+    // The asymmetry is the finding: they were scored on management, we were not.
+    render(
+      <FoiaScoreComparison
+        scores={[
+          {
+            ...dashboard().scores[0]!,
+            ourScores: { technical: 61 },
+            winnerScores: { management: 88 },
+          },
+        ]}
+        isLoading={false}
+      />,
+    );
+
+    expect(screen.getByText('Management')).toBeInTheDocument();
+    expect(screen.getByText('88')).toBeInTheDocument();
   });
 
   it('says the winner scores are absent instead of implying a comparison', () => {
