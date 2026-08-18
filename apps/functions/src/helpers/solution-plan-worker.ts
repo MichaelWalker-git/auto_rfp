@@ -31,7 +31,7 @@ import { loadSolicitation } from './document-generation';
 import { errorMessageOf } from './error';
 import { requireEnv } from './env';
 import { nowIso } from './date';
-import { invokeClaudeJson, truncateText, type BriefSectionName } from './executive-opportunity-brief';
+import { invokeClaudeJson, truncateText } from './executive-opportunity-brief';
 import { GrillerAgent, MIN_GRILLING_ROUNDS, shouldHonorTerminationToken } from './griller-agent';
 import { TechLeadAgent } from './tech-lead-agent';
 import {
@@ -119,20 +119,6 @@ const buildOpportunityPrimer = (solicitationText: string, execBriefText: string)
   ].filter(Boolean);
   return truncateText(parts.join('\n\n'), TECH_LEAD_PRIMER_CHAR_CAP);
 };
-
-/**
- * Brief sections fed to the grilling agents. `scoring` is deliberately
- * excluded: bid/no-bid is decided on the Executive Brief, and the Solution
- * Plan must plan delivery as if bidding — a NO_GO recommendation leaking into
- * the transcript produced plans declaring "no proposal will be submitted".
- */
-const SOLUTION_PLAN_BRIEF_SECTIONS: BriefSectionName[] = [
-  'summary',
-  'requirements',
-  'risks',
-  'contacts',
-  'deadlines',
-];
 
 const loadRoundContext = async (message: GrillingRoundMessage): Promise<RoundContext> => {
   const [solicitationRaw, execBriefRaw, allMessages] = await Promise.all([
