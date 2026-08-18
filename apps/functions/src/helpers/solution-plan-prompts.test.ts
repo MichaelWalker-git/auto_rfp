@@ -143,6 +143,23 @@ describe('buildSynthesizerSystemPrompt', () => {
     expect(buildSynthesizerSystemPrompt()).toContain('10,000');
   });
 
+  it('requires the costSchedule in the output shape with the billing enum', () => {
+    const prompt = buildSynthesizerSystemPrompt();
+    expect(prompt).toContain('"costSchedule"');
+    expect(prompt).toContain('COST SCHEDULE RULES');
+    for (const token of ['ONE_TIME', 'MONTHLY', 'ANNUAL', 'LABOR', 'THIRD_PARTY', 'ODC', 'OTHER']) {
+      expect(prompt).toContain(token);
+    }
+  });
+
+  it('demands every plan cost as an item, including own-service/labor costs, with no invented numbers', () => {
+    const prompt = buildSynthesizerSystemPrompt();
+    expect(prompt).toContain('Selected Services & Licenses');
+    expect(prompt).toContain('Cost Drivers & Assumptions');
+    expect(prompt).toContain('labor-based costs');
+    expect(prompt).toContain('null when the price is "vendor quote required"');
+    expect(prompt).toContain('recomputed server-side');
+  });
 });
 
 describe('buildSynthesizerUserPrompt', () => {

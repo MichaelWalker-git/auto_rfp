@@ -220,6 +220,41 @@ describe('correctPricingTableTotals', () => {
     expect(out).toContain('$1,500.00');
   });
 
+  it('never rewrites component total rows in a reconciliation table (2026-08-17 incident)', () => {
+    // "Reconciliation to Proposed Price" tables list component TOTALS as rows
+    // (not addends with a sum below): the old prior-totals fallback rewrote
+    // "Total ODCs" $2,140.00 to the sum of the totals above it.
+    const html = table([
+      row(['Component', 'Amount'], 'th'),
+      row(['Total Labor (Sections 3-4)', '$37,600.00']),
+      row(['Total ODCs (Travel + Plugins)', '$2,140.00']),
+      row(['Less: Efficiency Adjustment', '$1,740.00']),
+    ]);
+    const { html: out, corrections } = correctPricingTableTotals(html);
+    expect(out).toBe(html);
+    expect(corrections).toEqual([]);
+    expect(out).toContain('$2,140.00');
+  });
+
+  it('leaves a non-grand component total untouched while it still feeds a later grand total', () => {
+    const html = table([
+      row(['Item A', '$100.00']),
+      row(['Subtotal Labor', '$100.00']),
+      row(['Total ODCs', '$50.00']), // component row: no data rows since the subtotal
+      row(['Grand Total', '$200.00']), // wrong: subtotal + ODCs = $150
+    ]);
+    const { html: out, corrections } = correctPricingTableTotals(html);
+    expect(out).toContain('$50.00'); // component untouched
+    expect(corrections).toEqual([
+      {
+        tableIndex: 0,
+        rowLabel: 'Grand Total',
+        previousValue: '$200.00',
+        correctedValue: '$150.00',
+      },
+    ]);
+  });
+
   it('preserves surrounding cell markup when rewriting a total', () => {
     const html = table([
       row(['Item A', '$100.00']),

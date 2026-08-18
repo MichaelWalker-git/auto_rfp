@@ -18,8 +18,14 @@
 
 import { z } from 'zod';
 
-import type { SolutionPlanItem, SolutionPlanKey } from '@auto-rfp/core';
+import {
+  SolutionPlanCostScheduleSchema,
+  type SolutionPlanCostSchedule,
+  type SolutionPlanItem,
+  type SolutionPlanKey,
+} from '@auto-rfp/core';
 
+import { computeCostScheduleTotals } from './cost-schedule';
 import { fetchExecutiveBriefAnalysis } from './db-tool-helpers';
 import { loadSolicitation } from './document-generation';
 import { errorMessageOf } from './error';
@@ -134,9 +140,16 @@ const loadRoundContext = async (message: GrillingRoundMessage): Promise<RoundCon
 
 // ─── Synthesis output ───────────────────────────────────────────────────────────
 
-const SynthesisResponseSchema = z.object({
+/**
+ * Synthesis output shape. `costSchedule` is `.nullish().catch(undefined)`:
+ * `invokeClaudeJson` has no schema-retry, so a present-but-malformed schedule
+ * must degrade to "absent + warn" instead of FAILING the whole plan.
+ * Exported for tests.
+ */
+export const SynthesisResponseSchema = z.object({
   title: z.string().min(1),
   htmlContent: z.string().min(1),
+  costSchedule: SolutionPlanCostScheduleSchema.nullish().catch(undefined),
 });
 
 // ─── Failure handling ───────────────────────────────────────────────────────────
@@ -330,7 +343,7 @@ export const processSynthesis = async (message: GrillingRoundMessage): Promise<v
       throw new Error('No Tech Lead answers in transcript — nothing to synthesize');
     }
 
-    const { title, htmlContent } = await invokeClaudeJson({
+    const { title, htmlContent, costSchedule } = await invokeClaudeJson({
       modelId: resolveModelId(),
       system: buildSynthesizerSystemPrompt(),
       user: buildSynthesizerUserPrompt({
@@ -341,6 +354,17 @@ export const processSynthesis = async (message: GrillingRoundMessage): Promise<v
       maxTokens: SYNTHESIS_MAX_TOKENS,
       temperature: 0.3,
     });
+
+    // Model-stated totals are unreliable — always overwrite them with the
+    // deterministic recomputation before persisting.
+    let normalizedSchedule: SolutionPlanCostSchedule | null = null;
+    if (costSchedule) {
+      normalizedSchedule = { ...costSchedule, ...computeCostScheduleTotals(costSchedule.items) };
+    } else {
+      console.warn(
+        '[solution-plan-worker] synthesis returned no usable costSchedule — documents fall back to Fix A behavior',
+      );
+    }
 
     // Monotonic version (ADR-11) — bump from the plan's current counter, never reset
     const version = (plan.version ?? 0) + 1;
@@ -355,6 +379,7 @@ export const processSynthesis = async (message: GrillingRoundMessage): Promise<v
       staleReason: '',
       isUserEdited: false,
       error: '',
+      costSchedule: normalizedSchedule,
     });
     await appendGrillingMessage({
       ...messageBase(message),

@@ -45,6 +45,7 @@ import { BEDROCK_MODEL_ID, MAX_TOKENS, TEMPERATURE } from '@/constants/document-
 import { RFPDocumentContentSchema, RFPDocumentTypeSchema, RFP_DOCUMENT_TYPES, type RFPDocumentContent, type SolutionPlanDBItem, type SolutionPlanKey } from '@auto-rfp/core';
 import { executeDocumentTool, getDocumentToolsForType, PRICING_TOOL_DOC_TYPES } from '@/helpers/document-tools';
 import { correctPricingTableTotals } from '@/helpers/pricing-table-math';
+import { applyPlanReconciliationSafe } from '@/helpers/plan-cost-reconciliation';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import {
   generateDocumentSectionBySectionHtml,
@@ -1116,6 +1117,9 @@ export const processJobInner = async (job: Job): Promise<void> => {
     enrichedKbText,
     taskOverride: fragments.task,
     solutionPlanText: solutionPlanContext?.text ?? null,
+    // Pricing doc types get the AUTHORITATIVE COST SCHEDULE block; null for
+    // legacy/user-edited plans (Fix A fallback).
+    solutionPlanCostSchedule: solutionPlanContext?.plan.costSchedule ?? null,
   });
 
   console.log(`Prompt sizes: system=${systemPrompt.length}, user=${userPrompt.length}, solicitation=${solicitation.length}, qaPairs=${qaPairs.length}, enrichedKb=${enrichedKbText.length}`);
@@ -1398,6 +1402,23 @@ export const processJobInner = async (job: Job): Promise<void> => {
       );
       htmlContent = correctedHtml;
       finalDocument = finalDocument ? { ...finalDocument, content: correctedHtml } : finalDocument;
+    }
+
+    // Plan-governed reconciliation — runs AFTER Fix B so it is the last writer
+    // (Fix B would overwrite plan-forced totals) and its corrections measure
+    // genuine line-item divergence from the plan, not LLM arithmetic slips.
+    const costSchedule = solutionPlanContext?.plan.costSchedule;
+    if (costSchedule) {
+      const reconciledHtml = applyPlanReconciliationSafe({
+        html: htmlContent,
+        schedule: costSchedule,
+        logPrefix: '[worker]',
+        documentId,
+      });
+      if (reconciledHtml !== htmlContent) {
+        htmlContent = reconciledHtml;
+        finalDocument = finalDocument ? { ...finalDocument, content: reconciledHtml } : finalDocument;
+      }
     }
   }
 

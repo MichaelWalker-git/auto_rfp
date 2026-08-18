@@ -1,4 +1,10 @@
-import { TEMPLATE_CATEGORY_LABELS, RFP_DOCUMENT_TYPES } from '@auto-rfp/core';
+import {
+  TEMPLATE_CATEGORY_LABELS,
+  RFP_DOCUMENT_TYPES,
+  type SolutionPlanCostSchedule,
+} from '@auto-rfp/core';
+
+import { renderCostScheduleBlock } from './cost-schedule';
 
 /** Fallback label for document types not present in the label maps: "MY_CUSTOM_TYPE" → "My Custom Type". */
 const humanizeDocumentType = (documentType: string): string =>
@@ -33,11 +39,20 @@ THIRD-PARTY PRICING (subscriptions, licenses, SaaS, cloud services):
 - Every third-party price is labeled as an ESTIMATE subject to vendor quote
 - If a lookup fails or returns no price, write "vendor quote required" — never fill the gap with an invented number`;
 
+// Plan-governed costs (plan-present variant only): ALL costs — not just
+// third-party prices — come from the plan, and the AUTHORITATIVE COST SCHEDULE
+// block (when present) pins every dollar figure via the (a)/(b)/(c) rule.
+const PLAN_GOVERNED_COSTS = `
+PLAN-GOVERNED COSTS:
+- ALL costs — one-time, ongoing, AND labor-based own services (hosting, maintenance, support) — come from the Approved Solution Plan; NEVER compose your own fee schedule
+- When an AUTHORITATIVE COST SCHEDULE block is present in the context, every dollar figure in this document must be (a) a schedule item amount copied verbatim, (b) a sum of schedule item amounts, or (c) an exact ×12/÷12 monthly↔annual conversion of one
+- Your document's one-time total and ongoing-annual total MUST equal the schedule's TOTAL lines exactly`;
+
 const buildPricingGuidanceRules = (hasSolutionPlan: boolean): string => `
 SOLUTION PLAN CONSISTENCY:
 - If an Approved Solution Plan is provided in context, your CLIN structure, phases, labor mix, and period of performance MUST match it exactly — do not invent alternatives or deviate from it
 - Cross-check every total against the Solution Plan's cost drivers before finalizing
-${hasSolutionPlan ? THIRD_PARTY_PRICING_WITH_PLAN : THIRD_PARTY_PRICING_WITHOUT_PLAN}
+${hasSolutionPlan ? `${PLAN_GOVERNED_COSTS}\n${THIRD_PARTY_PRICING_WITH_PLAN}` : THIRD_PARTY_PRICING_WITHOUT_PLAN}
 
 INTERNAL RATES:
 - Internal labor rates, cost estimates, staffing plans, and bid analysis come ONLY from the get_pricing_data tool
@@ -53,7 +68,7 @@ PAGE LIMITS:
 const PRICING_RULES_DOC_TYPES = new Set(['COST_PROPOSAL', 'PRICE_VOLUME']);
 
 /** Non-overridable rules block appended to system prompts for pricing doc types; empty for others. */
-const buildPricingRulesBlock = (documentType: string, hasSolutionPlan = false): string =>
+export const buildPricingRulesBlock = (documentType: string, hasSolutionPlan = false): string =>
   PRICING_RULES_DOC_TYPES.has(documentType)
     ? `
 
@@ -1021,6 +1036,7 @@ YOUR TASK — Cost Proposal:
 3. If pricing data is available, use the REAL figures (labor rates, cost breakdowns, staffing plans) in your document — do NOT use placeholders.
 3b. Check the RATE BASIS line from get_pricing_data. When basis is OFFSHORE, price labor using the OFFSHORE fully-loaded rates and state in the cost narrative that delivery is offshore/global-delivery-eligible per the solicitation. When basis is ONSHORE, use onshore rates. If a position has no offshore rate, use its onshore rate and note the exception. NEVER relabel onshore numbers as offshore.
 4. List ALL third-party services, subscriptions, and licenses the solution requires. If an APPROVED SOLUTION PLAN is provided, copy each service's price data VERBATIM from its "Selected Services & Licenses" table — never look up or invent a price; a service missing from the plan reads "vendor quote required — not in Approved Solution Plan". Otherwise price them with ONE batched search_service_pricing call — never invent, guess, or recall third-party prices from memory.
+4b. If the context contains an AUTHORITATIVE COST SCHEDULE block, it governs ALL costs (labor, hosting, maintenance, support, AND third-party): every dollar figure must come from it per its usage rules, and your one-time and ongoing-annual totals must equal its TOTAL lines exactly.
 5. Build the "Third-Party Services & Subscriptions" table with ONE row per service: every price is labeled as an estimate; unpriced rows read "vendor quote required". Do NOT include source URLs, retrieval dates, or a pricing-sources footnote.
 6. Present a detailed cost breakdown by labor category, ODCs, and period of performance.
 7. Provide a basis of estimate explaining your cost estimation methodology and assumptions.
@@ -1104,6 +1120,7 @@ YOUR TASK — Price Volume:
 3. If pricing data is available, use the REAL figures (labor rates, cost breakdowns, staffing plans) — do NOT use placeholders.
 3b. Check the RATE BASIS line from get_pricing_data. When basis is OFFSHORE, price labor using the OFFSHORE fully-loaded rates and state in the cost narrative that delivery is offshore/global-delivery-eligible per the solicitation. When basis is ONSHORE, use onshore rates. If a position has no offshore rate, use its onshore rate and note the exception. NEVER relabel onshore numbers as offshore.
 4. List ALL third-party services, subscriptions, and licenses the solution requires. If an APPROVED SOLUTION PLAN is provided, copy each service's price data VERBATIM from its "Selected Services & Licenses" table — never look up or invent a price; a service missing from the plan reads "vendor quote required — not in Approved Solution Plan". Otherwise price them with ONE batched search_service_pricing call — never invent, guess, or recall third-party prices from memory.
+4b. If the context contains an AUTHORITATIVE COST SCHEDULE block, it governs ALL costs (labor, hosting, maintenance, support, AND third-party): every dollar figure must come from it per its usage rules, and your one-time and ongoing-annual totals must equal its TOTAL lines exactly.
 5. Build the "Third-Party Services & Subscriptions" table with ONE row per service: every price is labeled as an estimate; unpriced rows read "vendor quote required". Do NOT include source URLs, retrieval dates, or a pricing-sources footnote.
 6. Present a complete price/cost volume with CLIN-level pricing breakdown.
 7. Provide basis of estimate with methodology, assumptions, and labor rate justification.
@@ -1290,6 +1307,12 @@ export interface UserPromptContext {
   taskOverride?: string | null;
   /** Approved Solution Plan plain text (ADR-7); block omitted when null/undefined/blank. */
   solutionPlanText?: string | null;
+  /**
+   * The plan's structured cost schedule. Rendered as the AUTHORITATIVE COST
+   * SCHEDULE block for pricing doc types only; null/undefined (legacy or
+   * user-edited plans) falls back to Fix A behavior.
+   */
+  solutionPlanCostSchedule?: SolutionPlanCostSchedule | null;
 }
 
 /**
@@ -1301,12 +1324,19 @@ export const buildUserPromptForDocumentType = (
   documentType: string,
   context: UserPromptContext,
 ): string => {
-  const { solicitation, qaText, enrichedKbText, taskOverride, solutionPlanText } = context;
+  const { solicitation, qaText, enrichedKbText, taskOverride, solutionPlanText, solutionPlanCostSchedule } = context;
   const typeLabel =
     RFP_DOCUMENT_TYPES[documentType as keyof typeof RFP_DOCUMENT_TYPES] ??
     humanizeDocumentType(documentType);
 
   const taskInstructions = taskOverride ?? DOC_TYPE_TASK[documentType] ?? DEFAULT_TASK(typeLabel);
+
+  // AUTHORITATIVE COST SCHEDULE block: pricing doc types only, directly under
+  // the plan block — the plan's structured costs are the single price source.
+  const costScheduleBlock =
+    solutionPlanCostSchedule && PRICING_RULES_DOC_TYPES.has(documentType)
+      ? `\n${renderCostScheduleBlock(solutionPlanCostSchedule)}\n`
+      : '';
 
   // Approved Solution Plan block (ADR-7): injected only when a READY plan exists.
   const solutionPlanBlock = solutionPlanText?.trim()
@@ -1320,8 +1350,8 @@ licenses, timeline, phases, team composition, and cost drivers described here MU
 in your document. Do NOT invent alternatives or deviate from this plan.
 
 ${solutionPlanText.trim()}
-`
-    : '';
+${costScheduleBlock}`
+    : costScheduleBlock;
 
   return `
 ═══════════════════════════════════════

@@ -1,11 +1,12 @@
 import {
+  buildPricingRulesBlock,
   buildSectionSystemPrompt,
   buildSystemPromptForDocumentType,
   buildUserPromptForDocumentType,
   getDefaultGuidance,
   getDefaultTask,
 } from './document-prompts';
-import { DocumentPromptTypeSchema } from '@auto-rfp/core';
+import { DocumentPromptTypeSchema, type SolutionPlanCostSchedule } from '@auto-rfp/core';
 
 describe('getDefaultGuidance', () => {
   it('returns the type-specific guidance for a known type', () => {
@@ -307,6 +308,96 @@ describe('pricing document prompt rules (T1)', () => {
 
     it('directs respecting solicitation page limits', () => {
       expect(task).toContain('page limit');
+    });
+  });
+});
+
+describe('plan-governed cost schedule injection', () => {
+  const PRICING_TYPES = ['COST_PROPOSAL', 'PRICE_VOLUME'] as const;
+
+  const costSchedule: SolutionPlanCostSchedule = {
+    currency: 'USD',
+    items: [
+      { label: 'Implementation', category: 'LABOR', amount: 34720, billing: 'ONE_TIME' },
+      { label: 'Managed hosting', category: 'LABOR', amount: 400, billing: 'MONTHLY' },
+    ],
+    oneTimeTotal: 34720,
+    ongoingAnnualTotal: 4800,
+  };
+
+  const baseContext = {
+    solicitation: 's',
+    qaText: 'q',
+    enrichedKbText: 'k',
+    solutionPlanText: 'Approved plan body',
+  };
+
+  describe.each(PRICING_TYPES)('%s user prompt', (type) => {
+    it('renders the AUTHORITATIVE COST SCHEDULE block under the plan block when a schedule exists', () => {
+      const prompt = buildUserPromptForDocumentType(type, {
+        ...baseContext,
+        solutionPlanCostSchedule: costSchedule,
+      });
+      expect(prompt).toContain('AUTHORITATIVE COST SCHEDULE (SOURCE OF TRUTH — COPY THESE NUMBERS EXACTLY)');
+      expect(prompt).toContain('TOTAL ONE-TIME: $34,720.00');
+      expect(prompt).toContain('TOTAL ONGOING (ANNUAL): $4,800.00');
+      const planIdx = prompt.indexOf('APPROVED SOLUTION PLAN (SOURCE OF TRUTH)');
+      const scheduleIdx = prompt.indexOf('AUTHORITATIVE COST SCHEDULE');
+      const kbIdx = prompt.indexOf('ENRICHMENT CONTEXT');
+      expect(scheduleIdx).toBeGreaterThan(planIdx);
+      expect(kbIdx).toBeGreaterThan(scheduleIdx);
+    });
+
+    it('omits the block when the schedule is null or undefined (legacy / user-edited plan)', () => {
+      for (const schedule of [null, undefined]) {
+        const prompt = buildUserPromptForDocumentType(type, {
+          ...baseContext,
+          solutionPlanCostSchedule: schedule,
+        });
+        // The task text may still mention the block conditionally ("If the
+        // context contains…") — only the rendered block header must be absent.
+        expect(prompt).not.toContain('AUTHORITATIVE COST SCHEDULE (SOURCE OF TRUTH');
+      }
+    });
+  });
+
+  it('never renders the schedule block for non-pricing document types', () => {
+    const prompt = buildUserPromptForDocumentType('TECHNICAL_PROPOSAL', {
+      ...baseContext,
+      solutionPlanCostSchedule: costSchedule,
+    });
+    expect(prompt).not.toContain('AUTHORITATIVE COST SCHEDULE (SOURCE OF TRUTH');
+  });
+
+  describe.each(PRICING_TYPES)('%s PLAN-GOVERNED COSTS rules', (type) => {
+    it('appear in the plan-present variant of the mandatory pricing rules', () => {
+      for (const prompt of [
+        buildSystemPromptForDocumentType(type, null, null, true),
+        buildSectionSystemPrompt(type, null, true),
+      ]) {
+        expect(prompt).toContain('PLAN-GOVERNED COSTS');
+        expect(prompt).toContain('labor-based own services (hosting, maintenance, support)');
+        expect(prompt).toContain('(a) a schedule item amount copied verbatim');
+        expect(prompt).toContain('MUST equal the schedule\'s TOTAL lines exactly');
+      }
+    });
+
+    it('are absent from the plan-less variant', () => {
+      expect(buildSystemPromptForDocumentType(type)).not.toContain('PLAN-GOVERNED COSTS');
+      expect(buildSectionSystemPrompt(type)).not.toContain('PLAN-GOVERNED COSTS');
+    });
+
+    it('directs the task to the AUTHORITATIVE COST SCHEDULE block', () => {
+      expect(getDefaultTask(type)).toContain('AUTHORITATIVE COST SCHEDULE');
+    });
+  });
+
+  describe('buildPricingRulesBlock (exported for section edits)', () => {
+    it('returns the mandatory rules for pricing types and an empty string otherwise', () => {
+      expect(buildPricingRulesBlock('COST_PROPOSAL', true)).toContain('MANDATORY PRICING RULES');
+      expect(buildPricingRulesBlock('COST_PROPOSAL', true)).toContain('PLAN-GOVERNED COSTS');
+      expect(buildPricingRulesBlock('COST_PROPOSAL', false)).not.toContain('PLAN-GOVERNED COSTS');
+      expect(buildPricingRulesBlock('TECHNICAL_PROPOSAL', true)).toBe('');
     });
   });
 });

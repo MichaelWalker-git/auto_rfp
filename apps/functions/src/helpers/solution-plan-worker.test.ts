@@ -68,6 +68,7 @@ import {
   processGrillingRound,
   processSynthesis,
   resolveMaxRounds,
+  SynthesisResponseSchema,
 } from './solution-plan-worker';
 import type { GrillingRoundMessage } from './solution-plan-queue';
 
@@ -357,8 +358,54 @@ describe('processSynthesis', () => {
       staleReason: '',
       isUserEdited: false,
       error: '',
+      costSchedule: null,
     });
     expect(appendedRoles()).toEqual(['SYSTEM']);
+  });
+
+  it('persists the costSchedule with server-recomputed totals (model-stated totals are overwritten)', async () => {
+    mockInvokeClaudeJson.mockResolvedValue({
+      title: 'Solution Plan',
+      htmlContent: '<h2>Solution Architecture</h2><p>…</p>',
+      costSchedule: {
+        currency: 'USD',
+        items: [
+          { label: 'Implementation', category: 'LABOR', amount: 34720, billing: 'ONE_TIME' },
+          { label: 'Managed hosting', category: 'LABOR', amount: 400, billing: 'MONTHLY' },
+          { label: 'GIS plugin', category: 'THIRD_PARTY', amount: null, billing: 'ANNUAL' },
+        ],
+        // Model-stated totals are wrong on purpose — they must be overwritten
+        oneTimeTotal: 99999,
+        ongoingAnnualTotal: 1,
+      },
+    });
+
+    await processSynthesis(synthMessage);
+
+    expect(mockUpdateStatus).toHaveBeenCalledWith(
+      planKey,
+      'READY',
+      expect.objectContaining({
+        costSchedule: expect.objectContaining({
+          oneTimeTotal: 34720,
+          ongoingAnnualTotal: 4800, // 12 × $400 monthly; null amounts excluded
+        }),
+      }),
+    );
+  });
+
+  it('warns and persists costSchedule: null when synthesis returns no schedule (READY, not FAILED)', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await processSynthesis(synthMessage);
+
+    expect(mockUpdateStatus).toHaveBeenCalledWith(
+      planKey,
+      'READY',
+      expect.objectContaining({ costSchedule: null }),
+    );
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('no usable costSchedule'));
+    warnSpy.mockRestore();
   });
 
   it('prepends the title as <h1> when the model omitted a heading', async () => {
@@ -395,5 +442,44 @@ describe('processSynthesis', () => {
 
     await expect(processSynthesis(synthMessage)).rejects.toThrow('model exploded');
     expect(mockUpdateStatus).toHaveBeenCalledWith(planKey, 'FAILED', { error: 'model exploded' });
+  });
+});
+
+// ─── SynthesisResponseSchema ────────────────────────────────────────────────────
+
+describe('SynthesisResponseSchema', () => {
+  const base = { title: 'Plan', htmlContent: '<h2>Architecture</h2>' };
+
+  it('parses a valid costSchedule through', () => {
+    const { success, data } = SynthesisResponseSchema.safeParse({
+      ...base,
+      costSchedule: {
+        items: [{ label: 'Hosting', amount: 400, billing: 'MONTHLY' }],
+        oneTimeTotal: 0,
+        ongoingAnnualTotal: 4800,
+      },
+    });
+    expect(success).toBe(true);
+    expect(data?.costSchedule?.items).toHaveLength(1);
+  });
+
+  it('degrades a malformed costSchedule to undefined instead of failing the plan', () => {
+    const { success, data } = SynthesisResponseSchema.safeParse({
+      ...base,
+      costSchedule: { items: [{ label: 'Hosting', amount: '$400', billing: 'WEEKLY' }] },
+    });
+    expect(success).toBe(true);
+    expect(data?.costSchedule).toBeUndefined();
+  });
+
+  it('accepts an omitted costSchedule (legacy-shaped output)', () => {
+    const { success, data } = SynthesisResponseSchema.safeParse(base);
+    expect(success).toBe(true);
+    expect(data?.costSchedule).toBeUndefined();
+  });
+
+  it('still requires title and htmlContent', () => {
+    expect(SynthesisResponseSchema.safeParse({ title: 'Plan' }).success).toBe(false);
+    expect(SynthesisResponseSchema.safeParse({ htmlContent: '<p>x</p>' }).success).toBe(false);
   });
 });

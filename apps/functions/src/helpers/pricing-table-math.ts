@@ -33,16 +33,16 @@ export interface PricingMathResult {
 
 // Take the LAST money match in a cell — formula labels like
 // "(2 hrs × $105/hr)" precede the actual value.
-const MONEY_RE = /\$\s?(\d[\d,]*(?:\.\d{1,2})?)/g;
+export const MONEY_RE = /\$\s?(\d[\d,]*(?:\.\d{1,2})?)/g;
 
-const TABLE_RE = /<table\b[^>]*>[\s\S]*?<\/table>/gi;
-const ROW_RE = /<tr\b[^>]*>[\s\S]*?<\/tr>/gi;
+export const TABLE_RE = /<table\b[^>]*>[\s\S]*?<\/table>/gi;
+export const ROW_RE = /<tr\b[^>]*>[\s\S]*?<\/tr>/gi;
 const CELL_RE = /(<t[dh]\b[^>]*>)([\s\S]*?)(<\/t[dh]>)/gi;
 
 /** Absolute difference above which a stated total is rewritten. */
-const TOLERANCE = 1.0;
+export const TOLERANCE = 1.0;
 
-const stripTags = (html: string): string =>
+export const stripTags = (html: string): string =>
   html
     .replace(/<[^>]*>/g, ' ')
     .replace(/&nbsp;|&#x0*a0;|&#0*160;/gi, ' ')
@@ -50,15 +50,15 @@ const stripTags = (html: string): string =>
     .replace(/\s+/g, ' ')
     .trim();
 
-const roundCents = (value: number): number => Math.round(value * 100) / 100;
+export const roundCents = (value: number): number => Math.round(value * 100) / 100;
 
-const formatMoney = (value: number, withCents: boolean): string =>
+export const formatMoney = (value: number, withCents: boolean): string =>
   `$${roundCents(value).toLocaleString('en-US', {
     minimumFractionDigits: withCents ? 2 : 0,
     maximumFractionDigits: withCents ? 2 : 0,
   })}`;
 
-interface ParsedCell {
+export interface ParsedCell {
   openTag: string;
   inner: string;
   closeTag: string;
@@ -66,7 +66,7 @@ interface ParsedCell {
   money: { text: string; value: number; hasCents: boolean; innerIndex: number } | null;
 }
 
-const parseCells = (rowHtml: string): Array<ParsedCell & { start: number; end: number }> => {
+export const parseCells = (rowHtml: string): Array<ParsedCell & { start: number; end: number }> => {
   const cells: Array<ParsedCell & { start: number; end: number }> = [];
   for (const m of rowHtml.matchAll(CELL_RE)) {
     const [full, openTag, inner, closeTag] = m as unknown as [string, string, string, string];
@@ -99,10 +99,10 @@ const addToColumn = (map: Map<number, ColumnSum>, offset: number, value: number,
   map.set(offset, entry);
 };
 
-const GRAND_LABEL_RE = /\bgrand\b|\boverall\b/i;
+export const GRAND_LABEL_RE = /\bgrand\b|\boverall\b/i;
 // "Total …", "… Total", "Subtotal", "Sub-Total" — \btotal\b alone would miss
 // "Subtotal" (no word boundary inside the word).
-const TOTAL_LABEL_RE = /\b(?:sub[\s-]?)?total\b/i;
+export const TOTAL_LABEL_RE = /\b(?:sub[\s-]?)?total\b/i;
 
 const processTable = (
   tableHtml: string,
@@ -155,11 +155,15 @@ const processTable = (
 
       if (!isAmbiguousGrand) {
         // Regular totals sum the data rows since the previous total; a
-        // grand-total row directly after subtotals sums the subtotals instead.
+        // GRAND-labeled row directly after subtotals sums the subtotals
+        // instead. A non-grand total row with no data rows since the previous
+        // total is a COMPONENT row (e.g. "Total ODCs" under "Total Labor" in a
+        // reconciliation table) — it is left untouched, but its stated value
+        // still feeds `priorTotals` for a later grand total.
         let expected: ColumnSum | null = null;
         if (hasDataSinceLastTotal) {
           expected = dataSinceLastTotal.get(offset) ?? null;
-        } else if (priorTotals.length > 0) {
+        } else if (isGrandLabel && priorTotals.length > 0) {
           const acc: ColumnSum = { sum: 0, hasCents: false, count: 0 };
           for (const prior of priorTotals) {
             const prev = prior.get(offset);
@@ -233,8 +237,10 @@ const processTable = (
  * /\btotal\b/i, recompute the money value as the sum of the money cells in the
  * same column position (counted from the end of the row, so colspan'd labels
  * still align) across the non-total rows since the previous total row (or
- * table start). A total row with no data rows above it (a grand total directly
- * after subtotals) sums the prior total rows instead. If
+ * table start). A GRAND-labeled total row with no data rows above it (a grand
+ * total directly after subtotals) sums the prior total rows instead; a
+ * non-grand total row with no data rows above it is a component row (e.g. a
+ * reconciliation table's "Total ODCs") and is never rewritten. If
  * |stated − computed| > $1.00, the cell is rewritten with the computed value —
  * cents are kept only when the source rows carry cents. Rows/tables without
  * money cells are skipped; malformed HTML passes through unchanged.
