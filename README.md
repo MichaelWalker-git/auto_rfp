@@ -133,7 +133,7 @@ pnpm cdk             # Run CDK commands
 
 ## ⚡ Build Order
 
-`packages/core` must be built first — both `apps/web` and `apps/functions` depend on it:
+`packages/core` must be built first, because both `apps/web` and `apps/functions` depend on it:
 
 ```bash
 cd packages/core && pnpm build   # Always rebuild after changing schemas
@@ -159,4 +159,7 @@ cd packages/core && pnpm build   # Always rebuild after changing schemas
 
 ## 📄 License
 
-Private - All rights reserved
+Dual-licensed. See [LICENSE](./LICENSE) for full terms.
+
+- **Upstream components** derive from [run-llama/auto_rfp](https://github.com/run-llama/auto_rfp) and remain under the MIT License, Copyright (c) 2025 github.com/zli484.
+- **Horus Technology modifications and additions** are proprietary, Copyright (c) 2025-2026 Horus Technology, all rights reserved. This covers the AWS platform architecture, processing pipelines, evaluation harness, government data integrations, and multi-tenant management.
