@@ -122,11 +122,22 @@ const applyAwardNotice = async (args: {
    * before anything is transmitted.
    */
   if (provenance === 'RECORDED_AWARD') {
+    /**
+     * Written to `agencyStatedAwardDate`, NOT `outcomeDate`.
+     *
+     * `outcomeDate` is also stamped with `now` by every terminal status transition
+     * (opportunity-status.ts), so it means "when we recorded an outcome" far more
+     * often than "when the agency awarded" — and on read it was outranked anyway by
+     * `lossData.lossDate`, a UI click timestamp. Writing the agency's date here
+     * instead gives it the top rank in `resolveAwardDate` and keeps the two facts
+     * distinguishable. It is also date-only, which `outcomeDate`'s
+     * `z.string().datetime()` type does not actually permit.
+     */
     await updateOpportunity({
       orgId,
       projectId,
       oppId,
-      patch: { outcomeDate: date },
+      patch: { agencyStatedAwardDate: date },
     });
   } else {
     console.info(

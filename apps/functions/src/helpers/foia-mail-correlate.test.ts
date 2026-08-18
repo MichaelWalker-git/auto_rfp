@@ -140,6 +140,45 @@ describe('false-positive safety', () => {
     expect(matches[0]?.matchedBy).toBe('LITERAL_BOUNDARY');
   });
 
+  it('does not correlate a date-shaped stored number against an ISO date', () => {
+    /**
+     * Real stored solicitation numbers from the HORUSTECH table: "2026-08"
+     * (opp 8614b4c4, "General Maintenance And Repair Services"), "2025-02",
+     * "26-43", "78-26". Each is a bare YYYY-MM or DD-DD value.
+     *
+     * `comparable('2026-08')` is "202608" — 6 characters, one below
+     * MIN_SUBSTRING_LENGTH (7) — so the safe normalized-substring path is skipped
+     * and matching falls through to `matchesLiterally`, which only requires a
+     * non-alphanumeric neighbour on each side. Inside "response due 2026-08-20"
+     * the left neighbour is a space and the right is the hyphen of "-20", so both
+     * lookarounds pass. `isCorrelatableSolicitationNumber` does not screen it
+     * either: it rejects only BATCH-, N/A, TBD, ABC-123, SOL-n placeholders.
+     *
+     * Consequence is a WRONG correlation, the worst outcome in this pipeline. The
+     * match is computed before the classification switch, so any award notice
+     * containing an August 2026 date correlates to opp 8614b4c4 as the *single*
+     * match; `decideInboundMail` then passes `hasExternalIdentifier: !!single`
+     * into `canActAutomatically`, which returns true on an external identifier
+     * alone. Verified by replay: an award notice whose only identifier is
+     * "Award Date 2026-08-04" yields AWARD_RECORDED against
+     * "General Maintenance And Repair Services" — a fabricated award date on an
+     * opportunity the notice has nothing to do with, and a statutory FOIA letter
+     * aimed at the wrong agency.
+     *
+     * It already fired twice on real mail: h2mb4374b4al and t166jk3dt7mm, a GSA
+     * helpdesk ticket reminder ("If we do not receive a response 2026-08-20 ...").
+     */
+    expect(
+      correlateMailToOpportunities('If we do not receive a response 2026-08-20 10:17:50 EDT', [
+        opp('2026-08'),
+      ]),
+    ).toEqual([]);
+
+    expect(
+      correlateMailToOpportunities('Status: Awarded. Award Date 2026-08-04.', [opp('2026-08')]),
+    ).toEqual([]);
+  });
+
   it('ignores placeholder-numbered opportunities entirely', () => {
     // Without this, every batch-uploaded opportunity would match any message
     // that happened to contain its id-like text.

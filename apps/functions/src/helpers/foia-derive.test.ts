@@ -148,6 +148,50 @@ describe('resolveAwardDate', () => {
     ).toEqual({ date: '2026-01-09', provenance: 'RESPONSE_DEADLINE' });
   });
 
+  it('prefers the agency-stated award date over an unrelated recorded loss date', () => {
+    /**
+     * Real data, from opportunity 06b56638 (HORUSTECH, "RFP 739-SL3732580").
+     *
+     * The inbound-mail pipeline read "Award Date 1/29/2026" out of a real award
+     * notice and recorded it — correctly, and only because the agency stated it (the
+     * `provenance === 'RECORDED_AWARD'` guard in process-inbound-mail.ts). It
+     * originally landed in `outcomeDate`, where `lossData.lossDate` (2026-06-10, the
+     * moment a user clicked "lost") outranked it and resolved as RECORDED_AWARD —
+     * 132 days wrong, with verified provenance that also satisfies the
+     * unattended-send gate.
+     *
+     * Note the fix is NOT to promote `outcomeDate` above `lossDate`: 84 of the 85
+     * populated `outcomeDate` values in dev are terminal-status click stamps written
+     * by opportunity-status.ts, so promoting the field would have relabelled all of
+     * them as award dates. The agency's date gets its own field instead.
+     */
+    expect(
+      resolveAwardDate(
+        buildOpp({
+          decisionDateIso: '2026-05-08',
+          responseDeadlineIso: '2026-05-08T21:30:00.000Z',
+          agencyStatedAwardDate: '2026-01-29',
+          lossData: { lossDate: '2026-06-10T14:02:32.066Z', lossReason: 'UNKNOWN' },
+        }),
+      ),
+    ).toEqual({ date: '2026-01-29', provenance: 'RECORDED_AWARD' });
+  });
+
+  it('still ranks a recorded loss above a bare outcomeDate stamp', () => {
+    // Guards the fix above from over-reaching: with no agency-stated date, the
+    // previous ordering must be untouched, because `outcomeDate` is usually just
+    // the terminal-status stamp rather than anything the agency said.
+    expect(
+      resolveAwardDate(
+        buildOpp({
+          decisionDateIso: null,
+          outcomeDate: '2026-07-01T00:00:00.000Z',
+          lossData: { lossDate: '2026-06-10T14:02:32.066Z', lossReason: 'UNKNOWN' },
+        }),
+      ),
+    ).toEqual({ date: '2026-06-10', provenance: 'RECORDED_AWARD' });
+  });
+
   it('never reports a verified provenance for a date it inferred', () => {
     // The property that keeps a false award claim out of a statutory filing.
     for (const opp of [

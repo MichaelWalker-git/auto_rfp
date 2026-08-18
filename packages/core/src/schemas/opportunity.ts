@@ -289,8 +289,35 @@ export const OpportunityItemSchema = z.object({
   jurisdiction: JurisdictionSchema.optional(),
   /** Full state name — required when jurisdiction === 'STATE'. */
   state: z.string().nullish(),
-  /** ISO datetime the terminal outcome was recorded. */
+  /**
+   * ISO datetime the terminal outcome was **recorded** — i.e. when someone moved
+   * the opportunity to a terminal status, not when the agency acted.
+   *
+   * `opportunity-status.ts` stamps this with `now` on every terminal transition
+   * (84 of the 85 populated values in dev are such stamps). It is therefore NOT
+   * evidence of an award date, and `resolveAwardDate` ranks it accordingly. For
+   * the date an agency actually stated, see `agencyStatedAwardDate`.
+   */
   outcomeDate: z.string().datetime().nullish(),
+  /**
+   * The award date an AGENCY stated, in its own words, as a date-only value.
+   *
+   * Separate from `outcomeDate` because the two answer different questions and
+   * conflating them produced a real 132-day error: the inbound-mail pipeline wrote
+   * an agency-stated 2026-01-29 to `outcomeDate`, where it was outranked on read by
+   * a `lossData.lossDate` click timestamp of 2026-06-10 — and the letter would have
+   * asserted the later date as verified. This field is the only one that may carry
+   * `RECORDED_AWARD` provenance from mail, so it must never be written from a
+   * receipt date or a UI interaction. See `awardDateFromMail`, which only returns
+   * `RECORDED_AWARD` when the message itself stated a date.
+   *
+   * Date-only (`YYYY-MM-DD`) on purpose: an agency states a day, not an instant,
+   * and inventing a time would imply precision we do not have.
+   */
+  agencyStatedAwardDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be a date-only YYYY-MM-DD value')
+    .nullish(),
   /** User who recorded the outcome. */
   outcomeSetBy: z.string().nullish(),
   // Audit fields

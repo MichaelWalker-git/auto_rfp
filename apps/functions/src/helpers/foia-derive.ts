@@ -114,8 +114,30 @@ export const resolveAwardDate = (opportunity: OpportunityDBItem): ResolvedAwardD
     value: string | undefined | null;
     provenance: FoiaAwardDateProvenance;
   }> = [
+    /**
+     * The agency's own stated award date outranks everything.
+     *
+     * It is the only value here that came from the agency rather than from us, so
+     * nothing we recorded may displace it. This ordering is load-bearing: on the
+     * real opportunity 06b56638 the pipeline correctly captured an agency-stated
+     * 2026-01-29, and it was then shadowed by a `lossData.lossDate` of 2026-06-10 —
+     * the moment a user clicked "lost" in the UI — which resolved as RECORDED_AWARD
+     * and would have put "awarded on or about June 10, 2026" in a statutory filing,
+     * 132 days wrong, with verified provenance that also satisfies the
+     * unattended-send gate.
+     */
+    { value: opportunity.agencyStatedAwardDate, provenance: 'RECORDED_AWARD' },
     // Recorded outcomes — an award (or loss) actually happened and was written down.
     { value: opportunity.winData?.awardDate, provenance: 'RECORDED_AWARD' },
+    /**
+     * `lossData.lossDate` and `outcomeDate` are OUR records, not the agency's.
+     *
+     * Both default to the moment of a UI interaction — `lossDate` from
+     * set-opportunity-outcome-dialog.tsx, `outcomeDate` from the terminal-status
+     * stamp in opportunity-status.ts (84 of 85 populated values in dev). They are
+     * genuine evidence that a procurement concluded, which is why they still
+     * outrank a forecast, but they date OUR knowledge rather than the award.
+     */
     { value: opportunity.lossData?.lossDate, provenance: 'RECORDED_AWARD' },
     { value: opportunity.outcomeDate, provenance: 'RECORDED_OUTCOME' },
     // A forecast of the announcement date, not evidence of an announcement.
