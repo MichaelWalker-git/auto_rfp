@@ -50,11 +50,19 @@ const byOutcomeDateDesc = (
 /**
  * The date to order "most recent" by.
  *
- * Prefers the recorded award/loss date over `outcomeDate`, because the former is what
- * the agency did and the latter is when someone typed it in. Both are optional.
+ * The agency's own stated date first, then what we recorded. The previous comment
+ * here had it backwards — it claimed `winData`/`lossData` are "what the agency did"
+ * while `outcomeDate` is "when someone typed it in", but `lossData.lossDate` also
+ * defaults to the moment of a UI click, so neither is the agency's word.
+ * `agencyStatedAwardDate` is the only value that is. Kept consistent with
+ * `resolveAwardDate` so the dashboard and the letter never disagree about a date.
  */
 const resolveOutcomeDate = (opp: OpportunityDBItem): string | undefined =>
-  opp.winData?.awardDate ?? opp.lossData?.lossDate ?? opp.outcomeDate ?? undefined;
+  opp.agencyStatedAwardDate ??
+  opp.winData?.awardDate ??
+  opp.lossData?.lossDate ??
+  opp.outcomeDate ??
+  undefined;
 
 export const buildFoiaDashboard = async (
   orgId: string,
@@ -90,7 +98,7 @@ export const buildFoiaDashboard = async (
     queryAllBySkPrefix<OpportunityDBItem>(
       OPPORTUNITY_PK,
       `${orgId}#`,
-      'oppId,projectId,title,#status,lossData,winData,outcomeDate,organizationName,solicitationNumber',
+      'oppId,projectId,title,#status,lossData,winData,outcomeDate,agencyStatedAwardDate,organizationName,solicitationNumber',
       // `status` is a DynamoDB reserved word, so it must go through an alias.
       { '#status': 'status' },
     ),
@@ -159,13 +167,23 @@ export const buildFoiaDashboard = async (
           typeof ourBidAmount === 'number' && typeof winningBidAmount === 'number',
       });
 
-      if (opp.lossData?.evaluationScores) {
+      /**
+       * A row is worth showing if EITHER side was scored.
+       *
+       * Guarding on our own scores alone would drop a release that discloses only the
+       * winner's numbers — which happens, because a comparative tabulation names the
+       * awardee's scores whether or not we ever requested a debrief for ourselves.
+       */
+      if (opp.lossData?.evaluationScores || opp.lossData?.winnerScores) {
         scoreRows.push({
           oppId,
           projectId,
           title: opp.title ?? oppId,
           ...(opp.organizationName ? { agencyName: opp.organizationName } : {}),
-          ourScores: opp.lossData.evaluationScores,
+          // Falls back to an empty object so the shape stays stable when only the
+          // winner's side is on file; the UI renders per-criterion, not per-row.
+          ourScores: opp.lossData.evaluationScores ?? {},
+          ...(opp.lossData.winnerScores ? { winnerScores: opp.lossData.winnerScores } : {}),
           ...(outcomeDate ? { outcomeDate } : {}),
         });
       }

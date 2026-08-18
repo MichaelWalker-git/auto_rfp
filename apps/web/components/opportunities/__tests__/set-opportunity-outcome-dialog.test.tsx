@@ -233,6 +233,80 @@ describe('SetOpportunityOutcomeDialog — loss pricing and evaluation scores', (
       });
     });
 
+    it('submits the winner scores under winnerScores', async () => {
+      const user = userEvent.setup();
+      renderDialog();
+
+      await user.click(screen.getByRole('button', { name: /add evaluation scores/i }));
+      await user.type(screen.getByLabelText(/^technical$/i), '61');
+      await user.type(screen.getByLabelText(/^technical \(winner\)$/i), '92');
+      await user.click(screen.getByRole('button', { name: /save outcome/i }));
+
+      await waitFor(() => {
+        const lossData = submittedLossData()!;
+        expect(lossData.evaluationScores).toEqual({ technical: 61 });
+        expect(lossData.winnerScores).toEqual({ technical: 92 });
+      });
+    });
+
+    it('records the winner alone when ours was never disclosed', async () => {
+      // A comparative tabulation can name the awardee's score without a debrief for us.
+      const user = userEvent.setup();
+      renderDialog();
+
+      await user.click(screen.getByRole('button', { name: /add evaluation scores/i }));
+      await user.type(screen.getByLabelText(/^price \(winner\)$/i), '95');
+      await user.click(screen.getByRole('button', { name: /save outcome/i }));
+
+      await waitFor(() => {
+        const lossData = submittedLossData()!;
+        expect(lossData.winnerScores).toEqual({ price: 95 });
+        expect(lossData.evaluationScores).toBeUndefined();
+      });
+    });
+
+    it('OMITS winnerScores entirely when the winner column is untouched', async () => {
+      const user = userEvent.setup();
+      renderDialog();
+
+      await user.click(screen.getByRole('button', { name: /add evaluation scores/i }));
+      await user.type(screen.getByLabelText(/^technical$/i), '61');
+      await user.click(screen.getByRole('button', { name: /save outcome/i }));
+
+      await waitFor(() => {
+        expect(submittedLossData()?.winnerScores).toBeUndefined();
+      });
+    });
+
+    it('names the side when a winner score is out of range', async () => {
+      // With two columns, "Check Technical" alone sends the user hunting.
+      //
+      // Collapsed first, as in the ours-side test above: the input's own max attribute
+      // blocks submission while it is mounted, so the JS guard is only reachable once
+      // Radix unmounts the field and its value survives in state.
+      const user = userEvent.setup();
+      renderDialog();
+
+      await user.click(screen.getByRole('button', { name: /add evaluation scores/i }));
+      fireEvent.change(screen.getByLabelText(/^technical \(winner\)$/i), {
+        target: { value: '150' },
+      });
+      await user.click(screen.getByRole('button', { name: /hide evaluation scores/i }));
+      fireEvent.submit(
+        screen.getByRole('button', { name: /save outcome/i }).closest('form')!,
+      );
+
+      await waitFor(() => {
+        expect(mockToast).toHaveBeenCalledWith(
+          expect.objectContaining({
+            description: expect.stringContaining('winner'),
+            variant: 'destructive',
+          }),
+        );
+      });
+      expect(mockUpdateOpportunity).not.toHaveBeenCalled();
+    });
+
     it('OMITS evaluationScores entirely when no criterion was scored', async () => {
       const user = userEvent.setup();
       renderDialog();

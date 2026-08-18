@@ -321,6 +321,66 @@ describe('buildFoiaDashboard', () => {
       expect(scores[0]!.winnerScores).toBeUndefined();
     });
 
+    it('passes the winner scores through', async () => {
+      prime({
+        opportunities: [
+          lostOpp({
+            lossData: {
+              lossDate: '2026-01-29T00:00:00.000Z',
+              lossReason: 'TECHNICAL_SCORE',
+              evaluationScores: { technical: 61 },
+              winnerScores: { technical: 92 },
+            },
+          }),
+        ],
+      });
+
+      const { scores } = await buildFoiaDashboard(ORG);
+
+      expect(scores[0]!.ourScores).toEqual({ technical: 61 });
+      expect(scores[0]!.winnerScores).toEqual({ technical: 92 });
+    });
+
+    it('includes a row scored only for the winner', async () => {
+      // A comparative tabulation can disclose the awardee's score with no debrief for
+      // us. Guarding on our own scores alone would drop the row entirely.
+      prime({
+        opportunities: [
+          lostOpp({
+            lossData: {
+              lossDate: '2026-01-29T00:00:00.000Z',
+              lossReason: 'TECHNICAL_SCORE',
+              winnerScores: { price: 95 },
+            },
+          }),
+        ],
+      });
+
+      const { scores } = await buildFoiaDashboard(ORG);
+
+      expect(scores).toHaveLength(1);
+      expect(scores[0]!.ourScores).toEqual({});
+      expect(scores[0]!.winnerScores).toEqual({ price: 95 });
+    });
+
+    it('omits winnerScores when none are stored', async () => {
+      prime({
+        opportunities: [
+          lostOpp({
+            lossData: {
+              lossDate: '2026-01-29T00:00:00.000Z',
+              lossReason: 'TECHNICAL_SCORE',
+              evaluationScores: { technical: 61 },
+            },
+          }),
+        ],
+      });
+
+      const { scores } = await buildFoiaDashboard(ORG);
+
+      expect(scores[0]!.winnerScores).toBeUndefined();
+    });
+
     it('omits opportunities with no scores recorded', async () => {
       prime({ opportunities: [lostOpp()] });
 

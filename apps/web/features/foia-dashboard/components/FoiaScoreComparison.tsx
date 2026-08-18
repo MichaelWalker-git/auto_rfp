@@ -16,6 +16,37 @@ const CRITERIA = [
 /** How many solicitations to detail before the list becomes a wall. */
 const MAX_ROWS = 3;
 
+/**
+ * One score bar, or nothing when the score is undisclosed.
+ *
+ * Returning null rather than a zero-width bar is deliberate: a flat bar at the origin
+ * reads as "scored 0", which is a different and much worse claim than "not disclosed".
+ */
+const ScoreBar = ({
+  value,
+  className,
+  label,
+}: {
+  value: number | undefined;
+  className: string;
+  label: string;
+}) => {
+  if (typeof value !== 'number') return null;
+
+  return (
+    <div
+      className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+      role="img"
+      aria-label={`${label} ${value}`}
+    >
+      <div
+        className={`h-full rounded-full transition-all duration-500 ${className}`}
+        style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+      />
+    </div>
+  );
+};
+
 interface FoiaScoreComparisonProps {
   scores: FoiaScoreComparisonRow[] | undefined;
   isLoading: boolean;
@@ -28,9 +59,10 @@ interface FoiaScoreComparisonProps {
  * of numbers, and a recharts grouped bar would add axes and a legend without adding
  * information.
  *
- * Only OUR scores exist today (`LossData.evaluationScores`). The winner's are carried
- * on the schema but never populated, so this renders one bar per criterion and says so
- * — showing an empty second bar would imply a comparison we do not have.
+ * Both sides are shown when both are on file: our score, the winner's, and the gap.
+ * Either side alone still renders — an agency can disclose the awardee's score on a
+ * criterion it never scored us on, and that asymmetry is itself the finding. An
+ * undisclosed score is an em dash with NO bar, never a 0 with a flat one.
  */
 export const FoiaScoreComparison = ({ scores, isLoading }: FoiaScoreComparisonProps) => {
   const rows = (scores ?? []).slice(0, MAX_ROWS);
@@ -40,7 +72,7 @@ export const FoiaScoreComparison = ({ scores, isLoading }: FoiaScoreComparisonPr
     <Card className="border">
       <CardHeader>
         <CardTitle className="text-base">Evaluation Scores</CardTitle>
-        <CardDescription>How we were scored, per criterion</CardDescription>
+        <CardDescription>Our score vs the winner&apos;s, per criterion</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {isLoading ? (
@@ -56,8 +88,13 @@ export const FoiaScoreComparison = ({ scores, isLoading }: FoiaScoreComparisonPr
         ) : (
           <>
             {rows.map((row) => {
+              // Either side qualifies: a release can disclose the winner's score on a
+              // criterion the agency never scored us on, and that gap is itself the
+              // finding.
               const present = CRITERIA.filter(
-                (c) => typeof row.ourScores[c.key] === 'number',
+                (c) =>
+                  typeof row.ourScores[c.key] === 'number' ||
+                  typeof row.winnerScores?.[c.key] === 'number',
               );
 
               return (
@@ -74,20 +111,47 @@ export const FoiaScoreComparison = ({ scores, isLoading }: FoiaScoreComparisonPr
                   ) : (
                     <div className="space-y-1.5">
                       {present.map((criterion) => {
-                        const value = row.ourScores[criterion.key] as number;
+                        const ours = row.ourScores[criterion.key];
+                        const theirs = row.winnerScores?.[criterion.key];
+                        const gap =
+                          typeof ours === 'number' && typeof theirs === 'number'
+                            ? ours - theirs
+                            : undefined;
+
                         return (
-                          <div key={criterion.key} className="space-y-0.5">
+                          <div key={criterion.key} className="space-y-1">
                             <div className="flex items-center justify-between text-xs">
                               <span className="text-muted-foreground">{criterion.label}</span>
-                              <span className="font-medium tabular-nums">{value}</span>
+                              <span className="tabular-nums">
+                                {/* An em dash, not a 0: an undisclosed score is unknown,
+                                    and rendering it as zero would invent a result. */}
+                                <span className="font-medium">
+                                  {typeof ours === 'number' ? ours : '—'}
+                                </span>
+                                <span className="text-muted-foreground"> vs </span>
+                                <span className="font-medium">
+                                  {typeof theirs === 'number' ? theirs : '—'}
+                                </span>
+                                {gap !== undefined && gap !== 0 && (
+                                  <span
+                                    className={
+                                      gap > 0
+                                        ? 'ml-1.5 text-emerald-600'
+                                        : 'ml-1.5 text-destructive'
+                                    }
+                                  >
+                                    {gap > 0 ? `+${gap}` : gap}
+                                  </span>
+                                )}
+                              </span>
                             </div>
-                            {/* Same bar idiom as the dashboard's loss-reason block. */}
-                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                              <div
-                                className="h-full rounded-full bg-indigo-500 transition-all duration-500"
-                                style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
-                              />
-                            </div>
+
+                            {/* Two stacked bars: ours indigo, the winner's rose. Same
+                                idiom as the dashboard's loss-reason block. A missing
+                                side renders no bar rather than a zero-width one, so
+                                "undisclosed" cannot be misread as "scored zero". */}
+                            <ScoreBar value={ours} className="bg-indigo-500" label="ours" />
+                            <ScoreBar value={theirs} className="bg-rose-500" label="winner" />
                           </div>
                         );
                       })}
@@ -97,7 +161,7 @@ export const FoiaScoreComparison = ({ scores, isLoading }: FoiaScoreComparisonPr
                   {!row.winnerScores && (
                     <p className="text-[11px] leading-tight text-muted-foreground/70">
                       Winner&apos;s scores not on file — request the consensus scoring
-                      worksheets to compare.
+                      worksheets, then record them on the loss form to compare.
                     </p>
                   )}
                 </div>

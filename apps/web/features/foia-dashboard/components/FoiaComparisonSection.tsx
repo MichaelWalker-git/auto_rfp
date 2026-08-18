@@ -1,6 +1,7 @@
 'use client';
 
-import { ScrollText } from 'lucide-react';
+import { AlertTriangle, ScrollText } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { useFoiaDashboard } from '@/lib/hooks/use-foia-dashboard';
 import { FoiaDocumentsSummary } from './FoiaDocumentsSummary';
 import { FoiaOutcomeDonut } from './FoiaOutcomeDonut';
@@ -27,8 +28,39 @@ interface FoiaComparisonSectionProps {
  * reader came for.
  */
 export const FoiaComparisonSection = ({ orgId }: FoiaComparisonSectionProps) => {
-  const { data, isLoading } = useFoiaDashboard(orgId);
+  const { data, isLoading, error } = useFoiaDashboard(orgId);
   const dashboard = data?.dashboard;
+
+  /**
+   * A failed request must NOT fall through to the empty states.
+   *
+   * Every card below treats "no data" as "nothing has happened yet" — the donut says
+   * "No completed solicitations yet", the pricing chart says "No pricing recorded yet".
+   * When the fetch itself failed, those sentences are false and unfalsifiable: a reader
+   * cannot tell "this org has no FOIA history" from "we could not load it". Observed for
+   * real on an org with 6 losses, 2 wins and 4 charted bars, which rendered as
+   * "0 tracked solicitations" because the endpoint was unreachable.
+   */
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <ScrollText className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-lg font-semibold">FOIA Comparison</h2>
+        </div>
+        <Card className="border-destructive/40">
+          <CardContent className="flex items-start gap-2 pt-6 text-sm">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+            <span className="text-muted-foreground">
+              Could not load FOIA comparison data. This is a loading failure, not an empty
+              result — any figures below would be wrong, so none are shown. Refresh to
+              retry.
+            </span>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
