@@ -16,6 +16,9 @@
  *    Year 3 layouts have no safely-identifiable "annual" column — skipped +
  *    warned; money inside the label cell is a formula annotation, not a value)
  *  - its label is not year-qualified ("Year 1 Total", "3-Year Total")
+ *  - its label is not category-qualified ("Total Annual ODCs", "Total
+ *    Steady-State Annual Labor") — a category subtotal must never be forced
+ *    to the schedule's whole bucket total (2026-08-18 incident)
  *  - its label matches exactly one bucket (one-time AND ongoing → skip + warn)
  *
  * GRAND-labeled rows with no data rows since the previous total are recomputed
@@ -37,6 +40,7 @@ import {
   TABLE_RE,
   TOLERANCE,
   TOTAL_LABEL_RE,
+  YEAR_QUALIFIED_RE,
 } from './pricing-table-math';
 
 export type ReconciliationBucket = 'ONE_TIME' | 'ONGOING_ANNUAL' | 'ONGOING_MONTHLY' | 'GRAND';
@@ -60,9 +64,13 @@ const MONTHLY_TOTAL_RE = /\bmonthly\b|\bper\s+month\b|\bMRC\b/i;
 const ONE_TIME_TOTAL_RE = /\bone[-\s]?time\b|\bnon[-\s]?recurring\b|\bNRC\b/i;
 const ONGOING_ANNUAL_TOTAL_RE = /\bongoing\b|\brecurring\b|\bannual(?:ized)?\b|\bper\s+year\b|\byearly\b|\bARC\b/i;
 
-// "Year 1 Total", "3-Year Total", "Years 1-3" — a year-scoped figure must NOT
-// be forced to the plan's plain annual total.
-const YEAR_QUALIFIED_RE = /\byears?\s*\d|\d+\s*(?:[-–—]\s*\d+\s*)?[-\s]?years?\b/i;
+// A total row naming a cost category/component is a SUBTOTAL of that category,
+// never the schedule's whole one-time/ongoing bucket — skip it (D1 incident:
+// "Total Steady-State Annual Labor", "Total Annual ODCs" forced to the grand
+// ongoing total). Phase words ("transition") are NOT categories — "Total
+// One-Time Transition Costs" is a genuine bucket total and must stay forceable.
+const CATEGORY_QUALIFIED_RE =
+  /\blabor\b|\bODCs?\b|\bFTEs?\b|\bpersonnel\b|\bstaff(?:ing)?\b|\bmaterials?\b|\btravel\b|\bequipment\b|\bhardware\b|\bsoftware\b|\blicens\w*\b|\bsubscriptions?\b|\binfrastructure\b|\bhosting\b|\binsurance\b|\boverhead\b|\bfringe\b|\bG&A\b|\bprofit\b|\bfees?\b|\bsubcontract\w*\b|\btraining\b|\bfacilit\w*\b/i;
 
 /**
  * Classify a total-row label into a schedule bucket. One-time phrases are
@@ -127,6 +135,23 @@ const processTable = (
         state.warnings.push(
           `table ${tableIndex} row "${label}": year-qualified total skipped (a year-scoped figure must not equal the plan's plain totals)`,
         );
+      }
+      continue;
+    }
+
+    if (CATEGORY_QUALIFIED_RE.test(label)) {
+      // Warn only when the label matched bucket words (the row would
+      // previously have been forced or ambiguous-warned) — ordinary category
+      // subtotals like "Subtotal Labor" stay warn-free.
+      if (bucket) {
+        state.warnings.push(
+          `table ${tableIndex} row "${label}": category-qualified subtotal — skipped (a category subtotal must not be forced to the plan's whole bucket total)`,
+        );
+      }
+      // The stated value still feeds a later grand recompute.
+      if (moneyCells.length === 1) {
+        const money = moneyCells[0]!.money!;
+        priorTotals.push({ value: money.value, hasCents: money.hasCents });
       }
       continue;
     }

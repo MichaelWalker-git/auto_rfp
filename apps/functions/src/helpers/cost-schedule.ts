@@ -31,7 +31,9 @@ const BILLING_LABELS: Record<SolutionPlanCostBilling, string> = {
  * Recompute the schedule totals from its items:
  *   oneTimeTotal       = Σ non-null ONE_TIME amounts
  *   ongoingAnnualTotal = Σ non-null ANNUAL amounts + 12 × Σ non-null MONTHLY amounts
- * Null amounts (vendor quote required) are excluded. Rounded to cents.
+ * Null amounts (vendor quote required) and optional items (option CLINs,
+ * if-exercised scope — priced separately, never part of the base/evaluated
+ * price) are excluded. Rounded to cents.
  */
 export const computeCostScheduleTotals = (
   items: SolutionPlanCostItem[],
@@ -41,7 +43,7 @@ export const computeCostScheduleTotals = (
   let monthly = 0;
 
   for (const item of items) {
-    if (item.amount === null) continue;
+    if (item.amount === null || item.optional) continue;
     if (item.billing === 'ONE_TIME') oneTime += item.amount;
     else if (item.billing === 'ANNUAL') annual += item.amount;
     else monthly += item.amount;
@@ -61,14 +63,31 @@ export const computeCostScheduleTotals = (
  * every dollar figure in the generated document to the schedule.
  */
 export const renderCostScheduleBlock = (schedule: SolutionPlanCostSchedule): string => {
-  const itemLines = schedule.items.map((item) => {
+  const renderItem = (item: SolutionPlanCostItem): string => {
     const amount = item.amount === null ? 'vendor quote required' : formatMoney(item.amount, true);
     const description = item.description ? ` — ${item.description}` : '';
     return `- ${item.label} | ${item.category} | ${BILLING_LABELS[item.billing]} | ${amount}${description}`;
-  });
+  };
+
+  const baseItems = schedule.items.filter((item) => !item.optional);
+  const optionalItems = schedule.items.filter((item) => item.optional);
+
+  const optionalLines = optionalItems.length
+    ? [
+        '',
+        'OPTIONAL ITEMS (NOT included in the totals — price separately if the RFP requests options):',
+        ...optionalItems.map(renderItem),
+      ]
+    : [];
 
   const assumptionLines = schedule.assumptions?.length
     ? ['', 'ASSUMPTIONS:', ...schedule.assumptions.map((a) => `- ${a}`)]
+    : [];
+
+  const optionalRule = optionalItems.length
+    ? [
+        '- Optional items are NOT in the TOTAL lines. Never add them to the base/evaluated totals; present them as separately-priced options only when the RFP asks.',
+      ]
     : [];
 
   return [
@@ -77,15 +96,17 @@ export const renderCostScheduleBlock = (schedule: SolutionPlanCostSchedule): str
     '═══════════════════════════════════════',
     `Currency: ${schedule.currency}`,
     '',
-    ...itemLines,
+    ...baseItems.map(renderItem),
     '',
     `TOTAL ONE-TIME: ${formatMoney(schedule.oneTimeTotal, true)}`,
     `TOTAL ONGOING (ANNUAL): ${formatMoney(schedule.ongoingAnnualTotal, true)}`,
+    ...optionalLines,
     ...assumptionLines,
     '',
     'USAGE RULES:',
     '- Every dollar figure in your document MUST be one of: (a) an item amount from this schedule copied verbatim, (b) a sum of item amounts from this schedule, or (c) an exact ×12/÷12 monthly↔annual conversion of an item amount or sum.',
     '- Your document\'s one-time total and ongoing-annual total MUST equal the TOTAL lines above EXACTLY.',
     '- Items marked "vendor quote required" appear without a price — never fill the gap with an invented number.',
+    ...optionalRule,
   ].join('\n');
 };

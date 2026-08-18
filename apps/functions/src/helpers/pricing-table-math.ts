@@ -17,6 +17,11 @@
  *    formula-in-label math are not recomputed
  *  - money cells are aligned by column position from the END of the row, so
  *    colspan'd total labels still line up with the data column
+ *  - year-qualified grand rows ("Total 5-Year Maximum Contract Value") are
+ *    never recomputed from prior in-table totals — they typically aggregate
+ *    period totals living in OTHER tables, so a table-local sum is a proven
+ *    false correction (2026-08-18 incident). Their column-sum path (data rows
+ *    directly above) still applies.
  */
 
 export interface TotalCorrection {
@@ -103,6 +108,12 @@ export const GRAND_LABEL_RE = /\bgrand\b|\boverall\b/i;
 // "Total …", "… Total", "Subtotal", "Sub-Total" — \btotal\b alone would miss
 // "Subtotal" (no word boundary inside the word).
 export const TOTAL_LABEL_RE = /\b(?:sub[\s-]?)?total\b/i;
+// "Year 1 Total", "3-Year Total", "Years 1-3" — a year-scoped figure. Shared
+// with plan-cost-reconciliation.ts (one definition for both passes): the
+// reconciliation never forces such rows to the plan's plain totals, and Fix B
+// never recomputes such a grand row from table-local prior totals (it may
+// aggregate period totals living in other tables).
+export const YEAR_QUALIFIED_RE = /\byears?\s*\d|\d+\s*(?:[-–—]\s*\d+\s*)?[-\s]?years?\b/i;
 
 const processTable = (
   tableHtml: string,
@@ -160,10 +171,13 @@ const processTable = (
         // total is a COMPONENT row (e.g. "Total ODCs" under "Total Labor" in a
         // reconciliation table) — it is left untouched, but its stated value
         // still feeds `priorTotals` for a later grand total.
+        // A year-qualified grand row ("Total 5-Year Maximum Contract Value")
+        // may aggregate totals from OTHER tables — a table-local prior-totals
+        // sum is not trustworthy, so only its column-sum path applies.
         let expected: ColumnSum | null = null;
         if (hasDataSinceLastTotal) {
           expected = dataSinceLastTotal.get(offset) ?? null;
-        } else if (isGrandLabel && priorTotals.length > 0) {
+        } else if (isGrandLabel && !YEAR_QUALIFIED_RE.test(label) && priorTotals.length > 0) {
           const acc: ColumnSum = { sum: 0, hasCents: false, count: 0 };
           for (const prior of priorTotals) {
             const prev = prior.get(offset);
@@ -238,7 +252,9 @@ const processTable = (
  * same column position (counted from the end of the row, so colspan'd labels
  * still align) across the non-total rows since the previous total row (or
  * table start). A GRAND-labeled total row with no data rows above it (a grand
- * total directly after subtotals) sums the prior total rows instead; a
+ * total directly after subtotals) sums the prior total rows instead — unless
+ * its label is year-qualified ("Total 5-Year Maximum"), in which case it
+ * likely aggregates totals from other tables and is left untouched; a
  * non-grand total row with no data rows above it is a component row (e.g. a
  * reconciliation table's "Total ODCs") and is never rewritten. If
  * |stated − computed| > $1.00, the cell is rewritten with the computed value —

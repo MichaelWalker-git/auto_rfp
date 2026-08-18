@@ -390,6 +390,17 @@ describe('plan-governed cost schedule injection', () => {
     it('directs the task to the AUTHORITATIVE COST SCHEDULE block', () => {
       expect(getDefaultTask(type)).toContain('AUTHORITATIVE COST SCHEDULE');
     });
+
+    it('pins multi-year derivation to exact schedule arithmetic (D3b)', () => {
+      for (const prompt of [
+        buildSystemPromptForDocumentType(type, null, null, true),
+        buildSectionSystemPrompt(type, null, true),
+      ]) {
+        expect(prompt).toContain('Multi-year figures are exact arithmetic from the schedule');
+        expect(prompt).toContain('unless the RFP mandates escalation');
+      }
+      expect(getDefaultTask(type)).toContain('Derive multi-year tables with exact arithmetic from the schedule');
+    });
   });
 
   describe('buildPricingRulesBlock (exported for section edits)', () => {

@@ -361,10 +361,16 @@ export const processSynthesis = async (message: GrillingRoundMessage): Promise<v
     });
 
     // Model-stated totals are unreliable — always overwrite them with the
-    // deterministic recomputation before persisting.
+    // deterministic recomputation before persisting. Items whose label says
+    // "(Optional)" are treated as optional even when the model forgot the
+    // flag — optional CLINs must never inflate the base totals.
     let normalizedSchedule: SolutionPlanCostSchedule | null = null;
     if (costSchedule) {
-      normalizedSchedule = { ...costSchedule, ...computeCostScheduleTotals(costSchedule.items) };
+      const items = costSchedule.items.map((item) => ({
+        ...item,
+        optional: item.optional || /\boptional\b/i.test(item.label),
+      }));
+      normalizedSchedule = { ...costSchedule, items, ...computeCostScheduleTotals(items) };
     } else {
       console.warn(
         '[solution-plan-worker] synthesis returned no usable costSchedule — documents fall back to Fix A behavior',

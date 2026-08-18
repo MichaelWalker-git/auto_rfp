@@ -152,6 +152,13 @@ describe('buildSynthesizerSystemPrompt', () => {
     }
   });
 
+  it('requires the optional flag in the item shape and the option-CLIN rule', () => {
+    const prompt = buildSynthesizerSystemPrompt();
+    expect(prompt).toContain('"optional": <boolean>');
+    expect(prompt).toContain('Set "optional": true for option CLINs');
+    expect(prompt).toContain('excluded from the totals server-side');
+  });
+
   it('demands every plan cost as an item, including own-service/labor costs, with no invented numbers', () => {
     const prompt = buildSynthesizerSystemPrompt();
     expect(prompt).toContain('Selected Services & Licenses');

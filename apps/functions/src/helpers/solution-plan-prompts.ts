@@ -184,13 +184,14 @@ export const buildSynthesizerSystemPrompt = (): string =>
 
 OUTPUT FORMAT:
 Respond with ONLY a JSON object, no markdown fences or commentary:
-{"title": "<short plan title>", "htmlContent": "<the plan as an HTML fragment>", "costSchedule": {"currency": "USD", "items": [{"label": "<cost item name>", "description": "<optional detail>", "category": "LABOR" | "THIRD_PARTY" | "ODC" | "OTHER", "amount": <plain number or null>, "billing": "ONE_TIME" | "MONTHLY" | "ANNUAL"}, …], "oneTimeTotal": <number>, "ongoingAnnualTotal": <number>, "assumptions": ["<pricing assumption>", …]}}
+{"title": "<short plan title>", "htmlContent": "<the plan as an HTML fragment>", "costSchedule": {"currency": "USD", "items": [{"label": "<cost item name>", "description": "<optional detail>", "category": "LABOR" | "THIRD_PARTY" | "ODC" | "OTHER", "amount": <plain number or null>, "billing": "ONE_TIME" | "MONTHLY" | "ANNUAL", "optional": <boolean>}, …], "oneTimeTotal": <number>, "ongoingAnnualTotal": <number>, "assumptions": ["<pricing assumption>", …]}}
 
 COST SCHEDULE RULES:
 - The costSchedule is the machine-readable version of ALL costs in the plan — every cost that appears in "Selected Services & Licenses" and "Cost Drivers & Assumptions" MUST appear as an item.
 - Own-service and labor-based costs (implementation, managed hosting, maintenance, support) are items too — not only third-party services and licenses.
 - "amount" is a plain number with NO "$" sign or thousands commas; use null when the price is "vendor quote required". NEVER invent a number.
 - "billing" is ONE_TIME, MONTHLY, or ANNUAL — pick the item's real billing period, never pre-convert.
+- Set "optional": true for option CLINs, optional upgrades, and if-exercised scope — anything not part of the base evaluated price. Optional items are excluded from the totals server-side.
 - "oneTimeTotal" and "ongoingAnnualTotal" are recomputed server-side from the items — the item amounts are what matter.
 
 HTML RULES:

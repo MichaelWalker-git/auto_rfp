@@ -101,6 +101,47 @@ describe('correctPricingTableTotals', () => {
     expect(out).toContain('$4,200.00');
   });
 
+  it('never rewrites a year-qualified grand row from table-local prior totals (2026-08-18 incident fixture)', () => {
+    // The renewal table's grand row states base+renewal ($12,263,250) — the
+    // base-period totals live in ANOTHER table, so the table-local prior-totals
+    // sum ($4,804,100, the renewal subtotal alone) is a false correction.
+    const html = table([
+      row(['Year 4', '$2,367,050.00']),
+      row(['Year 5', '$2,437,050.00']),
+      row(['Total Renewal (2 Years)', '$4,804,100.00']),
+      row(['Grand Total — 5-Year Maximum Contract Value', '$12,263,250.00']),
+    ]);
+    const { html: out, corrections } = correctPricingTableTotals(html);
+    expect(out).toBe(html);
+    expect(corrections).toEqual([]);
+  });
+
+  it("leaves the incident's literal non-grand cross-table label untouched too", () => {
+    // Without "grand"/"overall" the row is a component total (no data rows
+    // since the renewal subtotal) — never rewritten, on either code path.
+    const html = table([
+      row(['Year 4', '$2,367,050.00']),
+      row(['Year 5', '$2,437,050.00']),
+      row(['Total Renewal (2 Years)', '$4,804,100.00']),
+      row(['Total 5-Year Maximum Contract Value', '$12,263,250.00']),
+    ]);
+    const { html: out, corrections } = correctPricingTableTotals(html);
+    expect(out).toBe(html);
+    expect(corrections).toEqual([]);
+  });
+
+  it('still corrects a year-qualified total over its own data rows (column-sum path unaffected)', () => {
+    const html = table([
+      row(['Year 1', '$2,000,000.00']),
+      row(['Year 2', '$2,100,000.00']),
+      row(['Year 3', '$2,200,000.00']),
+      row(['3-Year Base Period Total', '$6,200,000.00']), // wrong: rows sum to $6,300,000
+    ]);
+    const { html: out, corrections } = correctPricingTableTotals(html);
+    expect(corrections).toHaveLength(1);
+    expect(out).toContain('$6,300,000.00');
+  });
+
   it('aligns money columns from the end of the row, so colspan total labels line up', () => {
     const html = table([
       row(['Service', 'Tier', 'Qty', 'Extended'], 'th'),

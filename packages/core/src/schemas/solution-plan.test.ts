@@ -300,6 +300,25 @@ describe('SolutionPlanCostItemSchema', () => {
       SolutionPlanCostItemSchema.safeParse({ ...validCostItem, label: '' }).success
     ).toBe(false);
   });
+
+  it('should default optional to false when omitted (legacy items)', () => {
+    expect(SolutionPlanCostItemSchema.parse(validCostItem).optional).toBe(false);
+  });
+
+  it('should accept an explicit optional flag', () => {
+    expect(
+      SolutionPlanCostItemSchema.parse({ ...validCostItem, optional: true }).optional
+    ).toBe(true);
+    expect(
+      SolutionPlanCostItemSchema.parse({ ...validCostItem, optional: false }).optional
+    ).toBe(false);
+  });
+
+  it('should catch a malformed optional value to false', () => {
+    expect(
+      SolutionPlanCostItemSchema.parse({ ...validCostItem, optional: 'yes' }).optional
+    ).toBe(false);
+  });
 });
 
 describe('SolutionPlanCostScheduleSchema', () => {
@@ -337,6 +356,19 @@ describe('SolutionPlanCostScheduleSchema', () => {
     });
     expect(success).toBe(true);
     expect(data?.assumptions).toEqual(['12-month period of performance']);
+  });
+
+  it('should parse a legacy persisted schedule (items without the optional flag)', () => {
+    const { success, data } = SolutionPlanCostScheduleSchema.safeParse({
+      items: [
+        { label: 'Setup', amount: 1000, billing: 'ONE_TIME' },
+        { label: 'Hosting', category: 'LABOR', amount: 400, billing: 'MONTHLY' },
+      ],
+      oneTimeTotal: 1000,
+      ongoingAnnualTotal: 4800,
+    });
+    expect(success).toBe(true);
+    expect(data?.items.map((i) => i.optional)).toEqual([false, false]);
   });
 });
 

@@ -47,7 +47,7 @@ describe('reconcileTotalsWithPlan', () => {
   it('forces an ongoing-annual total to the schedule value (incident fixture)', () => {
     const html = table([
       row(['Hosting', '$4,440.00']),
-      row(['Total Ongoing Annual Fees', '$4,440.00']),
+      row(['Total Ongoing Annual Costs', '$4,440.00']),
     ]);
     const { corrections } = reconcileTotalsWithPlan(html, schedule);
     expect(corrections).toEqual([
@@ -87,7 +87,7 @@ describe('reconcileTotalsWithPlan', () => {
   it('WARN-logs the residual line-item delta (docTotal/planTotal/delta) when a total is forced', () => {
     const html = table([
       row(['Hosting', '$4,440.00']),
-      row(['Total Ongoing Annual Fees', '$4,440.00']),
+      row(['Total Ongoing Annual Costs', '$4,440.00']),
     ]);
     const { warnings } = reconcileTotalsWithPlan(html, schedule);
     expect(warnings).toEqual([
@@ -131,6 +131,98 @@ describe('reconcileTotalsWithPlan', () => {
         expect.stringContaining('"Year 1 Annual Total": year-qualified'),
       ]),
     );
+  });
+
+  it('never forces category-qualified subtotals to the bucket totals (2026-08-18 incident fixture)', () => {
+    const html = table([
+      row(['Total Steady-State Annual Labor (4.75 FTE Equivalent)', '$1,084,200.00']),
+      row(['Total Annual ODCs', '$262,630.00']),
+      row(['Total ODCs (Annual)', '$262,630.00']),
+    ]);
+    const { html: out, corrections, warnings } = reconcileTotalsWithPlan(html, schedule);
+    expect(out).toBe(html);
+    expect(corrections).toEqual([]);
+    expect(warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining(
+          '"Total Steady-State Annual Labor (4.75 FTE Equivalent)": category-qualified subtotal',
+        ),
+        expect.stringContaining('"Total Annual ODCs": category-qualified subtotal'),
+        expect.stringContaining('"Total ODCs (Annual)": category-qualified subtotal'),
+      ]),
+    );
+  });
+
+  it('still warns on a category-qualified row whose label matches both buckets', () => {
+    const html = table([
+      row(['Total One-Time and Annual Labor', '$39,520.00']),
+    ]);
+    const { corrections, warnings } = reconcileTotalsWithPlan(html, schedule);
+    expect(corrections).toEqual([]);
+    expect(warnings).toEqual(
+      expect.arrayContaining([expect.stringContaining('category-qualified subtotal')]),
+    );
+  });
+
+  it('does not warn on a category subtotal that never matched a bucket', () => {
+    const html = table([
+      row(['Engineer', '$100.00']),
+      row(['Subtotal Labor', '$100.00']),
+      row(['Ops', '$4,440.00']),
+      row(['Total Ongoing Annual Costs', '$4,440.00']),
+    ]);
+    const { warnings } = reconcileTotalsWithPlan(html, schedule);
+    expect(warnings).not.toEqual(
+      expect.arrayContaining([expect.stringContaining('category-qualified')]),
+    );
+  });
+
+  it('still forces genuine bucket totals — phase words are not categories', () => {
+    const html =
+      table([
+        row(['Ops', '$4,440.00']),
+        row(['Total Annual Recurring Cost', '$4,440.00']),
+      ]) +
+      table([
+        row(['Transition', '$38,880.00']),
+        row(['Total One-Time Transition Costs', '$38,880.00']),
+      ]) +
+      table([
+        row(['Ops', '$4,440.00']),
+        row(['TOTAL ANNUAL RECURRING', '$4,440.00']),
+      ]);
+    const { corrections } = reconcileTotalsWithPlan(html, schedule);
+    expect(corrections).toEqual([
+      expect.objectContaining({
+        rowLabel: 'Total Annual Recurring Cost',
+        bucket: 'ONGOING_ANNUAL',
+        correctedValue: '$4,800.00',
+      }),
+      expect.objectContaining({
+        rowLabel: 'Total One-Time Transition Costs',
+        bucket: 'ONE_TIME',
+        correctedValue: '$34,720.00',
+      }),
+      expect.objectContaining({ rowLabel: 'TOTAL ANNUAL RECURRING', bucket: 'ONGOING_ANNUAL' }),
+    ]);
+  });
+
+  it("feeds a skipped category subtotal's stated value into a later grand recompute", () => {
+    const html = table([
+      row(['Engineer', '$1,084,200.00']),
+      row(['Total Annual Labor', '$1,084,200.00']), // category-skipped, stated value kept
+      row(['Cloud hosting', '$262,630.00']),
+      row(['Total Annual ODCs', '$262,630.00']), // category-skipped, stated value kept
+      row(['Grand Total', '$1,500,000.00']), // must become 1,084,200 + 262,630
+    ]);
+    const { corrections } = reconcileTotalsWithPlan(html, schedule);
+    expect(corrections).toEqual([
+      expect.objectContaining({
+        bucket: 'GRAND',
+        previousValue: '$1,500,000.00',
+        correctedValue: '$1,346,830.00',
+      }),
+    ]);
   });
 
   it('skips a label matching both one-time and ongoing buckets with a warning', () => {
@@ -193,7 +285,7 @@ describe('reconcileTotalsWithPlan', () => {
   it('processes multiple tables independently and reports tableIndex', () => {
     const html =
       table([row(['Total One-Time Costs', '$38,880.00'])]) +
-      table([row(['Total Ongoing Annual Fees', '$4,440.00'])]);
+      table([row(['Total Ongoing Annual Costs', '$4,440.00'])]);
     const { corrections } = reconcileTotalsWithPlan(html, schedule);
     expect(corrections).toEqual([
       expect.objectContaining({ tableIndex: 0, bucket: 'ONE_TIME' }),

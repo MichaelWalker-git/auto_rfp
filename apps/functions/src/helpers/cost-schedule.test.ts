@@ -11,6 +11,7 @@ const item = (overrides: Partial<SolutionPlanCostItem>): SolutionPlanCostItem =>
   category: 'OTHER',
   amount: 0,
   billing: 'ONE_TIME',
+  optional: false,
   ...overrides,
 });
 
@@ -53,6 +54,23 @@ describe('computeCostScheduleTotals', () => {
       oneTimeTotal: 0,
       ongoingAnnualTotal: 0,
     });
+  });
+
+  it('excludes optional items from both totals (2026-08-18 incident fixture)', () => {
+    // Base annual $2,402,050 + optional ANNUAL $129,600 must total $2,402,050,
+    // not $2,531,650 — optional CLINs are priced separately.
+    const totals = computeCostScheduleTotals([
+      item({ label: 'Steady-state operations', amount: 2402050, billing: 'ANNUAL' }),
+      item({
+        label: 'Real-Time Eligibility Integration Upgrade (Optional)',
+        amount: 129600,
+        billing: 'ANNUAL',
+        optional: true,
+      }),
+      item({ label: 'Optional setup', amount: 5000, billing: 'ONE_TIME', optional: true }),
+      item({ label: 'Optional add-on', amount: 100, billing: 'MONTHLY', optional: true }),
+    ]);
+    expect(totals).toEqual({ oneTimeTotal: 0, ongoingAnnualTotal: 2402050 });
   });
 });
 
@@ -100,5 +118,37 @@ describe('renderCostScheduleBlock', () => {
 
   it('is deterministic — same schedule, same block', () => {
     expect(renderCostScheduleBlock(schedule)).toBe(renderCostScheduleBlock(schedule));
+  });
+
+  it('renders optional items in a separate section after the TOTAL lines, with the optional usage rule', () => {
+    const withOptional: SolutionPlanCostSchedule = {
+      ...schedule,
+      items: [
+        ...schedule.items,
+        item({
+          label: 'Real-Time Eligibility Integration Upgrade (Optional)',
+          category: 'THIRD_PARTY',
+          amount: 129600,
+          billing: 'ANNUAL',
+          optional: true,
+        }),
+      ],
+    };
+    const block = renderCostScheduleBlock(withOptional);
+    expect(block).toContain(
+      'OPTIONAL ITEMS (NOT included in the totals — price separately if the RFP requests options):',
+    );
+    expect(block).toContain(
+      '- Real-Time Eligibility Integration Upgrade (Optional) | THIRD_PARTY | annual | $129,600.00',
+    );
+    expect(block).toContain('Optional items are NOT in the TOTAL lines.');
+    // The optional section comes after the authoritative TOTAL lines.
+    expect(block.indexOf('TOTAL ONGOING (ANNUAL):')).toBeLessThan(block.indexOf('OPTIONAL ITEMS'));
+  });
+
+  it('omits the optional section and rule when there are no optional items', () => {
+    const block = renderCostScheduleBlock(schedule);
+    expect(block).not.toContain('OPTIONAL ITEMS');
+    expect(block).not.toContain('Optional items are NOT in the TOTAL lines.');
   });
 });

@@ -406,6 +406,47 @@ describe('processSynthesis', () => {
     );
   });
 
+  it('marks "(Optional)"-labeled items optional and excludes them from the recomputed totals (2026-08-18 incident)', async () => {
+    mockInvokeClaudeJson.mockResolvedValue({
+      title: 'Solution Plan',
+      htmlContent: '<h2>Solution Architecture</h2><p>…</p>',
+      costSchedule: {
+        currency: 'USD',
+        items: [
+          { label: 'Steady-state operations', category: 'LABOR', amount: 2402050, billing: 'ANNUAL', optional: false },
+          // Model wrote "(Optional)" in the label but forgot the flag
+          { label: 'Real-Time Eligibility Integration Upgrade (Optional)', category: 'THIRD_PARTY', amount: 129600, billing: 'ANNUAL', optional: false },
+          // Explicitly flagged item (no label hint) is honored as-is
+          { label: 'Enhanced reporting module', category: 'OTHER', amount: 5000, billing: 'ONE_TIME', optional: true },
+        ],
+        oneTimeTotal: 0,
+        ongoingAnnualTotal: 0,
+      },
+    });
+
+    await processSynthesis(synthMessage);
+
+    expect(mockUpdateStatus).toHaveBeenCalledWith(
+      planKey,
+      'READY',
+      expect.objectContaining({
+        costSchedule: expect.objectContaining({
+          // Persisted items carry the normalized flags
+          items: [
+            expect.objectContaining({ label: 'Steady-state operations', optional: false }),
+            expect.objectContaining({
+              label: 'Real-Time Eligibility Integration Upgrade (Optional)',
+              optional: true,
+            }),
+            expect.objectContaining({ label: 'Enhanced reporting module', optional: true }),
+          ],
+          oneTimeTotal: 0, // optional ONE_TIME excluded
+          ongoingAnnualTotal: 2402050, // optional ANNUAL $129,600 excluded
+        }),
+      }),
+    );
+  });
+
   it('warns and persists costSchedule: null when synthesis returns no schedule (READY, not FAILED)', async () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 

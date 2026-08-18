@@ -155,6 +155,8 @@ export const SolutionPlanCostItemSchema = z.object({
   /** null = vendor quote required (no verified price) */
   amount: z.number().nonnegative().nullable(),
   billing: SolutionPlanCostBillingSchema,
+  /** Optional/if-exercised item (option CLIN, optional upgrade) — EXCLUDED from both totals */
+  optional: z.boolean().catch(false).default(false),
 });
 
 export type SolutionPlanCostItem = z.infer<typeof SolutionPlanCostItemSchema>;
