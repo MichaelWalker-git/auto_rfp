@@ -63,6 +63,7 @@ const ROUTE_LABELS: Record<string, string> = {
   documents: 'Solicitation Documents',
   dashboard: 'Dashboard',
   'knowledge-base': 'Org Documents',
+  'kb-coverage': 'KB Coverage',
   deadlines: 'Deadlines',
   templates: 'Templates',
   new: 'New',

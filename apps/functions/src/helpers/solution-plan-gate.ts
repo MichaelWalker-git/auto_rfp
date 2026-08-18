@@ -87,16 +87,24 @@ const hasExistingGatedDocument = async ({
 /**
  * Decide whether document generation may proceed for this opportunity + type.
  * Called by `generate-document` before creating the placeholder document.
+ *
+ * `loadOrg` exists so a caller composing this gate with another one can share
+ * a single org read (see `generation-preconditions.ts`). It stays a thunk
+ * rather than a plain value so the cheap short-circuits above it still read
+ * nothing at all — an exempt document type must not pay for a GetItem.
  */
 export const checkSolutionPlanGate = async (
-  args: SolutionPlanKey & { documentType: RFPDocumentType },
+  args: SolutionPlanKey & {
+    documentType: RFPDocumentType;
+    loadOrg?: () => Promise<{ enableSolutionPlan?: boolean } | null>;
+  },
 ): Promise<SolutionPlanGateResult> => {
-  const { orgId, projectId, opportunityId, documentType } = args;
+  const { orgId, projectId, opportunityId, documentType, loadOrg } = args;
 
   if (!isGatedDocumentType(documentType)) return GATE_OPEN;
   if (process.env[SOLUTION_PLAN_GATING_ENV] === SOLUTION_PLAN_GATING_OFF) return GATE_OPEN;
 
-  const org = await getOrganizationById(orgId);
+  const org = loadOrg ? await loadOrg() : await getOrganizationById(orgId);
   if (!org?.enableSolutionPlan) return GATE_OPEN;
 
   const plan = await getSolutionPlanByOpportunity({ orgId, projectId, opportunityId });

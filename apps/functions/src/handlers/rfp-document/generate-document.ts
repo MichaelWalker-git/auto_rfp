@@ -17,7 +17,7 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { getRFPDocument, putRFPDocument, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
-import { checkSolutionPlanGate } from '@/helpers/solution-plan-gate';
+import { checkGenerationPreconditions } from '@/helpers/generation-preconditions';
 import { enqueueDocumentGeneration } from '@/helpers/document-generation-queue';
 import { nowIso } from '@/helpers/date';
 import { PK_NAME, SK_NAME } from '@/constants/common';
@@ -94,20 +94,17 @@ export const baseHandler = async (
         updatedBy: userId ?? 'system',
       });
     } else {
-      // ── Solution Plan gate (T9): gated types require a READY plan ──
-      const { allowed, solutionPlanStatus } = await checkSolutionPlanGate({
+      // ── Pre-generation gate: a READY Solution Plan (T9) and KB coverage for
+      // the document type's required inputs. One refusal model: 409 + a
+      // machine-readable code, checked before anything is written or enqueued.
+      const preconditions = await checkGenerationPreconditions({
         orgId,
         projectId,
         opportunityId: effectiveOpportunityId,
         documentType,
       });
-      if (!allowed) {
-        return apiResponse(409, {
-          message:
-            'A ready Solution Plan is required before generating this document type. Create a Solution Plan for this opportunity first.',
-          code: 'SOLUTION_PLAN_REQUIRED',
-          solutionPlanStatus,
-        });
+      if (!preconditions.allowed) {
+        return apiResponse(409, preconditions.refusal);
       }
 
       // ── New document: create a placeholder with status GENERATING ──
