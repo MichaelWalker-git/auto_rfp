@@ -14,6 +14,7 @@
  */
 
 import { getPastProject, searchPastProjects } from './past-performance';
+import { isUsableInMatching, redactForGeneration, anonymizationNotice } from './past-performance-disclosure';
 import { getExecutiveBrief, queryCompanyKnowledgeBase, truncateText } from './executive-opportunity-brief';
 import { loadTextFromS3 } from './s3';
 import { requireEnv } from './env';
@@ -194,13 +195,18 @@ const executePastPerformanceSearch = async (
 
     const details = await Promise.all(
       relevant.map(async (r) => {
-        const project = await getPastProject(orgId, r.projectId).catch(() => null);
-        if (!project) return null;
+        const loaded = await getPastProject(orgId, r.projectId).catch(() => null);
+        if (!loaded) return null;
+        // Disclosure gate: drop DO_NOT_USE, redact non-NAMEABLE before it reaches the prompt.
+        if (!isUsableInMatching(loaded)) return null;
+        const project = redactForGeneration(loaded);
 
         const lines: string[] = [
           `**${project.title}** (relevance: ${Math.round(r.score * 100)}%)`,
           `Client: ${project.client}`,
         ];
+        const notice = anonymizationNotice(loaded);
+        if (notice) lines.push(notice);
         if (project.domain) lines.push(`Domain: ${project.domain}`);
         if (project.value) lines.push(`Value: $${project.value.toLocaleString()}`);
         if (project.performanceRating) lines.push(`Performance Rating: ${project.performanceRating}/5`);

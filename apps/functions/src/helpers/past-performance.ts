@@ -6,6 +6,7 @@ import { nowIso } from './date';
 import { getEmbedding } from './embeddings';
 import { initPineconeClient } from './pinecone';
 import { PK_NAME, SK_NAME } from '@/constants/common';
+import { isUsableInMatching, redactForGeneration } from './past-performance-disclosure';
 import {
   type PastProject,
   type CreatePastProjectDTO,
@@ -14,6 +15,8 @@ import {
   type MatchDetails,
   type GapAnalysis,
   type RequirementCoverage,
+  type DisclosureProposal,
+  type ConfirmDisclosureRow,
   PAST_PROJECT_PK,
   createPastProjectSK,
   calculateRelevanceScore,
@@ -69,6 +72,18 @@ export async function createPastProject(
     createdBy,
     isArchived: false,
     extractionSource: dto.extractionSource || null,
+    // Disclosure gating — fail-closed. An initial disclosure may be supplied on
+    // create, but it is never trusted until confirmed via the review endpoint.
+    disclosure: dto.disclosure ?? 'PERMISSION_REQUIRED',
+    disclosureConfirmed: false,
+    disclosureContactNote: dto.disclosureContactNote ?? null,
+    disclosureReviewedBy: null,
+    disclosureReviewedAt: null,
+    disclosureProposed: null,
+    disclosureRationale: null,
+    disclosureSignals: [],
+    disclosureConfidence: null,
+    disclosureClassifiedAt: null,
   };
 
   const sk = createPastProjectSK(dto.orgId, projectId);
@@ -87,6 +102,11 @@ export async function createPastProject(
   // Index to Pinecone for semantic search
   await indexPastProjectToPinecone(dto.orgId, project);
 
+  // NOTE: we deliberately do NOT auto-classify disclosure here. A fire-and-forget
+  // dispatch is unreliable in Lambda (work not awaited before the handler returns
+  // is frozen and usually never runs), and awaiting a Bedrock call on every create
+  // adds latency/cost. New rows are fail-closed (disclosureConfirmed=false) and the
+  // disclosure review page's "Classify all" reliably proposes for any unproposed row.
   return project;
 }
 
@@ -131,7 +151,10 @@ export async function updatePastProject(
     'title', 'client', 'clientPOC', 'contractNumber', 'startDate', 'endDate',
     'value', 'description', 'technicalApproach', 'achievements', 'performanceRating',
     'domain', 'technologies', 'naicsCodes', 'contractType', 'setAside',
-    'teamSize', 'durationMonths', 'isArchived'
+    'teamSize', 'durationMonths', 'isArchived',
+    // Disclosure note + level are editable via the generic update; confirmation
+    // is intentionally excluded — it flips only through the review endpoint.
+    'disclosure', 'disclosureContactNote',
   ];
 
   for (const field of fields) {
@@ -160,6 +183,134 @@ export async function updatePastProject(
   // Re-index to Pinecone if content changed
   if (updated && (dto.title || dto.description || dto.technicalApproach || dto.achievements || dto.technologies)) {
     await indexPastProjectToPinecone(orgId, updated);
+  }
+
+  return updated;
+}
+
+// ================================
+// Disclosure classification & review
+// ================================
+
+/**
+ * Persist an AI classification proposal. Writes ONLY the `disclosureProposed*`
+ * fields — never `disclosure` or `disclosureConfirmed`, which change only
+ * through human confirmation (fail-closed).
+ *
+ * `p.projectId` comes from LLM-echoed output, so it may be hallucinated / for
+ * the wrong org / an altered UUID. The `attribute_exists` guard prevents writing
+ * a bare item; a non-matching id raises `ConditionalCheckFailedException`, which
+ * we swallow (return false) rather than letting it reject the caller's batch and
+ * lose every valid proposal alongside it. Mirrors `confirmDisclosureRows`.
+ *
+ * @returns true if the row was updated, false if no such project existed (skipped).
+ */
+export async function saveDisclosureProposal(orgId: string, p: DisclosureProposal): Promise<boolean> {
+  const sk = createPastProjectSK(orgId, p.projectId);
+  const now = nowIso();
+
+  try {
+    await docClient.send(
+      new UpdateCommand({
+        TableName: DB_TABLE_NAME,
+        Key: {
+          [PK_NAME]: PAST_PROJECT_PK,
+          [SK_NAME]: sk,
+        },
+        UpdateExpression:
+          'SET #disclosureProposed = :proposed, #disclosureRationale = :rationale, ' +
+          '#disclosureSignals = :signals, #disclosureConfidence = :confidence, ' +
+          '#disclosureClassifiedAt = :classifiedAt, #updatedAt = :updatedAt',
+        // Only update rows that already exist — never create a bare item.
+        ConditionExpression: 'attribute_exists(#pk)',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#disclosureProposed': 'disclosureProposed',
+          '#disclosureRationale': 'disclosureRationale',
+          '#disclosureSignals': 'disclosureSignals',
+          '#disclosureConfidence': 'disclosureConfidence',
+          '#disclosureClassifiedAt': 'disclosureClassifiedAt',
+          '#updatedAt': 'updatedAt',
+        },
+        ExpressionAttributeValues: {
+          ':proposed': p.proposed,
+          ':rationale': p.rationale,
+          ':signals': p.signals,
+          ':confidence': p.confidence,
+          ':classifiedAt': now,
+          ':updatedAt': now,
+        },
+      }),
+    );
+    return true;
+  } catch (err) {
+    const name = (err as { name?: string })?.name;
+    if (name === 'ConditionalCheckFailedException') {
+      // Model echoed a projectId with no matching row — skip it, don't fail the batch.
+      console.warn(`saveDisclosureProposal: no project ${p.projectId} in org ${orgId}; skipping proposal`);
+      return false;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Apply a batch of human confirm/override decisions. This is the ONLY path that
+ * flips `disclosureConfirmed` to true and stamps the reviewer. Rows whose
+ * project no longer exists are skipped. Returns the number of rows updated.
+ */
+export async function confirmDisclosureRows(
+  orgId: string,
+  rows: ConfirmDisclosureRow[],
+  reviewedBy: string,
+  reviewedAt: string,
+): Promise<number> {
+  let updated = 0;
+
+  for (const row of rows) {
+    const sk = createPastProjectSK(orgId, row.projectId);
+    try {
+      await docClient.send(
+        new UpdateCommand({
+          TableName: DB_TABLE_NAME,
+          Key: {
+            [PK_NAME]: PAST_PROJECT_PK,
+            [SK_NAME]: sk,
+          },
+          UpdateExpression:
+            'SET #disclosure = :disclosure, #disclosureConfirmed = :confirmed, ' +
+            '#disclosureContactNote = :note, #disclosureReviewedBy = :reviewedBy, ' +
+            '#disclosureReviewedAt = :reviewedAt, #updatedAt = :updatedAt',
+          ConditionExpression: 'attribute_exists(#pk)',
+          ExpressionAttributeNames: {
+            '#pk': PK_NAME,
+            '#disclosure': 'disclosure',
+            '#disclosureConfirmed': 'disclosureConfirmed',
+            '#disclosureContactNote': 'disclosureContactNote',
+            '#disclosureReviewedBy': 'disclosureReviewedBy',
+            '#disclosureReviewedAt': 'disclosureReviewedAt',
+            '#updatedAt': 'updatedAt',
+          },
+          ExpressionAttributeValues: {
+            ':disclosure': row.disclosure,
+            ':confirmed': true,
+            ':note': row.disclosureContactNote ?? null,
+            ':reviewedBy': reviewedBy,
+            ':reviewedAt': reviewedAt,
+            ':updatedAt': reviewedAt,
+          },
+        }),
+      );
+      updated += 1;
+    } catch (err) {
+      // Skip rows whose project no longer exists (ConditionalCheckFailed) but
+      // surface anything unexpected.
+      const name = (err as { name?: string })?.name;
+      if (name !== 'ConditionalCheckFailedException') {
+        console.error(`confirmDisclosureRows: failed to update ${row.projectId}:`, err);
+        throw err;
+      }
+    }
   }
 
   return updated;
@@ -246,17 +397,31 @@ export async function listPastProjects(
   };
 }
 
-export async function reindexAllPastProjects(
-  orgId: string
-): Promise<{ indexed: number; failed: string[] }> {
+/**
+ * Drain every page of past projects for an org. `listPastProjects` returns a
+ * single page (default 50), which silently truncates callers that need the whole
+ * library (classification, reindex). Use this when "all" really means all.
+ */
+export async function listAllPastProjects(
+  orgId: string,
+  includeArchived: boolean = false,
+): Promise<PastProject[]> {
   const allProjects: PastProject[] = [];
   let nextToken: string | undefined;
 
   do {
-    const result = await listPastProjects(orgId, false, 100, nextToken);
+    const result = await listPastProjects(orgId, includeArchived, 100, nextToken);
     allProjects.push(...result.items);
     nextToken = result.nextToken;
   } while (nextToken);
+
+  return allProjects;
+}
+
+export async function reindexAllPastProjects(
+  orgId: string
+): Promise<{ indexed: number; failed: string[] }> {
+  const allProjects = await listAllPastProjects(orgId);
 
   let indexed = 0;
   const failed: string[] = [];
@@ -286,10 +451,13 @@ export async function indexPastProjectToPinecone(
   const client = await initPineconeClient();
   const index = client.Index(requireEnv('PINECONE_INDEX'));
 
-  // Create rich text for embedding
+  // Create rich text for embedding.
+  // NOTE: the client name is intentionally excluded — a project may be
+  // NDA/permission-gated, so vector recall must not key on a name we may
+  // not be allowed to use. Disclosure gating reads the authoritative record
+  // from DynamoDB, never Pinecone metadata.
   const textForEmbedding = [
     `Project: ${project.title}`,
-    `Client: ${project.client}`,
     `Description: ${project.description}`,
     project.technicalApproach ? `Technical Approach: ${project.technicalApproach}` : '',
     project.domain ? `Domain: ${project.domain}` : '',
@@ -310,7 +478,8 @@ export async function indexPastProjectToPinecone(
         type: 'past_project',
         projectId: project.projectId,
         title: project.title,
-        client: project.client,
+        // client intentionally NOT indexed — disclosure gating re-reads the
+        // authoritative record from DynamoDB rather than trusting stale metadata.
         domain: project.domain || '',
         technologies: project.technologies,
         naicsCodes: project.naicsCodes,
@@ -421,6 +590,9 @@ export async function matchProjectsToRequirements(
 
     const project = await getPastProject(orgId, result.projectId);
     if (!project || project.isArchived) continue;
+    // Disclosure gate: DO_NOT_USE never enters a match; non-NAMEABLE projects
+    // have their identifying fields redacted before the match is persisted.
+    if (!isUsableInMatching(project)) continue;
 
     // Calculate detailed match scores
     const matchDetails = await calculateMatchDetails(
@@ -436,7 +608,7 @@ export async function matchProjectsToRequirements(
     const matchedRequirements = findMatchedRequirements(project, requirements);
 
     matches.push({
-      project,
+      project: redactForGeneration(project),
       relevanceScore,
       matchDetails,
       matchedRequirements,
@@ -448,8 +620,11 @@ export async function matchProjectsToRequirements(
   if (matches.length === 0) {
     console.log('No semantic matches found, falling back to all projects');
     const { items: allProjects } = await listPastProjects(orgId, false, topK);
-    
+
     for (const project of allProjects) {
+      // Same disclosure gate as the semantic branch.
+      if (!isUsableInMatching(project)) continue;
+
       const matchDetails: MatchDetails = {
         technicalSimilarity: 0,
         domainSimilarity: calculateDomainSimilarity(project, solicitationText),
@@ -462,7 +637,7 @@ export async function matchProjectsToRequirements(
       const matchedRequirements = findMatchedRequirements(project, requirements);
 
       matches.push({
-        project,
+        project: redactForGeneration(project),
         relevanceScore,
         matchDetails,
         matchedRequirements,

@@ -26,6 +26,8 @@ import {
 import type { ToolResult, ToolResultSource } from '@/types/tool';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { getItem } from '@/helpers/db';
+import { getPastProject } from '@/helpers/past-performance';
+import { isUsableInMatching, redactForGeneration, anonymizationNotice } from '@/helpers/past-performance-disclosure';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
@@ -288,41 +290,73 @@ const executePastPerfSearch = async (
     const relevant = hits.filter(h => (h.score ?? 0) >= RETRIEVAL_MIN_SCORE).slice(0, topK);
     if (!relevant.length) return emptySearchResult(`No sufficiently relevant past performance found (all scores below ${RETRIEVAL_MIN_SCORE}).`);
 
-    const similarityScores = relevant.map(h => h.score ?? 0);
-    const sources: ToolResultSource[] = [];
-    const sourceCreatedDates: string[] = [];
+    // Disclosure gate: this feeds an LLM, so we must NOT trust Pinecone metadata
+    // for the client name (it may be stale / NDA-gated). Re-read the authoritative
+    // DynamoDB record per hit, drop DO_NOT_USE, and redact non-NAMEABLE (mirrors
+    // document-context surface #5). Each task returns a self-contained result (or
+    // null); we assemble the output arrays from the ordered, filtered list AFTER
+    // the concurrent map, so ordering is stable and [PP n] numbering has no gaps.
+    interface PpEntry {
+      score: number;
+      sk?: string;
+      title: string;
+      body: string; // formatted lines minus the [PP n] header
+      createdDate?: string;
+    }
 
-    const formatted = relevant.map((h, i) => {
-      const m = h.source as Record<string, unknown>;
-      const lines: string[] = [`[PP ${i + 1}] (score: ${h.score?.toFixed(2)})`];
-      if (m.title) lines.push(`Project: ${m.title}`);
-      if (m.client) lines.push(`Client: ${m.client}`);
-      if (m.domain) lines.push(`Domain: ${m.domain}`);
-      if (m.value) lines.push(`Value: $${m.value}`);
-      if (m.description) lines.push(`Description: ${truncateText(String(m.description), 300)}`);
-      if (Array.isArray(m.technologies) && m.technologies.length) {
-        lines.push(`Technologies: ${(m.technologies as string[]).slice(0, 6).join(', ')}`);
-      }
-      if (Array.isArray(m.achievements) && m.achievements.length) {
-        lines.push('Achievements:');
-        (m.achievements as string[]).slice(0, 3).forEach(a => lines.push(`  • ${a}`));
-      }
+    const entriesNullable = await Promise.all(
+      relevant.map(async (h): Promise<PpEntry | null> => {
+        const m = h.source as Record<string, unknown>;
+        const projectId = m.projectId as string | undefined;
+        const loaded = projectId ? await getPastProject(orgId, projectId).catch(() => null) : null;
+        if (!loaded || !isUsableInMatching(loaded)) return null;
+        const project = redactForGeneration(loaded);
 
-      // Build source metadata
-      const sk = m[SK_NAME] as string | undefined;
-      const formattedText = lines.join('\n');
-      sources.push({
-        id: sk ?? `pp-${i}`,
-        fileName: m.title ? `Past Performance: ${m.title}` : undefined,
-        // Clamp relevance to 0-1 range (Pinecone scores can vary)
-        relevance: h.score != null ? Math.max(0, Math.min(1, h.score)) : undefined,
-        textContent: formattedText,
-      });
-      const dateStr = (m.createdAt ?? m.updatedAt) as string | undefined;
-      if (dateStr) sourceCreatedDates.push(dateStr);
+        const lines: string[] = [];
+        lines.push(`Project: ${project.title}`);
+        lines.push(`Client: ${project.client}`);
+        const notice = anonymizationNotice(loaded);
+        if (notice) lines.push(notice);
+        if (project.domain) lines.push(`Domain: ${project.domain}`);
+        if (project.value) lines.push(`Value: $${project.value}`);
+        if (project.description) lines.push(`Description: ${truncateText(project.description, 300)}`);
+        if (project.technologies?.length) {
+          lines.push(`Technologies: ${project.technologies.slice(0, 6).join(', ')}`);
+        }
+        if (project.achievements?.length) {
+          lines.push('Achievements:');
+          project.achievements.slice(0, 3).forEach(a => lines.push(`  • ${a}`));
+        }
 
-      return formattedText;
-    });
+        return {
+          score: h.score ?? 0,
+          sk: m[SK_NAME] as string | undefined,
+          title: project.title,
+          body: lines.join('\n'),
+          createdDate: (project.createdAt ?? project.updatedAt) as string | undefined,
+        };
+      }),
+    );
+
+    // Order-stable: same order as `relevant`, gate-dropped entries removed.
+    const entries = entriesNullable.filter((e): e is PpEntry => e !== null);
+    if (!entries.length) {
+      return emptySearchResult('No usable past performance projects found (disclosure-gated).');
+    }
+
+    // Number sequentially over the surviving entries so there are no [PP 1],[PP 3] gaps.
+    const formatted = entries.map((e, i) => `[PP ${i + 1}] (score: ${e.score.toFixed(2)})\n${e.body}`);
+    const similarityScores = entries.map((e) => e.score);
+    const sources: ToolResultSource[] = entries.map((e, i) => ({
+      id: e.sk ?? `pp-${i}`,
+      fileName: `Past Performance: ${e.title}`,
+      // Clamp relevance to 0-1 range (Pinecone scores can vary)
+      relevance: Math.max(0, Math.min(1, e.score)),
+      textContent: formatted[i],
+    }));
+    const sourceCreatedDates = entries
+      .map((e) => e.createdDate)
+      .filter((d): d is string => !!d);
 
     // Flag weak matches to lower confidence — but keep them. (See the KB-search
     // rationale above: discarding the 0.30–0.45 band is what blanked answers.)
