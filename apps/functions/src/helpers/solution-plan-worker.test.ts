@@ -172,6 +172,16 @@ describe('processGrillingRound', () => {
     expect(mockEnqueue).toHaveBeenCalledWith({ ...message, round: 2, phase: 'GRILL' });
   });
 
+  it('fetches the exec brief without the scoring section — the bid decision must not reach the agents', async () => {
+    await processGrillingRound(message);
+
+    expect(mockFetchBrief).toHaveBeenCalledWith(
+      'proj-1',
+      'opp-1',
+      ['summary', 'requirements', 'risks', 'contacts', 'deadlines'],
+    );
+  });
+
   it('terminates to SYNTHESIZE when the token is honored (round ≥ 2)', async () => {
     mockListMessages.mockResolvedValue([grillerMsg(1), techLeadMsg(1)]);
     mockInvokeModel.mockResolvedValue(bedrockText('INTERVIEW_COMPLETE'));

@@ -15,6 +15,7 @@
 | **Fix A** | **Plan as single price source** — when an approved Solution Plan exists, withhold the `search_service_pricing` tool from COST_PROPOSAL / PRICE_VOLUME generation and require documents to copy the plan's "Selected Services & Licenses" prices verbatim. Source URLs stay in the plan only — customer-facing pricing documents no longer print them. |
 | **Fix B** | **Deterministic totals validation** — post-generation pass that parses pricing tables, recomputes column totals, and **auto-corrects** mismatched total cells before saving. |
 | **Fix C** | ~~NO-BID gate~~ **REMOVED by product decision (2026-08-17)**: the Solution Plan does not make bid/no-bid decisions and never blocks generation on one. Only Fixes A and B ship. |
+| **Fix D (follow-up, 2026-08-17)** | **Bid decision must not affect the Solution Plan.** The exec brief's `scoring` section (`=== BID DECISION ===` block) leaked into the grilling context, so NO_GO briefs produced plans declaring "documented NO-GO / no proposal will be submitted" with an empty services table. Fixed by excluding `scoring` from `fetchExecutiveBriefAnalysis` in `solution-plan-worker.ts` (`SOLUTION_PLAN_BRIEF_SECTIONS`) and adding assume-we-are-bidding rules to all three agent prompts in `solution-plan-prompts.ts`. |
 | **Packages touched** | `packages/core`, `apps/functions`, `apps/web` |
 | **Infra changes** | None (no new Lambdas, routes, tables, or stacks) |
 
