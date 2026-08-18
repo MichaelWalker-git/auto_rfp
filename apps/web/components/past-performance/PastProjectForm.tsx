@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { useCreatePastProject } from '@/lib/hooks/use-past-performance';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { DisclosureLevelSchema } from '@auto-rfp/core';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -67,6 +68,8 @@ const PastProjectFormSchema = z.object({
   clientPOCName: z.string().optional(),
   clientPOCEmail: z.string().email().optional().or(z.literal('')),
   clientPOCPhone: z.string().optional(),
+  disclosure: DisclosureLevelSchema.optional(),
+  disclosureContactNote: z.string().max(1000).optional(),
 });
 
 type PastProjectFormData = z.infer<typeof PastProjectFormSchema>;
@@ -113,6 +116,8 @@ export function PastProjectForm({ onSuccess, trigger }: PastProjectFormProps) {
       clientPOCName: '',
       clientPOCEmail: '',
       clientPOCPhone: '',
+      disclosure: 'PERMISSION_REQUIRED',
+      disclosureContactNote: '',
     },
   });
 
@@ -158,6 +163,8 @@ export function PastProjectForm({ onSuccess, trigger }: PastProjectFormProps) {
           email: data.clientPOCEmail || undefined,
           phone: data.clientPOCPhone || undefined,
         } : undefined,
+        disclosure: data.disclosure,
+        disclosureContactNote: data.disclosureContactNote || undefined,
       };
 
       await createProject.trigger(payload);
@@ -623,6 +630,51 @@ export function PastProjectForm({ onSuccess, trigger }: PastProjectFormProps) {
                         )}
                       />
                     </div>
+
+                    <Separator />
+
+                    <FormField
+                      control={form.control}
+                      name="disclosure"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Disclosure classification</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value ?? 'PERMISSION_REQUIRED'}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="NAMEABLE">Nameable — client may be named</SelectItem>
+                              <SelectItem value="ANONYMIZED_ONLY">Anonymize — describe but do not name</SelectItem>
+                              <SelectItem value="PERMISSION_REQUIRED">Permission required (default)</SelectItem>
+                              <SelectItem value="DO_NOT_USE">Do not use — never surface</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            This selection is unconfirmed until a reviewer approves it on the disclosure review
+                            page. Until then the client name is withheld from generated documents.
+                          </FormDescription>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="disclosureContactNote"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Disclosure note (optional)</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="e.g. NDA expires 2026; contact legal before naming."
+                              {...field}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
                   </div>
                 )}
               </div>

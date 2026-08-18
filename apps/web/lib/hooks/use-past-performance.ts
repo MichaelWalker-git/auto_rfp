@@ -98,23 +98,27 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 // List Past Projects Hook
 // ================================
 
-export function useListPastProjects(orgId: string | undefined, includeArchived = false) {
+export function useListPastProjects(orgId: string | undefined, includeArchived = false, limit?: number) {
   const fetcher = async () => {
     if (!orgId) return null;
     return postJson<ListPastProjectsResponse>(`${BASE_URL}/list-projects`, {
       orgId,
       includeArchived,
+      ...(limit ? { limit } : {}),
     });
   };
 
   const { data, error, isLoading, mutate } = useSWR(
-    orgId ? ['past-projects', orgId, includeArchived] : null,
+    orgId ? ['past-projects', orgId, includeArchived, limit ?? null] : null,
     fetcher
   );
 
   return {
     projects: data?.items || [],
     total: data?.total || 0,
+    // The backend returns nextToken when more rows exist beyond this page, so the
+    // caller can tell the list was truncated (this view isn't paginated).
+    hasMore: !!data?.nextToken,
     isLoading,
     isError: !!error,
     error,

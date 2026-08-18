@@ -27,6 +27,13 @@ import Link from 'next/link';
 import type { PastProject } from '@auto-rfp/core';
 import { PermissionButton } from '@/components/ui/permission-button';
 import { usePermission } from '@/components/permission-wrapper';
+import {
+  DisclosureBadge,
+  DisclosureCardControl,
+  DisclosureManagementBar,
+  getEffectiveDisclosure,
+  useDisclosureManagement,
+} from '@/features/disclosure-review';
 
 interface PastProjectsContentProps {
   orgId: string;
@@ -39,7 +46,10 @@ export function PastProjectsContent({ orgId }: PastProjectsContentProps) {
   const { toast } = useToast();
   const canEditPP = usePermission('project:edit');
   const canDeletePP = usePermission('project:delete');
-  
+  // Classify/confirm endpoints both require kb:edit — gate inline management on it.
+  const canManageDisclosure = usePermission('kb:edit');
+  const disclosure = useDisclosureManagement({ orgId, projects });
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<PastProject | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -134,6 +144,7 @@ export function PastProjectsContent({ orgId }: PastProjectsContentProps) {
           <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
             <Building2 className="h-3.5 w-3.5"/>
             <span>{project.client}</span>
+            <DisclosureBadge level={getEffectiveDisclosure(project)} />
             {project.value && (
               <>
                 <span className="mx-1">•</span>
@@ -156,6 +167,17 @@ export function PastProjectsContent({ orgId }: PastProjectsContentProps) {
               </>
             )}
           </div>
+
+          {disclosure.isActive && (
+            <DisclosureCardControl
+              level={disclosure.getLevel(project)}
+              isDirty={disclosure.isDirty(project)}
+              isSaving={disclosure.savingId === project.projectId || disclosure.savingId === '__all__'}
+              disabled={disclosure.isSaving}
+              onChange={(level) => disclosure.setLevel(project.projectId, level)}
+              onSave={() => disclosure.saveOne(project)}
+            />
+          )}
 
           {project.description && (
             <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
@@ -256,6 +278,20 @@ export function PastProjectsContent({ orgId }: PastProjectsContentProps) {
         description={statsDescription || 'Manage your organization\'s past performance projects for RFP matching'}
         headerActions={
           <div className="flex items-center gap-2">
+            {/* Classify/confirm endpoints require kb:edit — only show inline management to those users. */}
+            {canManageDisclosure && (
+              <DisclosureManagementBar
+                isActive={disclosure.isActive}
+                dirtyCount={disclosure.dirtyCount}
+                isSaving={disclosure.isSaving}
+                isClassifying={disclosure.isClassifying}
+                onEnter={disclosure.enter}
+                onExit={disclosure.exit}
+                onClassifyAll={disclosure.classifyAll}
+                onMarkAllAs={disclosure.markAllAs}
+                onSaveAll={disclosure.saveAll}
+              />
+            )}
             <ExtractionUploadDialog
               orgId={orgId}
               onExtractionComplete={handleReload}

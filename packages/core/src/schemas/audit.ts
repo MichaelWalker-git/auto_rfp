@@ -155,6 +155,8 @@ export const AuditActionSchema = z.enum([
   'FORM_VERSION_REVERTED',
   // Questionnaire version history
   'QUESTIONNAIRE_VERSION_REVERTED',
+  // Past-performance disclosure (NDA / permission) review
+  'PAST_PERF_DISCLOSURE_CONFIRMED',
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 
