@@ -173,6 +173,18 @@ describe('processGrillingRound', () => {
     expect(mockEnqueue).toHaveBeenCalledWith({ ...message, round: 2, phase: 'GRILL' });
   });
 
+  it('loads the exec brief with factual sections only — never scoring/bid-decision', async () => {
+    await processGrillingRound(message);
+
+    expect(mockFetchBrief).toHaveBeenCalledWith(
+      'proj-1',
+      'opp-1',
+      ['summary', 'deadlines', 'requirements', 'contacts', 'risks', 'pricing', 'pastPerformance'],
+    );
+    const [, , sections] = mockFetchBrief.mock.calls[0] as [string, string, string[]];
+    expect(sections).not.toContain('scoring');
+  });
+
   it('terminates to SYNTHESIZE when the token is honored (round ≥ 2)', async () => {
     mockListMessages.mockResolvedValue([grillerMsg(1), techLeadMsg(1)]);
     mockInvokeModel.mockResolvedValue(bedrockText('INTERVIEW_COMPLETE'));

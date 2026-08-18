@@ -11,6 +11,8 @@
  */
 
 import { DOCUMENT_TOOLS, executeDocumentTool } from './document-tools';
+import type { BriefSectionName } from './executive-opportunity-brief';
+import { SOLUTION_PLAN_BRIEF_SECTIONS } from './solution-plan-prompts';
 import type { ToolDefinition, ToolResult } from '@/types/tool';
 
 /** Cap on a transcript tool-call summary — one line for the UI, not the payload. */
@@ -54,6 +56,20 @@ export const SOLUTION_PLAN_TOOLS: ReadonlyArray<ToolDefinition> =
 // ─── Dispatcher ─────────────────────────────────────────────────────────────────
 
 /**
+ * Constrain a `get_executive_brief_analysis` request to the sections the plan
+ * may see (SOLUTION_PLAN_BRIEF_SECTIONS — never `scoring`, which carries the
+ * bid/no-bid decision). An absent, invalid, or fully-disallowed request falls
+ * back to the whole allowed list.
+ */
+const sanitizeBriefSections = (requested: unknown): BriefSectionName[] => {
+  const allowed = (Array.isArray(requested) ? requested : []).filter(
+    (s): s is BriefSectionName =>
+      (SOLUTION_PLAN_BRIEF_SECTIONS as readonly string[]).includes(String(s)),
+  );
+  return allowed.length ? allowed : [...SOLUTION_PLAN_BRIEF_SECTIONS];
+};
+
+/**
  * Execute one Tech Lead tool call. Never throws into the tool loop (ADR-15) —
  * failures come back as text the model can work around.
  */
@@ -72,11 +88,16 @@ export const executeSolutionPlanTool = async (args: {
     return { tool_use_id: toolUseId, content: `Unknown tool: ${toolName}` };
   }
 
+  const sanitizedInput =
+    toolName === 'get_executive_brief_analysis'
+      ? { ...toolInput, sections: sanitizeBriefSections(toolInput.sections) }
+      : toolInput;
+
   // Delegate to the document-tools dispatcher (it catches its own errors).
   // The plan id doubles as the audit-log resource id; grilling has no Q&A set.
   return executeDocumentTool({
     toolName,
-    toolInput,
+    toolInput: sanitizedInput,
     toolUseId,
     orgId,
     projectId,

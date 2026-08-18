@@ -45,6 +45,7 @@ import { enqueueGrillingRound, type GrillingRoundMessage } from './solution-plan
 import {
   GRILLER_BRIEF_CHAR_CAP,
   GRILLER_SOLICITATION_CHAR_CAP,
+  SOLUTION_PLAN_BRIEF_SECTIONS,
   TECH_LEAD_PRIMER_CHAR_CAP,
   buildSynthesizerSystemPrompt,
   buildSynthesizerUserPrompt,
@@ -122,8 +123,12 @@ const buildOpportunityPrimer = (solicitationText: string, execBriefText: string)
 const loadRoundContext = async (message: GrillingRoundMessage): Promise<RoundContext> => {
   const [solicitationRaw, execBriefRaw, allMessages] = await Promise.all([
     loadSolicitation(message.projectId, message.opportunityId),
-    // Empty string when no brief exists — recommended, never required (ADR-14)
-    fetchExecutiveBriefAnalysis(message.projectId, message.opportunityId),
+    // Empty string when no brief exists — recommended, never required (ADR-14).
+    // Factual sections only — the scoring/bid-decision section must never
+    // reach the plan agents.
+    fetchExecutiveBriefAnalysis(message.projectId, message.opportunityId, [
+      ...SOLUTION_PLAN_BRIEF_SECTIONS,
+    ]),
     listGrillingMessages(message.solutionPlanId),
   ]);
 

@@ -126,6 +126,57 @@ describe('executeSolutionPlanTool — delegation', () => {
     expect(result.content).toBe('KB results');
   });
 
+  it('strips the scoring section from get_executive_brief_analysis requests', async () => {
+    mockExecuteDocumentTool.mockResolvedValue({ tool_use_id: 'tu-1', content: 'brief' });
+
+    await executeSolutionPlanTool({
+      ...baseArgs,
+      toolName: 'get_executive_brief_analysis',
+      toolInput: { sections: ['summary', 'scoring', 'risks'] },
+    });
+
+    expect(mockExecuteDocumentTool).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toolName: 'get_executive_brief_analysis',
+        toolInput: { sections: ['summary', 'risks'] },
+      }),
+    );
+  });
+
+  it('defaults get_executive_brief_analysis to the allowed sections when none are requested', async () => {
+    mockExecuteDocumentTool.mockResolvedValue({ tool_use_id: 'tu-1', content: 'brief' });
+
+    await executeSolutionPlanTool({
+      ...baseArgs,
+      toolName: 'get_executive_brief_analysis',
+      toolInput: {},
+    });
+
+    const [{ toolInput }] = mockExecuteDocumentTool.mock.calls[0] as [
+      { toolInput: { sections: string[] } },
+    ];
+    expect(toolInput.sections).toEqual([
+      'summary', 'deadlines', 'requirements', 'contacts', 'risks', 'pricing', 'pastPerformance',
+    ]);
+    expect(toolInput.sections).not.toContain('scoring');
+  });
+
+  it('falls back to the allowed sections when only scoring was requested', async () => {
+    mockExecuteDocumentTool.mockResolvedValue({ tool_use_id: 'tu-1', content: 'brief' });
+
+    await executeSolutionPlanTool({
+      ...baseArgs,
+      toolName: 'get_executive_brief_analysis',
+      toolInput: { sections: ['scoring'] },
+    });
+
+    const [{ toolInput }] = mockExecuteDocumentTool.mock.calls[0] as [
+      { toolInput: { sections: string[] } },
+    ];
+    expect(toolInput.sections).not.toContain('scoring');
+    expect(toolInput.sections.length).toBeGreaterThan(0);
+  });
+
   it('rejects tools outside the solution-plan set without calling the dispatcher', async () => {
     const result = await executeSolutionPlanTool({
       ...baseArgs,

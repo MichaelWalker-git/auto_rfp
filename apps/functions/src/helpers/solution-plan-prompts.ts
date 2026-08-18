@@ -13,6 +13,8 @@
 
 import type { GrillingMessageItem, GrillingMessageRole } from '@auto-rfp/core';
 
+import type { BriefSectionName } from './executive-opportunity-brief';
+
 // ─── Constants ──────────────────────────────────────────────────────────────────
 
 /**
@@ -21,6 +23,23 @@ import type { GrillingMessageItem, GrillingMessageRole } from '@auto-rfp/core';
  * see `shouldHonorTerminationToken` in griller-agent.ts.
  */
 export const INTERVIEW_COMPLETE_TOKEN = 'INTERVIEW_COMPLETE';
+
+/**
+ * Exec-brief sections the plan agents may see. `scoring` is excluded: it
+ * carries the bid/no-bid decision and its rationale, and the Solution Plan
+ * must never know about a bid decision (same product rule as the Fix C
+ * revert). Applied to both the injected round context and the
+ * `get_executive_brief_analysis` tool.
+ */
+export const SOLUTION_PLAN_BRIEF_SECTIONS: readonly BriefSectionName[] = [
+  'summary',
+  'deadlines',
+  'requirements',
+  'contacts',
+  'risks',
+  'pricing',
+  'pastPerformance',
+];
 
 /** Griller context caps: solicitation 60k + exec brief 8k (ROADMAP §2). */
 export const GRILLER_SOLICITATION_CHAR_CAP = 60_000;
