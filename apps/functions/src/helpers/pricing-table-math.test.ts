@@ -101,6 +101,47 @@ describe('correctPricingTableTotals', () => {
     expect(out).toContain('$4,200.00');
   });
 
+  it('never rewrites a year-qualified grand row from table-local prior totals (2026-08-18 incident fixture)', () => {
+    // The renewal table's grand row states base+renewal ($12,263,250) — the
+    // base-period totals live in ANOTHER table, so the table-local prior-totals
+    // sum ($4,804,100, the renewal subtotal alone) is a false correction.
+    const html = table([
+      row(['Year 4', '$2,367,050.00']),
+      row(['Year 5', '$2,437,050.00']),
+      row(['Total Renewal (2 Years)', '$4,804,100.00']),
+      row(['Grand Total — 5-Year Maximum Contract Value', '$12,263,250.00']),
+    ]);
+    const { html: out, corrections } = correctPricingTableTotals(html);
+    expect(out).toBe(html);
+    expect(corrections).toEqual([]);
+  });
+
+  it("leaves the incident's literal non-grand cross-table label untouched too", () => {
+    // Without "grand"/"overall" the row is a component total (no data rows
+    // since the renewal subtotal) — never rewritten, on either code path.
+    const html = table([
+      row(['Year 4', '$2,367,050.00']),
+      row(['Year 5', '$2,437,050.00']),
+      row(['Total Renewal (2 Years)', '$4,804,100.00']),
+      row(['Total 5-Year Maximum Contract Value', '$12,263,250.00']),
+    ]);
+    const { html: out, corrections } = correctPricingTableTotals(html);
+    expect(out).toBe(html);
+    expect(corrections).toEqual([]);
+  });
+
+  it('still corrects a year-qualified total over its own data rows (column-sum path unaffected)', () => {
+    const html = table([
+      row(['Year 1', '$2,000,000.00']),
+      row(['Year 2', '$2,100,000.00']),
+      row(['Year 3', '$2,200,000.00']),
+      row(['3-Year Base Period Total', '$6,200,000.00']), // wrong: rows sum to $6,300,000
+    ]);
+    const { html: out, corrections } = correctPricingTableTotals(html);
+    expect(corrections).toHaveLength(1);
+    expect(out).toContain('$6,300,000.00');
+  });
+
   it('aligns money columns from the end of the row, so colspan total labels line up', () => {
     const html = table([
       row(['Service', 'Tier', 'Qty', 'Extended'], 'th'),
@@ -218,6 +259,41 @@ describe('correctPricingTableTotals', () => {
     // $1,500 is right (subtotal + item B), but the shape is ambiguous — the
     // validator must not "correct" it to $500 (data-since-last-total only).
     expect(out).toContain('$1,500.00');
+  });
+
+  it('never rewrites component total rows in a reconciliation table (2026-08-17 incident)', () => {
+    // "Reconciliation to Proposed Price" tables list component TOTALS as rows
+    // (not addends with a sum below): the old prior-totals fallback rewrote
+    // "Total ODCs" $2,140.00 to the sum of the totals above it.
+    const html = table([
+      row(['Component', 'Amount'], 'th'),
+      row(['Total Labor (Sections 3-4)', '$37,600.00']),
+      row(['Total ODCs (Travel + Plugins)', '$2,140.00']),
+      row(['Less: Efficiency Adjustment', '$1,740.00']),
+    ]);
+    const { html: out, corrections } = correctPricingTableTotals(html);
+    expect(out).toBe(html);
+    expect(corrections).toEqual([]);
+    expect(out).toContain('$2,140.00');
+  });
+
+  it('leaves a non-grand component total untouched while it still feeds a later grand total', () => {
+    const html = table([
+      row(['Item A', '$100.00']),
+      row(['Subtotal Labor', '$100.00']),
+      row(['Total ODCs', '$50.00']), // component row: no data rows since the subtotal
+      row(['Grand Total', '$200.00']), // wrong: subtotal + ODCs = $150
+    ]);
+    const { html: out, corrections } = correctPricingTableTotals(html);
+    expect(out).toContain('$50.00'); // component untouched
+    expect(corrections).toEqual([
+      {
+        tableIndex: 0,
+        rowLabel: 'Grand Total',
+        previousValue: '$200.00',
+        correctedValue: '$150.00',
+      },
+    ]);
   });
 
   it('preserves surrounding cell markup when rewriting a total', () => {

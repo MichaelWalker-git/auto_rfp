@@ -196,7 +196,7 @@ describe('updateSolutionPlanContent', () => {
     expect(mockUpdateItem).toHaveBeenCalledWith(
       SOLUTION_PLAN_PK,
       'org-1#proj-1#opp-1',
-      { ...patch, isUserEdited: true, isStale: false, staleReason: '' },
+      { ...patch, isUserEdited: true, isStale: false, staleReason: '', costSchedule: null },
       expect.objectContaining({
         condition: expect.stringContaining('#status = :readyStatus'),
         conditionNames: { '#pk': PK_NAME, '#status': 'status', '#version': 'version' },
@@ -204,6 +204,15 @@ describe('updateSolutionPlanContent', () => {
       }),
     );
     expect(result).toEqual(updated);
+  });
+
+  it('clears the costSchedule on every user edit (documents fall back to Fix A until regenerated)', async () => {
+    mockUpdateItem.mockResolvedValue({});
+
+    await updateSolutionPlanContent(planKey, patch);
+
+    const updates = mockUpdateItem.mock.calls[0][2];
+    expect(updates.costSchedule).toBeNull();
   });
 
   it('conditions on the pre-bump version so concurrent edits cannot collide (ADR-11)', async () => {
