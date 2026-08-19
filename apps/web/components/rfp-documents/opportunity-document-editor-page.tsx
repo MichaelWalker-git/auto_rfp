@@ -35,6 +35,7 @@ import { RevertConfirmDialog } from './dialogs/RevertConfirmDialog';
 import { CherryPickConfirmDialog } from './dialogs/CherryPickConfirmDialog';
 import { AIChatPanel } from './ai-chat';
 import { TemplateSelector } from './template-selector';
+import { GoogleDriveSyncButton } from './google-drive-sync-button';
 import type { RFPDocumentVersion } from '@auto-rfp/core';
 import { XlsxQuestionnaireEditorPage } from './xlsx-questionnaire-editor-page';
 import { isHtmlQuestionnaire, isXlsxQuestionnaire } from '@/lib/utils/document-format';
@@ -69,9 +70,25 @@ export const OpportunityDocumentEditorPage = ({
   const [isImageUploading, setIsImageUploading] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [htmlContent, setHtmlContent] = useState('');
+  /**
+   * The last content known to match the server, so `isDirty` can be derived rather
+   * than tracked through every mutation path. Set on initialization, on save, and by
+   * revert/cherry-pick (both of which persist server-side before updating the editor).
+   *
+   * Always held in `stripPresignedUrlsFromHtml` form. The editor's live `htmlContent`
+   * carries temporary presigned image URLs that the save path strips, so comparing the
+   * two raw would read as dirty forever on any document containing an image.
+   *
+   * The consumer that needs this is the Drive pull: an import rewrites the document's
+   * HTML server-side, so pulling with unsaved edits in the editor means the next Save
+   * overwrites what was just imported.
+   */
+  const [savedHtmlContent, setSavedHtmlContent] = useState('');
   // Track whether we've initialized the editor with content from the server.
   // Must be state (not ref) so React re-renders when initialization completes.
   const [htmlInitialized, setHtmlInitialized] = useState(false);
+  const isDirty =
+    htmlInitialized && stripPresignedUrlsFromHtml(htmlContent) !== savedHtmlContent;
   // Ref mirrors state to avoid stale closure issues in callbacks
   const htmlInitializedRef = useRef(false);
   // Manual state to track regeneration start (independent of SWR mutation state)
@@ -210,7 +227,9 @@ export const OpportunityDocumentEditorPage = ({
 
     htmlInitializedRef.current = true;
     setHtmlInitialized(true);
-    setHtmlContent(sanitizeGeneratedHtml(serverHtml || ''));
+    const initialHtml = sanitizeGeneratedHtml(serverHtml || '');
+    setHtmlContent(initialHtml);
+    setSavedHtmlContent(stripPresignedUrlsFromHtml(initialHtml));
 
     // Show error toast if HTML fetch failed
     if (isHtmlError) {
@@ -285,6 +304,7 @@ export const OpportunityDocumentEditorPage = ({
     htmlInitializedRef.current = false;
     setHtmlInitialized(false);
     setHtmlContent('');
+    setSavedHtmlContent('');
   }, [documentId]);
 
   // ── Handlers ──
@@ -340,6 +360,9 @@ export const OpportunityDocumentEditorPage = ({
         },
       } as Parameters<typeof updateDocument>[0]);
       htmlInitializedRef.current = true;
+      // What the server now holds is the cleaned HTML, not the editor's copy with its
+      // temporary presigned image URLs — so that is the dirty-check baseline.
+      setSavedHtmlContent(cleanHtml);
       await mutateHtml();
       invalidateVersionsCache(); // Refresh version history
       toast({ title: 'Document saved', description: 'Content has been saved successfully.' });
@@ -373,6 +396,7 @@ export const OpportunityDocumentEditorPage = ({
           },
         } as Parameters<typeof updateDocument>[0]);
         htmlInitializedRef.current = true;
+        setSavedHtmlContent(stripPresignedUrlsFromHtml(htmlToSave));
         await mutateHtml();
         invalidateVersionsCache();
         toast({ title: 'Auto-saved', description: 'AI changes have been saved automatically.' });
@@ -412,6 +436,8 @@ export const OpportunityDocumentEditorPage = ({
       // Update editor directly with the reverted HTML content from the response
       if (revertedData?.html) {
         setHtmlContent(revertedData.html);
+        // The revert already persisted server-side, so this is not an unsaved edit.
+        setSavedHtmlContent(stripPresignedUrlsFromHtml(revertedData.html));
         // Force editor remount to pick up new content
         setEditorKey((k) => k + 1);
       }
@@ -458,6 +484,8 @@ export const OpportunityDocumentEditorPage = ({
       const mergedContent = cherryPickData.mergedHtml;
       setCherryPickData(null);
       setHtmlContent(mergedContent);
+      // The cherry-pick already persisted server-side, so this is not an unsaved edit.
+      setSavedHtmlContent(stripPresignedUrlsFromHtml(mergedContent));
       // Force editor remount to pick up new content
       setEditorKey((k) => k + 1);
       // Revalidate the SWR cache
@@ -728,6 +756,26 @@ export const OpportunityDocumentEditorPage = ({
             )}
           </Button>
         )}
+
+        {/* Google Drive push/pull. Pushing an approved document is allowed (Drive is a
+            review surface); pulling into one is blocked server-side with an explicit
+            override. Pulling is held back while the editor is dirty — an import rewrites
+            the document's HTML, so the next Save would clobber it. */}
+        <GoogleDriveSyncButton
+          document={doc}
+          orgId={orgId}
+          isPullDisabled={isDirty || isGenerating}
+          pullDisabledReason={isDirty ? 'Save your changes first' : undefined}
+          onSyncComplete={() => {
+            // An import replaces both the metadata (sync status, watermark) and the
+            // stored HTML, and adds a version — refresh all three.
+            mutateDoc();
+            htmlInitializedRef.current = false;
+            setHtmlInitialized(false);
+            void mutateHtml(undefined, { revalidate: true });
+            invalidateVersionsCache();
+          }}
+        />
 
         <Button
           size="sm"

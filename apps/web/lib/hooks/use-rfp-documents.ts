@@ -288,10 +288,23 @@ export function useConvertToContent(orgId?: string) {
   );
 }
 
+/** Response of a push to Google Drive. `updatedExisting` distinguishes "created the Doc" from "updated it in place". */
+export interface SyncToGoogleDriveResponse {
+  message: string;
+  documentId: string;
+  googleDriveFileId: string;
+  googleDriveUrl: string;
+  driveMimeType: string;
+  driveModifiedTime: string;
+  driveLastPushedAt: string;
+  updatedExisting: boolean;
+  syncStatus: string;
+}
+
 /** Sync an RFP document to Google Drive */
 export function useSyncRFPDocumentToGoogleDrive(orgId?: string) {
   return useSWRMutation<
-    { message: string; googleDriveFileId: string; googleDriveUrl: string },
+    SyncToGoogleDriveResponse,
     Error,
     string,
     { projectId: string; opportunityId: string; documentId: string }
@@ -301,13 +314,39 @@ export function useSyncRFPDocumentToGoogleDrive(orgId?: string) {
   );
 }
 
+/**
+ * Response of a pull from Google Drive.
+ *
+ * `changed` is the field to branch on: a pull whose Drive `modifiedTime` has not moved
+ * past the recorded watermark performs zero writes and returns `changed: false`, which
+ * is a success, not a no-op error. `versionNumber` is present only when an HTML version
+ * snapshot was created.
+ */
+export interface SyncFromGoogleDriveResponse {
+  message: string;
+  documentId: string;
+  changed: boolean;
+  versionNumber?: number;
+  driveModifiedTime?: string;
+  driveLastPulledAt?: string;
+  /** True when an approved document was imported under an explicit override. */
+  overrodeApproval?: boolean;
+  syncStatus: string;
+}
+
 /** Sync an RFP document back from Google Drive into the app */
 export function useSyncRFPDocumentFromGoogleDrive(orgId?: string) {
   return useSWRMutation<
-    { message: string; documentId: string; isDocx: boolean; lastSyncedAt: string },
+    SyncFromGoogleDriveResponse,
     Error,
     string,
-    { projectId: string; opportunityId: string; documentId: string }
+    {
+      projectId: string;
+      opportunityId: string;
+      documentId: string;
+      /** Import into an approved document anyway, reopening its approval. */
+      acceptApprovedOverride?: boolean;
+    }
   >(
     `${BASE}/sync-from-google-drive${orgId ? `?orgId=${orgId}` : ''}`,
     (url, { arg }) => postJson(url, arg),
