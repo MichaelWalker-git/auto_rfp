@@ -373,6 +373,25 @@ export const RFPDocumentItemSchema = z.object({
   /** Sparse GSI sort key (`byDriveSync`) — `projectId#opportunityId#documentId`. */
   driveSyncSk: z.string().nullable().optional(),
   /**
+   * A **frozen** Drive copy of the content as approved — the record of what a reviewer
+   * actually signed off on, written once when approval completes and never updated.
+   *
+   * Deliberately separate from `googleDriveFileId`, which stays the single mutable
+   * pointer for editing. Two mutable pointers to the same document is how a sync ends
+   * up writing to the wrong file.
+   *
+   * Also deliberately NOT stored under `signatureDetails`: that field belongs to the
+   * human e-signature workflow, and hanging a Drive artefact off it would make two
+   * features contend for one field's meaning.
+   */
+  driveApprovedSnapshotFileId: z.string().nullable().optional(),
+  /** Link to the frozen approved copy, for the approval history UI. */
+  driveApprovedSnapshotUrl: z.string().nullable().optional(),
+  /** When the approved snapshot was captured. */
+  driveApprovedSnapshotAt: z.string().nullable().optional(),
+  /** Version number the approved snapshot was taken from, for traceability. */
+  driveApprovedSnapshotVersion: z.number().nullable().optional(),
+  /**
    * S3 key for the generated/edited HTML content.
    * When present, the HTML body lives in S3 and this field is the key.
    * The `content.content` field will be absent (stripped to save DynamoDB space).

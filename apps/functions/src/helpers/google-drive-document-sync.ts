@@ -42,6 +42,7 @@ import { getHmacSecret } from './secret';
 import {
   DOCX_MIME,
   GOOGLE_DOC_MIME,
+  getDriveClientForOrg,
   isDriveForbidden,
   isDriveNotFound,
   isDriveRateLimited,
@@ -169,6 +170,8 @@ export interface PullResult {
   driveLastPulledAt?: string;
   /** True when an approved document was imported under an explicit override. */
   overrodeApproval?: boolean;
+  /** True when the import landed on a document with an open review and reviewers were told. */
+  notifiedPendingReviewers?: boolean;
 }
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
@@ -707,6 +710,178 @@ export const pushDocumentToDrive = async (args: {
   };
 };
 
+// ─── Approved snapshot: a frozen record of what was signed off ───────────────
+
+/** Folder holding approved snapshots, kept apart from the editable working copies. */
+const APPROVED_SNAPSHOT_FOLDER = 'Approved Snapshots';
+
+/**
+ * Captures the approved content as a **separate, read-only** Google Doc, so there is a
+ * record in Drive of exactly what a reviewer signed off on.
+ *
+ * Why a second file rather than a marker on the existing one: `googleDriveFileId` stays
+ * the live editing pointer and keeps changing. A record of "what was approved" has to
+ * stop changing the moment it is written, and the only way to guarantee that is a
+ * different file that nothing else writes to.
+ *
+ * The snapshot is shared read-only with the org and never re-pushed. If approval happens
+ * twice (a reopened document approved again), the previous snapshot is left in place and
+ * a new one is written — the history of approvals is more useful than a single current
+ * one, and overwriting would destroy the earlier record.
+ *
+ * Returns null when there is nothing to capture or the capture failed. Callers MUST treat
+ * this as non-blocking: approval is a business-critical path and must not fail because
+ * Google was briefly unavailable.
+ */
+export const captureApprovedSnapshot = async (args: {
+  drive: drive_v3.Drive;
+  doc: DriveSyncDocument;
+  orgId: string;
+  projectId: string;
+  opportunityId: string;
+  documentId: string;
+  approvedVersion?: number;
+}): Promise<{
+  fileId: string;
+  url: string;
+  capturedAt: string;
+  version?: number;
+} | null> => {
+  const { drive, doc, orgId, projectId, opportunityId, documentId, approvedVersion } = args;
+
+  try {
+    const body = await prepareDriveUploadBody(doc);
+
+    // Its own folder tree, so an approved snapshot can never be confused with the
+    // editable copy the sync writes to.
+    const rootFolderId = await findOrCreateFolder(drive, 'RFP Documents');
+    const projectFolderId = await findOrCreateFolder(drive, projectId, rootFolderId);
+    const snapshotFolderId = await findOrCreateFolder(
+      drive,
+      APPROVED_SNAPSHOT_FOLDER,
+      projectFolderId,
+    );
+
+    // The timestamp is in the name because multiple approvals produce multiple
+    // snapshots, and a reader needs to tell them apart in the Drive UI.
+    const capturedAt = nowIso();
+    const versionLabel = approvedVersion ? `v${approvedVersion}` : 'approved';
+    const snapshotName = sanitizeFileName(
+      `${body.name} — APPROVED ${versionLabel} (${capturedAt.slice(0, 10)})`,
+    );
+
+    const created = await withDriveRetry(() =>
+      drive.files.create({
+        requestBody: {
+          name: snapshotName,
+          parents: [snapshotFolderId],
+          mimeType: body.targetMimeType,
+          description:
+            `Frozen record of the content approved on ${capturedAt}. ` +
+            'Do not edit — AutoRFP does not sync this file.',
+        },
+        media: { mimeType: body.mediaMimeType, body: Readable.from(body.buffer) },
+        fields: 'id,webViewLink',
+      }),
+    );
+
+    const fileId = created.data.id;
+    if (!fileId) {
+      console.warn(`[GoogleDrive] Snapshot creation returned no id for ${documentId}`);
+      return null;
+    }
+
+    // Read-only for everyone: a snapshot that can be edited is not a record.
+    // Copy/print/download stays enabled, since auditors need to be able to take it away.
+    await shareFolderWithOrgMembers({ drive, folderId: snapshotFolderId, orgId }).catch(() => ({
+      shared: 0,
+      skipped: 0,
+      failed: 0,
+    }));
+
+    await updateRFPDocumentMetadata({
+      projectId,
+      opportunityId,
+      documentId,
+      updates: {
+        driveApprovedSnapshotFileId: fileId,
+        driveApprovedSnapshotUrl: created.data.webViewLink ?? null,
+        driveApprovedSnapshotAt: capturedAt,
+        ...(approvedVersion ? { driveApprovedSnapshotVersion: approvedVersion } : {}),
+      },
+      updatedBy: 'system',
+    });
+
+    console.log(
+      `[GoogleDrive] Captured approved snapshot ${fileId} for document ${documentId} ` +
+        `(${versionLabel})`,
+    );
+
+    return {
+      fileId,
+      url: created.data.webViewLink ?? '',
+      capturedAt,
+      ...(approvedVersion ? { version: approvedVersion } : {}),
+    };
+  } catch (err) {
+    // Never rethrow: this runs inside the approval path, and an approval must not fail
+    // because a Drive artefact could not be written.
+    console.warn(
+      `[GoogleDrive] Could not capture approved snapshot for ${documentId}: ${(err as Error)?.message}`,
+    );
+    return null;
+  }
+};
+
+/**
+ * Fire-and-forget entry point for the approval handlers: capture the approved snapshot if
+ * this org uses Drive and this document has content, otherwise do nothing.
+ *
+ * Everything is swallowed by design. This is called from `submit-review` and
+ * `bulk-review`, which gate proposal submission — the only acceptable failure mode here
+ * is a log line.
+ */
+export const captureApprovedSnapshotIfConfigured = async (args: {
+  orgId: string;
+  projectId: string;
+  opportunityId: string;
+  documentId: string;
+}): Promise<void> => {
+  const { orgId, projectId, opportunityId, documentId } = args;
+
+  try {
+    const doc = await loadDriveSyncDocument({ projectId, opportunityId, documentId });
+    if (!doc) return;
+
+    // Nothing to freeze. Note this does NOT require an existing Drive link: a document
+    // approved without ever being pushed still deserves a record of what was approved.
+    if (!doc.htmlContentKey && !doc.fileKey) return;
+
+    const client = await getDriveClientForOrg(orgId);
+    if (!client) return;
+
+    const latestVersion = await getLatestVersionNumber(
+      projectId,
+      opportunityId,
+      documentId,
+    ).catch(() => undefined);
+
+    await captureApprovedSnapshot({
+      drive: client.drive,
+      doc,
+      orgId,
+      projectId,
+      opportunityId,
+      documentId,
+      ...(typeof latestVersion === 'number' ? { approvedVersion: latestVersion } : {}),
+    });
+  } catch (err) {
+    console.warn(
+      `[GoogleDrive] Approved-snapshot capture skipped for ${documentId}: ${(err as Error)?.message}`,
+    );
+  }
+};
+
 // ─── Pull: Drive → AutoRFP ───────────────────────────────────────────────────
 
 /** Epoch ms, or `null` when absent/unparseable. RFC3339 must never be string-compared. */
@@ -797,6 +972,44 @@ const resolveApprovalAudience = async (args: {
     if (approval.requestedBy) recipients.add(approval.requestedBy);
   }
   if (doc.updatedBy) recipients.add(doc.updatedBy);
+  return [...recipients];
+};
+
+/**
+ * Reviewers with a review still open on this document, plus whoever asked for it.
+ *
+ * Distinct from {@link resolveApprovalAudience}, which is every party to any approval
+ * past or present — appropriate for "this was blocked", but too broad for "the content
+ * you are reviewing just changed", which only concerns a live review.
+ *
+ * Returns an empty array on failure: a notification is not worth failing an import for.
+ */
+const resolvePendingReviewers = async (args: {
+  orgId: string;
+  projectId: string;
+  opportunityId: string;
+  documentId: string;
+}): Promise<string[]> => {
+  const { orgId, projectId, opportunityId, documentId } = args;
+
+  const approvals = await listApprovalsByDocument(
+    orgId,
+    projectId,
+    opportunityId,
+    documentId,
+  ).catch((err: unknown) => {
+    console.warn(
+      `[GoogleDrive] Could not check pending reviews for ${documentId}: ${(err as Error)?.message}`,
+    );
+    return [];
+  });
+
+  const recipients = new Set<string>();
+  for (const approval of approvals) {
+    if (approval.status !== 'PENDING') continue;
+    if (approval.reviewerId) recipients.add(approval.reviewerId);
+    if (approval.requestedBy) recipients.add(approval.requestedBy);
+  }
 
   return [...recipients];
 };
@@ -977,6 +1190,15 @@ export const pullDocumentFromDriveIfChanged = async (args: {
 
     return { changed: false, blocked: true, reason, driveModifiedTime: remoteModifiedTime };
   }
+
+  // 3b. Document is out for review but not yet approved. The import proceeds — a
+  //     pending review is not yet a claim of correctness, and blocking would stall
+  //     ordinary editing while someone happens to have a review open. But the reviewer
+  //     must be told, because otherwise the content changes underneath them and they
+  //     could approve text they never read.
+  const pendingReviewers = acceptApprovedOverride
+    ? []
+    : await resolvePendingReviewers({ orgId, projectId, opportunityId, documentId });
 
   // 4. Claim, so the manual button and the poller can't import the same edit twice.
   const claimed = await claimDriveSync({ projectId, opportunityId, documentId });
@@ -1187,6 +1409,31 @@ export const pullDocumentFromDriveIfChanged = async (args: {
       }
     }
 
+    // Tell anyone mid-review that what they are reviewing just changed. Without this
+    // they could approve content they never read — the review is still open, so the
+    // decision they are about to make now applies to different text.
+    if (pendingReviewers.length > 0) {
+      await sendNotification(
+        buildNotification(
+          'DRIVE_EDIT_DURING_REVIEW',
+          '📝 Document changed while under review',
+          `"${driveFileName}" was edited in Google Drive and imported while it is out ` +
+            `for review. Version ${versionNumber} is now the current content — please ` +
+            're-check it before approving.',
+          {
+            orgId,
+            projectId,
+            entityId: `${opportunityId}:${documentId}`,
+            recipientUserIds: pendingReviewers,
+            actorDisplayName: actorName,
+            link: buildRfpDocumentReviewLink(orgId, projectId, opportunityId, documentId),
+          },
+        ),
+      ).catch((err: unknown) =>
+        console.warn(`[GoogleDrive] Review-changed notification failed: ${(err as Error)?.message}`),
+      );
+    }
+
     await writeDriveSyncAudit({
       orgId,
       documentId,
@@ -1205,6 +1452,7 @@ export const pullDocumentFromDriveIfChanged = async (args: {
       versionNumber,
       driveModifiedTime: remoteModifiedTime,
       driveLastPulledAt,
+      ...(pendingReviewers.length > 0 ? { notifiedPendingReviewers: true } : {}),
       ...(acceptApprovedOverride && isApproved ? { overrodeApproval: true } : {}),
     };
   } catch (err) {

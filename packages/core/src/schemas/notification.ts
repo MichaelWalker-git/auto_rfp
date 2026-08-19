@@ -42,6 +42,7 @@ export const NotificationTypeSchema = z.enum([
   'DOCUMENT_GENERATION_FAILED',
   // Google Drive sync
   'DRIVE_EDIT_BLOCKED_APPROVED',
+  'DRIVE_EDIT_DURING_REVIEW',
 ]);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 

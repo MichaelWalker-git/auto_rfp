@@ -648,4 +648,73 @@ describe('sync-from-google-drive handler', () => {
       expect(mockCancelPendingApprovals).not.toHaveBeenCalled();
     });
   });
+  describe('documents out for review', () => {
+    /**
+     * The gap this closes: an import used to land silently while a reviewer had the
+     * document open, so they could approve content they never read. It still imports —
+     * a pending review is not yet a claim of correctness, and blocking would stall
+     * ordinary editing — but the reviewer is told.
+     */
+    it('imports and notifies the reviewer when a review is open', async () => {
+      mockListApprovals.mockResolvedValue([
+        {
+          approvalId: 'appr-1',
+          status: 'PENDING',
+          reviewerId: REVIEWER_ID,
+          requestedBy: USER_ID,
+        },
+      ]);
+
+      const result = await baseHandler(makeEvent());
+
+      expect(result).toMatchObject({ statusCode: 200 });
+      expect(parseBody(result)).toMatchObject({ changed: true, notifiedPendingReviewers: true });
+      // The content really was imported — this is not a block.
+      expect(mockCreateVersion).toHaveBeenCalled();
+
+      const notification = mockSendNotification.mock.calls.find(
+        ([n]) => (n as { type: string }).type === 'DRIVE_EDIT_DURING_REVIEW',
+      );
+      expect(notification).toBeDefined();
+      expect(notification![0]).toMatchObject({
+        recipientUserIds: expect.arrayContaining([REVIEWER_ID, USER_ID]),
+      });
+    });
+
+    it('does not notify when the only approvals are already decided', async () => {
+      mockListApprovals.mockResolvedValue([
+        { approvalId: 'appr-1', status: 'APPROVED', reviewerId: REVIEWER_ID, requestedBy: USER_ID },
+        { approvalId: 'appr-2', status: 'REJECTED', reviewerId: REVIEWER_ID, requestedBy: USER_ID },
+      ]);
+
+      const result = await baseHandler(makeEvent());
+
+      // Nobody is mid-review, so there is nothing to warn about.
+      expect(parseBody(result)).not.toHaveProperty('notifiedPendingReviewers');
+      expect(
+        mockSendNotification.mock.calls.filter(
+          ([n]) => (n as { type: string }).type === 'DRIVE_EDIT_DURING_REVIEW',
+        ),
+      ).toHaveLength(0);
+    });
+
+    it('imports normally when no approval has ever been requested', async () => {
+      mockListApprovals.mockResolvedValue([]);
+
+      const result = await baseHandler(makeEvent());
+
+      expect(result).toMatchObject({ statusCode: 200 });
+      expect(mockSendNotification).not.toHaveBeenCalled();
+    });
+
+    it('still imports when the approval lookup fails', async () => {
+      mockListApprovals.mockRejectedValue(new Error('DynamoDB unavailable'));
+
+      const result = await baseHandler(makeEvent());
+
+      // A notification is not worth failing an import for.
+      expect(result).toMatchObject({ statusCode: 200 });
+      expect(parseBody(result)).toMatchObject({ changed: true });
+    });
+  });
 });

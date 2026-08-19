@@ -331,6 +331,8 @@ export interface SyncFromGoogleDriveResponse {
   driveLastPulledAt?: string;
   /** True when an approved document was imported under an explicit override. */
   overrodeApproval?: boolean;
+  /** True when the import landed on a document with an open review and reviewers were told. */
+  notifiedPendingReviewers?: boolean;
   syncStatus: string;
 }
 

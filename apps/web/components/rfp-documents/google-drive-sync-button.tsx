@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useState } from 'react';
-import { ExternalLink, Loader2, Upload, Download, ChevronDown, AlertTriangle } from 'lucide-react';
+import { ExternalLink, Loader2, Upload, Download, ChevronDown, AlertTriangle, FileCheck } from 'lucide-react';
 import Link from 'next/link';
 import { PermissionButton } from '@/components/ui/permission-button';
 import {
@@ -235,14 +235,26 @@ export const GoogleDriveSyncButton = ({
             title: 'Already up to date',
             description: `"${doc.name}" matches the Google Doc — nothing to import.`,
           });
+        } else if (result.overrodeApproval) {
+          toast({
+            title: 'Imported — approval reopened',
+            description: `"${doc.name}" was imported and its status returned to pending signature. Previous approvers have been notified.`,
+          });
+        } else if (result.notifiedPendingReviewers) {
+          // The reviewer is mid-review, so the person importing should know their change
+          // just moved the goalposts on someone else.
+          toast({
+            title: 'Imported — reviewer notified',
+            description: `"${doc.name}" is out for review, so the reviewer has been told the content changed${
+              result.versionNumber ? ` (now version ${result.versionNumber})` : ''
+            }.`,
+          });
         } else {
           toast({
-            title: result.overrodeApproval ? 'Imported — approval reopened' : 'Synced from Google Drive',
-            description: result.overrodeApproval
-              ? `"${doc.name}" was imported and its status returned to pending signature. Previous approvers have been notified.`
-              : `"${doc.name}" was imported from Google Drive${
-                  result.versionNumber ? ` as version ${result.versionNumber}` : ''
-                }.`,
+            title: 'Synced from Google Drive',
+            description: `"${doc.name}" was imported from Google Drive${
+              result.versionNumber ? ` as version ${result.versionNumber}` : ''
+            }.`,
           });
         }
         onSyncComplete?.();
@@ -371,6 +383,32 @@ export const GoogleDriveSyncButton = ({
               <AlertTriangle className="h-4 w-4 flex-shrink-0" />
               <span>Import anyway (reopens approval)</span>
             </DropdownMenuItem>
+          )}
+
+          {/* The frozen copy of what was approved. Separate from the live Doc above —
+              this one is a record and is never re-synced. */}
+          {doc.driveApprovedSnapshotUrl && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <a
+                  href={doc.driveApprovedSnapshotUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <FileCheck className="h-4 w-4 text-muted-foreground" />
+                  <span className="flex flex-col">
+                    <span>Open approved copy</span>
+                    <span className="text-xs text-muted-foreground">
+                      {doc.driveApprovedSnapshotVersion
+                        ? `Frozen at version ${doc.driveApprovedSnapshotVersion}`
+                        : 'Frozen record — not synced'}
+                    </span>
+                  </span>
+                </a>
+              </DropdownMenuItem>
+            </>
           )}
 
           {/* Status block */}

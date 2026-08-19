@@ -145,6 +145,11 @@ const UPDATABLE_METADATA_FIELDS = [
   'driveSyncStartedAt',
   'driveSyncPk',
   'driveSyncSk',
+  // Frozen record of the approved content. Written once on approval, never updated.
+  'driveApprovedSnapshotFileId',
+  'driveApprovedSnapshotUrl',
+  'driveApprovedSnapshotAt',
+  'driveApprovedSnapshotVersion',
   // Written by the push path when the source is a raw (non-HTML) file.
   'mimeType',
   'fileKey',
