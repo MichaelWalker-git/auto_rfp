@@ -62,6 +62,10 @@ export const OPPORTUNITY_PERMISSIONS = [
   // since all roles hold both, any authenticated org member can accept/deny.
   'rfp:approve_initial',
   'rfp:approve_final',
+  // Remove an AUTO-added related RFP link — admin only (HOR-2610 acceptance criterion).
+  // Granted only via ADMIN (which holds ...ALL_PERMISSIONS); intentionally NOT in
+  // EDITOR/MEMBER/VIEWER, so non-admins cannot remove auto-discovered links.
+  'related_rfp:remove_auto',
 ] as const;
 
 export const PROMPT_PERMISSIONS = [

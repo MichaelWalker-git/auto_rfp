@@ -17,6 +17,7 @@ import { useConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useResizableSidebar } from '../hooks/useResizableSidebar';
 import Link from 'next/link';
 import type { DetectedFormField, RequiredFormItem } from '@auto-rfp/core';
+import { FormVersionHistory, FormSidebarTabs, type FormSidebarTab } from '@/features/package-edit';
 
 interface DocxFormEditorProps {
   doc: RequiredFormItem;
@@ -64,6 +65,7 @@ export const DocxFormEditor = ({ doc, orgId, onFieldUpdated }: DocxFormEditorPro
   const [renderLoading, setRenderLoading] = useState(true);
   const [renderSpots, setRenderSpots] = useState<RenderSpot[]>([]);
   const [activeFieldId, setActiveFieldId] = useState<string | null>(null);
+  const [sidebarTab, setSidebarTab] = useState<FormSidebarTab>('fields');
   const { width: sidebarWidth, onResizeStart: handleResizeStart } = useResizableSidebar({ initial: 360 });
   const docRef = useRef<HTMLDivElement | null>(null);
   const fieldRowRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -372,6 +374,20 @@ export const DocxFormEditor = ({ doc, orgId, onFieldUpdated }: DocxFormEditorPro
         {/* Right: field sidebar (user-resizable). */}
         <div className="shrink-0 overflow-y-auto border-l bg-gray-50" style={{ width: sidebarWidth }}>
           <div className="px-4 py-6">
+            <div className="mb-4">
+              <FormSidebarTabs value={sidebarTab} onChange={setSidebarTab} />
+            </div>
+
+            {sidebarTab === 'history' ? (
+              <FormVersionHistory
+                orgId={orgId}
+                projectId={doc.projectId}
+                oppId={doc.opportunityId}
+                formId={doc.formId}
+                onReverted={() => onFieldUpdated?.()}
+              />
+            ) : (
+            <>
             {doc.status === 'FAILED' && doc.errorMessage && (
               <div className="mb-4 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900">
                 <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
@@ -472,6 +488,8 @@ export const DocxFormEditor = ({ doc, orgId, onFieldUpdated }: DocxFormEditorPro
                   );
                 })}
               </div>
+            )}
+            </>
             )}
           </div>
         </div>

@@ -11,6 +11,7 @@ import { type Locator, type Page, expect } from '@playwright/test';
 export type GateTestDocumentType =
   | 'TECHNICAL_PROPOSAL'
   | 'COST_PROPOSAL'
+  | 'PRICE_VOLUME'
   | 'CLARIFYING_QUESTIONS';
 
 export class SolutionPlanPage {
@@ -146,6 +147,31 @@ export class SolutionPlanPage {
    * generating/retrying/failed badge remains. The list doesn't live-poll,
    * so reload between checks.
    */
+  /**
+   * Navigate straight to the full-page editor of a generated document (by the
+   * documentId from the generate 202 response — names are not unique across
+   * runs) and wait for the content to hydrate.
+   */
+  async gotoDocumentEditor(
+    opportunityPath: string,
+    documentId: string,
+  ): Promise<Locator> {
+    // opportunityPath: /organizations/{orgId}/projects/{projectId}/opportunities/{oppId}
+    const [, orgId, projectId, opportunityId] =
+      opportunityPath.match(
+        /^\/organizations\/([^/]+)\/projects\/([^/]+)\/opportunities\/([^/]+)/,
+      ) ?? [];
+    await this.page.goto(
+      `/organizations/${orgId}/projects/${projectId}/rfp-documents/${documentId}/edit?opportunityId=${opportunityId}`,
+    );
+    const editorContent = this.page.locator('.ProseMirror').first();
+    await expect(editorContent).toBeVisible({ timeout: 60_000 });
+    // Generated pricing documents always contain at least one table; waiting
+    // for it filters out the pre-hydration empty editor state.
+    await expect(editorContent.locator('table').first()).toBeVisible({ timeout: 60_000 });
+    return editorContent;
+  }
+
   async waitForDocumentGenerated(documentLabel: string, timeoutMs: number): Promise<void> {
     await expect(async () => {
       await this.page.reload();

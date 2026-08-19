@@ -99,8 +99,10 @@ export const saveComplianceMessagePair = async (args: {
   assistantAnswer: string;
   findings: ComplianceFinding[];
   userId?: string;
+  /** Set when the assistant turn started a cross-package edit run (unified chat). */
+  editRunId?: string;
 }): Promise<{ userMsg: ComplianceReviewMessageItem; assistantMsg: ComplianceReviewMessageItem }> => {
-  const { orgId, projectId, oppId, userMessage, assistantAnswer, findings, userId } = args;
+  const { orgId, projectId, oppId, userMessage, assistantAnswer, findings, userId, editRunId } = args;
   const tableName = requireEnv('DB_TABLE_NAME');
 
   const userTimestamp = nowIso();
@@ -125,6 +127,7 @@ export const saveComplianceMessagePair = async (args: {
     role: 'assistant',
     content: assistantAnswer,
     findings,
+    ...(editRunId ? { editRunId } : {}),
     userId,
     createdAt: assistantTimestamp,
   };

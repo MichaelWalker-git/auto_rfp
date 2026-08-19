@@ -67,6 +67,7 @@ describe('checkSolutionPlanGate', () => {
     expect(mockListDocs).not.toHaveBeenCalled();
   });
 
+
   it('passes when the plan is READY but stale — isStale does not close the gate', async () => {
     mockGetPlan.mockResolvedValue({ status: 'READY', isStale: true, staleReason: 'brief regenerated' });
     const result = await checkSolutionPlanGate(args);

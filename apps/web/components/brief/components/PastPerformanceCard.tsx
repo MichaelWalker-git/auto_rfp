@@ -17,6 +17,7 @@ import {
   Users,
 } from 'lucide-react';
 import type { PastPerformanceSection, PastProjectMatch } from '@auto-rfp/core';
+import { DisclosureBadge, getEffectiveDisclosure } from '@/features/disclosure-review';
 
 interface PastPerformanceCardProps {
   pastPerformance?: PastPerformanceSection | null;
@@ -138,6 +139,7 @@ const ProjectMatchRow = ({ match, rank }: { match: PastProjectMatch; rank: numbe
                 {project.client}
               </span>
             )}
+            <DisclosureBadge level={getEffectiveDisclosure(project)} showNameable={false} />
             {project.value && (
               <span className="flex items-center gap-1">
                 <DollarSign className="h-3 w-3" />

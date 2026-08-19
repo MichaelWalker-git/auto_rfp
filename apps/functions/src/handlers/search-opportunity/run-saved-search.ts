@@ -344,16 +344,21 @@ async function runForOrg(args: {
 }) {
   const searches = await listSavedSearchesForOrg(args.orgId);
   console.log('searches ', searches);
-  const projectId = await getOrgDefaultProjectId(args.orgId);
-  console.log('projectId ', projectId);
+  // Org-default project is the fallback for older / org-level searches that were
+  // saved before we started recording the originating project on the search.
+  const defaultProjectId = await getOrgDefaultProjectId(args.orgId);
+  console.log('defaultProjectId ', defaultProjectId);
 
   const out: any[] = [];
 
   for (const s of searches) {
     if (!shouldRunNow(s, args.now)) continue;
 
+    // Import into the project the search was saved from; fall back to the org default.
+    const projectId = s.projectId ?? defaultProjectId;
+
     const criteria = buildRuntimeCriteria(s, args.now);
-    console.log('criteria ', criteria, 'source', s.source);
+    console.log('criteria ', criteria, 'source', s.source, 'projectId', projectId);
 
     const source = s.source ?? 'SAM_GOV';
     let found = 0;

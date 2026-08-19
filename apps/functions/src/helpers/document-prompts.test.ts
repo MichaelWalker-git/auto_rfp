@@ -1,11 +1,12 @@
 import {
+  buildPricingRulesBlock,
   buildSectionSystemPrompt,
   buildSystemPromptForDocumentType,
   buildUserPromptForDocumentType,
   getDefaultGuidance,
   getDefaultTask,
 } from './document-prompts';
-import { DocumentPromptTypeSchema } from '@auto-rfp/core';
+import { DocumentPromptTypeSchema, type SolutionPlanCostSchedule } from '@auto-rfp/core';
 
 describe('getDefaultGuidance', () => {
   it('returns the type-specific guidance for a known type', () => {
@@ -31,7 +32,7 @@ describe('getDefaultGuidance', () => {
     expect(guidance).toContain('Other Direct Costs');
     expect(guidance).toContain('Cost Narrative');
     expect(guidance).toContain('cost certifications and representations');
-    expect(guidance).toContain('get_pricing_data');
+    expect(guidance).toContain('Third-Party Services & Subscriptions');
   });
 
   it('falls back to generic guidance for unknown/custom types', () => {
@@ -184,6 +185,230 @@ describe('guidance/task overrides', () => {
         enrichedKbText: 'k',
       });
       expect(prompt).toContain('YOUR TASK — My Custom Type:');
+    });
+  });
+});
+
+describe('pricing document prompt rules (T1)', () => {
+  const PRICING_TYPES = ['COST_PROPOSAL', 'PRICE_VOLUME'] as const;
+
+  describe.each(PRICING_TYPES)('%s mandatory pricing rules (non-overridable)', (type) => {
+    const assertSharedRulesPresent = (prompt: string) => {
+      expect(prompt).toContain('MANDATORY PRICING RULES');
+      expect(prompt).toContain('SOLUTION PLAN CONSISTENCY');
+      expect(prompt).toContain('If an Approved Solution Plan is provided');
+      expect(prompt).toContain('CLIN');
+      expect(prompt).toContain('period of performance');
+      expect(prompt).toContain('THIRD-PARTY PRICING');
+      expect(prompt).toContain('vendor quote required');
+      expect(prompt).toContain('ONE row per service');
+      expect(prompt).toContain('INTERNAL RATES');
+      expect(prompt).toContain('get_pricing_data');
+      expect(prompt).toContain('PAGE LIMITS');
+      expect(prompt).toContain('page limit');
+      // Fix A: no variant may instruct citing source URLs in the document
+      expect(prompt).not.toContain('MUST cite its source URL');
+      expect(prompt).toContain('Do NOT include source URLs or retrieval dates in this document');
+    };
+
+    const assertPlanAbsentVariant = (prompt: string) => {
+      assertSharedRulesPresent(prompt);
+      expect(prompt).toContain('NEVER invent');
+      expect(prompt).toContain('search_service_pricing');
+    };
+
+    const assertPlanPresentVariant = (prompt: string) => {
+      assertSharedRulesPresent(prompt);
+      expect(prompt).toContain('ONLY source of third-party prices');
+      expect(prompt).toContain('VERBATIM');
+      expect(prompt).toContain('vendor quote required — not in Approved Solution Plan');
+      // The tool is withheld when a plan exists — the rules must not reference it
+      expect(prompt).not.toContain('search_service_pricing');
+    };
+
+    it('appear in the default full-document system prompt (plan-absent variant)', () => {
+      assertPlanAbsentVariant(buildSystemPromptForDocumentType(type));
+    });
+
+    it('switch to the plan-as-single-price-source variant when a plan exists (Fix A)', () => {
+      assertPlanPresentVariant(buildSystemPromptForDocumentType(type, null, null, true));
+      assertPlanPresentVariant(buildSectionSystemPrompt(type, null, true));
+    });
+
+    it('survive an org guidance override in the full-document system prompt', () => {
+      const prompt = buildSystemPromptForDocumentType(type, null, 'ORG GUIDANCE OVERRIDE');
+      expect(prompt).toContain('ORG GUIDANCE OVERRIDE');
+      assertPlanAbsentVariant(prompt);
+    });
+
+    it('survive an org guidance override in the section system prompt', () => {
+      const prompt = buildSectionSystemPrompt(type, 'ORG GUIDANCE OVERRIDE');
+      expect(prompt).toContain('ORG GUIDANCE OVERRIDE');
+      assertPlanAbsentVariant(prompt);
+    });
+
+    it('survive an org guidance override in the plan-present variant too', () => {
+      const prompt = buildSystemPromptForDocumentType(type, null, 'ORG GUIDANCE OVERRIDE', true);
+      expect(prompt).toContain('ORG GUIDANCE OVERRIDE');
+      assertPlanPresentVariant(prompt);
+    });
+
+    it('are NOT part of the editable default guidance fragment', () => {
+      const guidance = getDefaultGuidance(type);
+      expect(guidance).not.toContain('MANDATORY PRICING RULES');
+      expect(guidance).not.toContain('SOLUTION PLAN CONSISTENCY');
+      expect(guidance).not.toContain('THIRD-PARTY PRICING');
+    });
+
+    it('keeps the Third-Party Services & Subscriptions subsection without a Source column (Fix A)', () => {
+      const guidance = getDefaultGuidance(type);
+      expect(guidance).toContain('Third-Party Services & Subscriptions');
+      expect(guidance).toContain('Service | Tier/Plan | Unit Price | Billing Period | Quantity | Extended Price');
+      expect(guidance).not.toContain('Source (URL + retrieval date)');
+      expect(guidance).not.toContain('| Source');
+      expect(guidance).toContain('Do NOT include source URLs, retrieval dates, or a pricing-sources footnote');
+    });
+  });
+
+  it('non-pricing doc types do not receive the mandatory pricing rules block', () => {
+    expect(buildSystemPromptForDocumentType('TECHNICAL_PROPOSAL')).not.toContain('MANDATORY PRICING RULES');
+    expect(buildSectionSystemPrompt('TECHNICAL_PROPOSAL')).not.toContain('MANDATORY PRICING RULES');
+  });
+
+  describe.each(PRICING_TYPES)('%s task', (type) => {
+    const task = getDefaultTask(type);
+
+    it('directs the model to read the Approved Solution Plan first (conditionally)', () => {
+      expect(task).toContain('If an APPROVED SOLUTION PLAN is provided');
+      expect(task).toContain('read it FIRST');
+    });
+
+    it('directs ONE batched search_service_pricing call only when no plan is provided', () => {
+      expect(task).toContain('search_service_pricing');
+      expect(task).toContain('ONE batched');
+      expect(task).toContain('vendor quote required');
+      expect(task).toContain('copy each service\'s price data VERBATIM');
+      expect(task).toContain('vendor quote required — not in Approved Solution Plan');
+    });
+
+    it('forbids printing source URLs or a sources footnote in the document (Fix A)', () => {
+      expect(task).toContain('Do NOT include source URLs, retrieval dates, or a pricing-sources footnote');
+      expect(task).not.toContain('cites its source URL');
+    });
+
+    it('keeps internal rates sourced from get_pricing_data with the RATE BASIS check', () => {
+      expect(task).toContain('get_pricing_data');
+      expect(task).toContain('RATE BASIS');
+      expect(task).toContain('NEVER relabel onshore numbers as offshore');
+    });
+
+    it('directs cross-checking totals against the Solution Plan cost drivers', () => {
+      expect(task).toContain('cost drivers');
+    });
+
+    it('directs respecting solicitation page limits', () => {
+      expect(task).toContain('page limit');
+    });
+  });
+});
+
+describe('plan-governed cost schedule injection', () => {
+  const PRICING_TYPES = ['COST_PROPOSAL', 'PRICE_VOLUME'] as const;
+
+  const costSchedule: SolutionPlanCostSchedule = {
+    currency: 'USD',
+    items: [
+      { label: 'Implementation', category: 'LABOR', amount: 34720, billing: 'ONE_TIME' },
+      { label: 'Managed hosting', category: 'LABOR', amount: 400, billing: 'MONTHLY' },
+    ],
+    oneTimeTotal: 34720,
+    ongoingAnnualTotal: 4800,
+  };
+
+  const baseContext = {
+    solicitation: 's',
+    qaText: 'q',
+    enrichedKbText: 'k',
+    solutionPlanText: 'Approved plan body',
+  };
+
+  describe.each(PRICING_TYPES)('%s user prompt', (type) => {
+    it('renders the AUTHORITATIVE COST SCHEDULE block under the plan block when a schedule exists', () => {
+      const prompt = buildUserPromptForDocumentType(type, {
+        ...baseContext,
+        solutionPlanCostSchedule: costSchedule,
+      });
+      expect(prompt).toContain('AUTHORITATIVE COST SCHEDULE (SOURCE OF TRUTH — COPY THESE NUMBERS EXACTLY)');
+      expect(prompt).toContain('TOTAL ONE-TIME: $34,720.00');
+      expect(prompt).toContain('TOTAL ONGOING (ANNUAL): $4,800.00');
+      const planIdx = prompt.indexOf('APPROVED SOLUTION PLAN (SOURCE OF TRUTH)');
+      const scheduleIdx = prompt.indexOf('AUTHORITATIVE COST SCHEDULE');
+      const kbIdx = prompt.indexOf('ENRICHMENT CONTEXT');
+      expect(scheduleIdx).toBeGreaterThan(planIdx);
+      expect(kbIdx).toBeGreaterThan(scheduleIdx);
+    });
+
+    it('omits the block when the schedule is null or undefined (legacy / user-edited plan)', () => {
+      for (const schedule of [null, undefined]) {
+        const prompt = buildUserPromptForDocumentType(type, {
+          ...baseContext,
+          solutionPlanCostSchedule: schedule,
+        });
+        // The task text may still mention the block conditionally ("If the
+        // context contains…") — only the rendered block header must be absent.
+        expect(prompt).not.toContain('AUTHORITATIVE COST SCHEDULE (SOURCE OF TRUTH');
+      }
+    });
+  });
+
+  it('never renders the schedule block for non-pricing document types', () => {
+    const prompt = buildUserPromptForDocumentType('TECHNICAL_PROPOSAL', {
+      ...baseContext,
+      solutionPlanCostSchedule: costSchedule,
+    });
+    expect(prompt).not.toContain('AUTHORITATIVE COST SCHEDULE (SOURCE OF TRUTH');
+  });
+
+  describe.each(PRICING_TYPES)('%s PLAN-GOVERNED COSTS rules', (type) => {
+    it('appear in the plan-present variant of the mandatory pricing rules', () => {
+      for (const prompt of [
+        buildSystemPromptForDocumentType(type, null, null, true),
+        buildSectionSystemPrompt(type, null, true),
+      ]) {
+        expect(prompt).toContain('PLAN-GOVERNED COSTS');
+        expect(prompt).toContain('labor-based own services (hosting, maintenance, support)');
+        expect(prompt).toContain('(a) a schedule item amount copied verbatim');
+        expect(prompt).toContain('MUST equal the schedule\'s TOTAL lines exactly');
+      }
+    });
+
+    it('are absent from the plan-less variant', () => {
+      expect(buildSystemPromptForDocumentType(type)).not.toContain('PLAN-GOVERNED COSTS');
+      expect(buildSectionSystemPrompt(type)).not.toContain('PLAN-GOVERNED COSTS');
+    });
+
+    it('directs the task to the AUTHORITATIVE COST SCHEDULE block', () => {
+      expect(getDefaultTask(type)).toContain('AUTHORITATIVE COST SCHEDULE');
+    });
+
+    it('pins multi-year derivation to exact schedule arithmetic (D3b)', () => {
+      for (const prompt of [
+        buildSystemPromptForDocumentType(type, null, null, true),
+        buildSectionSystemPrompt(type, null, true),
+      ]) {
+        expect(prompt).toContain('Multi-year figures are exact arithmetic from the schedule');
+        expect(prompt).toContain('unless the RFP mandates escalation');
+      }
+      expect(getDefaultTask(type)).toContain('Derive multi-year tables with exact arithmetic from the schedule');
+    });
+  });
+
+  describe('buildPricingRulesBlock (exported for section edits)', () => {
+    it('returns the mandatory rules for pricing types and an empty string otherwise', () => {
+      expect(buildPricingRulesBlock('COST_PROPOSAL', true)).toContain('MANDATORY PRICING RULES');
+      expect(buildPricingRulesBlock('COST_PROPOSAL', true)).toContain('PLAN-GOVERNED COSTS');
+      expect(buildPricingRulesBlock('COST_PROPOSAL', false)).not.toContain('PLAN-GOVERNED COSTS');
+      expect(buildPricingRulesBlock('TECHNICAL_PROPOSAL', true)).toBe('');
     });
   });
 });

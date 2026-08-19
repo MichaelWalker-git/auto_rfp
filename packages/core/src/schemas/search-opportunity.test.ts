@@ -174,3 +174,29 @@ describe('higherGovSearchId in search criteria', () => {
     expect(data?.higherGovSearchId).toBeUndefined();
   });
 });
+
+describe('SavedSearch.projectId', () => {
+  const base = {
+    savedSearchId: 'ss-1',
+    orgId: 'org-1',
+    source: 'HIGHER_GOV' as const,
+    name: 'State and Local Contracts',
+    criteria: { higherGovSearchId: SEARCH_ID },
+    createdAt: '2026-08-05T00:00:00.000Z',
+    updatedAt: '2026-08-05T00:00:00.000Z',
+  };
+
+  it('records the originating project so the scheduler imports into it', () => {
+    const { success, data } = SavedSearchSchema.safeParse({ ...base, projectId: 'proj-42' });
+
+    expect(success).toBe(true);
+    expect(data?.projectId).toBe('proj-42');
+  });
+
+  it('is optional — older org-level searches without a project still parse', () => {
+    const { success, data } = SavedSearchSchema.safeParse(base);
+
+    expect(success).toBe(true);
+    expect(data?.projectId).toBeUndefined();
+  });
+});

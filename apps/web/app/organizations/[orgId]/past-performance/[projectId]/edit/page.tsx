@@ -35,6 +35,7 @@ import {
 import { usePastProject, useUpdatePastProject } from '@/lib/hooks/use-past-performance';
 import { useToast } from '@/components/ui/use-toast';
 import { ExtractionSourceBadge } from '@/components/extraction';
+import { DisclosureLevelSchema } from '@auto-rfp/core';
 import Link from 'next/link';
 
 const EditProjectFormSchema = z.object({
@@ -57,6 +58,8 @@ const EditProjectFormSchema = z.object({
   clientPOCName: z.string().optional(),
   clientPOCEmail: z.string().email().optional().or(z.literal('')),
   clientPOCPhone: z.string().optional(),
+  disclosure: DisclosureLevelSchema.optional(),
+  disclosureContactNote: z.string().max(1000).optional(),
 });
 
 type EditProjectFormData = z.infer<typeof EditProjectFormSchema>;
@@ -94,6 +97,8 @@ export default function EditPastProjectPage() {
       clientPOCName: '',
       clientPOCEmail: '',
       clientPOCPhone: '',
+      disclosure: 'PERMISSION_REQUIRED',
+      disclosureContactNote: '',
     },
   });
 
@@ -120,6 +125,8 @@ export default function EditPastProjectPage() {
         clientPOCName: project.clientPOC?.name ?? '',
         clientPOCEmail: project.clientPOC?.email ?? '',
         clientPOCPhone: project.clientPOC?.phone ?? '',
+        disclosure: project.disclosure ?? 'PERMISSION_REQUIRED',
+        disclosureContactNote: project.disclosureContactNote ?? '',
       });
       setIsFormReady(true);
     }
@@ -151,6 +158,8 @@ export default function EditPastProjectPage() {
           email: data.clientPOCEmail || undefined,
           phone: data.clientPOCPhone || undefined,
         } : undefined,
+        disclosure: data.disclosure || undefined,
+        disclosureContactNote: data.disclosureContactNote || undefined,
       };
 
       await updateProject.trigger({ orgId, projectId, updates });
@@ -613,6 +622,64 @@ export default function EditPastProjectPage() {
                   )}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Disclosure / NDA gating */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Disclosure</CardTitle>
+              <CardDescription>
+                Whether this client may be named in generated proposals
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="disclosure"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Disclosure classification</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value || 'PERMISSION_REQUIRED'}
+                      key={`disclosure-${project?.disclosure || 'empty'}`}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="NAMEABLE">Nameable — client may be named</SelectItem>
+                        <SelectItem value="ANONYMIZED_ONLY">Anonymize — describe but do not name</SelectItem>
+                        <SelectItem value="PERMISSION_REQUIRED">Permission required (default)</SelectItem>
+                        <SelectItem value="DO_NOT_USE">Do not use — never surface</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Changing this here does not confirm it. The row stays redacted until a
+                      reviewer approves it on the disclosure review page.
+                    </FormDescription>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="disclosureContactNote"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Disclosure note</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="e.g. NDA expires 2026; contact legal before naming."
+                        {...field}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
             </CardContent>
           </Card>
 

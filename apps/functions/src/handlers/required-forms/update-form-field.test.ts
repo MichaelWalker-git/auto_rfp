@@ -27,6 +27,11 @@ jest.mock('@/helpers/required-form', () => ({
   updateRequiredForm: (...args: unknown[]) => mockUpdateForm(...args),
 }));
 
+const mockSnapshotFormFields = jest.fn();
+jest.mock('@/helpers/required-form-version', () => ({
+  snapshotFormFields: (...args: unknown[]) => mockSnapshotFormFields(...args),
+}));
+
 jest.mock('@/helpers/api', () => ({
   apiResponse: (statusCode: number, body: unknown) => ({ statusCode, body: JSON.stringify(body) }),
   getOrgId: (event: { queryStringParameters?: Record<string, string>; body?: string | null }) => {
@@ -40,6 +45,17 @@ jest.mock('@/helpers/api', () => ({
       }
     }
     return undefined;
+  },
+  getUserId: () => 'user-1',
+  // Mirror the real parseJsonBody: takes the event, returns the parsed value or
+  // `undefined` on malformed JSON (absent body → {}).
+  parseJsonBody: (event: { body?: string | null }) => {
+    if (!event.body) return {};
+    try {
+      return JSON.parse(event.body);
+    } catch {
+      return undefined;
+    }
   },
 }));
 
@@ -93,6 +109,16 @@ describe('update-form-field', () => {
   it('returns 400 on invalid payload', async () => {
     const res = await baseHandler(eventFor({ orgId: 'org' }));
     expect(res.statusCode).toBe(400);
+  });
+
+  it('returns 400 (not 500) on malformed JSON body', async () => {
+    const event = {
+      body: '{ not: valid json',
+      queryStringParameters: { orgId: 'org' },
+    } as unknown as APIGatewayProxyEventV2;
+    const res = await baseHandler(event);
+    expect(res.statusCode).toBe(400);
+    expect(mockGetForm).not.toHaveBeenCalled();
   });
 
   it('returns 404 when form is missing', async () => {
@@ -263,6 +289,33 @@ describe('update-form-field', () => {
     const patch = mockUpdateForm.mock.calls[0][0].patch;
     expect(patch.fields).toHaveLength(1);
     expect(patch.fields[0].fieldId).toBe('keep');
+  });
+
+  it('snapshots the current fields (source MANUAL) before mutating a field', async () => {
+    mockGetForm.mockResolvedValueOnce({
+      formId: 'f1',
+      fields: [buildField({ fieldId: 'field-1', value: 'old', status: 'AUTO_FILLED' })],
+    });
+    mockUpdateForm.mockResolvedValueOnce({ formId: 'f1' });
+
+    await baseHandler(eventFor(baseBody({ value: 'new value' })));
+
+    expect(mockSnapshotFormFields).toHaveBeenCalledTimes(1);
+    expect(mockSnapshotFormFields).toHaveBeenCalledWith(
+      expect.objectContaining({ source: 'MANUAL', userId: 'user-1' }),
+    );
+  });
+
+  it('still updates the field when the snapshot fails (best-effort history)', async () => {
+    mockGetForm.mockResolvedValueOnce({
+      formId: 'f1',
+      fields: [buildField({ fieldId: 'field-1', value: 'old', status: 'AUTO_FILLED' })],
+    });
+    mockSnapshotFormFields.mockRejectedValueOnce(new Error('ddb down'));
+    mockUpdateForm.mockResolvedValueOnce({ formId: 'f1' });
+
+    await baseHandler(eventFor(baseBody({ value: 'new value' })));
+    expect(mockUpdateForm).toHaveBeenCalledTimes(1);
   });
 
   it('recomputes counts after the update', async () => {

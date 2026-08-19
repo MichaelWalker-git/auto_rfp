@@ -131,6 +131,53 @@ const GATE_EXEMPT_TYPES: ReadonlySet<string> = new Set(
 export const isSolutionPlanGatedDocumentType = (documentType: string): boolean =>
   !GATE_EXEMPT_TYPES.has(documentType);
 
+// ─── Cost schedule (plan-governed cost consistency) ─────────────────────────────
+
+/**
+ * Cost-item classification for the plan's structured cost schedule.
+ * `.catch('OTHER')` on the item field keeps a creative model label from
+ * failing the whole synthesis parse.
+ */
+export const SolutionPlanCostCategorySchema = z.enum(['LABOR', 'THIRD_PARTY', 'ODC', 'OTHER']);
+
+export type SolutionPlanCostCategory = z.infer<typeof SolutionPlanCostCategorySchema>;
+
+/** Billing cadence of one cost item. MONTHLY items roll up as ×12 into the annual total. */
+export const SolutionPlanCostBillingSchema = z.enum(['ONE_TIME', 'MONTHLY', 'ANNUAL']);
+
+export type SolutionPlanCostBilling = z.infer<typeof SolutionPlanCostBillingSchema>;
+
+/** One cost line of the plan's authoritative cost schedule. */
+export const SolutionPlanCostItemSchema = z.object({
+  label: z.string().min(1),
+  description: z.string().optional(),
+  category: SolutionPlanCostCategorySchema.catch('OTHER').default('OTHER'),
+  /** null = vendor quote required (no verified price) */
+  amount: z.number().nonnegative().nullable(),
+  billing: SolutionPlanCostBillingSchema,
+  /** Optional/if-exercised item (option CLIN, optional upgrade) — EXCLUDED from both totals */
+  optional: z.boolean().catch(false).default(false),
+});
+
+export type SolutionPlanCostItem = z.infer<typeof SolutionPlanCostItemSchema>;
+
+/**
+ * The plan's structured cost schedule — the single source of ALL costs
+ * (one-time, ongoing, labor-based) for the pricing documents generated from
+ * the plan. Emitted by synthesis; totals are deterministically recomputed by
+ * the worker before persisting (model-stated totals are never trusted).
+ */
+export const SolutionPlanCostScheduleSchema = z.object({
+  currency: z.string().default('USD'),
+  items: z.array(SolutionPlanCostItemSchema).min(1),
+  /** Deterministically recomputed by the synthesis worker — model-stated values are overwritten */
+  oneTimeTotal: z.number().nonnegative(),
+  ongoingAnnualTotal: z.number().nonnegative(),
+  assumptions: z.array(z.string()).optional(),
+});
+
+export type SolutionPlanCostSchedule = z.infer<typeof SolutionPlanCostScheduleSchema>;
+
 // ─── Item (pure domain entity) ──────────────────────────────────────────────────
 
 /**
@@ -170,6 +217,12 @@ export const SolutionPlanItemSchema = SolutionPlanCreateRequestSchema.extend({
   grillingCompletedAt: z.string().datetime().optional(),
   /** Failure message when status is FAILED. */
   error: z.string().optional(),
+  /**
+   * Structured cost schedule emitted by synthesis (totals server-recomputed).
+   * Nullable so a user edit can clear it (documents then fall back to Fix A
+   * behavior); optional so legacy plans parse without it.
+   */
+  costSchedule: SolutionPlanCostScheduleSchema.nullish(),
   // Audit fields
   createdAt: z.string().datetime().optional(),
   updatedAt: z.string().datetime().optional(),
@@ -196,6 +249,7 @@ export const SolutionPlanStatusPatchSchema = SolutionPlanItemSchema.pick({
   grillingRounds: true,
   grillingCompletedAt: true,
   error: true,
+  costSchedule: true,
   updatedBy: true,
   updatedByName: true,
 }).partial();

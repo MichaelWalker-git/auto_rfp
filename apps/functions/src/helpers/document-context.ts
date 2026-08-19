@@ -4,11 +4,13 @@ import {
   truncateText,
 } from './executive-opportunity-brief';
 import { loadTextFromS3 } from './s3';
-import { searchPastProjects, listPastProjects } from './past-performance';
+import { searchPastProjects, listPastProjects, getPastProject } from './past-performance';
+import { isUsableInMatching, redactForGeneration, isNameable, anonymizationNotice } from './past-performance-disclosure';
 import { getEmbedding } from './embeddings';
 import { semanticSearchContentLibrary } from './semantic-search';
 import { getOrgPrimaryContact } from './org-contact';
 import { requireEnv } from './env';
+import type { DisclosureLevel } from '@auto-rfp/core';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
@@ -325,7 +327,14 @@ export async function loadExecutiveBriefContext(
       const data = pp as {
         matches?: Array<{
           relevanceScore?: number;
-          project?: { title?: string; client?: string; description?: string };
+          project?: {
+            title?: string;
+            client?: string;
+            description?: string;
+            domain?: string | null;
+            disclosure?: DisclosureLevel;
+            disclosureConfirmed?: boolean;
+          };
         }>;
         gapAnalysis?: { overallCoverage?: number; criticalGaps?: string[] };
       };
@@ -338,7 +347,22 @@ export async function loadExecutiveBriefContext(
         const proj = m.project;
         if (!proj) return;
         const desc = proj.description ? truncateText(proj.description, 150) : '';
-        p.push(`  • ${proj.title || 'Project'} (${m.relevanceScore}% match)${proj.client ? ` — ${proj.client}` : ''}${desc ? `: ${desc}` : ''}`);
+        // Defense-in-depth: the persisted match should already be redacted, but
+        // only emit the real client when effectively NAMEABLE; otherwise withhold.
+        const effective = {
+          disclosure: proj.disclosure ?? 'PERMISSION_REQUIRED',
+          disclosureConfirmed: proj.disclosureConfirmed ?? false,
+        };
+        const clientLabel = isNameable(effective)
+          ? proj.client
+          : proj.client
+            ? proj.domain
+              ? `[Client name withheld — ${proj.domain} engagement]`
+              : '[Client name withheld]'
+            : undefined;
+        p.push(`  • ${proj.title || 'Project'} (${m.relevanceScore}% match)${clientLabel ? ` — ${clientLabel}` : ''}${desc ? `: ${desc}` : ''}`);
+        const notice = anonymizationNotice(effective);
+        if (notice) p.push(`    ${notice}`);
       });
       if (data.gapAnalysis?.criticalGaps?.length) {
         p.push(`  Gaps: ${data.gapAnalysis.criticalGaps.slice(0, 3).join(', ')}`);
@@ -401,29 +425,46 @@ export async function loadPastPerformanceContext(
     const relevant = results?.filter((r) => (r.score ?? 0) >= PAST_PERF_MIN_SCORE) ?? [];
 
     const projects: string[] = relevant.length
-      ? relevant.map((r, i) => {
-          const lines: string[] = [
-            `[${i + 1}] ${r.metadata?.title || 'Project'} (score=${r.score?.toFixed(2)})`,
-          ];
-          pushIf(lines, r.metadata?.client, '  Client');
-          pushIf(lines, r.metadata?.domain, '  Domain');
-          if (r.metadata?.technologies?.length) {
-            lines.push(`  Tech: ${(r.metadata.technologies as string[]).slice(0, 5).join(', ')}`);
-          }
-          return lines.join('\n');
-        })
+      ? (
+          await Promise.all(
+            relevant.map(async (r, i) => {
+              // Do NOT trust Pinecone metadata for the client name — it may be
+              // stale and is no longer indexed. Re-read the authoritative record
+              // so disclosure gating decides what may surface.
+              const loaded = await getPastProject(orgId, r.metadata?.projectId as string).catch(() => null);
+              if (!loaded || !isUsableInMatching(loaded)) return null;
+              const project = redactForGeneration(loaded);
+              const lines: string[] = [
+                `[${i + 1}] ${project.title || 'Project'} (score=${r.score?.toFixed(2)})`,
+              ];
+              pushIf(lines, project.client, '  Client');
+              const notice = anonymizationNotice(loaded);
+              if (notice) lines.push(`  ${notice}`);
+              pushIf(lines, project.domain, '  Domain');
+              if (project.technologies?.length) {
+                lines.push(`  Tech: ${project.technologies.slice(0, 5).join(', ')}`);
+              }
+              return lines.join('\n');
+            }),
+          )
+        ).filter((line): line is string => line !== null)
       : await (async () => {
           const { items } = await listPastProjects(orgId, false, LIMITS.pastPerfTopK);
-          return items.map((p, i) => {
-            const lines: string[] = [`[${i + 1}] ${p.title}`];
-            pushIf(lines, p.client, '  Client');
-            if (p.description) lines.push(`  ${truncateText(p.description, 200)}`);
-            if (p.technologies?.length) lines.push(`  Tech: ${p.technologies.slice(0, 5).join(', ')}`);
-            if (p.achievements?.length) lines.push(`  Results: ${p.achievements.slice(0, 2).join('; ')}`);
-            if (p.value) lines.push(`  Value: $${p.value}`);
-            if (p.performanceRating) lines.push(`  Rating: ${p.performanceRating}/5`);
-            return lines.join('\n');
-          });
+          return items
+            .filter((p) => isUsableInMatching(p))
+            .map((loaded, i) => {
+              const p = redactForGeneration(loaded);
+              const lines: string[] = [`[${i + 1}] ${p.title}`];
+              pushIf(lines, p.client, '  Client');
+              const notice = anonymizationNotice(loaded);
+              if (notice) lines.push(`  ${notice}`);
+              if (p.description) lines.push(`  ${truncateText(p.description, 200)}`);
+              if (p.technologies?.length) lines.push(`  Tech: ${p.technologies.slice(0, 5).join(', ')}`);
+              if (p.achievements?.length) lines.push(`  Results: ${p.achievements.slice(0, 2).join('; ')}`);
+              if (p.value) lines.push(`  Value: $${p.value}`);
+              if (p.performanceRating) lines.push(`  Rating: ${p.performanceRating}/5`);
+              return lines.join('\n');
+            });
         })();
 
     if (!projects.length) return '';

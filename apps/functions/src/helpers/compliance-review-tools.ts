@@ -46,6 +46,10 @@ export interface DocumentInventory {
   htmlContentKey?: string;
   /** First-sheet cells of an XLSX questionnaire (documentType QUESTIONNAIRE, file-based). */
   questionnaireCells?: QuestionnaireCellInventory;
+  /** S3 key of the XLSX questionnaire file — lets the EDIT engine re-read FULL
+   *  (untruncated) cell values for recall + apply, which the truncated review
+   *  `questionnaireCells` can't provide. */
+  fileKey?: string;
 }
 
 export interface FormFieldInventory {
@@ -117,6 +121,7 @@ export const buildPackageInventory = async (args: {
           targetKind: 'XLSX_QUESTIONNAIRE',
           headings: [],
           questionnaireCells,
+          fileKey: doc.fileKey as string,
         };
       }
 

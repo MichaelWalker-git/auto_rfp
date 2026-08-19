@@ -2,12 +2,13 @@
 
 import { useCallback, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Download, Loader2, Save } from 'lucide-react';
+import { ArrowLeft, Download, History, Loader2, Save } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { QuestionnaireEditor } from '@/features/required-forms/components/QuestionnaireViewer';
+import { QuestionnaireVersionHistory } from '@/features/package-edit';
 import { useDocumentDownloadUrl } from '@/lib/hooks/use-rfp-documents';
 import { usePresignUpload } from '@/lib/hooks/use-presign';
 import type { RFPDocumentItem } from '@auto-rfp/core';
@@ -31,6 +32,10 @@ export const XlsxQuestionnaireEditorPage = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  // Remount key: bumped after a revert so QuestionnaireEditor re-reads the (now
+  // replaced) .xlsx from S3 instead of showing the stale in-memory workbook.
+  const [reloadKey, setReloadKey] = useState(0);
   const getBufferRef = useRef<(() => Promise<ArrayBuffer | null>) | null>(null);
   const { trigger: getDownloadUrl } = useDocumentDownloadUrl(orgId);
   const { trigger: presignUpload } = usePresignUpload();
@@ -122,6 +127,16 @@ export const XlsxQuestionnaireEditorPage = ({
           Questionnaire
         </Badge>
 
+        <Button
+          size="sm"
+          variant={showHistory ? 'secondary' : 'outline'}
+          onClick={() => setShowHistory((v) => !v)}
+          aria-pressed={showHistory}
+        >
+          <History className="h-4 w-4 mr-1" />
+          History
+        </Button>
+
         <Button size="sm" variant="outline" onClick={handleDownload} disabled={isDownloading}>
           {isDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 mr-1" />}
           Download
@@ -133,13 +148,33 @@ export const XlsxQuestionnaireEditorPage = ({
         </Button>
       </div>
 
-      <div className="flex-1 overflow-hidden">
-        <QuestionnaireEditor
-          fileKey={doc.fileKey!}
-          fileName={doc.name}
-          onDirtyChange={setIsDirty}
-          onWorkbookReady={handleWorkbookReady}
-        />
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden">
+          <QuestionnaireEditor
+            key={reloadKey}
+            fileKey={doc.fileKey!}
+            fileName={doc.name}
+            onDirtyChange={setIsDirty}
+            onWorkbookReady={handleWorkbookReady}
+          />
+        </div>
+
+        {showHistory && (
+          <aside className="w-80 shrink-0 overflow-y-auto border-l bg-gray-50 p-3">
+            <h2 className="mb-2 text-sm font-semibold text-gray-900">Version history</h2>
+            <QuestionnaireVersionHistory
+              orgId={orgId}
+              projectId={projectId}
+              oppId={opportunityId}
+              documentId={doc.documentId}
+              onReverted={() => {
+                setIsDirty(false);
+                setReloadKey((k) => k + 1);
+                toast({ title: 'Restored', description: 'Questionnaire reverted to the selected version.' });
+              }}
+            />
+          </aside>
+        )}
       </div>
     </div>
   );

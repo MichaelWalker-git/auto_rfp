@@ -18,8 +18,14 @@
 
 import { z } from 'zod';
 
-import type { SolutionPlanItem, SolutionPlanKey } from '@auto-rfp/core';
+import {
+  SolutionPlanCostScheduleSchema,
+  type SolutionPlanCostSchedule,
+  type SolutionPlanItem,
+  type SolutionPlanKey,
+} from '@auto-rfp/core';
 
+import { computeCostScheduleTotals } from './cost-schedule';
 import { fetchExecutiveBriefAnalysis } from './db-tool-helpers';
 import { loadSolicitation } from './document-generation';
 import { errorMessageOf } from './error';
@@ -39,6 +45,7 @@ import { enqueueGrillingRound, type GrillingRoundMessage } from './solution-plan
 import {
   GRILLER_BRIEF_CHAR_CAP,
   GRILLER_SOLICITATION_CHAR_CAP,
+  SOLUTION_PLAN_BRIEF_SECTIONS,
   TECH_LEAD_PRIMER_CHAR_CAP,
   buildSynthesizerSystemPrompt,
   buildSynthesizerUserPrompt,
@@ -116,8 +123,12 @@ const buildOpportunityPrimer = (solicitationText: string, execBriefText: string)
 const loadRoundContext = async (message: GrillingRoundMessage): Promise<RoundContext> => {
   const [solicitationRaw, execBriefRaw, allMessages] = await Promise.all([
     loadSolicitation(message.projectId, message.opportunityId),
-    // Empty string when no brief exists — recommended, never required (ADR-14)
-    fetchExecutiveBriefAnalysis(message.projectId, message.opportunityId),
+    // Empty string when no brief exists — recommended, never required (ADR-14).
+    // Factual sections only — the scoring/bid-decision section must never
+    // reach the plan agents.
+    fetchExecutiveBriefAnalysis(message.projectId, message.opportunityId, [
+      ...SOLUTION_PLAN_BRIEF_SECTIONS,
+    ]),
     listGrillingMessages(message.solutionPlanId),
   ]);
 
@@ -134,9 +145,16 @@ const loadRoundContext = async (message: GrillingRoundMessage): Promise<RoundCon
 
 // ─── Synthesis output ───────────────────────────────────────────────────────────
 
-const SynthesisResponseSchema = z.object({
+/**
+ * Synthesis output shape. `costSchedule` is `.nullish().catch(undefined)`:
+ * `invokeClaudeJson` has no schema-retry, so a present-but-malformed schedule
+ * must degrade to "absent + warn" instead of FAILING the whole plan.
+ * Exported for tests.
+ */
+export const SynthesisResponseSchema = z.object({
   title: z.string().min(1),
   htmlContent: z.string().min(1),
+  costSchedule: SolutionPlanCostScheduleSchema.nullish().catch(undefined),
 });
 
 // ─── Failure handling ───────────────────────────────────────────────────────────
@@ -330,7 +348,7 @@ export const processSynthesis = async (message: GrillingRoundMessage): Promise<v
       throw new Error('No Tech Lead answers in transcript — nothing to synthesize');
     }
 
-    const { title, htmlContent } = await invokeClaudeJson({
+    const { title, htmlContent, costSchedule } = await invokeClaudeJson({
       modelId: resolveModelId(),
       system: buildSynthesizerSystemPrompt(),
       user: buildSynthesizerUserPrompt({
@@ -341,6 +359,23 @@ export const processSynthesis = async (message: GrillingRoundMessage): Promise<v
       maxTokens: SYNTHESIS_MAX_TOKENS,
       temperature: 0.3,
     });
+
+    // Model-stated totals are unreliable — always overwrite them with the
+    // deterministic recomputation before persisting. Items whose label says
+    // "(Optional)" are treated as optional even when the model forgot the
+    // flag — optional CLINs must never inflate the base totals.
+    let normalizedSchedule: SolutionPlanCostSchedule | null = null;
+    if (costSchedule) {
+      const items = costSchedule.items.map((item) => ({
+        ...item,
+        optional: item.optional || /\boptional\b/i.test(item.label),
+      }));
+      normalizedSchedule = { ...costSchedule, items, ...computeCostScheduleTotals(items) };
+    } else {
+      console.warn(
+        '[solution-plan-worker] synthesis returned no usable costSchedule — documents fall back to Fix A behavior',
+      );
+    }
 
     // Monotonic version (ADR-11) — bump from the plan's current counter, never reset
     const version = (plan.version ?? 0) + 1;
@@ -355,6 +390,7 @@ export const processSynthesis = async (message: GrillingRoundMessage): Promise<v
       staleReason: '',
       isUserEdited: false,
       error: '',
+      costSchedule: normalizedSchedule,
     });
     await appendGrillingMessage({
       ...messageBase(message),

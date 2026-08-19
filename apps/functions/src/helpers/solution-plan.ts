@@ -105,8 +105,11 @@ export const toSolutionPlanItem = (dbItem: SolutionPlanDBItem): SolutionPlanItem
 
 /**
  * Persist a user edit of a READY plan's content (ADR-8): bump version +
- * contentKey, set `isUserEdited`/`editedBy`, clear staleness. Both checks are
- * DynamoDB conditions, so the write is atomic against races:
+ * contentKey, set `isUserEdited`/`editedBy`, clear staleness. The structured
+ * `costSchedule` is cleared too — edited HTML may change prices, and a stale
+ * schedule silently forcing old totals is worse than the Fix A fallback
+ * (regeneration restores it; `putSolutionPlan` full-replaces on re-init).
+ * Both checks are DynamoDB conditions, so the write is atomic against races:
  *  - status must still be READY — a concurrent re-init can't be clobbered
  *  - version must still be `patch.version - 1` — two concurrent edits can't
  *    both claim v{N+1} and silently drop one (ADR-11: versions never collide)
@@ -117,10 +120,10 @@ export const updateSolutionPlanContent = async (
   patch: { version: number; contentKey: string; editedBy?: string },
 ): Promise<SolutionPlanDBItem | null> => {
   try {
-    return await updateItem<SolutionPlanDBItem>(
+    const updated = await updateItem<SolutionPlanDBItem>(
       SOLUTION_PLAN_PK,
       buildSolutionPlanSk(key),
-      { ...patch, isUserEdited: true, isStale: false, staleReason: '' },
+      { ...patch, isUserEdited: true, isStale: false, staleReason: '', costSchedule: null },
       {
         condition:
           'attribute_exists(#pk) AND #status = :readyStatus AND #version = :expectedVersion',
@@ -131,6 +134,10 @@ export const updateSolutionPlanContent = async (
         },
       },
     );
+    console.log(
+      `[updateSolutionPlanContent] cleared costSchedule on user edit (opportunityId=${key.opportunityId}) — pricing docs fall back to Fix A until the plan is regenerated`,
+    );
+    return updated;
   } catch (err) {
     if ((err as { name?: string })?.name === 'ConditionalCheckFailedException') {
       console.log(

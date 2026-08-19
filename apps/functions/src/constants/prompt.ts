@@ -1,4 +1,5 @@
 import { readSystemPrompt, readUserPrompt } from '@/helpers/prompt';
+import { CLIENT_CONFIDENTIALITY_RULE } from '@/helpers/document-prompts';
 import { RequirementsSectionSchema, KNOWN_ROLES } from '@auto-rfp/core';
 
 export const SYSTEM_PROMPT_PK = 'SYSTEM_PROMPT';
@@ -1554,7 +1555,10 @@ export const ANSWER_USER_PROMPT = [
 
 export const getAnswerSystemPrompt = async (orgId: string) => {
   const { prompt } = await readSystemPrompt(orgId, 'ANSWER') || {};
-  return prompt || ANSWER_SYSTEM_PROMPT;
+  // Always append the client-confidentiality rule — even to org-overridden prompts,
+  // so a custom prompt can't drop the disclosure backstop. (Non-overridable, like
+  // the pricing rules block on document prompts.)
+  return `${prompt || ANSWER_SYSTEM_PROMPT}\n\n${CLIENT_CONFIDENTIALITY_RULE}`;
 };
 
 export const getAnswerUserPrompt = async (orgId: string) => {
