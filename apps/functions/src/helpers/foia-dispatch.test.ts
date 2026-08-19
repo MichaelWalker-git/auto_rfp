@@ -39,6 +39,19 @@ jest.mock('@/helpers/foia-send', () => ({
   sendFoiaRequest: (...a: unknown[]) => mockSendFoiaRequest(...a),
 }));
 
+/**
+ * Mocked, not left to run.
+ *
+ * The real helper reaches SSM for the HMAC secret and DynamoDB for the write, and it
+ * swallows its own failures by design so a broken audit never strands a delivered send.
+ * Unmocked, every test here silently exercised the failure branch — passing while
+ * proving nothing about whether the audit is written.
+ */
+const mockWriteFoiaSendAuditLog = jest.fn();
+jest.mock('@/helpers/foia-audit', () => ({
+  writeFoiaSendAuditLog: (...a: unknown[]) => mockWriteFoiaSendAuditLog(...a),
+}));
+
 import { dispatchFoiaRequest } from './foia-dispatch';
 import type { FoiaAutomationDBItem } from '@auto-rfp/core';
 
@@ -104,6 +117,52 @@ describe('dispatchFoiaRequest — success', () => {
     const result = await dispatchFoiaRequest({ automation: automation(), sentBy: 'system' });
 
     expect(result).toEqual({ status: 'SENT', messageId: 'ses-1', recipient: 'foia@army.mil' });
+  });
+
+  /**
+   * The unattended path had no audit entry at all.
+   *
+   * `auditMiddleware` reads context off an HTTP event, and this runs from a cron, so the
+   * only record of a filing made in the customer's name was the automation row plus the
+   * bytes in S3 — nothing in the log an org's auditors read.
+   */
+  it('audits an unattended send, marking it as system-originated', async () => {
+    await dispatchFoiaRequest({ automation: automation(), sentBy: 'system' });
+
+    expect(mockWriteFoiaSendAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: 'org-1',
+        foiaId: 'foia-1',
+        sentBy: 'system',
+        result: 'success',
+        detail: expect.objectContaining({
+          recipient: 'foia@army.mil',
+          sesMessageId: 'ses-1',
+        }),
+      }),
+    );
+  });
+
+  it('records who sent it when a human approved the send', async () => {
+    await dispatchFoiaRequest({ automation: automation(), sentBy: 'user-42' });
+
+    expect(mockWriteFoiaSendAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({ sentBy: 'user-42', result: 'success' }),
+    );
+  });
+
+  /** A failed attempt at a statutory filing is at least as interesting as a successful one. */
+  it('audits a failed send with the error', async () => {
+    mockSendFoiaRequest.mockRejectedValue(new Error('SES rejected the message'));
+
+    await dispatchFoiaRequest({ automation: automation(), sentBy: 'system' });
+
+    expect(mockWriteFoiaSendAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        result: 'failure',
+        errorMessage: 'SES rejected the message',
+      }),
+    );
   });
 
   it('does not fail the send when stamping the request record fails', async () => {

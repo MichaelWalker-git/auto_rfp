@@ -10,6 +10,7 @@ import {
 import { buildFoiaSubject, readFoiaLetterText } from '@/helpers/foia-artifacts';
 import { generateFOIALetter } from '@/helpers/foia-letter';
 import { sendFoiaRequest } from '@/helpers/foia-send';
+import { writeFoiaSendAuditLog } from '@/helpers/foia-audit';
 
 /**
  * The one implementation of "transmit this request and move the record on".
@@ -160,6 +161,22 @@ export const dispatchFoiaRequest = async (args: {
 
     await syncOpportunityFoiaMarker(orgId, projectId, oppId, 'SENT');
 
+    await writeFoiaSendAuditLog({
+      orgId,
+      foiaId: request.foiaId,
+      sentBy,
+      result: 'success',
+      detail: {
+        oppId,
+        projectId,
+        recipient: result.recipient,
+        sesMessageId: result.messageId,
+        sentAt,
+        solicitationNumber: request.solicitationNumber,
+        attachments: result.attached,
+      },
+    });
+
     return { status: 'SENT', messageId: result.messageId, recipient: result.recipient };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -195,6 +212,22 @@ export const dispatchFoiaRequest = async (args: {
     if (exhausted) {
       await syncOpportunityFoiaMarker(orgId, projectId, oppId, 'FAILED').catch(() => undefined);
     }
+
+    /**
+     * Failed attempts are audited too.
+     *
+     * An unattended run that tried and failed to file a statutory request is exactly as
+     * interesting to an auditor as one that succeeded — more so if it exhausted its
+     * retries and the deadline passed with nothing sent.
+     */
+    await writeFoiaSendAuditLog({
+      orgId,
+      foiaId: request.foiaId,
+      sentBy,
+      result: 'failure',
+      errorMessage: message,
+      detail: { oppId, projectId, attempts, exhausted },
+    });
 
     return { status: 'FAILED', error: message, exhausted };
   }

@@ -123,6 +123,28 @@ export class FoiaAutomationStack extends cdk.Stack {
     );
 
     /**
+     * Read the audit-log HMAC secret.
+     *
+     * Required for `writeFoiaSendAuditLog`, which integrity-hashes each entry. This role
+     * is built here rather than shared, so it does not inherit the grant that
+     * `audit-stack.ts` gives the common role — and without it every audit write on the
+     * unattended send path would fail with AccessDenied behind a best-effort `catch`,
+     * leaving the exact gap the audit write was added to close, silently.
+     *
+     * The parameter name is the one `audit-stack.ts` creates and `helpers/secret.ts`
+     * reads; scoped to that single parameter rather than a wildcard.
+     */
+    lambdaRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: 'ReadAuditHmacSecret',
+        actions: ['ssm:GetParameter'],
+        resources: [
+          `arn:aws:ssm:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:parameter/auto-rfp/audit-hmac-secret-${stage.toLowerCase()}`,
+        ],
+      }),
+    );
+
+    /**
      * Send outbound FOIA mail.
      *
      * The reconciler transmits requests whose recipient came from a trusted source
