@@ -3,8 +3,9 @@ import { Readable } from 'stream';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
-import { getApiKey } from './api-key-storage';
-import { GOOGLE_SECRET_PREFIX } from '../constants/google';
+import { getDriveClientForOrg } from './google-drive-client';
+import { pushDocumentToDrive } from './google-drive-document-sync';
+import type { DriveSyncDocument } from './google-drive-document-sync';
 import { requireEnv } from './env';
 import { docClient } from './db';
 import { nowIso } from './date';
@@ -35,93 +36,22 @@ const SUBFOLDERS = {
 
 // ─── Auth (Domain-Wide Delegation only) ───
 
+/**
+ * Thin wrapper over the shared client in `./google-drive-client`.
+ *
+ * Keeps this module's historical extra behaviour: when the service account JSON
+ * carries no `delegate_email`, fall back to the first org member's email. That
+ * lookup needs DynamoDB, which the shared client deliberately does not import, so
+ * it is injected as a resolver here.
+ */
 async function getDriveClient(orgId: string): Promise<drive_v3.Drive | null> {
-  console.log(`[GoogleDrive] Getting Drive client for org ${orgId}`);
-  const serviceAccountJson = await getApiKey(orgId, GOOGLE_SECRET_PREFIX);
-  if (!serviceAccountJson) {
-    console.log(`[GoogleDrive] No Google service account key found for org ${orgId}`);
-    return null;
-  }
-
-  console.log(`[GoogleDrive] Service account JSON retrieved (length: ${serviceAccountJson.length})`);
-
-  try {
-    const credentials = JSON.parse(serviceAccountJson);
-
-    console.log(`[GoogleDrive] Parsed credentials - client_email: ${credentials.client_email}, delegate_email: ${credentials.delegate_email || 'NOT SET'}`);
-
-    if (!credentials.client_email || !credentials.private_key) {
-      console.error(
-        '[GoogleDrive] Invalid Google service account key: missing client_email or private_key. ' +
-        'A Google Service Account JSON key is required (not a simple API key). ' +
-        'Please update the Google Drive configuration in organization settings.',
-      );
-      return null;
-    }
-
-    // Determine the delegate email for domain-wide delegation
-    // Priority: 1) explicit delegate_email in JSON, 2) first org member email
-    let delegateEmail = credentials.delegate_email;
-
-    if (!delegateEmail) {
-      console.log(`[GoogleDrive] No delegate_email in credentials, looking up org member emails...`);
-      try {
-        const emails = await getOrgMemberEmails(orgId);
-        console.log(`[GoogleDrive] Found ${emails.length} org member emails: ${emails.slice(0, 3).join(', ')}${emails.length > 3 ? '...' : ''}`);
-        if (emails.length > 0) {
-          delegateEmail = emails[0];
-        }
-      } catch (emailErr) {
-        console.error(`[GoogleDrive] Failed to get org member emails: ${(emailErr as Error)?.message}`);
-      }
-    }
-
-    if (!delegateEmail) {
-      console.error(
-        '[GoogleDrive] ERROR: No delegate email available. Domain-wide delegation requires a delegate_email. ' +
-        'Please add "delegate_email": "user@yourdomain.com" to the service account JSON key in organization settings. ' +
-        'The delegate email must be a Google Workspace user with Drive storage.',
-      );
-      return null;
-    }
-
-    console.log(`[GoogleDrive] Using domain-wide delegation to impersonate: ${delegateEmail}`);
-    const jwtClient = new google.auth.JWT({
-      email: credentials.client_email,
-      key: credentials.private_key,
-      scopes: ['https://www.googleapis.com/auth/drive'],
-      subject: delegateEmail,
-    });
-
-    // Verify the delegation works by authorizing the JWT client
-    try {
-      await jwtClient.authorize();
-      console.log(`[GoogleDrive] JWT authorization successful for delegate: ${delegateEmail}`);
-    } catch (authErr) {
-      console.error(
-        `[GoogleDrive] JWT authorization FAILED for delegate ${delegateEmail}: ${(authErr as Error)?.message}. ` +
-        'Ensure domain-wide delegation is configured in admin.google.com: ' +
-        'Security → Access and data control → API controls → Manage Domain Wide Delegation. ' +
-        `Add Client ID: ${credentials.client_id} with scope: https://www.googleapis.com/auth/drive`,
-      );
-      return null;
-    }
-
-    console.log(`[GoogleDrive] Drive client initialized successfully with delegation`);
-    return google.drive({ version: 'v3', auth: jwtClient });
-  } catch (err) {
-    const message = (err as Error)?.message || '';
-    if (message.includes('is not valid JSON')) {
-      console.error(
-        '[GoogleDrive] Failed to initialize Drive client: The stored credential is not valid JSON. ' +
-        'A Google Service Account JSON key is required (not a simple API key). ' +
-        'Please update the Google Drive configuration in organization settings.',
-      );
-    } else {
-      console.error(`[GoogleDrive] Failed to initialize Drive client: ${message}`);
-    }
-    return null;
-  }
+  const client = await getDriveClientForOrg(orgId, {
+    resolveDelegateFallback: async () => {
+      const emails = await getOrgMemberEmails(orgId);
+      return emails[0] ?? null;
+    },
+  });
+  return client?.drive ?? null;
 }
 
 // ─── Folder Management ───
@@ -274,10 +204,15 @@ async function loadQuestionFilesForOpportunity(
   return (res.Items ?? []).filter((item: any) => item.fileKey && item.status !== 'DELETED') as QuestionFileItem[];
 }
 
+/**
+ * Load the full document records, not a projection: `pushDocumentToDrive` needs
+ * `googleDriveFileId` to update in place instead of creating a duplicate, and
+ * `htmlContentKey` to upload the current editor content.
+ */
 async function loadRFPDocumentsForOpportunity(
   projectId: string,
   opportunityId: string,
-): Promise<Array<{ documentId: string; name: string; fileKey?: string; mimeType?: string; content?: any }>> {
+): Promise<DriveSyncDocument[]> {
   const res = await docClient.send(
     new QueryCommand({
       TableName: DB_TABLE_NAME,
@@ -291,13 +226,7 @@ async function loadRFPDocumentsForOpportunity(
       },
     }),
   );
-  return (res.Items ?? []).map((item: any) => ({
-    documentId: item.documentId,
-    name: item.name || item.title || 'document',
-    fileKey: item.fileKey,
-    mimeType: item.mimeType,
-    content: item.content,
-  }));
+  return (res.Items ?? []) as DriveSyncDocument[];
 }
 
 // ─── DB Updates ───
@@ -539,21 +468,34 @@ export async function syncToGoogleDrive(args: {
     }
 
     // 8. Upload RFP documents to /Proposal Materials
+    //
+    // Routed through pushDocumentToDrive so the Drive fileId is recorded on the
+    // document. Previously this called files.create unconditionally and stored
+    // nothing, so every opportunity re-sync left another orphaned copy in the
+    // folder and the document never became linked.
     const rfpDocs = await loadRFPDocumentsForOpportunity(projectId, opportunityId);
     for (const doc of rfpDocs) {
+      const docName = doc.name || doc.title || doc.documentId;
       try {
-        if (doc.fileKey) {
-          await uploadFileFromS3(drive, doc.fileKey, doc.name, doc.mimeType || 'application/octet-stream', proposalFolderId);
+        const { updatedExisting } = await pushDocumentToDrive({
+          drive,
+          doc,
+          orgId,
+          projectId,
+          opportunityId,
+          documentId: doc.documentId,
+          updatedBy: 'system',
+          folderId: proposalFolderId,
+        });
+        if (updatedExisting) {
+          result.skipped++;
+          console.log(`[GoogleDrive] Updated existing RFP doc in Drive: ${docName}`);
+        } else {
           result.uploaded++;
-          console.log(`[GoogleDrive] Uploaded RFP doc: ${doc.name}`);
-        } else if (doc.content) {
-          const contentBuffer = Buffer.from(JSON.stringify(doc.content, null, 2), 'utf-8');
-          await uploadBuffer(drive, contentBuffer, `${doc.name}.json`, 'application/json', proposalFolderId);
-          result.uploaded++;
-          console.log(`[GoogleDrive] Uploaded RFP doc content: ${doc.name}`);
+          console.log(`[GoogleDrive] Uploaded RFP doc: ${docName}`);
         }
       } catch (err) {
-        result.errors.push(`RFP doc "${doc.name}": ${(err as Error)?.message}`);
+        result.errors.push(`RFP doc "${docName}": ${(err as Error)?.message}`);
       }
     }
 
