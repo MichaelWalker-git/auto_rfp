@@ -107,6 +107,9 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     ...(opportunity.item.jurisdiction ? { jurisdiction: opportunity.item.jurisdiction } : {}),
     ...(opportunity.item.state ? { state: opportunity.item.state } : {}),
     hasVerifiedSubmission,
+    // Re-rendered here, so it must reach the same conclusion the original send did —
+    // a win must not be described as not selected for award.
+    isAwardee: opportunity.item.status === 'WON',
   });
 
   const subject = buildFoiaSubject({

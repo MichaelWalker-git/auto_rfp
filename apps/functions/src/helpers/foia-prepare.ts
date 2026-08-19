@@ -170,6 +170,9 @@ export const prepareFoiaRequest = async (args: {
     jurisdiction: opportunity.jurisdiction,
     state: opportunity.state ?? undefined,
     hasVerifiedSubmission: derived.hasVerifiedSubmission,
+    // Won opportunities are FOIA-eligible too, so the letter has to know which way the
+    // bid went — otherwise it tells the agency we lost a contract we were awarded.
+    isAwardee: opportunity.status === 'WON',
   });
 
   /**

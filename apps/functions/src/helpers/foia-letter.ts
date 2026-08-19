@@ -79,6 +79,20 @@ export interface LetterJurisdictionContext {
    * Undefined means unknown, which is treated the same as false: claim nothing.
    */
   hasVerifiedSubmission?: boolean;
+  /**
+   * Whether this company WON the solicitation being asked about.
+   *
+   * Needed because a bid on record does not tell you which way it went, and the
+   * sentence below asserts an outcome either way. `FOIA_ELIGIBLE_OPPORTUNITY_STATUSES`
+   * is `['WON', 'LOST']`, so a won contract is automatically in scope for the nightly
+   * reconciler, and a won contract necessarily has a submission on record — meaning the
+   * "was not selected for award" branch was reached for every FOIA filed on a win.
+   *
+   * Undefined means unknown, and falls through to the not-selected wording only when a
+   * submission is also verified. That preserves the previous behaviour for callers that
+   * do not know the outcome, rather than silently changing what they file.
+   */
+  isAwardee?: boolean;
 }
 
 /**
@@ -99,10 +113,28 @@ export interface LetterJurisdictionContext {
 const resolveInterestParagraph = (args: {
   companyName: string;
   hasVerifiedSubmission?: boolean;
-}): string =>
-  args.hasVerifiedSubmission
-    ? `My company, ${args.companyName}, submitted a proposal in response to the above-referenced solicitation and was not selected for award.`
-    : `My company, ${args.companyName}, is a prospective contractor with a commercial interest in the conduct and outcome of this procurement. This request is made under the statutory right of any person to obtain public records; no claim of bidder status is asserted.`;
+  isAwardee?: boolean;
+}): string => {
+  if (!args.hasVerifiedSubmission) {
+    return `My company, ${args.companyName}, is a prospective contractor with a commercial interest in the conduct and outcome of this procurement. This request is made under the statutory right of any person to obtain public records; no claim of bidder status is asserted.`;
+  }
+
+  /**
+   * A won contract must never be described as not selected.
+   *
+   * Won opportunities are FOIA-eligible by design, and a win always has a submission on
+   * record, so the not-selected branch below was reached for every request filed on a
+   * win — asserting to a government agency, in the customer's name, that they lost a
+   * contract they were awarded. Records are still worth requesting on a win (the
+   * evaluation record, competitors' pricing), so the fix is to state the outcome
+   * correctly rather than to stop filing.
+   */
+  if (args.isAwardee) {
+    return `My company, ${args.companyName}, submitted a proposal in response to the above-referenced solicitation and was awarded the contract.`;
+  }
+
+  return `My company, ${args.companyName}, submitted a proposal in response to the above-referenced solicitation and was not selected for award.`;
+};
 
 /**
  * Formats a date string into a human-readable format for letters.
@@ -202,6 +234,7 @@ export const generateFOIALetter = (
   const interestParagraph = resolveInterestParagraph({
     companyName: request.companyName,
     hasVerifiedSubmission: jurisdictionContext.hasVerifiedSubmission,
+    isAwardee: jurisdictionContext.isAwardee,
   });
 
   const awardeeClause = request.awardeeName ? ` The contract was awarded to ${request.awardeeName}.` : '';

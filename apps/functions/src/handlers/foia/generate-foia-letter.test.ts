@@ -136,6 +136,46 @@ describe('generate-foia-letter handler', () => {
       expect(letter).not.toContain('submitted a proposal');
     });
 
+    /**
+     * A won contract must never be described as not selected for award.
+     *
+     * `FOIA_ELIGIBLE_OPPORTUNITY_STATUSES` is `['WON', 'LOST']`, so wins reach the
+     * nightly reconciler by design, and a win always has a submission on record — which
+     * meant every FOIA filed on a win asserted to a government agency, in the customer's
+     * name, that they lost a contract they were awarded.
+     */
+    it('states the win when the company was awarded the contract', () => {
+      const letter = generateFOIALetter(mockRequest, {
+        hasVerifiedSubmission: true,
+        isAwardee: true,
+      });
+
+      expect(letter).toContain(
+        'My company, Acme Corp, submitted a proposal in response to the above-referenced solicitation and was awarded the contract.',
+      );
+      expect(letter).not.toContain('was not selected for award');
+    });
+
+    /** Without a submission on record we claim nothing either way, win or not. */
+    it('claims no bidder status on a win with no verified submission', () => {
+      const letter = generateFOIALetter(mockRequest, {
+        hasVerifiedSubmission: false,
+        isAwardee: true,
+      });
+
+      expect(letter).not.toContain('submitted a proposal');
+      expect(letter).not.toContain('was awarded the contract');
+      expect(letter).toContain('prospective contractor with a commercial interest');
+    });
+
+    /** An unknown outcome keeps the previous wording rather than silently changing it. */
+    it('falls back to not-selected when the outcome is unknown', () => {
+      const letter = generateFOIALetter(mockRequest, { hasVerifiedSubmission: true });
+
+      expect(letter).toContain('was not selected for award');
+      expect(letter).not.toContain('was awarded the contract');
+    });
+
     it('includes awardee name', () => {
       const letter = generateFOIALetter(mockRequest);
 

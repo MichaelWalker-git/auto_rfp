@@ -130,7 +130,36 @@ describe('prepareFoiaRequest — happy path', () => {
 
     expect(mockGenerateFOIALetter).toHaveBeenCalledWith(
       derivedRequest,
-      { jurisdiction: 'STATE', state: 'California' },
+      expect.objectContaining({ jurisdiction: 'STATE', state: 'California' }),
+    );
+  });
+
+  /**
+   * The live path for the false-statement defect.
+   *
+   * Won opportunities are FOIA-eligible (`FOIA_ELIGIBLE_OPPORTUNITY_STATUSES` is
+   * `['WON', 'LOST']`) and a win always has a submission on record, so without this flag
+   * every request filed on a win told the agency we were not selected for a contract we
+   * had been awarded.
+   */
+  it('tells the letter when the opportunity was WON', async () => {
+    await prepareFoiaRequest({
+      ...baseArgs,
+      opportunity: { ...opportunity, status: 'WON' } as OpportunityDBItem,
+    });
+
+    expect(mockGenerateFOIALetter).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ isAwardee: true }),
+    );
+  });
+
+  it('does not claim awardee status on a LOST opportunity', async () => {
+    await prepareFoiaRequest(baseArgs);
+
+    expect(mockGenerateFOIALetter).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ isAwardee: false }),
     );
   });
 
