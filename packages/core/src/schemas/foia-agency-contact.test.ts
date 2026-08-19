@@ -145,6 +145,33 @@ describe('FoiaAgencyContactCreateRequestSchema', () => {
     expect(success).toBe(false);
   });
 
+  /**
+   * `.url()` alone does NOT cover these: zod 3.25 accepts every one of them, because it
+   * validates URL syntax and not the scheme. The value is rendered into an anchor's
+   * `href`, where `javascript:` executes on click, so the refinement is load-bearing —
+   * this test fails if someone simplifies the field back to a bare `.url()`.
+   */
+  it.each([
+    'javascript:alert(document.cookie)',
+    'JaVaScRiPt:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+    'vbscript:msgbox(1)',
+    'file:///etc/passwd',
+  ])('rejects a non-http(s) portal URL: %s', (webPortalUrl) => {
+    const { success } = FoiaAgencyContactCreateRequestSchema.safeParse({ ...valid, webPortalUrl });
+
+    expect(success).toBe(false);
+  });
+
+  it.each(['https://records.example.gov/request', 'http://records.example.gov'])(
+    'still accepts %s',
+    (webPortalUrl) => {
+      const { success } = FoiaAgencyContactCreateRequestSchema.safeParse({ ...valid, webPortalUrl });
+
+      expect(success).toBe(true);
+    },
+  );
+
   it('accepts a STATE jurisdiction with a state name', () => {
     const { success } = FoiaAgencyContactCreateRequestSchema.safeParse({
       ...valid,

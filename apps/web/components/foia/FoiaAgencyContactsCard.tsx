@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { safeExternalUrl } from '@/lib/safe-url';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -260,14 +261,29 @@ export const FoiaAgencyContactsCard = ({ orgId }: FoiaAgencyContactsCardProps) =
                       {contact.webPortalUrl && (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                          <a
-                            href={contact.webPortalUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hover:underline"
-                          >
-                            {contact.webPortalUrl}
-                          </a>
+                          {/**
+                           * Linked only when the scheme is http(s).
+                           *
+                           * This value is typed by an org member, so it reaches the DOM
+                           * unvalidated: `z.string().url()` on the schema accepts
+                           * `javascript:alert(1)` (verified against zod 3.25 — it checks
+                           * URL syntax, not scheme), and a `href` runs it on click.
+                           *
+                           * Still shown as text when unsafe, so a mistyped address is
+                           * visible and correctable rather than silently vanishing.
+                           */}
+                          {safeExternalUrl(contact.webPortalUrl) ? (
+                            <a
+                              href={safeExternalUrl(contact.webPortalUrl) ?? undefined}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:underline"
+                            >
+                              {contact.webPortalUrl}
+                            </a>
+                          ) : (
+                            <span>{contact.webPortalUrl}</span>
+                          )}
                         </div>
                       )}
 

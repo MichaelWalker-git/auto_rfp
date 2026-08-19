@@ -39,7 +39,19 @@ export const FoiaAgencyContactCreateRequestSchema = z.object({
   foiaAddress: z.string().trim().min(1, 'FOIA mailing address is required').nullish(),
   /** False for agencies that only accept portal or postal submissions. */
   acceptsEmail: z.boolean().default(true),
-  webPortalUrl: z.string().url().nullish(),
+  /**
+   * `.url()` alone is not enough here.
+   *
+   * Verified against the installed zod 3.25: `z.string().url()` accepts
+   * `javascript:alert(1)`, `data:text/html,…` and `vbscript:…`, because it validates URL
+   * syntax rather than scheme. This value is rendered into an anchor's `href`, where a
+   * `javascript:` scheme executes on click, so the scheme is pinned explicitly.
+   */
+  webPortalUrl: z
+    .string()
+    .url()
+    .refine((u) => /^https?:\/\//i.test(u), 'Web portal URL must start with http:// or https://')
+    .nullish(),
   jurisdiction: JurisdictionSchema.nullish(),
   state: z.string().nullish(),
   notes: z.string().max(1000).nullish(),

@@ -44,7 +44,7 @@ import {
   type FoiaAutomationItem,
   type FoiaRecipientCandidate,
 } from '@auto-rfp/core';
-import { Loader2, Clock, Ban, ExternalLink } from 'lucide-react';
+import { Loader2, Clock, Ban } from 'lucide-react';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -303,22 +303,29 @@ export const FoiaAutomationCard = ({
               )}
 
               {/* AGENCY_REQUIRES_PORTAL */}
-              {automation.blockedReason === 'AGENCY_REQUIRES_PORTAL' && automation.resolvedRecipientEmail && (
+              {/**
+               * No portal link, because there is no portal URL to link to.
+               *
+               * This used to render an "Open Portal" button with
+               * `href={automation.resolvedRecipientEmail}`, which was wrong twice over.
+               * That field is `z.string().email()` and is only ever written from
+               * `agencyFOIAEmail` on the SCHEDULED-to-SENDING path — the BLOCKED patch in
+               * `scan-foia-automation.ts` never sets it — so on this branch it is always
+               * null and the button never rendered at all. Had it rendered, it would have
+               * put an email address in an href.
+               *
+               * `resolveFoiaRecipient` does resolve a real `webPortalUrl`, but nothing
+               * persists it onto the automation record, so the URL is not available to
+               * the UI. Linking it needs that field added to `FoiaAutomationItemSchema`
+               * and written on the blocked path — out of scope here, and tracked rather
+               * than faked with a link that cannot work.
+               */}
+              {automation.blockedReason === 'AGENCY_REQUIRES_PORTAL' && (
                 <div className="text-sm space-y-2">
                   <p className="text-muted-foreground">
-                    This agency does not accept email submissions. Use their web portal instead.
+                    This agency does not accept email submissions. Check the agency&apos;s
+                    records page for their web portal, then submit the letter there.
                   </p>
-                  <Button variant="outline" size="sm" asChild>
-                    <a
-                      href={automation.resolvedRecipientEmail}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1"
-                    >
-                      Open Portal
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </Button>
                 </div>
               )}
 

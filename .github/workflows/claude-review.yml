@@ -33,8 +33,22 @@ jobs:
         id: diff
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          gh pr diff ${{ github.event.pull_request.number }} > /tmp/pr_diff.txt
+          set -euo pipefail
+
+          # Computed locally rather than via `gh pr diff`, which reads the REST
+          # diff endpoint and returns HTTP 406 "diff exceeded the maximum number
+          # of lines (20000)" on a large PR — failing the whole job before the
+          # review could run, on exactly the PRs most worth reviewing. The
+          # checkout above already uses fetch-depth: 0, so the full history is
+          # present and git can produce the same diff with no cap.
+          #
+          # --merge-base matches what GitHub shows: changes this branch
+          # introduces, excluding commits the base gained since the fork.
+          git fetch --quiet origin "$BASE_REF"
+          git diff --merge-base "origin/$BASE_REF" HEAD > /tmp/pr_diff.txt
+
           DIFF_SIZE=$(wc -c < /tmp/pr_diff.txt | tr -d ' ')
           TOTAL_LINES=$(wc -l < /tmp/pr_diff.txt | tr -d ' ')
           echo "size=$DIFF_SIZE" >> $GITHUB_OUTPUT

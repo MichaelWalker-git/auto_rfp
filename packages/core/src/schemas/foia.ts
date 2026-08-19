@@ -218,7 +218,13 @@ export const FOIAAgencyInfoSchema = z.object({
   parentAgencyName: z.string().optional(),
   foiaOfficeEmail: z.string().email().optional(),
   foiaOfficeAddress: FOIAAddressSchema.optional(),
-  webPortalUrl: z.string().url().optional(),
+  // http(s) pinned explicitly: zod's `.url()` accepts `javascript:` and `data:` (verified
+  // against zod 3.25), and this value can reach an anchor's `href`.
+  webPortalUrl: z
+    .string()
+    .url()
+    .refine((u) => /^https?:\/\//i.test(u), 'Web portal URL must start with http:// or https://')
+    .optional(),
   faxNumber: z.string().optional(),
 });
 
