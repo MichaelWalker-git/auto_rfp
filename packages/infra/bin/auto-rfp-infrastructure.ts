@@ -16,6 +16,7 @@ import { AuditStack } from '../audit-stack';
 import { OpportunityEventsStack } from '../opportunity-events-stack';
 import { RfpLinearSyncStack } from '../rfp-linear-sync-stack';
 import { RfpDigestStack } from '../rfp-digest-stack';
+import { GoogleDriveSyncStack } from '../google-drive-sync-stack';
 import { RFP_SYNC_PROJECT_ID } from '@auto-rfp/core';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import {
@@ -271,6 +272,28 @@ const rfpLinearSyncStack = new RfpLinearSyncStack(app, `AutoRfp-RfpLinearSync-${
 
 rfpLinearSyncStack.addDependency(db);
 
+// Scheduled import of Google Drive document edits. Depends on both db (for the
+// byDriveSync index it queries — deploy the table stack first) and storage (for the
+// documents bucket its DOCUMENTS_BUCKET env var and S3 grant point at).
+const googleDriveSyncStack = new GoogleDriveSyncStack(app, `AutoRfp-GoogleDriveSync-${stage}`, {
+  env,
+  stage,
+  mainTable: db.tableName,
+  documentsBucketName: storage.documentsBucket.bucketName,
+  notificationQueueName,
+  commonEnv: {
+    STAGE: stage,
+    DB_TABLE_NAME: db.tableName.tableName,
+    REGION: env.region ?? 'us-east-1',
+    SENTRY_DSN: sentryDNS,
+    SENTRY_ENVIRONMENT: stage,
+    NODE_ENV: 'production',
+  },
+});
+
+googleDriveSyncStack.addDependency(db);
+googleDriveSyncStack.addDependency(storage);
+
 // Only deployed where a Linear key and Slack webhook are configured for the org.
 const rfpDigestOrgId = process.env.RFP_DIGEST_ORG_ID || '';
 if (rfpDigestOrgId) {
@@ -392,6 +415,9 @@ addLambdaSuppressions(auditStack, isProduction);
 
 addLambdaSuppressions(rfpLinearSyncStack, isProduction);
 addDynamoDBSuppressions(rfpLinearSyncStack, isProduction);
+
+addLambdaSuppressions(googleDriveSyncStack, isProduction);
+addDynamoDBSuppressions(googleDriveSyncStack, isProduction);
 
 console.log(`\n=📝 Note: After deployment, update Cognito callback URLs with the actual Amplify domain from the FrontendURL output if needed.`);
 console.log('=🔒 CDK NAG AWS Solutions Checks enabled for security compliance');
