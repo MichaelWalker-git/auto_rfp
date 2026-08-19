@@ -98,7 +98,7 @@ const applyAwardNotice = async (args: {
 }): Promise<void> => {
   const { orgId, projectId, oppId, bodyText, receivedAt } = args;
 
-  const { date, provenance } = awardDateFromMail({ receivedAt, bodyText });
+  const { date, statedByAgency } = awardDateFromMail({ receivedAt, bodyText });
 
   /**
    * Only record `outcomeDate` when the AGENCY stated the date.
@@ -121,7 +121,10 @@ const applyAwardNotice = async (args: {
    * then keeps its hedged wording, which is accurate, and a human confirms the date
    * before anything is transmitted.
    */
-  if (provenance === 'RECORDED_AWARD') {
+  // Gated on `statedByAgency`, not on the provenance value: `RECORDED_OUTCOME` passes
+  // `isVerifiedAwardDateProvenance`, so a provenance-based check here would write the
+  // receipt date as the agency's award date.
+  if (statedByAgency) {
     await updateOpportunity({
       orgId,
       projectId,

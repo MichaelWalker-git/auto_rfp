@@ -11,6 +11,7 @@ import * as ses from 'aws-cdk-lib/aws-ses';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as path from 'path';
+import { foiaConfigurationSetName } from './foia-naming';
 
 export interface FoiaAutomationStackProps extends cdk.StackProps {
   stage: string;
@@ -331,7 +332,7 @@ export class FoiaAutomationStack extends cdk.Stack {
     // statutory request is indistinguishable from a delivered one, and the FOIA
     // deadline passes while the record says SENT.
     const configurationSet = new ses.ConfigurationSet(this, 'FoiaConfigurationSet', {
-      configurationSetName: `auto-rfp-foia-${stage}`,
+      configurationSetName: foiaConfigurationSetName(stage),
       // Legal correspondence should not fall back to cleartext.
       tlsPolicy: ses.ConfigurationSetTlsPolicy.REQUIRE,
       reputationMetrics: true,

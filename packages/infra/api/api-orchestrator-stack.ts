@@ -66,6 +66,7 @@ import { requiredFormsDomain } from './routes/required-forms.routes';
 import { dashboardDomain } from './routes/dashboard.routes';
 import { solutionPlanDomain } from './routes/solution-plan.routes';
 import { relatedRfpDomain } from './routes/related-rfp.routes';
+import { foiaConfigurationSetName } from '../foia-naming';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -300,7 +301,10 @@ export class ApiOrchestratorStack extends cdk.Stack {
       // rejected FOIA request looks identical to a delivered one. Referenced by
       // name rather than imported to avoid a cross-stack dependency cycle (that
       // stack already depends on the database and storage stacks).
-      FOIA_SES_CONFIGURATION_SET: `auto-rfp-foia-${stage}`,
+      // Derived by the shared helper, not spelled here. The two derivations drifted on
+      // casing once; SES config-set names are case-sensitive, so the mismatch rejected
+      // every send on one path while the other kept working.
+      FOIA_SES_CONFIGURATION_SET: foiaConfigurationSetName(stage),
       // Construct the notification queue URL from the queue name — no cross-stack token reference
       ...(notificationQueueName ? {
         NOTIFICATION_QUEUE_URL: `https://sqs.${cdk.Aws.REGION}.amazonaws.com/${cdk.Aws.ACCOUNT_ID}/${notificationQueueName}`,

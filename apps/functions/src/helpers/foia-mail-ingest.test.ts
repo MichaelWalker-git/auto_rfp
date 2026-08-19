@@ -406,19 +406,19 @@ describe('awardDateFromMail', () => {
         receivedAt: '2026-08-12T10:00:00.000Z',
         bodyText: 'Status: Awarded  Award Date 1/29/2026',
       }),
-    ).toEqual({ date: '2026-01-29', provenance: 'RECORDED_AWARD' });
+    ).toEqual({ date: '2026-01-29', provenance: 'RECORDED_AWARD', statedByAgency: true });
   });
 
   it('accepts an ISO award date', () => {
     expect(
       awardDateFromMail({ receivedAt: '2026-08-12T10:00:00.000Z', bodyText: 'Award Date: 2026-01-29' }),
-    ).toEqual({ date: '2026-01-29', provenance: 'RECORDED_AWARD' });
+    ).toEqual({ date: '2026-01-29', provenance: 'RECORDED_AWARD', statedByAgency: true });
   });
 
   it('zero-pads a single-digit month and day', () => {
     expect(
       awardDateFromMail({ receivedAt: '2026-08-12T10:00:00.000Z', bodyText: 'Award Date 3/7/2026' }),
-    ).toEqual({ date: '2026-03-07', provenance: 'RECORDED_AWARD' });
+    ).toEqual({ date: '2026-03-07', provenance: 'RECORDED_AWARD', statedByAgency: true });
   });
 
   /**
@@ -435,7 +435,7 @@ describe('awardDateFromMail', () => {
   it('falls back to the receipt date as a recorded OUTCOME, not a recorded award', () => {
     expect(
       awardDateFromMail({ receivedAt: '2026-08-12T10:00:00.000Z', bodyText: 'An award has been made.' }),
-    ).toEqual({ date: '2026-08-12', provenance: 'RECORDED_OUTCOME' });
+    ).toEqual({ date: '2026-08-12', provenance: 'RECORDED_OUTCOME', statedByAgency: false });
   });
 
   it("prefers the agency's own stated date over the receipt date", () => {
@@ -446,7 +446,7 @@ describe('awardDateFromMail', () => {
         receivedAt: '2026-08-12T10:00:00.000Z',
         bodyText: 'Award Date: 2026-01-29. Notice of award.',
       }),
-    ).toEqual({ date: '2026-01-29', provenance: 'RECORDED_AWARD' });
+    ).toEqual({ date: '2026-01-29', provenance: 'RECORDED_AWARD', statedByAgency: true });
   });
 });
 

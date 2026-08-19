@@ -288,7 +288,27 @@ export const decideInboundMail = (args: {
 export const awardDateFromMail = (args: {
   receivedAt: string;
   bodyText: string;
-}): { date: string; provenance: FoiaAwardDateProvenance } => {
+}): {
+  date: string;
+  provenance: FoiaAwardDateProvenance;
+  /**
+   * Whether the AGENCY stated this date, rather than us inferring it from receipt.
+   *
+   * Callers must gate on this, never on the provenance value. `RECORDED_OUTCOME` is
+   * accepted by `isVerifiedAwardDateProvenance` — correctly, since an award notice really
+   * is evidence an award happened — so the idiomatic-looking
+   * `isVerifiedAwardDateProvenance(provenance)` check passes on the receipt-date fallback
+   * and would write a date no agency ever stated into `outcomeDate`. From there the letter
+   * asserts "awarded on or about <date>" about a fabricated day AND the request becomes
+   * eligible for an unattended send: the 108-day-wrong-date failure this enum exists to
+   * prevent, reintroduced through the back door.
+   *
+   * The single current caller happens to compare `provenance === 'RECORDED_AWARD'`
+   * directly, which is why the trap is inert today. This field makes the safe check the
+   * obvious one instead of relying on the next caller repeating a subtlety.
+   */
+  statedByAgency: boolean;
+} => {
   const stated = /\bAward\s+Date\s*:?\s*(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})\b/i.exec(
     args.bodyText,
   );
@@ -299,9 +319,9 @@ export const awardDateFromMail = (args: {
     if (slash) {
       const [, month, day, year] = slash;
       const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      return { date: iso, provenance: 'RECORDED_AWARD' };
+      return { date: iso, provenance: 'RECORDED_AWARD', statedByAgency: true };
     }
-    return { date: value, provenance: 'RECORDED_AWARD' };
+    return { date: value, provenance: 'RECORDED_AWARD', statedByAgency: true };
   }
 
   // No stated date. Logged because the fallback is materially weaker evidence than
@@ -335,7 +355,7 @@ export const awardDateFromMail = (args: {
    * "on or about" hedges the day, not the fact. What changes is that the value now
    * describes what we actually hold.
    */
-  return { date: args.receivedAt.slice(0, 10), provenance: 'RECORDED_OUTCOME' };
+  return { date: args.receivedAt.slice(0, 10), provenance: 'RECORDED_OUTCOME', statedByAgency: false };
 };
 
 /**
