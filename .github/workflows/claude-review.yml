@@ -16,7 +16,13 @@ concurrency:
 jobs:
   review:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Chunked reviewing costs wall-clock: measured ~60s per chunk plus ~55s of setup, so
+    # the 12-chunk cap needs ~13 minutes. At the previous 10 minutes a 9-chunk PR finished
+    # in 9m26s — 34 seconds of headroom — and anything larger would have been killed
+    # mid-review, producing no review at all. That is strictly worse than the truncated
+    # review this replaced, so the timeout is raised to cover the cap rather than the cap
+    # lowered to fit the timeout.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
         with:
@@ -79,6 +85,15 @@ jobs:
           # of 23,699 lines on the PR that prompted this) while the job could still return
           # APPROVE — which reads as "reviewed and clean" when most of the change was never
           # sent. Chunks split on `diff --git` boundaries so each one is a whole-file diff.
+          # 12 chunks is a deliberate ceiling on both spend and wall-clock: ~36,000 diff
+          # lines reviewed, roughly $1 per run at Sonnet-class input pricing, inside the
+          # 20-minute job timeout. A PR past that is too large to review well by any means
+          # and should be split — the review says so explicitly rather than quietly
+          # covering 13% of it, which is what `head -n 3000` used to do.
+          #
+          # A PR under 3,000 lines produces exactly one chunk and costs what it always did,
+          # so the extra spend lands only on the PRs where a partial review is most
+          # misleading.
           CHUNK_INFO=$(python3 .github/scripts/split-diff.py /tmp/pr_diff.txt /tmp/chunks 3000 12)
           CHUNK_COUNT=$(echo "$CHUNK_INFO" | sed -n 1p)
           DROPPED_FILES=$(echo "$CHUNK_INFO" | sed -n 2p)
