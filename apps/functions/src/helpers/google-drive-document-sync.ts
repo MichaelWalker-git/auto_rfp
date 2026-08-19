@@ -395,11 +395,48 @@ export const shareFolderWithOrgMembers = async (args: {
     return outcome;
   }
 
-  for (const member of members) {
+  // Skip anyone who already has access. The folder tree is shared, so a "new" type
+  // folder often already carries grants from a previous document — re-granting costs a
+  // 2-3 second round trip each and, for addresses with no Google account, re-sends a
+  // notification email to a real person.
+  let alreadyGranted = new Set<string>();
+  try {
+    const { data } = await withDriveRetry(() =>
+      drive.permissions.list({
+        fileId: folderId,
+        fields: 'permissions(emailAddress)',
+        pageSize: 100,
+      }),
+    );
+    alreadyGranted = new Set(
+      (data.permissions ?? [])
+        .map((p) => p.emailAddress?.toLowerCase())
+        .filter((e): e is string => !!e),
+    );
+  } catch (err) {
+    // Non-fatal: without the list we simply attempt every grant, which is the old
+    // behaviour — duplicates are rejected harmlessly.
+    console.warn(
+      `[GoogleDrive] Could not read existing permissions on ${folderId}: ${(err as Error)?.message}`,
+    );
+  }
+
+  // Concurrent, not sequential. A single permissions.create takes 2-3 seconds, and an
+  // org of 19 members therefore took ~28s serially — which blew API Gateway's hard 30s
+  // integration timeout and surfaced to the user as "service unavailable" on a push that
+  // had actually succeeded. Bounded at 5 so a large org cannot trip Drive's rate limits.
+  const SHARE_CONCURRENCY = 5;
+
+  const shareOne = async (member: OrgMemberAccess): Promise<void> => {
     const role = driveRoleForMember(member);
     if (!role) {
       outcome.skipped += 1;
-      continue;
+      return;
+    }
+
+    if (alreadyGranted.has(member.email.toLowerCase())) {
+      outcome.skipped += 1;
+      return;
     }
 
     const grant = (sendNotificationEmail: boolean) =>
@@ -429,14 +466,14 @@ export const shareFolderWithOrgMembers = async (args: {
             `[GoogleDrive] Granted ${role} on ${folderId} to ${member.email} with a notification ` +
               `(no Google account is associated with that address, so Drive requires one)`,
           );
-          continue;
+          return;
         } catch (retryErr) {
           outcome.failed += 1;
           console.warn(
             `[GoogleDrive] Could not grant ${role} on folder ${folderId} to ${member.email} ` +
               `even with a notification: ${(retryErr as Error)?.message}`,
           );
-          continue;
+          return;
         }
       }
 
@@ -448,7 +485,17 @@ export const shareFolderWithOrgMembers = async (args: {
         `[GoogleDrive] Could not grant ${role} on folder ${folderId} to ${member.email}: ${(err as Error)?.message}`,
       );
     }
-  }
+  };
+
+  let cursor = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(SHARE_CONCURRENCY, members.length) }, async () => {
+      while (cursor < members.length) {
+        const member = members[cursor++];
+        if (member) await shareOne(member);
+      }
+    }),
+  );
 
   // `shared` counts accepted API calls, which is NOT the number of people who gained
   // access: Drive resolves an address to a Google account, so Gmail aliases of one
