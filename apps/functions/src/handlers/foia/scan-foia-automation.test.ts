@@ -198,6 +198,66 @@ describe('scan-foia-automation — scheduling', () => {
     // 30-day override, not the org's 90.
     expect(call.patch.scheduledSendAt).toBe('2026-01-31T00:00:00.000Z');
   });
+
+  /**
+   * The regression this suite was missing.
+   *
+   * When an agency's award notice arrives, `applyAwardNotice` re-anchors the timer to the
+   * award date. This reconciler then recomputes the schedule on its next pass — and
+   * without reading the persisted anchor it recomputed from the submission date, decided
+   * the stored value was wrong, and overwrote the re-anchor back to deadline-plus-delay.
+   * Silently, within 24 hours, on every re-anchored record. There was no award fixture in
+   * this file at all, which is why it shipped.
+   */
+  it('keeps an award-notice re-anchor instead of reverting it to the submission date', async () => {
+    const submittedAt = new Date(Date.UTC(2026, 0, 1)).toISOString();
+    const awardAnchorAt = new Date(Date.UTC(2026, 5, 1)).toISOString();
+
+    mockGetSubmissionHistory.mockResolvedValue([{ status: 'SUBMITTED', submittedAt }]);
+    mockGetFoiaAutomation.mockResolvedValue({
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      oppId: 'opp-1',
+      state: 'SCHEDULED',
+      // What applyAwardNotice wrote: award + the org's 90-day delay.
+      scheduledSendAt: '2026-08-30T00:00:00.000Z',
+      awardAnchorAt,
+      triggeredBy: 'AWARD_EMAIL',
+    });
+
+    await baseHandler({});
+
+    // Recomputing from the anchor lands on the value already stored, so the record
+    // matches intent and the reconciler leaves it alone.
+    const overwrote = mockSetFoiaAutomationState.mock.calls.some((c) => {
+      const patch = (c[0] as { patch?: { scheduledSendAt?: string } }).patch;
+      return !!patch?.scheduledSendAt && patch.scheduledSendAt !== '2026-08-30T00:00:00.000Z';
+    });
+
+    expect(overwrote).toBe(false);
+  });
+
+  /** With no anchor the submission date still governs — the fallback must be unchanged. */
+  it('still anchors on the submission date when no award notice has arrived', async () => {
+    const submittedAt = new Date(Date.UTC(2026, 0, 1)).toISOString();
+    mockGetSubmissionHistory.mockResolvedValue([{ status: 'SUBMITTED', submittedAt }]);
+    mockGetFoiaAutomation.mockResolvedValue({
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      oppId: 'opp-1',
+      state: 'SCHEDULED',
+      scheduledSendAt: null,
+      awardAnchorAt: null,
+    });
+
+    await baseHandler({});
+
+    const call = mockSetFoiaAutomationState.mock.calls[0]![0] as {
+      patch: { scheduledSendAt: string };
+    };
+    // 2026-01-01 + the org default 90 days.
+    expect(call.patch.scheduledSendAt).toBe('2026-04-01T00:00:00.000Z');
+  });
 });
 
 describe('scan-foia-automation — not applicable', () => {

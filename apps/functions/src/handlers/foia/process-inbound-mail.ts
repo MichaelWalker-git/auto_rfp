@@ -151,7 +151,19 @@ const applyAwardNotice = async (args: {
     projectId,
     oppId,
     state: 'SCHEDULED',
-    patch: { scheduledSendAt },
+    /**
+     * The anchor is persisted, not just the computed timestamp.
+     *
+     * Writing `scheduledSendAt` alone made this re-anchor last until the next nightly
+     * reconciler pass and no longer: that pass recomputes the schedule from `submittedAt`
+     * and `responseDeadlineIso`, finds the stored value disagrees, and overwrites it back
+     * to deadline-plus-delay. The Level-1 behaviour this exists to provide — count from
+     * the actual award, not the response deadline — therefore reverted within 24 hours,
+     * silently. Recording the anchor lets the reconciler recompute the SAME value.
+     *
+     * `triggeredBy: 'AWARD_EMAIL'` was in the enum with no writer; this is the writer.
+     */
+    patch: { scheduledSendAt, awardAnchorAt: date, triggeredBy: 'AWARD_EMAIL' },
   });
 };
 

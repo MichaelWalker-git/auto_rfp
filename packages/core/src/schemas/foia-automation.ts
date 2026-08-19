@@ -327,6 +327,21 @@ export const FoiaAutomationItemSchema = z.object({
   delayDaysOverride: z.number().int().min(0).max(3650).nullish(),
   triggeredBy: FoiaTriggerSchema.optional(),
   /**
+   * The date the schedule is counted from, when it is NOT the submission date.
+   *
+   * Set when an agency's award notice arrives and re-anchors the timer to the real award
+   * date. Persisted because the nightly reconciler recomputes `scheduledSendAt` from
+   * `submittedAt` and `responseDeadlineIso` and overwrites anything that disagrees — so
+   * without this the re-anchor survived only until the next pass, at most 24 hours, and
+   * the Level-1 behaviour of "start counting from the award, not the deadline" silently
+   * reverted with nothing recording that it had.
+   *
+   * The reconciler prefers this over `submittedAt` when present, which makes its recompute
+   * land on the same value rather than a competing one. Deliberately NOT a skip-guard on
+   * the reconciler: it must stay free to re-derive the schedule when `delayDays` changes.
+   */
+  awardAnchorAt: z.string().datetime({ offset: true }).nullish(),
+  /**
    * Stamped the first time `scheduledSendAt` passed. Distinguishes a failure
    * *before* the Level-2 window from one *after* it, which is the pre/post
    * distinction the feature request asks for.

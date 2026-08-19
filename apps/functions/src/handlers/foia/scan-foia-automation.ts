@@ -115,8 +115,17 @@ const decideIntent = async (args: {
   opportunity: OpportunityDBItem;
   settings: FoiaSettingsItem;
   delayDaysOverride?: number | null;
+  /**
+   * The award date an agency's own notice supplied, when one has arrived.
+   *
+   * Outranks the submission date as the clock anchor. Without it this function
+   * recomputed the schedule from the submission every pass and overwrote the re-anchor
+   * that `applyAwardNotice` had just written — reverting, within a day, the behaviour of
+   * counting from the real award.
+   */
+  awardAnchorAt?: string | null;
 }): Promise<Intent> => {
-  const { opportunity, settings, delayDaysOverride } = args;
+  const { opportunity, settings, delayDaysOverride, awardAnchorAt } = args;
   const { orgId, projectId, oppId } = opportunity;
 
   if (!isFoiaEligibleStatus(opportunity.status)) {
@@ -145,8 +154,12 @@ const decideIntent = async (args: {
   const delayDays = delayDaysOverride ?? settings.delayDays;
 
   const scheduledSendAt = computeFoiaScheduledSendAt({
-    submittedAt,
-    responseDeadlineIso: opportunity.responseDeadlineIso ?? null,
+    // An agency-stated award date wins over the submission date: it is the event the
+    // statutory clock actually runs from, and it is why the re-anchor exists.
+    submittedAt: awardAnchorAt ?? submittedAt,
+    // Ignored once anchored on an award — the deadline is only a fallback for when we
+    // have neither a submission nor an award notice.
+    responseDeadlineIso: awardAnchorAt ? null : opportunity.responseDeadlineIso ?? null,
     delayDays,
   });
 
@@ -391,6 +404,9 @@ const reconcileOrg = async (args: {
         opportunity,
         settings,
         delayDaysOverride: existing?.delayDaysOverride ?? null,
+        // Preserves an award-notice re-anchor across passes. Without it this recompute
+        // reverted the re-anchor to deadline-plus-delay on the next nightly run.
+        awardAnchorAt: existing?.awardAnchorAt ?? null,
       });
 
       // Never create a record just to say "nothing to do" — that would put a
