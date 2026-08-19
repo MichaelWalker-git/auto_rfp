@@ -66,15 +66,27 @@ jobs:
           done
 
       - name: Run Claude Review
+        id: review
         if: steps.diff.outputs.size > 0
         env:
           CLAUDE_CODE_USE_BEDROCK: "1"
           AWS_BEARER_TOKEN_BEDROCK: ${{ secrets.CLAUDE_REVIEW_TOKEN }}
           AWS_REGION: us-east-1
         run: |
-          head -n 3000 /tmp/pr_diff.txt > /tmp/diff_trimmed.txt
+          # Reviewed in chunks rather than `head -n 3000`.
+          #
+          # Trimming to the first 3,000 lines meant a large PR was reviewed at ~13% (3,000
+          # of 23,699 lines on the PR that prompted this) while the job could still return
+          # APPROVE — which reads as "reviewed and clean" when most of the change was never
+          # sent. Chunks split on `diff --git` boundaries so each one is a whole-file diff.
+          CHUNK_INFO=$(python3 .github/scripts/split-diff.py /tmp/pr_diff.txt /tmp/chunks 3000 12)
+          CHUNK_COUNT=$(echo "$CHUNK_INFO" | sed -n 1p)
+          DROPPED_FILES=$(echo "$CHUNK_INFO" | sed -n 2p)
+          echo "dropped_files=$DROPPED_FILES" >> $GITHUB_OUTPUT
+          echo "Reviewing $CHUNK_COUNT chunk(s); $DROPPED_FILES file(s) beyond the cap."
 
-          cat > /tmp/prompt.txt << 'EOF'
+          write_prompt() {
+            cat > /tmp/prompt.txt << 'EOF'
           You are a senior code reviewer. Review this PR diff and return a JSON response.
 
           CRITICAL: Return ONLY a single-line JSON object. No markdown, no code fences, no newlines inside the JSON, no text before or after. The response must be exactly one line starting with { and ending with }.
@@ -90,48 +102,93 @@ jobs:
           - Do NOT comment on style preferences or nitpicks
           - Keep summary under 200 characters
           - Keep each comment body under 500 characters
+          - This is ONE PART of a larger PR. Judge only what is shown; do not speculate about code you cannot see.
 
           Diff:
           EOF
+            cat "$1" >> /tmp/prompt.txt
+          }
 
-          cat /tmp/diff_trimmed.txt >> /tmp/prompt.txt
+          # Recovers the JSON object from whatever the model wrapped it in.
+          extract_json() {
+            grep '^{' /tmp/review_raw.txt | head -1 > "$1"
+            jq empty "$1" 2>/dev/null && return 0
 
-          if ! claude --print < /tmp/prompt.txt > /tmp/review_raw.txt 2>&1; then
-            echo "::group::Claude CLI failure output (exit non-zero)"
-            cat /tmp/review_raw.txt
-            echo "::endgroup::"
-            echo '{"verdict":"COMMENT","summary":"Automated review failed - Claude/Bedrock unavailable. Manual review required.","comments":[]}' > /tmp/review.json
-            exit 0
-          fi
+            sed -n '/^```/,/^```/p' /tmp/review_raw.txt | grep -v '^```' | tr -d '\n' > "$1"
+            jq empty "$1" 2>/dev/null && return 0
 
-          grep '^{' /tmp/review_raw.txt | head -1 > /tmp/review.json
-
-          if ! jq empty /tmp/review.json 2>/dev/null; then
-            sed -n '/^```/,/^```/p' /tmp/review_raw.txt | grep -v '^```' | tr -d '\n' > /tmp/review.json
-          fi
-
-          if ! jq empty /tmp/review.json 2>/dev/null; then
             python3 -c "
           import json, re, sys
           text = open('/tmp/review_raw.txt').read()
           match = re.search(r'\{.*\}', text, re.DOTALL)
           if match:
               try:
-                  obj = json.loads(match.group())
-                  json.dump(obj, sys.stdout)
-              except:
+                  json.dump(json.loads(match.group()), sys.stdout)
+              except Exception:
                   pass
-          " > /tmp/review.json 2>/dev/null
+          " > "$1" 2>/dev/null
+            jq empty "$1" 2>/dev/null
+          }
+
+          FAILED_CHUNKS=0
+          : > /tmp/all_comments.jsonl
+          : > /tmp/all_summaries.txt
+          WORST_VERDICT="APPROVE"
+
+          for CHUNK in /tmp/chunks/chunk-*.diff; do
+            [ -f "$CHUNK" ] || continue
+            echo "--- reviewing $(basename "$CHUNK") ---"
+            write_prompt "$CHUNK"
+
+            if ! claude --print < /tmp/prompt.txt > /tmp/review_raw.txt 2>&1; then
+              echo "::group::Claude CLI failure on $(basename "$CHUNK")"
+              cat /tmp/review_raw.txt
+              echo "::endgroup::"
+              FAILED_CHUNKS=$((FAILED_CHUNKS + 1))
+              continue
+            fi
+
+            if ! extract_json /tmp/chunk_review.json; then
+              echo "::warning::Could not parse review JSON for $(basename "$CHUNK")"
+              FAILED_CHUNKS=$((FAILED_CHUNKS + 1))
+              continue
+            fi
+
+            # A single chunk asking for changes decides the whole review: a real problem
+            # does not stop being real because other chunks were clean.
+            if [ "$(jq -r '.verdict // "COMMENT"' /tmp/chunk_review.json)" = "REQUEST_CHANGES" ]; then
+              WORST_VERDICT="REQUEST_CHANGES"
+            fi
+
+            jq -c '.comments[]? | select(.path != null and .line != null)' /tmp/chunk_review.json >> /tmp/all_comments.jsonl
+            jq -r '.summary // empty' /tmp/chunk_review.json >> /tmp/all_summaries.txt
+          done
+
+          # Any chunk that could not be reviewed makes an APPROVE unsafe to claim.
+          if [ "$FAILED_CHUNKS" -gt 0 ] && [ "$WORST_VERDICT" = "APPROVE" ]; then
+            WORST_VERDICT="COMMENT"
           fi
 
-          if ! jq empty /tmp/review.json 2>/dev/null; then
-            echo '{"verdict":"COMMENT","summary":"Review parsing failed. Manual review recommended.","comments":[]}' > /tmp/review.json
-          fi
+          jq -n \
+            --arg verdict "$WORST_VERDICT" \
+            --arg summary "$(sort -u /tmp/all_summaries.txt | paste -sd' ' - | cut -c1-800)" \
+            --argjson comments "$(jq -sc '.' /tmp/all_comments.jsonl)" \
+            --argjson chunks "$CHUNK_COUNT" \
+            --argjson failed "$FAILED_CHUNKS" \
+            '{verdict: $verdict, summary: $summary, comments: $comments, chunks: $chunks, failed_chunks: $failed}' \
+            > /tmp/review.json
+
+          jq empty /tmp/review.json 2>/dev/null || \
+            echo '{"verdict":"COMMENT","summary":"Review aggregation failed. Manual review recommended.","comments":[],"chunks":0,"failed_chunks":0}' > /tmp/review.json
 
       - name: Submit PR review
         if: steps.diff.outputs.size > 0
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Each step runs in a fresh shell, so these cross the boundary as step outputs
+          # rather than shell variables.
+          DIFF_TOTAL_LINES: ${{ steps.diff.outputs.total_lines }}
+          DIFF_DROPPED_FILES: ${{ steps.review.outputs.dropped_files }}
         run: |
           VERDICT=$(jq -r '.verdict // "COMMENT"' /tmp/review.json)
           SUMMARY=$(jq -r '.summary // "Review completed"' /tmp/review.json)
@@ -150,14 +207,28 @@ jobs:
             COMMENTS="[]"
           fi
 
-          TRUNCATION_NOTE=""
-          if [ "${{ steps.diff.outputs.total_lines }}" -gt 3000 ]; then
-            TRUNCATION_NOTE=" (NOTE: diff truncated from ${{ steps.diff.outputs.total_lines }} to 3000 lines)"
-          fi
+          # Coverage is stated on every review, because a verdict is only worth what it
+          # was based on. The previous version could report APPROVE having seen the first
+          # 3,000 lines of a 23,699-line diff, with no way for a reader to tell.
+          CHUNKS=$(jq -r '.chunks // 0' /tmp/review.json)
+          FAILED=$(jq -r '.failed_chunks // 0' /tmp/review.json)
+          COVERAGE_NOTE=$(python3 - "$CHUNKS" "$FAILED" "$DIFF_TOTAL_LINES" "$DIFF_DROPPED_FILES" << 'PY'
+          import sys
+          chunks, failed, total, dropped = (int(x or 0) for x in sys.argv[1:5])
+          parts = [f"Reviewed {total} diff lines in {chunks} chunk(s)."]
+          if failed:
+              parts.append(f"WARNING: {failed} chunk(s) could not be reviewed — that code was not checked.")
+          if dropped:
+              parts.append(f"WARNING: {dropped} file(s) exceeded the chunk cap and were NOT reviewed.")
+          print(" ".join(parts))
+          PY
+          )
 
           REVIEW_BODY="**Claude Review (Bedrock)**
 
-          $SUMMARY$TRUNCATION_NOTE"
+          $SUMMARY
+
+          _${COVERAGE_NOTE}_"
 
           jq -n \
             --arg body "$REVIEW_BODY" \
