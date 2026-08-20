@@ -1,0 +1,17 @@
+{
+  "stage": "functional-design",
+  "unit": "u4-team-qualifications",
+  "upstream_ids": ["FR4.1", "FR4.2", "FR4.3"],
+  "coverage": [
+    { "id": "FR4.1", "status": "OK", "target": "BR2.1" },
+    { "id": "FR4.2", "status": "OK", "target": "BR1.1" },
+    { "id": "FR4.3", "status": "OK", "target": "BR3.1" }
+  ],
+  "reverse": [
+    { "id": "BR1.2", "status": "N/A", "target": "existing-pipeline precondition carry-over" },
+    { "id": "BR2.2", "status": "N/A", "target": "Q1 answer — grounding depth" },
+    { "id": "BR2.3", "status": "N/A", "target": "Q2 answer — edge-line handling" },
+    { "id": "BR2.4", "status": "N/A", "target": "no-invention half of FR4.1, enforced by existing validation" },
+    { "id": "BR2.5", "status": "N/A", "target": "Q2 answer — line-shape detection and stale-reference fallback against the plan-team unit's contract" }
+  ]
+}

@@ -1,4 +1,116 @@
 {
+  "statusLine": {
+    "type": "command",
+    "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-statusline.ts"
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-record-human-turn.ts" }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Task|Agent",
+        "hooks": [
+          { "type": "command", "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-deliver-stage-rules.ts" },
+          { "type": "command", "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-plan-approval-guard.ts" }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-state-transition-guard.ts" }
+        ]
+      },
+      {
+        "matcher": "Read|Edit|Write|Glob|Grep|Bash",
+        "hooks": [
+          { "type": "command", "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-reviewer-scope.ts" }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash",
+        "hooks": [
+          { "type": "command", "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-review-freeze.ts" }
+        ]
+      },
+      {
+        "hooks": [
+          { "type": "command", "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-fold-usage.ts" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          { "type": "command", "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-record-human-turn.ts" }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          { "type": "command", "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-write-audit-log.ts" },
+          { "type": "command", "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-run-sensors.ts" }
+        ]
+      },
+      {
+        "matcher": "TaskUpdate",
+        "hooks": [
+          { "type": "command", "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-sync-workflow-state.ts" }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-rebuild-stage-graph.ts" }
+        ]
+      },
+      {
+        "hooks": [
+          { "type": "command", "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-fold-usage.ts" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-continue-workflow.ts" }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-log-subagent.ts" }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-session-start.ts" }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          { "type": "command", "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-session-end.ts" }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          { "type": "command", "command": "bun $CLAUDE_PROJECT_DIR/.claude/hooks/aidlc-validate-state.ts" }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
       "Read",

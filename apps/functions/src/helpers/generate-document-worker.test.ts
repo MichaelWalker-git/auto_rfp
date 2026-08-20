@@ -63,6 +63,12 @@ jest.mock('@/helpers/document-tools', () => ({
   executeDocumentTool: jest.fn(),
 }));
 jest.mock('@/helpers/bedrock-http-client', () => ({ invokeModel: jest.fn() }));
+// Saved-team grounding (U4): mocked as a unit — its import chain reads
+// DOCUMENTS_BUCKET at module load, and the worker's wiring is what's under test.
+jest.mock('@/helpers/team-qualifications-context', () => ({
+  assembleTeamQualificationsContext: jest.fn(),
+  renderTeamContextBlock: jest.fn(),
+}));
 // Use the REAL buildDocumentTitleHtml so the injected title reflects template styling.
 jest.mock('@/helpers/document-section-generator', () => ({
   generateDocumentSectionBySectionHtml: jest.fn(),
@@ -99,6 +105,10 @@ import { buildMacroValues } from './template';
 import { uploadRFPDocumentHtml, updateRFPDocumentMetadata, getRFPDocument } from './rfp-document';
 import { getLatestVersionNumber, saveVersionHtml, createVersion } from './rfp-document-version';
 import { invokeModel } from './bedrock-http-client';
+import {
+  assembleTeamQualificationsContext,
+  renderTeamContextBlock,
+} from './team-qualifications-context';
 
 const mockSectionGen = generateDocumentSectionBySectionHtml as jest.MockedFunction<
   typeof generateDocumentSectionBySectionHtml
@@ -1103,5 +1113,135 @@ describe('processJobInner — plan-governed totals reconciliation (runs after Fi
 
     const uploadedHtml = (uploadRFPDocumentHtml as jest.Mock).mock.calls[0]![0].html as string;
     expect(uploadedHtml).toContain('$275.00');
+  });
+});
+
+describe('processJobInner — TEAM_QUALIFICATIONS saved-team grounding (U4)', () => {
+  const job: Job = {
+    orgId: 'org-1',
+    projectId: 'proj-1',
+    opportunityId: 'opp-1',
+    documentType: 'TEAM_QUALIFICATIONS',
+    documentId: 'doc-tq-1',
+  };
+
+  const teamContext = {
+    opportunityId: 'opp-1',
+    members: [
+      {
+        nameSnapshot: 'Jane Doe',
+        role: 'Project Manager',
+        certifications: ['PMP'],
+        cvText: 'Federal PM background.',
+      },
+    ],
+    openRoles: ['Cloud Architect'],
+    pendingReplacements: [],
+  };
+
+  const mockAssemble = assembleTeamQualificationsContext as jest.MockedFunction<
+    typeof assembleTeamQualificationsContext
+  >;
+  const mockRenderBlock = renderTeamContextBlock as jest.MockedFunction<
+    typeof renderTeamContextBlock
+  >;
+  const mockBuildUser = buildUserPromptForDocumentType as jest.MockedFunction<
+    typeof buildUserPromptForDocumentType
+  >;
+
+  const setupSingleShotSuccess = () => {
+    (resolveTemplateHtml as jest.Mock).mockResolvedValue(null);
+    (safeParseJsonFromModel as jest.Mock).mockReturnValue({
+      title: 'Team Qualifications',
+      htmlContent: '<h2>Our Team</h2><p>Grounded personnel content body.</p>',
+    });
+    (invokeModel as jest.Mock).mockResolvedValue(
+      new TextEncoder().encode(
+        JSON.stringify({
+          stop_reason: 'end_turn',
+          content: [{ type: 'text', text: '{"title":"Team Qualifications"}' }],
+        }),
+      ),
+    );
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    (resolveDocumentPromptFragments as jest.Mock).mockResolvedValue({ guidance: null, task: null });
+    (buildSystemPromptForDocumentType as jest.Mock).mockReturnValue('sys prompt');
+    (buildSectionSystemPrompt as jest.Mock).mockReturnValue('section sys prompt');
+    mockBuildUser.mockReturnValue('user prompt');
+
+    (loadQaPairs as jest.Mock).mockResolvedValue([]);
+    (loadSolicitation as jest.Mock).mockResolvedValue('solicitation text');
+    (buildMacroValues as jest.Mock).mockResolvedValue({});
+    (gatherAllContext as jest.Mock).mockResolvedValue('kb text');
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(null);
+
+    (uploadRFPDocumentHtml as jest.Mock).mockResolvedValue('html-key');
+    (updateRFPDocumentMetadata as jest.Mock).mockResolvedValue(undefined);
+    (getRFPDocument as jest.Mock).mockResolvedValue(null);
+    (getLatestVersionNumber as jest.Mock).mockResolvedValue(0);
+    (saveVersionHtml as jest.Mock).mockResolvedValue('version-key');
+    (createVersion as jest.Mock).mockResolvedValue(undefined);
+
+    mockAssemble.mockResolvedValue(teamContext);
+    mockRenderBlock.mockReturnValue('RENDERED TEAM BLOCK');
+  });
+
+  it('assembles the saved team and injects the rendered block into the user prompt', async () => {
+    setupSingleShotSuccess();
+
+    await processJobInner(job);
+
+    expect(mockAssemble).toHaveBeenCalledWith({
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      opportunityId: 'opp-1',
+    });
+    expect(mockRenderBlock).toHaveBeenCalledWith(teamContext);
+    expect(mockBuildUser).toHaveBeenCalledWith(
+      'TEAM_QUALIFICATIONS',
+      expect.objectContaining({ teamContext: 'RENDERED TEAM BLOCK' }),
+    );
+    // The run completes normally — content uploaded, no FAILED write
+    expect(uploadRFPDocumentHtml).toHaveBeenCalled();
+    const failedWrites = (updateRFPDocumentMetadata as jest.Mock).mock.calls.filter(
+      ([args]) => args.updates.status === 'FAILED',
+    );
+    expect(failedWrites).toHaveLength(0);
+  });
+
+  it('marks the run FAILED with a clear generationError when the team vanished by worker time', async () => {
+    mockAssemble.mockResolvedValue(null);
+    setupSingleShotSuccess();
+
+    await processJobInner(job);
+
+    expect(updateRFPDocumentMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: 'doc-tq-1',
+        updates: expect.objectContaining({
+          status: 'FAILED',
+          generationError: expect.stringMatching(/no saved team/i),
+        }),
+      }),
+    );
+    // Never generates ungrounded personnel content
+    expect(mockBuildUser).not.toHaveBeenCalled();
+    expect(invokeModel).not.toHaveBeenCalled();
+    expect(uploadRFPDocumentHtml).not.toHaveBeenCalled();
+  });
+
+  it('skips team assembly entirely for other document types and keeps their prompt-context shape', async () => {
+    setupSingleShotSuccess();
+
+    await processJobInner({ ...job, documentType: 'TECHNICAL_PROPOSAL' });
+
+    expect(mockAssemble).not.toHaveBeenCalled();
+    expect(mockRenderBlock).not.toHaveBeenCalled();
+    const [, promptContext] = mockBuildUser.mock.calls[0]!;
+    expect(promptContext).not.toHaveProperty('teamContext');
   });
 });

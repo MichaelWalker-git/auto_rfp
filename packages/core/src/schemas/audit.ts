@@ -157,6 +157,12 @@ export const AuditActionSchema = z.enum([
   'QUESTIONNAIRE_VERSION_REVERTED',
   // Past-performance disclosure (NDA / permission) review
   'PAST_PERF_DISCLOSURE_CONFIRMED',
+  // Employee pool (team definition)
+  'EMPLOYEE_CREATED',
+  'EMPLOYEE_UPDATED',
+  'EMPLOYEE_DELETED',
+  // Employee CV import (team definition U2)
+  'EMPLOYEE_IMPORT_STARTED',
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 
@@ -209,6 +215,8 @@ export const AuditResourceSchema = z.enum([
   'package_edit_run',
   'required_form',
   'required_form_version',
+  // Employee pool (team definition)
+  'employee',
 ]);
 export type AuditResource = z.infer<typeof AuditResourceSchema>;
 

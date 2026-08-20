@@ -41,6 +41,7 @@ import {
   updateSolutionPlanStatus,
   uploadSolutionPlanHtml,
 } from './solution-plan';
+import { attachGeneratedTeam } from './plan-team';
 import { enqueueGrillingRound, type GrillingRoundMessage } from './solution-plan-queue';
 import {
   GRILLER_BRIEF_CHAR_CAP,
@@ -397,6 +398,19 @@ export const processSynthesis = async (message: GrillingRoundMessage): Promise<v
       role: 'SYSTEM',
       content: `Solution plan v${version} synthesized: "${title}"`,
     });
+
+    // Team-definition hook (BR1.1): propose the recommended team now that the
+    // plan content is stored. A user-modified team is preserved untouched
+    // (BR1.2), and ANY failure here only logs — the plan stays READY (BR4.2).
+    try {
+      const outcome = await attachGeneratedTeam(key);
+      console.log(`[solution-plan-worker] team recommendation outcome: ${outcome}`);
+    } catch (teamErr) {
+      console.warn(
+        `[solution-plan-worker] team recommendation failed — plan v${version} stays READY without a team (BR4.2):`,
+        errorMessageOf(teamErr),
+      );
+    }
 
     console.log(
       `[solution-plan-worker] plan ${message.solutionPlanId} READY — v${version}, ${html.length} chars`,

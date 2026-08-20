@@ -262,4 +262,14 @@ describe('ROLE_PERMISSIONS', () => {
     expect(ROLE_PERMISSIONS.BILLING).toContain('org:read');
     expect(ROLE_PERMISSIONS.BILLING).not.toContain('user:create');
   });
+
+  it('grants employee:read to every role but employee:manage to ADMIN only', () => {
+    (['ADMIN', 'EDITOR', 'VIEWER', 'MEMBER', 'BILLING'] as const).forEach((role) => {
+      expect(ROLE_PERMISSIONS[role]).toContain('employee:read');
+    });
+    expect(ROLE_PERMISSIONS.ADMIN).toContain('employee:manage');
+    (['EDITOR', 'VIEWER', 'MEMBER', 'BILLING'] as const).forEach((role) => {
+      expect(ROLE_PERMISSIONS[role]).not.toContain('employee:manage');
+    });
+  });
 });

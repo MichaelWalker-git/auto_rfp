@@ -1028,10 +1028,10 @@ YOUR TASK — Project Plan:
   TEAM_QUALIFICATIONS: `
 YOUR TASK — Team Qualifications:
 1. Present the organizational structure and how it supports this specific contract.
-2. For EACH key personnel role, provide a detailed profile: name (if available from KB), role, experience, certifications, and specific accomplishments with metrics.
+2. For EACH person in the SAVED TEAM block, provide a detailed profile: name, role, experience, certifications, and specific accomplishments with metrics — drawn from that person's structured fields and Resume/CV extract.
 3. Explicitly map each person's background to THIS contract's requirements.
 4. Include a staffing plan with headcount by labor category and phase.
-5. Use ACTUAL personnel data from the Knowledge Base if available — do not invent names.
+5. Source personnel EXCLUSIVELY from the SAVED TEAM block — never from the Knowledge Base and never invented. List its OPEN ROLES as open positions with no personnel claims, and cite its PENDING REPLACEMENT lines by name and role only.
 6. Highlight certifications specifically required or preferred in the solicitation.
 7. Reference past performance projects where team members delivered similar work.
 8. Return ONLY valid JSON in the required format.`,
@@ -1333,6 +1333,12 @@ export interface UserPromptContext {
    * user-edited plans) falls back to Fix A behavior.
    */
   solutionPlanCostSchedule?: SolutionPlanCostSchedule | null;
+  /**
+   * Rendered saved-team roster (team-definition U4, FR4.1/BR2.1) — the
+   * exclusive personnel source for TEAM_QUALIFICATIONS. Block omitted when
+   * null/undefined/blank.
+   */
+  teamContext?: string | null;
 }
 
 /**
@@ -1344,7 +1350,7 @@ export const buildUserPromptForDocumentType = (
   documentType: string,
   context: UserPromptContext,
 ): string => {
-  const { solicitation, qaText, enrichedKbText, taskOverride, solutionPlanText, solutionPlanCostSchedule } = context;
+  const { solicitation, qaText, enrichedKbText, taskOverride, solutionPlanText, solutionPlanCostSchedule, teamContext } = context;
   const typeLabel =
     RFP_DOCUMENT_TYPES[documentType as keyof typeof RFP_DOCUMENT_TYPES] ??
     humanizeDocumentType(documentType);
@@ -1373,6 +1379,25 @@ ${solutionPlanText.trim()}
 ${costScheduleBlock}`
     : costScheduleBlock;
 
+  // Saved team block (team-definition U4, BR2.1/BR2.4): the EXCLUSIVE source
+  // for personnel content — mirrors the solution-plan block's authoritative
+  // wording. Injected only for TEAM_QUALIFICATIONS jobs (the worker passes it).
+  const teamContextBlock = teamContext?.trim()
+    ? `
+═══════════════════════════════════════
+SAVED TEAM (SOURCE OF TRUTH FOR PERSONNEL)
+═══════════════════════════════════════
+This is the SAVED team for this opportunity. It is the EXCLUSIVE source for all personnel content:
+every named person, profile, certification, and biography in your document MUST come from this block —
+never from the Knowledge Base, past performance, or your own knowledge. NEVER invent, rename, or add
+people not listed here. Positions under OPEN ROLES are presented as open positions with no personnel
+claims. Lines under PENDING REPLACEMENT are cited by name and role only — no qualification claims
+beyond the snapshot.
+
+${teamContext.trim()}
+`
+    : '';
+
   return `
 ═══════════════════════════════════════
 SOLICITATION / RFP DOCUMENTS
@@ -1389,7 +1414,7 @@ These are previously answered questions about this opportunity. Use these answer
 for your document sections. Each Q&A pair represents validated information about the company's approach.
 
 ${qaText || 'No Q&A pairs available.'}
-${solutionPlanBlock}
+${solutionPlanBlock}${teamContextBlock}
 ═══════════════════════════════════════
 ENRICHMENT CONTEXT (Knowledge Base, Past Performance, Executive Brief, Content Library)
 ═══════════════════════════════════════

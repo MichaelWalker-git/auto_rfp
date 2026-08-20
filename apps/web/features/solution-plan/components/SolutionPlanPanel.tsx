@@ -18,6 +18,7 @@ import { useGrillingTranscript } from '../hooks/useGrillingTranscript';
 import { useSolutionPlanActions } from '../hooks/useSolutionPlanActions';
 import { GrillingTranscriptView } from './GrillingTranscriptView';
 import { SolutionPlanStatusBadge } from './SolutionPlanStatusBadge';
+import { TeamDefinitionSection } from './TeamDefinitionSection';
 
 interface SolutionPlanPanelProps {
   orgId: string;
@@ -149,6 +150,12 @@ export const SolutionPlanPanel = ({ orgId, projectId, opportunityId }: SolutionP
             </PermissionWrapper>
           </div>
         </div>
+        {/* Team Definition (U3) — the recommended team lives INSIDE the plan. */}
+        <TeamDefinitionSection
+          orgId={orgId}
+          projectId={projectId}
+          opportunityId={opportunityId}
+        />
       </div>
     );
   };
