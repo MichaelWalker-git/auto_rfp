@@ -299,6 +299,8 @@ const HigherGovSearchIdSelector = ({
 
 interface Props {
   orgId?: string;
+  /** Project a saved search auto-imports into when run on schedule. */
+  projectId?: string;
   onSearch: (c: SearchOpportunityCriteria) => void;
   isLoading: boolean;
   /** Initial filter values restored from URL search params */
@@ -307,7 +309,7 @@ interface Props {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export const SearchOpportunityForm = ({ orgId, onSearch, isLoading, initialValues }: Props) => {
+export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, initialValues }: Props) => {
   const { toast } = useToast();
   const [saveOpen, setSaveOpen] = React.useState(false);
   const [saveName, setSaveName] = React.useState('My Search');
@@ -327,6 +329,13 @@ export const SearchOpportunityForm = ({ orgId, onSearch, isLoading, initialValue
     (w.naics?.length ?? 0) > 0, !!w.setAsideCode, w.source !== 'all',
     !!(w.closingFrom || w.closingTo),
   ].filter(Boolean).length;
+
+  // HigherGov can't filter by keyword/NAICS/set-aside directly — those only work
+  // through a saved search (search_id). Warn before the user runs a doomed search.
+  const higherGovNeedsSearchId =
+    w.source === 'HIGHER_GOV' &&
+    !w.higherGovSearchId?.trim() &&
+    !!(w.keywords?.trim() || (w.naics?.length ?? 0) > 0 || w.setAsideCode);
 
   const buildCriteria = (v: FormValues): SearchOpportunityCriteria => ({
     keywords:     v.keywords?.trim() || undefined,
@@ -361,17 +370,28 @@ export const SearchOpportunityForm = ({ orgId, onSearch, isLoading, initialValue
     try {
       const c = buildCriteria(w);
       const fmt = (iso?: string) => iso ? `${iso.slice(5,7)}/${iso.slice(8,10)}/${iso.slice(0,4)}` : '01/01/2025';
+      const source = w.source === 'DIBBS' ? 'DIBBS' : w.source === 'HIGHER_GOV' ? 'HIGHER_GOV' : 'SAM_GOV';
+      // Daily auto-import is scoped to HigherGov: its saved-search IDs pull a
+      // stable, filtered result set, so unattended daily imports are safe. SAM/
+      // DIBBS stay opt-out (autoImport false) to avoid flooding a project.
+      const autoImport = source === 'HIGHER_GOV';
       const res = await authFetcher(`${env.BASE_API_URL}/search-opportunities/saved-search`, {
         method: 'POST',
         body: JSON.stringify({
-          source: w.source === 'DIBBS' ? 'DIBBS' : w.source === 'HIGHER_GOV' ? 'HIGHER_GOV' : 'SAM_GOV', orgId,
+          source, orgId,
           name: saveName.trim() || 'My Search',
           criteria: { postedFrom: fmt(c.postedFrom), postedTo: fmt(c.postedTo), keywords: c.keywords, naics: c.naics, setAsideCode: c.setAsideCode, closingFrom: c.closingFrom ? fmt(c.closingFrom) : undefined, closingTo: c.closingTo ? fmt(c.closingTo) : undefined, higherGovSourceType: c.higherGovSourceType, higherGovSearchId: c.higherGovSearchId },
-          frequency: 'DAILY', autoImport: false, notifyEmails: [], isEnabled: true,
+          projectId,
+          frequency: 'DAILY', autoImport, notifyEmails: [], isEnabled: true,
         }),
       });
       if (!res.ok) throw new Error('Failed');
-      toast({ title: 'Search saved', description: `"${saveName}" will run daily.` });
+      toast({
+        title: 'Search saved',
+        description: autoImport && projectId
+          ? `"${saveName}" will run daily and import new matches into this project.`
+          : `"${saveName}" will run daily.`,
+      });
       setSaveOpen(false);
     } catch { toast({ title: 'Failed to save', variant: 'destructive' }); }
     finally { setIsSaving(false); }
@@ -546,6 +566,18 @@ export const SearchOpportunityForm = ({ orgId, onSearch, isLoading, initialValue
           </div>
         )}
       </div>
+
+      {/* ── HigherGov keyword-search guidance ── */}
+      {higherGovNeedsSearchId && (
+        <p className="flex items-start gap-1.5 text-xs text-amber-700">
+          <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          <span>
+            HigherGov can't filter by keyword, NAICS, or set-aside directly. Build the search on{' '}
+            <a href="https://www.highergov.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-900">HigherGov</a>,
+            then paste its Search ID into the <span className="font-medium">HigherGov ID</span> field above.
+          </span>
+        </p>
+      )}
     </form>
   );
 };

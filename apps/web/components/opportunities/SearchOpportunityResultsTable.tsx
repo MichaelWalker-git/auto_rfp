@@ -75,6 +75,13 @@ const formatDate = (s: string | null): string => {
 interface SearchOpportunityResultsTableProps {
   opportunities: SearchOpportunity[];
   isLoading: boolean;
+  /**
+   * A HigherGov saved-search fetch is still running in the background. The first
+   * request returns immediately with `isLoading` false and no results while the
+   * worker fetches, so without this the table would flash "No opportunities
+   * found" mid-fetch. Keep showing the skeleton until results arrive.
+   */
+  isPending?: boolean;
   onImport: (id: string) => void;
   importingId: string | null;
   orgId?: string;
@@ -536,11 +543,15 @@ const OpportunityCard = ({
 export const SearchOpportunityResultsTable = ({
   opportunities,
   isLoading,
+  isPending,
   onImport,
   importingId,
   orgId,
 }: SearchOpportunityResultsTableProps) => {
   if (isLoading) return <LoadingSkeleton />;
+  // A HigherGov background fetch with nothing yet — keep the skeleton up rather
+  // than flashing "No opportunities found" while results are still on the way.
+  if (!opportunities.length && isPending) return <LoadingSkeleton />;
   if (!opportunities.length) return <EmptyState />;
 
   return (

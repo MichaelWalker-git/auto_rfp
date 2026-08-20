@@ -41,6 +41,15 @@ const RETRYABLE_ERROR_NAMES = new Set([
   'ServiceUnavailable',
 ]);
 
+/**
+ * True when an error is a DynamoDB conditional-check failure — the write's
+ * ConditionExpression was not met (e.g. `attribute_not_exists` on an SK that now
+ * exists). Callers that write with a uniqueness condition use this to detect a
+ * lost race and recompute+retry, rather than surfacing a 500.
+ */
+export const isConditionalCheckFailed = (err: unknown): boolean =>
+  typeof err === 'object' && err !== null && (err as { name?: string }).name === 'ConditionalCheckFailedException';
+
 const isRetryableError = (err: unknown): boolean => {
   if (typeof err !== 'object' || err === null) return false;
   const e = err as {
@@ -128,10 +137,12 @@ export const createItem = async <T extends Record<string, any>>(
 ): Promise<T & DBItem> => {
   const now = nowIso();
   
+  // Keys after the spread, for the same reason as `putItem` below: an item that
+  // carries its own key fields must not be able to overwrite the arguments.
   const fullItem = {
+    ...item,
     [PK_NAME]: pk,
     [SK_NAME]: sk,
-    ...item,
     createdAt: now,
     updatedAt: now,
   } as T & DBItem;
@@ -205,8 +216,6 @@ export const updateItem = async <T extends Record<string, any>>(
       [SK_NAME]: sk,
     },
     UpdateExpression: `SET ${setParts.join(', ')}`,
-    ExpressionAttributeNames: names,
-    ExpressionAttributeValues: values,
     ReturnValues: options?.returnValues || 'ALL_NEW',
   };
 
@@ -217,7 +226,65 @@ export const updateItem = async <T extends Record<string, any>>(
     command.ConditionExpression = 'attribute_exists(#pk) AND attribute_exists(#sk)';
   }
 
+  // DynamoDB rejects the whole update when ExpressionAttributeNames/-Values
+  // contain entries no expression references (e.g. the seeded #pk/#sk when a
+  // caller supplies a custom condition that doesn't use them) — keep only
+  // what the final expressions actually mention.
+  const expressionText = `${command.UpdateExpression} ${command.ConditionExpression}`;
+  const isReferenced = (key: string) =>
+    new RegExp(`${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(expressionText);
+  command.ExpressionAttributeNames = Object.fromEntries(
+    Object.entries(names).filter(([key]) => isReferenced(key)),
+  );
+  command.ExpressionAttributeValues = Object.fromEntries(
+    Object.entries(values).filter(([key]) => isReferenced(key)),
+  );
+
   const res = await withRetry(() => docClient.send(new UpdateCommand(command)), { label: 'updateItem' });
+  return res.Attributes as T & DBItem;
+};
+
+/**
+ * Atomically append items to a list attribute (server-side `list_append`), so
+ * concurrent appends both survive instead of one clobbering the other via a
+ * read-modify-write full-item overwrite. The attribute is created if absent.
+ * Only touches `attribute` + `updatedAt` — never rewrites sibling fields.
+ *
+ * Note: `list_append` does NOT dedupe; callers that treat the list as a set must
+ * dedupe on read. Returns the updated item (ALL_NEW).
+ */
+export const appendToList = async <T extends Record<string, any>>(
+  pk: string,
+  sk: string,
+  attribute: string,
+  items: unknown[],
+): Promise<T & DBItem> => {
+  const now = nowIso();
+  const res = await withRetry(
+    () => docClient.send(
+      new UpdateCommand({
+        TableName: DB_TABLE_NAME,
+        Key: { [PK_NAME]: pk, [SK_NAME]: sk },
+        UpdateExpression:
+          'SET #attr = list_append(if_not_exists(#attr, :empty), :items), #updatedAt = :now',
+        // Require the item to exist — mirrors updateItem's default guard.
+        ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#sk': SK_NAME,
+          '#attr': attribute,
+          '#updatedAt': 'updatedAt',
+        },
+        ExpressionAttributeValues: {
+          ':empty': [],
+          ':items': items,
+          ':now': now,
+        },
+        ReturnValues: 'ALL_NEW',
+      }),
+    ),
+    { label: 'appendToList' },
+  );
   return res.Attributes as T & DBItem;
 };
 
@@ -233,10 +300,21 @@ export const putItem = async <T extends Record<string, any>>(
 ): Promise<T & DBItem> => {
   const now = nowIso();
   
+  /**
+   * Keys are applied AFTER the spread, so the caller's item can never clobber them.
+   *
+   * They used to come first, which meant an item carrying its own
+   * `partition_key`/`sort_key` silently overwrote the arguments.
+   *
+   * The `item: Omit<T, typeof PK_NAME | typeof SK_NAME>` signature does not
+   * prevent this. `PK_NAME` is a `const` of type `string`, so that resolves to
+   * `Omit<T, string>`, which strips nothing — and even a correct `Omit` only
+   * removes the property from the *type*, never from the runtime object.
+   */
   let fullItem: any = {
+    ...item,
     [PK_NAME]: pk,
     [SK_NAME]: sk,
-    ...item,
     updatedAt: now,
   };
 
@@ -290,6 +368,39 @@ export const deleteItem = async (pk: string, sk: string) => {
     ),
     { label: 'deleteItem' },
   );
+};
+
+/**
+ * Delete an item only if a ConditionExpression holds (e.g. a lock whose owner
+ * matches). Returns true if the delete happened, false if the condition failed
+ * (including when the item doesn't exist — a conditional delete on a missing item
+ * fails its condition, which we treat as a benign no-op). Other errors propagate.
+ */
+export const deleteItemIf = async (
+  pk: string,
+  sk: string,
+  condition: string,
+  conditionNames?: Record<string, string>,
+  conditionValues?: Record<string, any>,
+): Promise<boolean> => {
+  try {
+    await withRetry(
+      () => docClient.send(
+        new DeleteCommand({
+          TableName: DB_TABLE_NAME,
+          Key: { [PK_NAME]: pk, [SK_NAME]: sk },
+          ConditionExpression: condition,
+          ExpressionAttributeNames: conditionNames,
+          ExpressionAttributeValues: conditionValues,
+        }),
+      ),
+      { label: 'deleteItemIf' },
+    );
+    return true;
+  } catch (err) {
+    if (isConditionalCheckFailed(err)) return false;
+    throw err;
+  }
 };
 
 export const getItem = async <T>(

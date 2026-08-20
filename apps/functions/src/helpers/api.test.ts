@@ -3,7 +3,7 @@ jest.mock('@/sentry-lambda', () => ({
   withSentryLambda: (handler: any) => handler,
 }));
 
-import { apiResponse, getOrgId } from './api';
+import { apiResponse, getOrgId, parseJsonBody } from './api';
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 
 describe('apiResponse', () => {
@@ -196,5 +196,20 @@ describe('getOrgId', () => {
 
     const result = getOrgId(event);
     expect(result).toBe('fallback-org');
+  });
+});
+
+describe('parseJsonBody', () => {
+  it('parses a valid JSON body', () => {
+    expect(parseJsonBody({ body: '{"orgId":"org-1"}' })).toEqual({ orgId: 'org-1' });
+  });
+
+  it('returns {} for an absent body', () => {
+    expect(parseJsonBody({ body: undefined })).toEqual({});
+    expect(parseJsonBody({ body: '' })).toEqual({});
+  });
+
+  it('returns undefined (not a throw) for malformed JSON', () => {
+    expect(parseJsonBody({ body: '{not json' })).toBeUndefined();
   });
 });

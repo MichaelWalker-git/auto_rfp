@@ -4,8 +4,9 @@ import { UpdateFormFieldDTOSchema } from '@auto-rfp/core';
 import { z } from 'zod';
 
 import { withSentryLambda } from '@/sentry-lambda';
-import { apiResponse, getOrgId } from '@/helpers/api';
+import { apiResponse, getOrgId, getUserId, parseJsonBody } from '@/helpers/api';
 import { getRequiredForm, updateRequiredForm } from '@/helpers/required-form';
+import { snapshotFormFields } from '@/helpers/required-form-version';
 
 import {
   authContextMiddleware,
@@ -23,8 +24,9 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
   const orgId = getOrgId(event);
   if (!orgId) return apiResponse(400, { message: 'orgId is required' });
 
-  const raw = event.body ? JSON.parse(event.body) : {};
-  const { success, data, error } = BodySchema.safeParse(raw);
+  const parsedBody = parseJsonBody(event);
+  if (parsedBody === undefined) return apiResponse(400, { message: 'Invalid JSON body' });
+  const { success, data, error } = BodySchema.safeParse(parsedBody);
   if (!success) return apiResponse(400, { message: 'Invalid payload', issues: error.issues });
 
   const {
@@ -35,6 +37,17 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
 
   const form = await getRequiredForm({ orgId, projectId, opportunityId, formId });
   if (!form) return apiResponse(404, { message: 'Form not found' });
+
+  // Snapshot the current fields BEFORE mutating one, so single-field edits are
+  // revertible (parity with AI mass-edits). Best-effort — never fail the save on
+  // a snapshot error.
+  if ((form.fields ?? []).length > 0) {
+    try {
+      await snapshotFormFields({ form, source: 'MANUAL', userId: getUserId(event) });
+    } catch (snapErr) {
+      console.warn('[update-form-field] form-version snapshot failed (continuing):', snapErr);
+    }
+  }
 
   let updatedFields = [...form.fields];
 

@@ -5,6 +5,9 @@ export function requiredFormsDomain(): DomainRoutes {
   return { basePath: 'required-forms', routes: [
     { method: 'GET', path: 'list', entry: lambdaEntry('required-forms/list-required-forms.ts') },
     { method: 'GET', path: 'get', entry: lambdaEntry('required-forms/get-required-form.ts') },
+    // Form version history (parity with RFP document versions).
+    { method: 'GET', path: 'versions', entry: lambdaEntry('required-forms/list-form-versions.ts') },
+    { method: 'POST', path: 'revert-version', entry: lambdaEntry('required-forms/revert-form-version.ts') },
     { method: 'GET', path: 'render', entry: lambdaEntry('required-forms/render-docx-form.ts'), timeoutSeconds: 30 },
     { method: 'PUT', path: 'field', entry: lambdaEntry('required-forms/update-form-field.ts') },
     { method: 'PUT', path: 'save-fields', entry: lambdaEntry('required-forms/save-form-fields.ts') },

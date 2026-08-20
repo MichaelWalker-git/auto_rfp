@@ -16,7 +16,10 @@ import {
   type AuthedEvent,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
-import { putRFPDocument, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
+import { getRFPDocument, putRFPDocument, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
+import { checkSolutionPlanGate } from '@/helpers/solution-plan-gate';
+import { getSolutionPlanByOpportunity } from '@/helpers/solution-plan';
+import { hasSavedTeam } from '@/helpers/team-qualifications-context';
 import { enqueueDocumentGeneration } from '@/helpers/document-generation-queue';
 import { nowIso } from '@/helpers/date';
 import { PK_NAME, SK_NAME } from '@/constants/common';
@@ -67,10 +70,43 @@ export const baseHandler = async (
     const userId = getUserId(event);
     const effectiveOpportunityId = opportunityId || 'default';
 
+    // ── Saved-team guard (team-definition U4, BR1.1/FR4.2) ──
+    // TEAM_QUALIFICATIONS is grounded exclusively in the plan's saved team, so
+    // it requires one — on BOTH paths (new document AND regenerate), BEFORE any
+    // record is created or reset. Refusal is guidance, never a FAILED run.
+    // Existing preconditions (solution-plan gate, permissions) are untouched (BR1.2).
+    if (documentType === 'TEAM_QUALIFICATIONS') {
+      const plan = await getSolutionPlanByOpportunity({
+        orgId,
+        projectId,
+        opportunityId: effectiveOpportunityId,
+      });
+      if (!hasSavedTeam(plan)) {
+        return apiResponse(409, {
+          message:
+            'A saved team is required before generating Team Qualifications. Review and save the team in the Solution Plan’s Team Definition section first.',
+          code: 'TEAM_REQUIRED',
+        });
+      }
+    }
+
     let documentId: string;
 
     if (existingDocumentId) {
       // ── Regenerate: reuse existing document, reset status to GENERATING ──
+      // Not gated: a verified-existing document grandfathers the opportunity
+      // (ADR-10), and retrying a FAILED generation must keep working. The
+      // existence check matters — updateRFPDocumentMetadata upserts, so an
+      // unverified documentId would create a phantom record and bypass the gate.
+      const existingDocument = await getRFPDocument(
+        projectId,
+        effectiveOpportunityId,
+        existingDocumentId,
+      );
+      if (!existingDocument) {
+        return apiResponse(404, { message: 'Document not found' });
+      }
+
       documentId = existingDocumentId;
       await updateRFPDocumentMetadata({
         projectId,
@@ -80,6 +116,22 @@ export const baseHandler = async (
         updatedBy: userId ?? 'system',
       });
     } else {
+      // ── Solution Plan gate (T9): gated types require a READY plan ──
+      const { allowed, solutionPlanStatus } = await checkSolutionPlanGate({
+        orgId,
+        projectId,
+        opportunityId: effectiveOpportunityId,
+        documentType,
+      });
+      if (!allowed) {
+        return apiResponse(409, {
+          message:
+            'A ready Solution Plan is required before generating this document type. Create a Solution Plan for this opportunity first.',
+          code: 'SOLUTION_PLAN_REQUIRED',
+          solutionPlanStatus,
+        });
+      }
+
       // ── New document: create a placeholder with status GENERATING ──
       documentId = uuidv4();
       const now = nowIso();
@@ -128,7 +180,7 @@ export const baseHandler = async (
     });
 
     // 4. Return 202 Accepted
-    
+
     setAuditContext(event, {
       action: 'AI_GENERATION_STARTED',
       resource: 'document',

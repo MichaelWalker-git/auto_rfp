@@ -154,7 +154,7 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
       <HigherGovFavoritesBanner orgId={orgId} projectId={projectId} />
 
       <div className="mb-6">
-        <SearchOpportunityForm orgId={orgId} onSearch={handleSearch} isLoading={isLoading} initialValues={initialFormValues.current ?? undefined} />
+        <SearchOpportunityForm orgId={orgId} projectId={projectId} onSearch={handleSearch} isLoading={isLoading} initialValues={initialFormValues.current ?? undefined} />
       </div>
 
       {result?.samGovError && (
@@ -173,7 +173,27 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
         </Alert>
       )}
 
-      {hasSearched && !isLoading && result && (
+      {result?.higherGovError && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>HigherGov error</AlertTitle>
+          <AlertDescription className="text-xs">{result.higherGovError}</AlertDescription>
+        </Alert>
+      )}
+
+      {result?.higherGovPending && !result.higherGovError && (
+        // HigherGov saved searches can take ~30s+ — fetched in the background,
+        // results appear here automatically once ready (the hook polls).
+        <Alert variant="default" className="mb-4 border-blue-200 bg-blue-50 text-blue-900">
+          <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+          <AlertTitle>Fetching HigherGov results…</AlertTitle>
+          <AlertDescription className="text-xs">
+            HigherGov saved searches can take up to a minute. Results will appear automatically — no need to search again.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {hasSearched && !isLoading && !result?.higherGovPending && result && (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-muted/20 px-4 py-2.5 mb-4">
           <div className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-muted-foreground" />
@@ -210,6 +230,7 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
         <SearchOpportunityResultsTable
           opportunities={result?.opportunities ?? []}
           isLoading={isLoading}
+          isPending={result?.higherGovPending}
           onImport={handleImport}
           importingId={importingId}
           orgId={orgId}

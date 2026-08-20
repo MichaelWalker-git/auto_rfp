@@ -8,6 +8,7 @@ const mockGetItem = jest.fn();
 const mockPutItem = jest.fn();
 const mockUpdateItem = jest.fn();
 const mockQueryAllBySkPrefix = jest.fn();
+const mockBatchDeleteItems = jest.fn();
 
 jest.mock('@/helpers/db', () => ({
   createItem: (...a: unknown[]) => mockCreateItem(...a),
@@ -15,6 +16,7 @@ jest.mock('@/helpers/db', () => ({
   putItem: (...a: unknown[]) => mockPutItem(...a),
   updateItem: (...a: unknown[]) => mockUpdateItem(...a),
   queryAllBySkPrefix: (...a: unknown[]) => mockQueryAllBySkPrefix(...a),
+  batchDeleteItems: (...a: unknown[]) => mockBatchDeleteItems(...a),
   docClient: { send: jest.fn() },
 }));
 
@@ -32,16 +34,22 @@ import {
   buildGrillingMessageSkPrefix,
   buildSolutionPlanHtmlKey,
   buildSolutionPlanSk,
+  deleteGrillingMessages,
   getSolutionPlanByOpportunity,
   listGrillingMessages,
   loadSolutionPlanHtml,
   markSolutionPlanStale,
+  markSolutionPlanStaleSafe,
   padGrillingRound,
   putSolutionPlan,
+  solutionPlanStaleReasons,
+  toGrillingMessageItem,
+  toSolutionPlanItem,
+  updateSolutionPlanContent,
   updateSolutionPlanStatus,
   uploadSolutionPlanHtml,
 } from './solution-plan';
-import { PK_NAME } from '@/constants/common';
+import { PK_NAME, SK_NAME } from '@/constants/common';
 import { GRILLING_MESSAGE_PK, SOLUTION_PLAN_PK } from '@/constants/solution-plan';
 import type { SolutionPlanItem, SolutionPlanKey } from '@auto-rfp/core';
 
@@ -142,6 +150,97 @@ describe('updateSolutionPlanStatus', () => {
   });
 });
 
+// ─── DB-key stripping ───────────────────────────────────────────────────────────
+
+describe('toSolutionPlanItem / toGrillingMessageItem', () => {
+  it('strips partition_key/sort_key off a plan record', () => {
+    const item = toSolutionPlanItem({
+      ...basePlan,
+      [PK_NAME]: SOLUTION_PLAN_PK,
+      [SK_NAME]: 'org-1#proj-1#opp-1',
+    });
+    expect(item).toEqual(basePlan);
+    expect(item).not.toHaveProperty(PK_NAME);
+    expect(item).not.toHaveProperty(SK_NAME);
+  });
+
+  it('strips partition_key/sort_key off a transcript record', () => {
+    const base = {
+      id: 'msg-1',
+      solutionPlanId: 'plan-1',
+      runId: 'run-1',
+      round: 1,
+      role: 'GRILLER' as const,
+      content: 'Q?',
+    };
+    const item = toGrillingMessageItem({
+      ...base,
+      [PK_NAME]: GRILLING_MESSAGE_PK,
+      [SK_NAME]: 'plan-1#001#ts#msg-1',
+    });
+    expect(item).toEqual(base);
+  });
+});
+
+// ─── updateSolutionPlanContent (ADR-8 guard) ────────────────────────────────────
+
+describe('updateSolutionPlanContent', () => {
+  const patch = { version: 3, contentKey: 'org-1/proj-1/opp-1/solution-plan/v3/solution-plan.html', editedBy: 'user-9' };
+
+  it('bumps content fields, marks user-edited, clears staleness — READY-only condition', async () => {
+    const updated = { ...basePlan, status: 'READY', ...patch, isUserEdited: true, isStale: false };
+    mockUpdateItem.mockResolvedValue(updated);
+
+    const result = await updateSolutionPlanContent(planKey, patch);
+
+    expect(mockUpdateItem).toHaveBeenCalledWith(
+      SOLUTION_PLAN_PK,
+      'org-1#proj-1#opp-1',
+      { ...patch, isUserEdited: true, isStale: false, staleReason: '', costSchedule: null },
+      expect.objectContaining({
+        condition: expect.stringContaining('#status = :readyStatus'),
+        conditionNames: { '#pk': PK_NAME, '#status': 'status', '#version': 'version' },
+        conditionValues: { ':readyStatus': 'READY', ':expectedVersion': 2 },
+      }),
+    );
+    expect(result).toEqual(updated);
+  });
+
+  it('clears the costSchedule on every user edit (documents fall back to Fix A until regenerated)', async () => {
+    mockUpdateItem.mockResolvedValue({});
+
+    await updateSolutionPlanContent(planKey, patch);
+
+    const updates = mockUpdateItem.mock.calls[0][2];
+    expect(updates.costSchedule).toBeNull();
+  });
+
+  it('conditions on the pre-bump version so concurrent edits cannot collide (ADR-11)', async () => {
+    mockUpdateItem.mockResolvedValue({});
+    await updateSolutionPlanContent(planKey, patch);
+    const options = mockUpdateItem.mock.calls[0][3];
+    expect(options.condition).toContain('#version = :expectedVersion');
+    expect(options.conditionValues[':expectedVersion']).toBe(patch.version - 1);
+  });
+
+  it.each([
+    'the plan is not READY',
+    'the plan does not exist',
+    'another edit already claimed this version',
+  ])('returns null when %s and the condition fails', async () => {
+    const conditionError = new Error('The conditional request failed');
+    conditionError.name = 'ConditionalCheckFailedException';
+    mockUpdateItem.mockRejectedValue(conditionError);
+
+    await expect(updateSolutionPlanContent(planKey, patch)).resolves.toBeNull();
+  });
+
+  it('rethrows non-conditional errors', async () => {
+    mockUpdateItem.mockRejectedValue(new Error('boom'));
+    await expect(updateSolutionPlanContent(planKey, patch)).rejects.toThrow('boom');
+  });
+});
+
 // ─── markSolutionPlanStale (ADR-3 guard) ────────────────────────────────────────
 
 describe('markSolutionPlanStale', () => {
@@ -182,6 +281,57 @@ describe('markSolutionPlanStale', () => {
   it('rethrows non-conditional errors', async () => {
     mockUpdateItem.mockRejectedValue(new Error('boom'));
     await expect(markSolutionPlanStale(planKey, reason)).rejects.toThrow('boom');
+  });
+});
+
+// ─── markSolutionPlanStaleSafe (T13 trigger wrapper) ────────────────────────────
+
+describe('markSolutionPlanStaleSafe', () => {
+  const reason = 'New solicitation document uploaded';
+
+  it('passes the updated plan through on success', async () => {
+    const updated = { ...basePlan, status: 'READY', isStale: true, staleReason: reason };
+    mockUpdateItem.mockResolvedValue(updated);
+
+    await expect(markSolutionPlanStaleSafe(planKey, reason)).resolves.toEqual(updated);
+    expect(mockUpdateItem).toHaveBeenCalledWith(
+      SOLUTION_PLAN_PK,
+      'org-1#proj-1#opp-1',
+      { isStale: true, staleReason: reason },
+      expect.anything(),
+    );
+  });
+
+  it('returns null (guard no-op) when the plan is missing or not READY', async () => {
+    const conditionError = new Error('The conditional request failed');
+    conditionError.name = 'ConditionalCheckFailedException';
+    mockUpdateItem.mockRejectedValue(conditionError);
+
+    await expect(markSolutionPlanStaleSafe(planKey, reason)).resolves.toBeNull();
+  });
+
+  it('swallows unexpected errors instead of failing the host request', async () => {
+    mockUpdateItem.mockRejectedValue(new Error('DynamoDB unavailable'));
+    await expect(markSolutionPlanStaleSafe(planKey, reason)).resolves.toBeNull();
+  });
+});
+
+// ─── solutionPlanStaleReasons (T13 banner copy) ─────────────────────────────────
+
+describe('solutionPlanStaleReasons', () => {
+  it('produces the exact user-facing banner copy for each trigger', () => {
+    expect(solutionPlanStaleReasons.briefGenerated()).toBe(
+      'An Executive Brief is being generated.',
+    );
+    expect(solutionPlanStaleReasons.briefRegenerated()).toBe(
+      'The Executive Brief is being regenerated.',
+    );
+    expect(solutionPlanStaleReasons.briefSectionRegenerated('risks')).toBe(
+      'The Executive Brief\'s "risks" section is being regenerated.',
+    );
+    expect(solutionPlanStaleReasons.solicitationDocumentUploaded('amendment-002.pdf')).toBe(
+      'A new solicitation document ("amendment-002.pdf") was uploaded.',
+    );
   });
 });
 
@@ -236,6 +386,38 @@ describe('listGrillingMessages', () => {
 
     expect(mockQueryAllBySkPrefix).toHaveBeenCalledWith(GRILLING_MESSAGE_PK, 'plan-1#');
     expect(result).toEqual(messages);
+  });
+});
+
+describe('deleteGrillingMessages', () => {
+  it('batch-deletes every listed message under the GRILLING_MESSAGE PK', async () => {
+    mockQueryAllBySkPrefix.mockResolvedValue([
+      { id: 'm1', [SK_NAME]: 'plan-1#001#ts1#m1' },
+      { id: 'm2', [SK_NAME]: 'plan-1#001#ts2#m2' },
+    ]);
+    mockBatchDeleteItems.mockResolvedValue({ deleted: 2, failed: 0 });
+
+    const deleted = await deleteGrillingMessages('plan-1');
+
+    expect(mockBatchDeleteItems).toHaveBeenCalledWith([
+      { pk: GRILLING_MESSAGE_PK, sk: 'plan-1#001#ts1#m1' },
+      { pk: GRILLING_MESSAGE_PK, sk: 'plan-1#001#ts2#m2' },
+    ]);
+    expect(deleted).toBe(2);
+  });
+
+  it('is a no-op when the transcript is already empty', async () => {
+    mockQueryAllBySkPrefix.mockResolvedValue([]);
+
+    await expect(deleteGrillingMessages('plan-1')).resolves.toBe(0);
+    expect(mockBatchDeleteItems).not.toHaveBeenCalled();
+  });
+
+  it('does not throw when some deletes fail (leftovers are runId-filtered)', async () => {
+    mockQueryAllBySkPrefix.mockResolvedValue([{ id: 'm1', [SK_NAME]: 'plan-1#001#ts1#m1' }]);
+    mockBatchDeleteItems.mockResolvedValue({ deleted: 0, failed: 1 });
+
+    await expect(deleteGrillingMessages('plan-1')).resolves.toBe(0);
   });
 });
 

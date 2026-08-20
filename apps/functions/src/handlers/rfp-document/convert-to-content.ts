@@ -2,6 +2,7 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda
 import middy from '@middy/core';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import mammoth from 'mammoth';
+import type { EditHistoryEntry } from '@auto-rfp/core';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   getRFPDocument,
@@ -197,7 +198,7 @@ export const baseHandler = async (
       outlineSummary: null,
     };
 
-    const editHistory = ((doc.editHistory as Record<string, unknown>[] | undefined) ?? []);
+    const editHistory = ((doc.editHistory as EditHistoryEntry[] | undefined) ?? []);
     editHistory.push({
       editedBy: userId,
       editedAt: new Date().toISOString(),

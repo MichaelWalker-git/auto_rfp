@@ -4,8 +4,9 @@ import { z } from 'zod';
 import { DetectedFormFieldSchema } from '@auto-rfp/core';
 
 import { withSentryLambda } from '@/sentry-lambda';
-import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
+import { apiResponse, getOrgId, getUserId, parseJsonBody } from '@/helpers/api';
 import { getRequiredForm, updateRequiredForm } from '@/helpers/required-form';
+import { snapshotFormFields } from '@/helpers/required-form-version';
 import { attachFormAsRfpDocument, detachFormFromProposal } from '@/helpers/required-form-proposal-bridge';
 
 import {
@@ -32,12 +33,25 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
 
   const userId = getUserId(event) ?? 'system';
 
-  const raw = event.body ? JSON.parse(event.body) : {};
-  const { success, data, error } = BodySchema.safeParse(raw);
+  const parsedBody = parseJsonBody(event);
+  if (parsedBody === undefined) return apiResponse(400, { message: 'Invalid JSON body' });
+  const { success, data, error } = BodySchema.safeParse(parsedBody);
   if (!success) return apiResponse(400, { message: 'Invalid payload', issues: error.issues });
 
   const form = await getRequiredForm({ orgId, projectId: data.projectId, opportunityId: data.opportunityId, formId: data.formId });
   if (!form) return apiResponse(404, { message: 'Form not found' });
+
+  // Snapshot the current fields BEFORE overwriting them, so manual edits are
+  // revertible (parity with AI mass-edits). Best-effort: a snapshot failure must
+  // not fail the user's save — history is secondary to the write. Skip the very
+  // first save (nothing meaningful to preserve yet).
+  if ((form.fields ?? []).length > 0) {
+    try {
+      await snapshotFormFields({ form, source: 'MANUAL', userId });
+    } catch (snapErr) {
+      console.warn('[save-form-fields] form-version snapshot failed (continuing):', snapErr);
+    }
+  }
 
   const autoFilled = data.fields.filter((f) => f.status === 'AUTO_FILLED').length;
   const manual = data.fields.filter((f) => f.status === 'MANUAL_REQUIRED').length;

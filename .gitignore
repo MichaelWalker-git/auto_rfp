@@ -69,3 +69,20 @@ apps/web/playwright-report/
 apps/web/test-results/
 apps/web/e2e/.auth/
 !apps/web/e2e/.auth/.gitkeep
+
+# AI-DLC — per-user cursors and machine-local runtime state are ignored;
+# shared work (method, state, audit shards, artifacts) is committed.
+aidlc/active-space
+aidlc/spaces/*/intents/active-intent
+aidlc/.aidlc-clone-id
+aidlc/.aidlc-active-space-*.tmp
+aidlc/.aidlc-sessions/
+aidlc/spaces/*/intents/.aidlc-*
+aidlc/spaces/*/intents/*/runtime-graph.json
+aidlc/spaces/*/intents/*/.aidlc-*
+aidlc/diagnostics/
+
+# Test coverage output
+/apps/functions/coverage/
+# TypeScript incremental build info (any location)
+*.tsbuildinfo

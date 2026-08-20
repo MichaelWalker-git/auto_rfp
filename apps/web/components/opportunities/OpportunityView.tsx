@@ -5,12 +5,14 @@ import Link from 'next/link';
 import { useSWRConfig } from 'swr';
 import {
   ArrowLeft,
+  ClipboardList,
   HelpCircle,
   Trophy,
   ShieldCheck,
   Paperclip,
   FileEdit,
   Sparkles,
+  Link2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -36,7 +38,9 @@ import {
 } from '@/features/proposal-submission';
 import { RequiredFormsList } from '@/features/required-forms';
 import { ComplianceReviewPanel } from '@/features/compliance-review';
+import { SolutionPlanPanel } from '@/features/solution-plan';
 import { OpportunityApprovalPanel } from '@/features/opportunity-approval';
+import { RelatedRfpsSection } from '@/features/related-rfp';
 import PermissionWrapper from '@/components/permission-wrapper';
 
 interface OpportunityViewProps {
@@ -81,9 +85,11 @@ interface SectionNavItem {
 
 const SECTION_NAV_ITEMS: SectionNavItem[] = [
   { id: 'executive-brief', label: 'Analysis', icon: <HelpCircle className="h-3.5 w-3.5" /> },
+  { id: 'solution-plan', label: 'Solution Plan', icon: <ClipboardList className="h-3.5 w-3.5" /> },
   { id: 'solicitation-documents', label: 'Solicitations', icon: <Paperclip className="h-3.5 w-3.5" /> },
   { id: 'required-forms', label: 'Required Forms', icon: <FileEdit className="h-3.5 w-3.5" /> },
   { id: 'rfp-documents', label: 'RFP Documents', icon: <FileEdit className="h-3.5 w-3.5" /> },
+  { id: 'related-rfps', label: 'Related RFPs', icon: <Link2 className="h-3.5 w-3.5" /> },
   { id: 'ai-compliance-review', label: 'AI Review', icon: <Sparkles className="h-3.5 w-3.5" /> },
   { id: 'submission-compliance', label: 'Submission', icon: <ShieldCheck className="h-3.5 w-3.5" /> },
   { id: 'post-award', label: 'Post-Award', icon: <Trophy className="h-3.5 w-3.5" /> },
@@ -218,6 +224,16 @@ const OpportunityContent = ({ className }: { className?: string }) => {
   // AI Compliance Review is a single-org (Horus Technology) feature, gated by the
   // org-level enableComplianceReview flag — same pattern as Generate POC.
   const complianceReviewEnabled = !!currentOrganization?.enableComplianceReview;
+  // Solution Plan ("Source of Truth") ships behind the org-level
+  // enableSolutionPlan flag until Release 3 flips gating on per org.
+  const solutionPlanEnabled = !!currentOrganization?.enableSolutionPlan;
+  // Related RFPs (HOR-2610) auto-discover from the issuing agency — HigherGov opps only.
+  const isHigherGov = !!opportunity?.higherGovOppKey;
+  const hiddenSectionIds = [
+    ...(complianceReviewEnabled ? [] : ['ai-compliance-review']),
+    ...(solutionPlanEnabled ? [] : ['solution-plan']),
+    ...(isHigherGov ? [] : ['related-rfps']),
+  ];
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Smart auto-reload: 5s if pending items, 30s if stable, stops after 3 unchanged
@@ -269,7 +285,7 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       <OpportunityApprovalPanel orgId={orgId} projectId={projectId} opportunityId={oppId} onResolved={refetch} />
 
       {/* Section Navigation */}
-      <SectionNavigation hiddenIds={complianceReviewEnabled ? undefined : ['ai-compliance-review']} />
+      <SectionNavigation hiddenIds={hiddenSectionIds} />
 
       {/* ── Opportunity Analysis ─────────────────────────────────────── */}
       <section id="executive-brief" className="scroll-mt-4">
@@ -282,6 +298,13 @@ const OpportunityContent = ({ className }: { className?: string }) => {
           />
         </QuestionsProvider>
       </section>
+
+      {/* ── Solution Plan (Source of Truth, org-flagged) ──────────────── */}
+      {solutionPlanEnabled && (
+        <section id="solution-plan" className="scroll-mt-4">
+          <SolutionPlanPanel orgId={orgId} projectId={projectId} opportunityId={oppId} />
+        </section>
+      )}
 
       {/* ── Solicitation Documents ────────────────────────────────────── */}
       <section id="solicitation-documents" className="scroll-mt-4">
@@ -297,6 +320,13 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       <section id="rfp-documents" className="scroll-mt-4">
         <OpportunityRFPDocuments />
       </section>
+
+      {/* ── Related RFPs (HigherGov-sourced opps only) ─────────────────── */}
+      {isHigherGov && (
+        <section id="related-rfps" className="scroll-mt-4">
+          <RelatedRfpsSection orgId={orgId} projectId={projectId} oppId={oppId} />
+        </section>
+      )}
 
       {/* ── Context & Knowledge Base ───────────────────────────────────── */}
       <section className="scroll-mt-4">

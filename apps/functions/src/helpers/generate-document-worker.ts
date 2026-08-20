@@ -31,6 +31,13 @@ import {
   type QaPair,
 } from '@/helpers/document-generation';
 import { getTemplate, findBestTemplate, loadTemplateHtml, replaceMacros, buildMacroValues } from '@/helpers/template';
+import { getSolutionPlanByOpportunity, loadSolutionPlanHtml } from '@/helpers/solution-plan';
+import {
+  assembleTeamQualificationsContext,
+  renderTeamContextBlock,
+} from '@/helpers/team-qualifications-context';
+import { stripHtmlToText } from '@/helpers/html-text';
+import { errorMessageOf } from '@/helpers/error';
 import { uploadRFPDocumentHtml, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
 import {
   createVersion,
@@ -40,8 +47,10 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { getRFPDocument } from '@/helpers/rfp-document';
 import { BEDROCK_MODEL_ID, MAX_TOKENS, TEMPERATURE } from '@/constants/document-generation';
-import { RFPDocumentContentSchema, RFPDocumentTypeSchema, RFP_DOCUMENT_TYPES, type RFPDocumentContent } from '@auto-rfp/core';
-import { DOCUMENT_TOOLS, executeDocumentTool } from '@/helpers/document-tools';
+import { RFPDocumentContentSchema, RFPDocumentTypeSchema, RFP_DOCUMENT_TYPES, type RFPDocumentContent, type SolutionPlanDBItem, type SolutionPlanKey } from '@auto-rfp/core';
+import { executeDocumentTool, getDocumentToolsForType, PRICING_TOOL_DOC_TYPES } from '@/helpers/document-tools';
+import { correctPricingTableTotals } from '@/helpers/pricing-table-math';
+import { applyPlanReconciliationSafe } from '@/helpers/plan-cost-reconciliation';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import {
   generateDocumentSectionBySectionHtml,
@@ -75,6 +84,13 @@ const TABLE_HEAVY_TYPES = new Set(['COMPLIANCE_MATRIX', 'APPENDICES', 'PAST_PERF
 
 /** Maximum tool-use rounds for single-shot generation */
 const MAX_TOOL_ROUNDS = 5;
+
+/**
+ * Character budget for the injected Solution Plan text (ADR-6). Its own budget,
+ * separate from the 18k `gatherAllContext` blob. Synthesis targets ~10k chars of
+ * body text, so this is a safety net — hitting it means the plan is oversized.
+ */
+export const SOLUTION_PLAN_TEXT_BUDGET = 12_000;
 
 // ─── HTML Helpers ─────────────────────────────────────────────────────────────
 
@@ -594,8 +610,10 @@ export const generateWithTemplateSections = async (args: {
   opportunityId: string;
   documentId: string;
   qaPairs: QaPair[];
+  /** True when an Approved Solution Plan was loaded — withholds search_service_pricing (Fix A). */
+  hasSolutionPlan: boolean;
 }): Promise<RFPDocumentContent | null> => {
-  const { templateHtml, sectionSystemPrompt, userPrompt, documentType, orgId, projectId, opportunityId, documentId, qaPairs } = args;
+  const { templateHtml, sectionSystemPrompt, userPrompt, documentType, orgId, projectId, opportunityId, documentId, qaPairs, hasSolutionPlan } = args;
 
   // 1. Parse template into sections
   const templateSections = parseTemplateSections(templateHtml);
@@ -624,11 +642,13 @@ export const generateWithTemplateSections = async (args: {
     systemPrompt: sectionSystemPrompt,
     initialUserPrompt: userPrompt,
     sections: templateSections,
+    documentType,
     orgId,
     projectId,
     opportunityId,
     documentId,
     qaPairs,
+    hasSolutionPlan,
     maxTokensPerSection: 6000,
     temperature: TEMPERATURE,
     maxToolRoundsPerSection: 2,
@@ -691,8 +711,10 @@ export const generateSingleShot = async (args: {
   documentId: string;
   qaPairs: QaPair[];
   enrichedKbTextLength: number;
+  /** True when an Approved Solution Plan was loaded — withholds search_service_pricing (Fix A). */
+  hasSolutionPlan: boolean;
 }): Promise<RFPDocumentContent | null> => {
-  const { templateHtml, systemPrompt, userPrompt, documentType, orgId, projectId, opportunityId, documentId, qaPairs, enrichedKbTextLength } = args;
+  const { templateHtml, systemPrompt, userPrompt, documentType, orgId, projectId, opportunityId, documentId, qaPairs, enrichedKbTextLength, hasSolutionPlan } = args;
 
   console.log(`[single-shot] Using single-shot generation with template scaffold (${templateHtml.length} chars)`);
 
@@ -718,7 +740,9 @@ export const generateSingleShot = async (args: {
     };
 
     if (!isLastRound) {
-      requestBody.tools = DOCUMENT_TOOLS;
+      // search_service_pricing is offered only for COST_PROPOSAL / PRICE_VOLUME (T3),
+      // and withheld when an Approved Solution Plan is the price source (Fix A)
+      requestBody.tools = getDocumentToolsForType(documentType, { hasSolutionPlan });
     }
 
     const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody));
@@ -820,7 +844,7 @@ export const generateSingleShot = async (args: {
       }
     }
   } catch (parseErr) {
-    console.warn(`[single-shot] safeParseJsonFromModel failed: ${(parseErr as Error).message}. Wrapping raw text as HTML.`);
+    console.warn(`[single-shot] safeParseJsonFromModel failed: ${errorMessageOf(parseErr)}. Wrapping raw text as HTML.`);
     modelJson = { title: getDocumentTypeLabel(documentType), htmlContent: rawText };
   }
 
@@ -891,6 +915,60 @@ export const generateSingleShot = async (args: {
     ...normalizedDocument,
     content: finalHtml,
   };
+};
+
+// ─── Solution Plan (Source of Truth) injection ────────────────────────────────
+
+export interface SolutionPlanContext {
+  plan: SolutionPlanDBItem;
+  /** Plan HTML stripped to plain text, truncated to SOLUTION_PLAN_TEXT_BUDGET */
+  text: string;
+}
+
+/**
+ * Load the approved Solution Plan for injection into document generation (ADR-7).
+ *
+ * Returns null only when there is no READY plan — generation legitimately
+ * proceeds without the source-of-truth block. A READY-but-stale plan IS
+ * injected: staleness only surfaces a UI warning, it never blocks generation
+ * (ADR-3). When a READY plan exists but its content cannot be loaded, this
+ * THROWS: generating a document without the plan that "overrides anything"
+ * would silently violate the SoT contract and produce an unstamped document,
+ * so the job must retry/fail instead (processJob handles retry + FAILED).
+ */
+export const loadApprovedSolutionPlanContext = async (
+  key: SolutionPlanKey,
+): Promise<SolutionPlanContext | null> => {
+  const plan = await getSolutionPlanByOpportunity(key);
+  if (!plan || plan.status !== 'READY') return null;
+
+  if (!plan.contentKey) {
+    throw new Error(
+      `Solution Plan ${plan.id} is READY but has no contentKey — cannot inject the source of truth`,
+    );
+  }
+
+  const html = await loadSolutionPlanHtml(plan.contentKey);
+  // Tags become spaces (not '' like compliance-review-html's stripHtml, which
+  // would merge words across element boundaries).
+  let text = stripHtmlToText(html);
+
+  if (!text) {
+    throw new Error(
+      `Solution Plan ${plan.id} content is empty (contentKey=${plan.contentKey}) — cannot inject the source of truth`,
+    );
+  }
+
+  if (text.length > SOLUTION_PLAN_TEXT_BUDGET) {
+    // Truncation is a safety net — synthesis targets ~10k chars (ADR-6), so
+    // firing means the plan is oversized and worth investigating.
+    console.warn(
+      `[worker] Solution Plan text truncated: planId=${plan.id} length=${text.length} exceeds budget=${SOLUTION_PLAN_TEXT_BUDGET}`,
+    );
+    text = text.slice(0, SOLUTION_PLAN_TEXT_BUDGET);
+  }
+
+  return { plan, text };
 };
 
 // ─── Process Job (Core Logic) ─────────────────────────────────────────────────
@@ -977,13 +1055,54 @@ export const processJobInner = async (job: Job): Promise<void> => {
   const macroValues = await buildMacroValues({ orgId, projectId, opportunityId });
   console.log(`Built macro values for documentId=${documentId}:`, Object.keys(macroValues));
 
-  // ─── Step 4: Gather enrichment context + resolve template HTML in parallel ───
+  // ─── Step 4: Gather enrichment context + template HTML + furniture + Solution
+  //             Plan + saved-team roster (TEAM_QUALIFICATIONS only) in parallel ───
   // The furniture lookup rides along here so it costs no extra wall-clock.
-  const [enrichedKbText, templateHtmlScaffold, templateFurniture] = await Promise.all([
+  const [
+    enrichedKbText,
+    templateHtmlScaffold,
+    templateFurniture,
+    solutionPlanContext,
+    teamQualificationsContext,
+  ] = await Promise.all([
     gatherAllContext({ projectId, orgId, opportunityId, solicitation, documentType }),
     resolveTemplateHtml(orgId, documentType, templateId, macroValues),
     resolveTemplateFurniture(orgId, documentType, templateId, macroValues),
+    loadApprovedSolutionPlanContext({ orgId, projectId, opportunityId }),
+    documentType === 'TEAM_QUALIFICATIONS'
+      ? assembleTeamQualificationsContext({ orgId, projectId, opportunityId })
+      : Promise.resolve(null),
   ]);
+
+  // Saved-team fallback (U4): the request-path guard refuses without a saved
+  // team, but if the team vanished between request and SQS delivery the run
+  // is marked FAILED — TEAM_QUALIFICATIONS is NEVER generated ungrounded (BR2.1).
+  if (documentType === 'TEAM_QUALIFICATIONS' && !teamQualificationsContext) {
+    const reason =
+      'No saved team found for this opportunity — review and save the team in the Solution Plan before generating Team Qualifications.';
+    console.error(`[worker] ${reason} (documentId=${documentId})`);
+    await updateRFPDocumentMetadata({
+      projectId, opportunityId, documentId,
+      updates: { status: 'FAILED', generationError: reason },
+      updatedBy: 'system',
+    });
+    return;
+  }
+
+  if (teamQualificationsContext) {
+    console.log(
+      `[worker] Injecting saved team into TEAM_QUALIFICATIONS generation: ` +
+        `${teamQualificationsContext.members.length} filled, ` +
+        `${teamQualificationsContext.openRoles.length} open, ` +
+        `${teamQualificationsContext.pendingReplacements.length} pending replacement`,
+    );
+  }
+
+  if (solutionPlanContext) {
+    console.log(
+      `[worker] Injecting Solution Plan ${solutionPlanContext.plan.id} v${solutionPlanContext.plan.version} (${solutionPlanContext.text.length} chars) into ${documentType} generation`,
+    );
+  }
 
   if (templateHtmlScaffold) {
     console.log(`Using HTML template scaffold for documentId=${documentId} (${templateHtmlScaffold.length} chars)`);
@@ -1019,7 +1138,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
         }
       }
     } catch (err) {
-      console.warn(`[worker] Failed to load original template HTML: ${(err as Error).message}`);
+      console.warn(`[worker] Failed to load original template HTML: ${errorMessageOf(err)}`);
     }
   }
 
@@ -1027,14 +1146,28 @@ export const processJobInner = async (job: Job): Promise<void> => {
   // Org-level fragment overrides are fetched once per job; null fields fall back
   // to the hardcoded defaults inside the builders.
   const fragments = await resolveDocumentPromptFragments(orgId, documentType);
-  const systemPrompt = buildSystemPromptForDocumentType(documentType, templateHtmlScaffold, fragments.guidance);
-  const userPrompt = buildUserPromptForDocumentType(
-    documentType,
+  // Plan present → the plan's priced table is the only third-party price source:
+  // prompt variant switches and search_service_pricing is withheld (Fix A).
+  const hasSolutionPlan = Boolean(solutionPlanContext);
+  const systemPrompt = buildSystemPromptForDocumentType(documentType, templateHtmlScaffold, fragments.guidance, hasSolutionPlan);
+  // The solution-plan block rides inside the user prompt, so section-by-section
+  // mode receives it too (the section generator prepends `initialUserPrompt`).
+  const userPrompt = buildUserPromptForDocumentType(documentType, {
     solicitation,
-    JSON.stringify(qaPairs),
+    qaText: JSON.stringify(qaPairs),
     enrichedKbText,
-    fragments.task,
-  );
+    taskOverride: fragments.task,
+    solutionPlanText: solutionPlanContext?.text ?? null,
+    // Pricing doc types get the AUTHORITATIVE COST SCHEDULE block; null for
+    // legacy/user-edited plans (Fix A fallback).
+    solutionPlanCostSchedule: solutionPlanContext?.plan.costSchedule ?? null,
+    // TEAM_QUALIFICATIONS only: the SAVED TEAM block is the exclusive
+    // personnel source (U4, BR2.1). Conditional so other doc types keep their
+    // exact prompt-context shape.
+    ...(teamQualificationsContext
+      ? { teamContext: renderTeamContextBlock(teamQualificationsContext) }
+      : {}),
+  });
 
   console.log(`Prompt sizes: system=${systemPrompt.length}, user=${userPrompt.length}, solicitation=${solicitation.length}, qaPairs=${qaPairs.length}, enrichedKb=${enrichedKbText.length}`);
 
@@ -1056,7 +1189,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
   let finalDocument: RFPDocumentContent | null = null;
   // Strategy 1: Section-by-section generation (template with headings AND placeholders)
   if (templateHtmlScaffold) {
-    const sectionSystemPrompt = buildSectionSystemPrompt(documentType, fragments.guidance);
+    const sectionSystemPrompt = buildSectionSystemPrompt(documentType, fragments.guidance, hasSolutionPlan);
     console.log(`Section system prompt: ${sectionSystemPrompt.length} chars`);
 
     finalDocument = await generateWithTemplateSections({
@@ -1070,6 +1203,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
       opportunityId,
       documentId,
       qaPairs,
+      hasSolutionPlan,
     });
   }
 
@@ -1079,7 +1213,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
   if (!finalDocument) {
     const singleShotTemplate = templateHtmlScaffold || buildDefaultTemplate();
     // Pass the template scaffold to the system prompt so the AI sees the template structure
-    const singleShotSystemPrompt = buildSystemPromptForDocumentType(documentType, templateHtmlScaffold ?? null, fragments.guidance);
+    const singleShotSystemPrompt = buildSystemPromptForDocumentType(documentType, templateHtmlScaffold ?? null, fragments.guidance, hasSolutionPlan);
 
     console.log(`[worker] Using single-shot generation for documentId=${documentId} (template: ${templateHtmlScaffold ? 'yes' : 'default'})`);
     finalDocument = await generateSingleShot({
@@ -1093,6 +1227,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
       documentId,
       qaPairs,
       enrichedKbTextLength: enrichedKbText.length,
+      hasSolutionPlan,
     });
   }
 
@@ -1301,7 +1436,39 @@ export const processJobInner = async (job: Job): Promise<void> => {
   }
 
   // ─── Step 7: Validate & Save result ───
-  const htmlContent = finalDocument?.content ?? '';
+  let htmlContent = finalDocument?.content ?? '';
+
+  // Deterministic pricing-math pass (Fix B): recompute every pricing-table
+  // total and auto-correct mismatches before the document is saved.
+  if (htmlContent && PRICING_TOOL_DOC_TYPES.has(documentType)) {
+    const { html: correctedHtml, corrections } = correctPricingTableTotals(htmlContent);
+    if (corrections.length > 0) {
+      console.warn(
+        `[worker] Pricing math auto-corrected ${corrections.length} total(s) for documentId=${documentId}: ` +
+        corrections.map((c) => `"${c.rowLabel}": ${c.previousValue} → ${c.correctedValue}`).join('; '),
+      );
+      htmlContent = correctedHtml;
+      finalDocument = finalDocument ? { ...finalDocument, content: correctedHtml } : finalDocument;
+    }
+
+    // Plan-governed reconciliation — runs AFTER Fix B so it is the last writer
+    // (Fix B would overwrite plan-forced totals) and its corrections measure
+    // genuine line-item divergence from the plan, not LLM arithmetic slips.
+    const costSchedule = solutionPlanContext?.plan.costSchedule;
+    if (costSchedule) {
+      const reconciledHtml = applyPlanReconciliationSafe({
+        html: htmlContent,
+        schedule: costSchedule,
+        logPrefix: '[worker]',
+        documentId,
+      });
+      if (reconciledHtml !== htmlContent) {
+        htmlContent = reconciledHtml;
+        finalDocument = finalDocument ? { ...finalDocument, content: reconciledHtml } : finalDocument;
+      }
+    }
+  }
+
   const contentText = htmlContent
     .replace(/<[^>]*>/g, '')  // Strip HTML tags
     .replace(/\s+/g, ' ')     // Collapse whitespace
@@ -1331,7 +1498,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
     });
     console.log(`[worker] HTML uploaded to S3: ${htmlContentKey} (${htmlContent.length} chars)`);
   } catch (err) {
-    const msg = `Failed to upload HTML to S3: ${(err as Error).message}`;
+    const msg = `Failed to upload HTML to S3: ${errorMessageOf(err)}`;
     console.error(`[worker] ${msg}`);
     await updateRFPDocumentMetadata({
       projectId, opportunityId, documentId,
@@ -1363,6 +1530,11 @@ export const processJobInner = async (job: Job): Promise<void> => {
       // reads it from here, having no access to the template itself.
       ...(templateFurniture.templateId !== undefined && { templateId: templateFurniture.templateId }),
       ...(templateFurniture.furniture !== undefined && { furniture: templateFurniture.furniture }),
+      // Stamp which Solution Plan version this document was generated from (ADR-7)
+      ...(solutionPlanContext && {
+        solutionPlanId: solutionPlanContext.plan.id,
+        solutionPlanVersion: solutionPlanContext.plan.version,
+      }),
     },
     updatedBy: 'system',
   });
@@ -1399,7 +1571,7 @@ export const processJobInner = async (job: Job): Promise<void> => {
     console.log(`[worker] Created version ${newVersionNumber} for document ${documentId}`);
   } catch (versionErr) {
     // Version creation is non-critical — log but don't fail the generation
-    console.error('[worker] Failed to create version snapshot:', (versionErr as Error).message);
+    console.error('[worker] Failed to create version snapshot:', errorMessageOf(versionErr));
   }
 
   console.log(`[worker] Document generation complete for documentId=${documentId}`);

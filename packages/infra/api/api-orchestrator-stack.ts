@@ -59,9 +59,14 @@ import { pricingDomain } from './routes/pricing.routes';
 import { extractionDomain } from './routes/extraction.routes';
 import { opportunityAssistantDomain } from './routes/opportunity-assistant.routes';
 import { complianceReviewDomain } from './routes/compliance-review.routes';
+import { packageEditDomain } from './routes/package-edit.routes';
+import { questionnaireDomain } from './routes/questionnaire.routes';
 import { companyProfileDomain } from './routes/company-profile.routes';
 import { requiredFormsDomain } from './routes/required-forms.routes';
 import { dashboardDomain } from './routes/dashboard.routes';
+import { solutionPlanDomain } from './routes/solution-plan.routes';
+import { relatedRfpDomain } from './routes/related-rfp.routes';
+import { employeeDomain } from './routes/employee.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -202,12 +207,54 @@ export class ApiOrchestratorStack extends cdk.Stack {
       deadLetterQueue: { queue: complianceReviewDlq, maxReceiveCount: 1 },
     });
 
+    // ─── Solution Plan queue (async grilling loop, step-per-round) ────────
+    // Owned by this stack (self-contained), like the compliance review queue.
+    const solutionPlanDlq = new sqs.Queue(this, `SolutionPlanDLQ-${stage}`, {
+      queueName: `auto-rfp-solution-plan-dlq-${stage}`,
+      retentionPeriod: cdk.Duration.days(14),
+    });
+    const solutionPlanQueue = new sqs.Queue(this, `SolutionPlanQueue-${stage}`, {
+      queueName: `auto-rfp-solution-plan-${stage}`,
+      // Must be >= the worker Lambda timeout so a message isn't redelivered mid-run.
+      visibilityTimeout: cdk.Duration.minutes(16),
+      // One grilling round is an expensive model job and the worker marks the
+      // plan FAILED on error — one attempt, then DLQ. The user retries via re-init.
+      deadLetterQueue: { queue: solutionPlanDlq, maxReceiveCount: 1 },
+    });
+
+    // ─── Package Edit queue (async cross-package "Mass Edit" proposal scan) ────
+    // Clone of the compliance-review queue: the proposal scan is a long Sonnet job
+    // that can't fit in the 29s chat turn, so the chat handler enqueues it here and
+    // the PackageEditWorker drafts the proposals asynchronously.
+    const packageEditDlq = new sqs.Queue(this, `PackageEditDLQ-${stage}`, {
+      queueName: `auto-rfp-package-edit-dlq-${stage}`,
+      retentionPeriod: cdk.Duration.days(14),
+    });
+    const packageEditQueue = new sqs.Queue(this, `PackageEditQueue-${stage}`, {
+      queueName: `auto-rfp-package-edit-${stage}`,
+      // Must be >= the worker Lambda timeout so a message isn't redelivered mid-scan.
+      visibilityTimeout: cdk.Duration.minutes(16),
+      // Long, expensive Sonnet scan — one attempt then DLQ (don't burn ~15 min
+      // retrying a doomed run). The run is marked FAILED by the worker/stale-recovery.
+      deadLetterQueue: { queue: packageEditDlq, maxReceiveCount: 1 },
+    });
+
     const commonEnv: Record<string, string> = {
       STAGE: stage,
+      // Solution Plan grilling loop — REST init enqueues, the worker re-enqueues each round.
+      SOLUTION_PLAN_QUEUE_URL: solutionPlanQueue.queueUrl,
+      // Solution Plan generation gate kill switch (T9) — deploy with
+      // SOLUTION_PLAN_GATING=off to disable the gate stage-wide.
+      SOLUTION_PLAN_GATING: process.env.SOLUTION_PLAN_GATING || 'on',
       // AI compliance review — fast model for sync chat, stronger model for the async worker.
       COMPLIANCE_REVIEW_CHAT_MODEL_ID: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
       COMPLIANCE_REVIEW_WORKER_MODEL_ID: 'us.anthropic.claude-sonnet-4-6',
       COMPLIANCE_REVIEW_QUEUE_URL: complianceReviewQueue.queueUrl,
+      // Cross-package AI editing ("Mass Edit") — Haiku routes the chat turn, Sonnet
+      // scans in the async worker.
+      PACKAGE_EDIT_CHAT_MODEL_ID: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+      PACKAGE_EDIT_WORKER_MODEL_ID: 'us.anthropic.claude-sonnet-4-6',
+      PACKAGE_EDIT_QUEUE_URL: packageEditQueue.queueUrl,
       AWS_ACCOUNT_ID: cdk.Aws.ACCOUNT_ID,
       DOCUMENTS_BUCKET: documentsBucket.bucketName,
       NODE_ENV: 'production',
@@ -218,6 +265,15 @@ export class ApiOrchestratorStack extends cdk.Stack {
       BEDROCK_REGION: 'us-east-1',
       BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
       BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
+      // Web-search provider for the search_service_pricing tool (T3/T15).
+      // 'tavily' (default) or 'brave' — deploy with WEB_SEARCH_PROVIDER=brave on a
+      // stage that should keep using an existing Brave key. API keys are created
+      // manually per stage in SSM (see docs/improvements_v1/
+      // RUNBOOK-WEB-SEARCH-API-KEY.md); commonLambdaRole's ssm:GetParameter
+      // grant on /auto-rfp/* already covers both parameters.
+      WEB_SEARCH_PROVIDER: process.env.WEB_SEARCH_PROVIDER || 'tavily',
+      TAVILY_API_KEY_SSM_PARAM: '/auto-rfp/tavily/api-key',
+      BRAVE_SEARCH_API_KEY_SSM_PARAM: '/auto-rfp/brave-search/api-key',
       STATE_MACHINE_ARN: documentPipelineStateMachineArn,
       QUESTION_PIPELINE_STATE_MACHINE_ARN: questionPipelineStateMachineArn,
       ANSWER_GENERATION_STATE_MACHINE_ARN: answerGenerationStateMachineArn,
@@ -684,9 +740,14 @@ export class ApiOrchestratorStack extends cdk.Stack {
       extractionDomain({ extractionQueueUrl }),
       opportunityAssistantDomain(),
       complianceReviewDomain(),
+      packageEditDomain(),
+      questionnaireDomain(),
       companyProfileDomain(),
       requiredFormsDomain(),
       dashboardDomain(),
+      solutionPlanDomain(),
+      relatedRfpDomain(),
+      employeeDomain({ extractionQueueUrl }),
     ];
 
     // ─── Compliance Review worker ─────────────────────────────────────────
@@ -715,6 +776,84 @@ export class ApiOrchestratorStack extends cdk.Stack {
       }),
     );
     complianceReviewQueue.grantConsumeMessages(complianceReviewWorker);
+
+    // ─── Solution Plan worker ─────────────────────────────────────────────
+    // Processes one grilling round (or the final synthesis) per SQS message.
+    // REST handlers enqueue round 1 via SOLUTION_PLAN_QUEUE_URL (in commonEnv);
+    // the worker re-enqueues the next round itself (step-per-round, T6).
+    solutionPlanQueue.grantSendMessages(sharedInfraStack.commonLambdaRole);
+    const solutionPlanWorker = new lambdaNodejs.NodejsFunction(this, `SolutionPlanWorker-${stage}`, {
+      functionName: `auto-rfp-solution-plan-worker-${stage}`,
+      entry: path.join(__dirname, '../../../apps/functions/src/handlers/solution-plan/solution-plan-worker.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.minutes(10), // < queue visibility timeout (16m)
+      memorySize: 1024,
+      role: sharedInfraStack.commonLambdaRole,
+      environment: {
+        ...commonEnv,
+        // Tech Lead + Synthesizer fall back to BEDROCK_MODEL_ID; the no-tools
+        // Griller turns run on the cheaper fast model.
+        SOLUTION_PLAN_GRILLER_MODEL_ID: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+        SOLUTION_PLAN_MAX_ROUNDS: '4',
+      },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        externalModules: ['@aws-sdk/*', '@smithy/*'],
+      },
+    });
+    solutionPlanWorker.addEventSource(
+      new lambdaEventSources.SqsEventSource(solutionPlanQueue, {
+        batchSize: 1,
+        reportBatchItemFailures: true,
+      }),
+    );
+    solutionPlanQueue.grantConsumeMessages(solutionPlanWorker);
+
+    new logs.LogGroup(this, `SolutionPlanWorkerLogs-${stage}`, {
+      logGroupName: `/aws/lambda/auto-rfp-solution-plan-worker-${stage}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // ─── Package Edit worker ──────────────────────────────────────────────
+    // Processes async cross-package "Mass Edit" proposal scans (Sonnet, no 29s
+    // limit). REST handlers enqueue via PACKAGE_EDIT_QUEUE_URL (in commonEnv).
+    // Clone of the compliance-review worker.
+    packageEditQueue.grantSendMessages(sharedInfraStack.commonLambdaRole);
+    const packageEditWorkerFunctionName = `auto-rfp-package-edit-worker-${stage}`;
+    const packageEditWorker = new lambdaNodejs.NodejsFunction(this, `PackageEditWorker-${stage}`, {
+      functionName: packageEditWorkerFunctionName,
+      entry: path.join(__dirname, '../../../apps/functions/src/handlers/package-edit/propose-worker.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.minutes(15), // Lambda max; < queue visibility timeout (16m)
+      memorySize: 1024,
+      role: sharedInfraStack.commonLambdaRole,
+      environment: { ...commonEnv },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        externalModules: ['@aws-sdk/*', '@smithy/*'],
+      },
+    });
+    packageEditWorker.addEventSource(
+      new lambdaEventSources.SqsEventSource(packageEditQueue, {
+        batchSize: 1,
+        reportBatchItemFailures: true,
+      }),
+    );
+    packageEditQueue.grantConsumeMessages(packageEditWorker);
+
+    // Explicit log group with controlled retention (the compliance worker relies
+    // on the auto-created group; package-edit gets an explicit one for
+    // observability + retention control, mirroring RasterizePdfWorkerLogs).
+    new logs.LogGroup(this, `PackageEditWorkerLogs-${stage}`, {
+      logGroupName: `/aws/lambda/${packageEditWorkerFunctionName}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
 
     // ─── Rasterize PDF worker ─────────────────────────────────────────────
     // Owns the heavy pdfjs-dist + @napi-rs/canvas deps so callers
@@ -766,6 +905,94 @@ export class ApiOrchestratorStack extends cdk.Stack {
     // Pass the function name to every downstream route Lambda via commonEnv.
     sharedInfraStack.commonEnv.RASTERIZE_PDF_FUNCTION_NAME = rasterizePdfFunctionName;
 
+    // ─── HigherGov async search worker ────────────────────────────────────
+    // HigherGov's /opportunity/ API takes ~30s+ for some saved searches, past
+    // the API Gateway 30s ceiling — so a search_id search can't complete inline.
+    // This worker (not fronted by API Gateway) performs the fetch fire-and-forget
+    // and writes results to a DynamoDB cache row the search handler reads and the
+    // frontend polls. Created before the domain stacks so its name lands in
+    // commonEnv first. 60s timeout gives headroom over the observed ~32s fetch.
+    const higherGovSearchFunctionName = `auto-rfp-highergov-search-${stage}`;
+    new lambdaNodejs.NodejsFunction(this, `HigherGovSearchWorker-${stage}`, {
+      functionName: higherGovSearchFunctionName,
+      entry: path.join(__dirname, '../../../apps/functions/src/handlers/search-opportunity/highergov-search-worker.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      // 120s: HigherGov's /opportunity/ has been observed as slow as ~60s on a
+      // cold saved-search fetch (fast, ~34s, once warm). Headroom over the worst
+      // case lets the fetch finish in one invocation instead of relying on
+      // Lambda's async retry (which pushes first-paste results out to ~90s+).
+      timeout: cdk.Duration.seconds(120),
+      memorySize: 512,
+      role: sharedInfraStack.commonLambdaRole,
+      environment: { ...commonEnv },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        externalModules: ['@aws-sdk/*', '@smithy/*'],
+      },
+    });
+
+    new logs.LogGroup(this, `HigherGovSearchWorkerLogs-${stage}`, {
+      logGroupName: `/aws/lambda/${higherGovSearchFunctionName}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Allow the shared Lambda role to invoke the worker (string-built ARN to
+    // avoid a SharedInfra ⇄ worker dependency cycle — same reasoning as above).
+    sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        sid: 'InvokeHigherGovSearchWorker',
+        actions: ['lambda:InvokeFunction'],
+        resources: [
+          `arn:aws:lambda:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:function:${higherGovSearchFunctionName}`,
+        ],
+      }),
+    );
+
+    sharedInfraStack.commonEnv.HIGHERGOV_SEARCH_FUNCTION_NAME = higherGovSearchFunctionName;
+
+    // ─── Find Related RFPs worker (HOR-2610) ──────────────────────────────
+    // Auto-discovers past/present RFPs from the same solicitation agency via
+    // HigherGov (not fronted by API Gateway — invoked fire-and-forget after a
+    // HigherGov-sourced import and by the manual `refresh` route). Created BEFORE
+    // the domain stacks so its function name lands in commonEnv first.
+    const findRelatedRfpsFunctionName = `auto-rfp-find-related-rfps-${stage}`;
+    new lambdaNodejs.NodejsFunction(this, `FindRelatedRfpsWorker-${stage}`, {
+      functionName: findRelatedRfpsFunctionName,
+      entry: path.join(__dirname, '../../../apps/functions/src/handlers/related-rfp/find-related-rfps.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.minutes(2),
+      memorySize: 512,
+      role: sharedInfraStack.commonLambdaRole,
+      environment: { ...commonEnv },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        externalModules: ['@aws-sdk/*', '@smithy/*'],
+      },
+    });
+
+    new logs.LogGroup(this, `FindRelatedRfpsWorkerLogs-${stage}`, {
+      logGroupName: `/aws/lambda/${findRelatedRfpsFunctionName}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        sid: 'InvokeFindRelatedRfpsWorker',
+        actions: ['lambda:InvokeFunction'],
+        resources: [
+          `arn:aws:lambda:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:function:${findRelatedRfpsFunctionName}`,
+        ],
+      }),
+    );
+
+    sharedInfraStack.commonEnv.FIND_RELATED_RFPS_FUNCTION_NAME = findRelatedRfpsFunctionName;
+
     // 4. Create nested stacks per domain (Lambda + LogGroup + Route registration)
     //    Each nested stack stays under CloudFormation's 500 resource limit.
     //    Routes are HttpApi routes (no resource tree limit like REST API).
@@ -785,9 +1012,14 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'DocumentApprovalRoutes', 'UniversalApprovalRoutes', 'PricingRoutes', 'ExtractionRoutes',
       'OpportunityAssistantRoutes',
       'ComplianceReviewRoutes',
+      'PackageEditRoutes',
+      'QuestionnaireRoutes',
       'CompanyProfileRoutes',
       'RequiredFormsRoutes',
       'DashboardRoutes',
+      'SolutionPlanRoutes',
+      'RelatedRfpRoutes',
+      'EmployeeRoutes',
     ];
 
     // allDomains and domainStackNames are mapped 1:1 by index. A mismatch silently

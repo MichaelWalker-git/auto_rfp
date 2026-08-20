@@ -3,6 +3,7 @@
 import { memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { highlightFieldById, highlightFormSnippet } from '@/features/compliance-review';
+import { FormVersionHistory, FormSidebarTabs, type FormSidebarTab } from '@/features/package-edit';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -265,6 +266,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
   const { toast } = useToast();
   const canEdit = usePermission('form:edit');
   const [activeField, setActiveField] = useState<string | null>(null);
+  const [sidebarTab, setSidebarTab] = useState<FormSidebarTab>('fields');
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [fieldLabels, setFieldLabels] = useState<Record<string, string>>({});
   // Per-field mark char (X / ○ / null). Seeded from server, toggled by FieldOverlay.
@@ -1004,17 +1006,30 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
         {/* Right: Field panel (user-resizable) */}
         <div className="border-l flex flex-col overflow-hidden bg-white shrink-0" style={{ width: sidebarWidth }}>
           <div className="px-4 py-3 border-b shrink-0 bg-gray-50/80">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-gray-700">Fields</p>
-              <p className="text-[10px] text-gray-500">{filledCount}/{totalCount} filled</p>
+            <div className="flex items-center justify-between gap-2">
+              <FormSidebarTabs value={sidebarTab} onChange={setSidebarTab} />
+              {sidebarTab === 'fields' && (
+                <p className="text-[10px] text-gray-500">{filledCount}/{totalCount} filled</p>
+              )}
             </div>
-            {(autoFilledCount > 0 || manualCount > 0) && (
+            {sidebarTab === 'fields' && (autoFilledCount > 0 || manualCount > 0) && (
               <div className="flex gap-3 mt-1.5 text-[10px]">
                 {autoFilledCount > 0 && <span className="text-emerald-700">{autoFilledCount} auto-filled</span>}
                 {manualCount > 0 && <span className="text-amber-700">{manualCount} need you</span>}
               </div>
             )}
           </div>
+          {sidebarTab === 'history' ? (
+            <div className="flex-1 overflow-y-auto p-3">
+              <FormVersionHistory
+                orgId={orgId}
+                projectId={doc.projectId}
+                oppId={doc.opportunityId}
+                formId={doc.formId}
+                onReverted={() => onFieldUpdated?.()}
+              />
+            </div>
+          ) : (
           <div className="flex-1 overflow-y-auto">
             {totalCount === 0 && !pdfLoading && !isProcessing && (
               <div className="px-4 py-8 text-center text-xs text-slate-500">
@@ -1050,6 +1065,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
               );
             })}
           </div>
+          )}
         </div>
       </div>
 
