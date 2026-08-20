@@ -53,6 +53,11 @@ jest.mock('@/helpers/db-tool-helpers', () => ({
   fetchExecutiveBriefAnalysis: (...a: unknown[]) => mockFetchBrief(...a),
 }));
 
+const mockAttachGeneratedTeam = jest.fn();
+jest.mock('@/helpers/plan-team', () => ({
+  attachGeneratedTeam: (...a: unknown[]) => mockAttachGeneratedTeam(...a),
+}));
+
 jest.mock('@/helpers/solution-plan-tools', () => ({
   SOLUTION_PLAN_TOOLS: [],
   executeSolutionPlanTool: jest.fn().mockResolvedValue({ tool_use_id: 'tu-1', content: 'ok' }),
@@ -137,6 +142,7 @@ beforeEach(() => {
     title: 'Solution Plan',
     htmlContent: '<h2>Solution Architecture</h2><p>…</p>',
   });
+  mockAttachGeneratedTeam.mockResolvedValue('ATTACHED');
 });
 
 // ─── Round bounds ───────────────────────────────────────────────────────────────
@@ -373,6 +379,27 @@ describe('processSynthesis', () => {
       costSchedule: null,
     });
     expect(appendedRoles()).toEqual(['SYSTEM']);
+  });
+
+  it('attaches the recommended team after the plan is READY (team-definition BR1.1)', async () => {
+    await processSynthesis(synthMessage);
+
+    expect(mockAttachGeneratedTeam).toHaveBeenCalledWith(planKey);
+    // The hook runs AFTER the plan content is stored
+    expect(mockUpdateStatus).toHaveBeenCalledWith(planKey, 'READY', expect.anything());
+    expect(mockAttachGeneratedTeam.mock.invocationCallOrder[0]).toBeGreaterThan(
+      mockUpdateStatus.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('still completes synthesis when the team hook fails — the plan stays READY (BR4.2)', async () => {
+    mockAttachGeneratedTeam.mockRejectedValue(new Error('matching broke'));
+
+    await expect(processSynthesis(synthMessage)).resolves.toBeUndefined();
+
+    expect(mockUpdateStatus).toHaveBeenCalledWith(planKey, 'READY', expect.anything());
+    // The failure is logged, never recorded as a plan FAILURE
+    expect(mockUpdateStatus).not.toHaveBeenCalledWith(planKey, 'FAILED', expect.anything());
   });
 
   it('persists the costSchedule with server-recomputed totals (model-stated totals are overwritten)', async () => {

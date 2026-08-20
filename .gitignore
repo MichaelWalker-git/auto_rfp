@@ -81,3 +81,8 @@ aidlc/spaces/*/intents/.aidlc-*
 aidlc/spaces/*/intents/*/runtime-graph.json
 aidlc/spaces/*/intents/*/.aidlc-*
 aidlc/diagnostics/
+
+# Test coverage output
+/apps/functions/coverage/
+# TypeScript incremental build info (any location)
+*.tsbuildinfo

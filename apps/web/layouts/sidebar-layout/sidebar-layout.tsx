@@ -22,6 +22,7 @@ import {
   Briefcase,
   CalendarClock,
   ClipboardCheck,
+  Contact,
   DollarSign,
   FileText,
   FolderOpen,
@@ -147,6 +148,7 @@ function AppSidebar() {
           { title: 'Templates',       url: `/organizations/${orgId}/templates`,      icon: LayoutTemplate },
           { title: 'My Reviews',      url: `/organizations/${orgId}/reviews`,        icon: ClipboardCheck },
           { title: 'Org Members',     url: `/organizations/${orgId}/team`,           icon: Users },
+          { title: 'Employees',       url: `/organizations/${orgId}/employees`,      icon: Contact },
           ...(canViewAudit ? [{ title: 'Audit Trail', url: `/organizations/${orgId}/audit`, icon: ShieldCheck }] : []),
           { title: 'Settings',        url: `/organizations/${orgId}/settings`,       icon: Settings },
         ]

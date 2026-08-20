@@ -1,0 +1,26 @@
+{
+  "stage": "code-generation",
+  "unit": "u3-plan-team",
+  "upstream_ids": ["FR3.1", "FR3.2", "FR3.3", "FR3.4", "FR3.5", "FR3.6", "FR5.2", "BR1.1", "BR1.2", "BR1.3", "BR1.4", "BR2.1", "BR3.1", "BR3.2", "BR3.3", "BR4.1", "BR4.2", "BR5.1", "BR5.2"],
+  "coverage": [
+    { "id": "FR3.1", "status": "OK", "target": "apps/functions/src/helpers/solution-plan-worker.ts" },
+    { "id": "FR3.2", "status": "OK", "target": "apps/web/features/solution-plan/components/TeamViewTable.tsx" },
+    { "id": "FR3.3", "status": "OK", "target": "apps/functions/src/helpers/team-matching.ts" },
+    { "id": "FR3.4", "status": "OK", "target": "apps/web/features/solution-plan/components/TeamEditTable.tsx" },
+    { "id": "FR3.5", "status": "OK", "target": "packages/core/src/schemas/solution-plan.ts" },
+    { "id": "FR3.6", "status": "OK", "target": "apps/web/features/solution-plan/components/TeamDefinitionSection.tsx" },
+    { "id": "FR5.2", "status": "OK", "target": "apps/functions/src/handlers/solution-plan/save-plan-team.ts" },
+    { "id": "BR1.1", "status": "OK", "target": "apps/functions/src/helpers/plan-team.ts" },
+    { "id": "BR1.2", "status": "OK", "target": "apps/functions/src/helpers/plan-team.ts" },
+    { "id": "BR1.3", "status": "OK", "target": "apps/functions/src/helpers/team-matching.ts" },
+    { "id": "BR1.4", "status": "OK", "target": "apps/functions/src/helpers/team-matching.ts" },
+    { "id": "BR2.1", "status": "OK", "target": "apps/web/features/solution-plan/components/TeamEditTable.tsx" },
+    { "id": "BR3.1", "status": "OK", "target": "apps/functions/src/handlers/solution-plan/save-plan-team.ts" },
+    { "id": "BR3.2", "status": "OK", "target": "packages/core/src/schemas/solution-plan.ts" },
+    { "id": "BR3.3", "status": "OK", "target": "apps/functions/src/helpers/plan-team.ts" },
+    { "id": "BR4.1", "status": "OK", "target": "apps/functions/src/helpers/team-matching.ts" },
+    { "id": "BR4.2", "status": "OK", "target": "apps/functions/src/handlers/solution-plan/regenerate-plan-team.ts" },
+    { "id": "BR5.1", "status": "OK", "target": "apps/functions/src/handlers/solution-plan/regenerate-plan-team.ts" },
+    { "id": "BR5.2", "status": "OK", "target": "apps/functions/src/handlers/solution-plan/get-plan-team.ts" }
+  ]
+}
