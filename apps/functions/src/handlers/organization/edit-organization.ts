@@ -115,6 +115,12 @@ export async function editOrganization(
     setExpressions.push('#description = :description');
   }
 
+  if (orgData.legalName !== undefined) {
+    expressionAttributeNames['#legalName'] = 'legalName';
+    expressionAttributeValues[':legalName'] = orgData.legalName;
+    setExpressions.push('#legalName = :legalName');
+  }
+
   if (orgData.iconKey !== undefined) {
     expressionAttributeNames['#iconKey'] = 'iconKey';
     expressionAttributeValues[':iconKey'] = orgData.iconKey;

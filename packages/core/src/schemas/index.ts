@@ -17,6 +17,10 @@ export * from './outcome-detail'
 export * from './project-outcome'
 export * from './debriefing'
 export * from './foia'
+export * from './foia-component'
+export * from './foia-automation'
+export * from './foia-settings'
+export * from './foia-agency-contact'
 export * from './analytics'
 export * from './organization';
 export * from './org-contact';
