@@ -12,6 +12,8 @@ const makeRun = (overrides: Partial<EmployeeImportRunItem> = {}): EmployeeImport
   cvsDetected: 3,
   employeesCreated: 2,
   employeesUpdated: 1,
+  certificationDocsDetected: 0,
+  certificationsMapped: 0,
   failedDocuments: [],
   triggeredBy: 'user-1',
   startedAt: '2026-08-19T10:00:00.000Z',
@@ -56,6 +58,38 @@ describe('ImportResultBanner', () => {
     expect(items[0]).toHaveTextContent("couldn't be read");
     expect(items[1]).toHaveTextContent("didn't yield a person's name");
     expect(items[2]).toHaveTextContent('more than one existing employee');
+  });
+
+  it('reports certificate documents and mapped certifications, with the UNMATCHED_PERSON reason', () => {
+    render(
+      <ImportResultBanner
+        run={makeRun({
+          status: 'COMPLETED_WITH_ERRORS',
+          completedAt: '2026-08-19T10:05:00.000Z',
+          certificationDocsDetected: 3,
+          certificationsMapped: 2,
+          failedDocuments: [{ documentName: 'stranger-cert.pdf', reason: 'UNMATCHED_PERSON' }],
+        })}
+        onDismiss={jest.fn()}
+      />,
+    );
+
+    const counts = screen.getByTestId('import-result-counts');
+    expect(counts).toHaveTextContent('3 certificate documents detected');
+    expect(counts).toHaveTextContent('2 certifications mapped to employees');
+    const items = screen.getAllByTestId('import-failed-doc');
+    expect(items[0]).toHaveTextContent('stranger-cert.pdf');
+    expect(items[0]).toHaveTextContent("names a person who isn't in the employee pool");
+  });
+
+  it('hides the certificate segment when no certificate documents were detected (older runs)', () => {
+    render(
+      <ImportResultBanner
+        run={makeRun({ status: 'COMPLETED', completedAt: '2026-08-19T10:05:00.000Z' })}
+        onDismiss={jest.fn()}
+      />,
+    );
+    expect(screen.getByTestId('import-result-counts')).not.toHaveTextContent('certificate');
   });
 
   it('is dismissible', () => {

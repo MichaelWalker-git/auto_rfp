@@ -66,13 +66,32 @@ const bedrockResponse = (payload: unknown): Uint8Array =>
   );
 
 const cvPayload = (overrides: Record<string, unknown> = {}) => ({
-  isCv: true,
+  kind: 'CV',
   name: 'Jane Smith',
   primaryRoles: ['Project Manager'],
   secondaryRoles: [],
   certifications: ['PMP'],
   location: 'ONSHORE',
   ...overrides,
+});
+
+const certificationPayload = (overrides: Record<string, unknown> = {}) => ({
+  kind: 'PERSONAL_CERTIFICATION',
+  name: 'Jane Smith',
+  primaryRoles: [],
+  secondaryRoles: [],
+  certifications: ['AWS Certified Developer - Associate'],
+  location: null,
+  ...overrides,
+});
+
+const otherPayload = () => ({
+  kind: 'OTHER',
+  name: null,
+  primaryRoles: [],
+  secondaryRoles: [],
+  certifications: [],
+  location: null,
 });
 
 /** One org KB + the given DOCUMENT records. */
@@ -127,7 +146,7 @@ describe('runEmployeeImport — detection & categorization (BR2.1/BR2.2)', () =>
     ]);
     mockInvokeModel
       .mockResolvedValueOnce(bedrockResponse(cvPayload()))
-      .mockResolvedValueOnce(bedrockResponse(cvPayload({ isCv: false, name: null })));
+      .mockResolvedValueOnce(bedrockResponse(otherPayload()));
     mockCreateEmployee.mockResolvedValue(makeEmployee({ id: 'emp-new' }));
 
     const run = await runEmployeeImport(INPUT);
@@ -322,5 +341,159 @@ describe('normalizeEmployeeName (BR3.1)', () => {
   it('trims and case-folds', () => {
     expect(normalizeEmployeeName('  Jane SMITH ')).toBe('jane smith');
     expect(normalizeEmployeeName('jane smith')).toBe(normalizeEmployeeName('JANE SMITH'));
+  });
+});
+
+describe('runEmployeeImport — personal certification mapping', () => {
+  it('appends certifications from a certificate document to the matching employee (dedup, case-insensitive)', async () => {
+    const existing = makeEmployee({
+      id: 'emp-1',
+      name: 'Jane Smith',
+      certifications: ['PMP', 'aws certified developer - associate'],
+    });
+    mockListEmployees.mockResolvedValue([existing]);
+    setupDocuments([
+      { id: 'doc-1', name: 'jane-aws-cert.pdf', textFileKey: 't/1.txt', indexStatus: 'INDEXED' },
+    ]);
+    mockInvokeModel.mockResolvedValueOnce(
+      bedrockResponse(
+        certificationPayload({
+          certifications: ['AWS Certified Developer - Associate', 'AWS Certified Cloud Practitioner'],
+        }),
+      ),
+    );
+    // certifications field is AI-owned: current equals the snapshot.
+    mockGetSnapshot.mockResolvedValue({
+      employeeId: 'emp-1',
+      orgId: ORG,
+      fields: { certifications: ['PMP', 'aws certified developer - associate'] },
+    });
+    mockUpdateEmployee.mockResolvedValue(
+      makeEmployee({
+        id: 'emp-1',
+        certifications: ['PMP', 'aws certified developer - associate', 'AWS Certified Cloud Practitioner'],
+      }),
+    );
+
+    const run = await runEmployeeImport(INPUT);
+
+    // Only the genuinely new certification is appended; the case-variant duplicate is not.
+    expect(mockUpdateEmployee).toHaveBeenCalledWith(ORG, 'emp-1', {
+      certifications: ['PMP', 'aws certified developer - associate', 'AWS Certified Cloud Practitioner'],
+    });
+    // Snapshot refreshed so the merged list stays AI-owned on the next run.
+    expect(mockPutSnapshot).toHaveBeenCalledWith(
+      ORG,
+      'emp-1',
+      expect.objectContaining({
+        certifications: ['PMP', 'aws certified developer - associate', 'AWS Certified Cloud Practitioner'],
+      }),
+    );
+    expect(run.status).toBe('COMPLETED');
+    expect(run.certificationDocsDetected).toBe(1);
+    expect(run.certificationsMapped).toBe(1);
+    expect(run.cvsDetected).toBe(0);
+    expect(run.failedDocuments).toEqual([]);
+  });
+
+  it('maps a certificate to an employee created from a CV earlier in the SAME run', async () => {
+    mockListEmployees.mockResolvedValue([]);
+    setupDocuments([
+      // Certificate listed BEFORE the CV — mapping must still succeed (second pass).
+      { id: 'doc-1', name: 'jane-cert.pdf', textFileKey: 't/1.txt', indexStatus: 'INDEXED' },
+      { id: 'doc-2', name: 'jane-cv.pdf', textFileKey: 't/2.txt', indexStatus: 'INDEXED' },
+    ]);
+    mockInvokeModel
+      .mockResolvedValueOnce(bedrockResponse(certificationPayload()))
+      .mockResolvedValueOnce(bedrockResponse(cvPayload({ certifications: [] })));
+    const created = makeEmployee({ id: 'emp-new', certifications: [] });
+    mockCreateEmployee.mockResolvedValue(created);
+    mockUpdateEmployee.mockResolvedValue(
+      makeEmployee({ id: 'emp-new', certifications: ['AWS Certified Developer - Associate'] }),
+    );
+
+    const run = await runEmployeeImport(INPUT);
+
+    expect(mockCreateEmployee).toHaveBeenCalledTimes(1);
+    expect(mockUpdateEmployee).toHaveBeenCalledWith(ORG, 'emp-new', {
+      certifications: ['AWS Certified Developer - Associate'],
+    });
+    expect(run.certificationsMapped).toBe(1);
+    expect(run.failedDocuments).toEqual([]);
+  });
+
+  it('records UNMATCHED_PERSON when the certificate holder is not in the pool', async () => {
+    mockListEmployees.mockResolvedValue([makeEmployee({ name: 'Someone Else' })]);
+    setupDocuments([
+      { id: 'doc-1', name: 'stranger-cert.pdf', textFileKey: 't/1.txt', indexStatus: 'INDEXED' },
+    ]);
+    mockInvokeModel.mockResolvedValueOnce(
+      bedrockResponse(certificationPayload({ name: 'John Nowhere' })),
+    );
+
+    const run = await runEmployeeImport(INPUT);
+
+    expect(mockUpdateEmployee).not.toHaveBeenCalled();
+    expect(run.status).toBe('COMPLETED_WITH_ERRORS');
+    expect(run.failedDocuments).toEqual([
+      { documentName: 'stranger-cert.pdf', reason: 'UNMATCHED_PERSON' },
+    ]);
+  });
+
+  it('records AMBIGUOUS_NAME when several employees match the holder and writes nothing', async () => {
+    mockListEmployees.mockResolvedValue([
+      makeEmployee({ id: 'emp-1', name: 'Jane Smith' }),
+      makeEmployee({ id: 'emp-2', name: 'JANE SMITH' }),
+    ]);
+    setupDocuments([
+      { id: 'doc-1', name: 'jane-cert.pdf', textFileKey: 't/1.txt', indexStatus: 'INDEXED' },
+    ]);
+    mockInvokeModel.mockResolvedValueOnce(bedrockResponse(certificationPayload()));
+
+    const run = await runEmployeeImport(INPUT);
+
+    expect(mockUpdateEmployee).not.toHaveBeenCalled();
+    expect(run.failedDocuments).toEqual([
+      { documentName: 'jane-cert.pdf', reason: 'AMBIGUOUS_NAME' },
+    ]);
+  });
+
+  it('leaves a manually edited certifications list untouched (manual edits win) and reports no failure', async () => {
+    const existing = makeEmployee({ id: 'emp-1', certifications: ['Hand-Curated Cert'] });
+    mockListEmployees.mockResolvedValue([existing]);
+    setupDocuments([
+      { id: 'doc-1', name: 'jane-cert.pdf', textFileKey: 't/1.txt', indexStatus: 'INDEXED' },
+    ]);
+    mockInvokeModel.mockResolvedValueOnce(bedrockResponse(certificationPayload()));
+    // Snapshot differs from current — the user edited the field manually.
+    mockGetSnapshot.mockResolvedValue({
+      employeeId: 'emp-1',
+      orgId: ORG,
+      fields: { certifications: ['PMP'] },
+    });
+
+    const run = await runEmployeeImport(INPUT);
+
+    expect(mockUpdateEmployee).not.toHaveBeenCalled();
+    expect(run.certificationDocsDetected).toBe(1);
+    expect(run.certificationsMapped).toBe(0);
+    expect(run.failedDocuments).toEqual([]);
+    expect(run.status).toBe('COMPLETED');
+  });
+
+  it('records INCOMPLETE_EXTRACTION for a certificate without a detectable holder name', async () => {
+    setupDocuments([
+      { id: 'doc-1', name: 'nameless-cert.pdf', textFileKey: 't/1.txt', indexStatus: 'INDEXED' },
+    ]);
+    mockInvokeModel.mockResolvedValueOnce(
+      bedrockResponse(certificationPayload({ name: null })),
+    );
+
+    const run = await runEmployeeImport(INPUT);
+
+    expect(run.certificationDocsDetected).toBe(1);
+    expect(run.failedDocuments).toEqual([
+      { documentName: 'nameless-cert.pdf', reason: 'INCOMPLETE_EXTRACTION' },
+    ]);
   });
 });
