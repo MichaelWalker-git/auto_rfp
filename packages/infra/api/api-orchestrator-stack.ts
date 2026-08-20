@@ -66,6 +66,7 @@ import { requiredFormsDomain } from './routes/required-forms.routes';
 import { dashboardDomain } from './routes/dashboard.routes';
 import { solutionPlanDomain } from './routes/solution-plan.routes';
 import { relatedRfpDomain } from './routes/related-rfp.routes';
+import { employeeDomain } from './routes/employee.routes';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -746,6 +747,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       dashboardDomain(),
       solutionPlanDomain(),
       relatedRfpDomain(),
+      employeeDomain({ extractionQueueUrl }),
     ];
 
     // ─── Compliance Review worker ─────────────────────────────────────────
@@ -1017,6 +1019,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'DashboardRoutes',
       'SolutionPlanRoutes',
       'RelatedRfpRoutes',
+      'EmployeeRoutes',
     ];
 
     // allDomains and domainStackNames are mapped 1:1 by index. A mismatch silently

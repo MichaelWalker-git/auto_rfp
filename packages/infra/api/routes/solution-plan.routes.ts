@@ -43,6 +43,26 @@ export const solutionPlanDomain = (): DomainRoutes => {
         path: 'html-content',
         entry: lambdaEntry('solution-plan/get-html-content.ts'),
       },
+      // Plan team (team-definition U3) — removedEmployee derived on read.
+      {
+        method: 'GET',
+        path: 'team',
+        entry: lambdaEntry('solution-plan/get-plan-team.ts'),
+      },
+      // Persist a human-edited team (BR3.1 — sets userModified, survives plan regens).
+      {
+        method: 'PATCH',
+        path: 'team/save',
+        entry: lambdaEntry('solution-plan/save-plan-team.ts'),
+      },
+      // Explicit team regenerate (W4) — one synchronous Bedrock matching call.
+      {
+        method: 'POST',
+        path: 'team/regenerate',
+        entry: lambdaEntry('solution-plan/regenerate-plan-team.ts'),
+        timeoutSeconds: 120,
+        memorySize: 512,
+      },
     ],
   };
 };

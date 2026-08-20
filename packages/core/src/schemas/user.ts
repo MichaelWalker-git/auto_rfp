@@ -89,6 +89,13 @@ export const PRICING_PERMISSIONS = [
   'pricing:create', 'pricing:read', 'pricing:edit', 'pricing:delete', 'pricing:calculate'
 ] as const;
 
+export const EMPLOYEE_PERMISSIONS = [
+  // Viewing the org employee pool — open to every org member (BR2.1).
+  'employee:read',
+  // Create/edit/delete employees and trigger CV import — org admins only (BR2.2).
+  'employee:manage',
+] as const;
+
 export const ALL_PERMISSIONS = [
   ...USER_PERMISSIONS,
   ...ORG_PERMISSIONS,
@@ -99,6 +106,7 @@ export const ALL_PERMISSIONS = [
   ...CONTENT_LIBRARY_PERMISSIONS,
   ...APN_PERMISSIONS,
   ...PRICING_PERMISSIONS,
+  ...EMPLOYEE_PERMISSIONS,
   'kb:upload', 'kb:read', 'kb:create', 'kb:edit', 'kb:delete',
   'project:create', 'project:edit', 'project:read', 'project:delete',
   'question:read', 'question:create', 'question:edit', 'question:delete',
@@ -132,6 +140,8 @@ export const VIEWER_PERMISSIONS = [
   'template:read',
   'pricing:read',
   'form:read',
+  // Employee pool is readable by every org member (BR2.1).
+  'employee:read',
 ] as const;
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
@@ -169,6 +179,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   BILLING: [
     'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read',
     'pricing:read', 'pricing:calculate',
+    // Employee pool is readable by every org member (BR2.1).
+    'employee:read',
     // RFP-tracking approval is open to every org member (both gates).
     'rfp:approve_initial',
     'rfp:approve_final',

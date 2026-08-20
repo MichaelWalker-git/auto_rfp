@@ -31,6 +31,10 @@ import {
 } from '@/helpers/document-generation';
 import { getTemplate, findBestTemplate, loadTemplateHtml, replaceMacros, buildMacroValues } from '@/helpers/template';
 import { getSolutionPlanByOpportunity, loadSolutionPlanHtml } from '@/helpers/solution-plan';
+import {
+  assembleTeamQualificationsContext,
+  renderTeamContextBlock,
+} from '@/helpers/team-qualifications-context';
 import { stripHtmlToText } from '@/helpers/html-text';
 import { errorMessageOf } from '@/helpers/error';
 import { uploadRFPDocumentHtml, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
@@ -1050,12 +1054,41 @@ export const processJobInner = async (job: Job): Promise<void> => {
   const macroValues = await buildMacroValues({ orgId, projectId, opportunityId });
   console.log(`Built macro values for documentId=${documentId}:`, Object.keys(macroValues));
 
-  // ─── Step 4: Gather enrichment context + template HTML + Solution Plan in parallel ───
-  const [enrichedKbText, templateHtmlScaffold, solutionPlanContext] = await Promise.all([
-    gatherAllContext({ projectId, orgId, opportunityId, solicitation, documentType }),
-    resolveTemplateHtml(orgId, documentType, templateId, macroValues),
-    loadApprovedSolutionPlanContext({ orgId, projectId, opportunityId }),
-  ]);
+  // ─── Step 4: Gather enrichment context + template HTML + Solution Plan +
+  //             saved-team roster (TEAM_QUALIFICATIONS only) in parallel ───
+  const [enrichedKbText, templateHtmlScaffold, solutionPlanContext, teamQualificationsContext] =
+    await Promise.all([
+      gatherAllContext({ projectId, orgId, opportunityId, solicitation, documentType }),
+      resolveTemplateHtml(orgId, documentType, templateId, macroValues),
+      loadApprovedSolutionPlanContext({ orgId, projectId, opportunityId }),
+      documentType === 'TEAM_QUALIFICATIONS'
+        ? assembleTeamQualificationsContext({ orgId, projectId, opportunityId })
+        : Promise.resolve(null),
+    ]);
+
+  // Saved-team fallback (U4): the request-path guard refuses without a saved
+  // team, but if the team vanished between request and SQS delivery the run
+  // is marked FAILED — TEAM_QUALIFICATIONS is NEVER generated ungrounded (BR2.1).
+  if (documentType === 'TEAM_QUALIFICATIONS' && !teamQualificationsContext) {
+    const reason =
+      'No saved team found for this opportunity — review and save the team in the Solution Plan before generating Team Qualifications.';
+    console.error(`[worker] ${reason} (documentId=${documentId})`);
+    await updateRFPDocumentMetadata({
+      projectId, opportunityId, documentId,
+      updates: { status: 'FAILED', generationError: reason },
+      updatedBy: 'system',
+    });
+    return;
+  }
+
+  if (teamQualificationsContext) {
+    console.log(
+      `[worker] Injecting saved team into TEAM_QUALIFICATIONS generation: ` +
+        `${teamQualificationsContext.members.length} filled, ` +
+        `${teamQualificationsContext.openRoles.length} open, ` +
+        `${teamQualificationsContext.pendingReplacements.length} pending replacement`,
+    );
+  }
 
   if (solutionPlanContext) {
     console.log(
@@ -1120,6 +1153,12 @@ export const processJobInner = async (job: Job): Promise<void> => {
     // Pricing doc types get the AUTHORITATIVE COST SCHEDULE block; null for
     // legacy/user-edited plans (Fix A fallback).
     solutionPlanCostSchedule: solutionPlanContext?.plan.costSchedule ?? null,
+    // TEAM_QUALIFICATIONS only: the SAVED TEAM block is the exclusive
+    // personnel source (U4, BR2.1). Conditional so other doc types keep their
+    // exact prompt-context shape.
+    ...(teamQualificationsContext
+      ? { teamContext: renderTeamContextBlock(teamQualificationsContext) }
+      : {}),
   });
 
   console.log(`Prompt sizes: system=${systemPrompt.length}, user=${userPrompt.length}, solicitation=${solicitation.length}, qaPairs=${qaPairs.length}, enrichedKb=${enrichedKbText.length}`);

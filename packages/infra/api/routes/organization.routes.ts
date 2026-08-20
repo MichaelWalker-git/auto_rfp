@@ -8,7 +8,8 @@ export function organizationDomain(): DomainRoutes {
     { method: 'PATCH', path: 'edit-organization/{id}', entry: lambdaEntry('organization/edit-organization.ts') },
     { method: 'GET', path: 'get-organization/{id}', entry: lambdaEntry('organization/get-organization-by-id.ts') },
     { method: 'DELETE', path: 'delete-organization/{id}', entry: lambdaEntry('organization/delete-organization.ts') },
-    { method: 'POST', path: 'upload-icon', entry: lambdaEntry('organization/upload-icon.ts') },
+    // 'upload-icon' route removed 2026-08-20 to free API Gateway integration slots
+    // (0 invocations in Dev+Test over 13 months); handler organization/upload-icon.ts retained.
     { method: 'GET', path: 'get-icon', entry: lambdaEntry('organization/get-icon.ts') },
     // Primary contact (proposal signatory)
     { method: 'GET', path: '{orgId}/contact', entry: lambdaEntry('org-contact/get-org-contact.ts') },

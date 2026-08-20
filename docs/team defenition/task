@@ -1,0 +1,11 @@
+Problem: staffing plans and labor rates exist (incl. offshore rates, PR #320), but a "Team Definition" today is abstract roles with rates. RFPs ask for named key personnel with bios and certifications — which is also why TEAM_QUALIFICATIONS generation fails: there's no personnel data anywhere in the system (KB gap D4 is the content half; this is the structure half).
+
+Flow (per the operating principle — AI prepares, experts validate):
+
+Personnel records (name, role, certifications, résumé/bio ref, location on/offshore) live as a searchable pool — content half coordinates with D4 (résumés can live in the KB).
+
+Given the solicitation's requirements + the staffing plan's roles, the system recommends a concrete team — matching résumés to required certs/skills the same way past-performance matching already works.
+
+A human reviews and corrects the recommendation (swap people, drop a line) — the corrected team is what's saved.
+
+TEAM_QUALIFICATIONS generation and forms autofill read the approved team, citing real bios. Done when: opening Team Definition on an opportunity shows a proposed team with match rationale; Note: the matching engine pattern exists (PastProjectMatchSchema / requirement coverage) — this is the same shape pointed at people instead of projects.

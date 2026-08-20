@@ -18,6 +18,8 @@ import {
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { getRFPDocument, putRFPDocument, updateRFPDocumentMetadata } from '@/helpers/rfp-document';
 import { checkSolutionPlanGate } from '@/helpers/solution-plan-gate';
+import { getSolutionPlanByOpportunity } from '@/helpers/solution-plan';
+import { hasSavedTeam } from '@/helpers/team-qualifications-context';
 import { enqueueDocumentGeneration } from '@/helpers/document-generation-queue';
 import { nowIso } from '@/helpers/date';
 import { PK_NAME, SK_NAME } from '@/constants/common';
@@ -67,6 +69,26 @@ export const baseHandler = async (
 
     const userId = getUserId(event);
     const effectiveOpportunityId = opportunityId || 'default';
+
+    // ── Saved-team guard (team-definition U4, BR1.1/FR4.2) ──
+    // TEAM_QUALIFICATIONS is grounded exclusively in the plan's saved team, so
+    // it requires one — on BOTH paths (new document AND regenerate), BEFORE any
+    // record is created or reset. Refusal is guidance, never a FAILED run.
+    // Existing preconditions (solution-plan gate, permissions) are untouched (BR1.2).
+    if (documentType === 'TEAM_QUALIFICATIONS') {
+      const plan = await getSolutionPlanByOpportunity({
+        orgId,
+        projectId,
+        opportunityId: effectiveOpportunityId,
+      });
+      if (!hasSavedTeam(plan)) {
+        return apiResponse(409, {
+          message:
+            'A saved team is required before generating Team Qualifications. Review and save the team in the Solution Plan’s Team Definition section first.',
+          code: 'TEAM_REQUIRED',
+        });
+      }
+    }
 
     let documentId: string;
 
