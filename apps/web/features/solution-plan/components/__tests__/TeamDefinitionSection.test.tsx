@@ -17,10 +17,11 @@ jest.mock('../../hooks/useSavePlanTeam', () => ({
 }));
 
 const mockRegeneratePlanTeam = jest.fn();
+let mockIsRegenerating = false;
 jest.mock('../../hooks/useRegeneratePlanTeam', () => ({
   useRegeneratePlanTeam: () => ({
     regeneratePlanTeam: mockRegeneratePlanTeam,
-    isRegenerating: false,
+    isRegenerating: mockIsRegenerating,
   }),
 }));
 
@@ -124,6 +125,7 @@ const renderSection = () =>
 beforeEach(() => {
   jest.clearAllMocks();
   grantPermissions = true;
+  mockIsRegenerating = false;
   mockUsePlanTeam.mockReturnValue(teamState(makeTeam()));
   mockUseEmployees.mockReturnValue({ employees, count: employees.length, isLoading: false });
   mockUseStaffingPlans.mockReturnValue({ data: { staffingPlans: [] } });
@@ -237,6 +239,23 @@ describe('TeamDefinitionSection', () => {
       ),
     );
     await waitFor(() => expect(mockRegeneratePlanTeam).toHaveBeenCalled());
+  });
+
+  it('shows in-flight feedback on the regenerate button while matching runs', () => {
+    mockIsRegenerating = true;
+    renderSection();
+
+    const button = screen.getByTestId('team-regenerate');
+    expect(button).toBeDisabled();
+    expect(button).toHaveTextContent('Regenerating team…');
+  });
+
+  it('shows in-flight feedback with the generate wording when no team exists yet', () => {
+    mockIsRegenerating = true;
+    mockUsePlanTeam.mockReturnValue(teamState(null));
+    renderSection();
+
+    expect(screen.getByTestId('team-regenerate')).toHaveTextContent('Generating team…');
   });
 
   it('does not regenerate when the confirmation is cancelled', async () => {
@@ -360,6 +379,8 @@ describe('TeamDefinitionSection — Team Qualifications generation (U4)', () => 
     const button = screen.getByTestId('team-generate-qualifications');
     expect((button as HTMLButtonElement).disabled).toBe(true);
     expect(button.textContent).toMatch(/generating team qualifications/i);
+    // Animated spinner icon while the run is in flight.
+    expect(button.querySelector('.animate-spin')).not.toBeNull();
     expect(screen.queryByTestId('team-qualifications-view')).toBeNull();
   });
 
@@ -373,7 +394,7 @@ describe('TeamDefinitionSection — Team Qualifications generation (U4)', () => 
 
     const view = screen.getByTestId('team-qualifications-view');
     expect(view.getAttribute('href')).toBe(
-      '/organizations/org-1/projects/proj-1/opportunities/opp-1/rfp-documents/doc-tq-1',
+      '/organizations/org-1/projects/proj-1/opportunities/opp-1/rfp-documents/doc-tq-1/edit',
     );
   });
 
