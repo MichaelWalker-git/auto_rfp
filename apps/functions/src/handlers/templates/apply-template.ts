@@ -76,6 +76,17 @@ const baseHandler = async (
       templateId: template.id,
       templateName: template.name,
       templateVersion: template.currentVersion,
+      // Returned so the caller can persist it on the document it creates —
+      // exports read furniture from the document, never from the template.
+      // Macros are resolved here alongside the body's; page tokens are skipped by
+      // `replaceMacros` so the renderer can turn them into live page-number fields.
+      furniture: template.furniture
+        ? {
+            ...template.furniture,
+            header: { ...template.furniture.header, html: replaceMacros(template.furniture.header.html, allMacros) },
+            footer: { ...template.furniture.footer, html: replaceMacros(template.furniture.footer.html, allMacros) },
+          }
+        : undefined,
     });
   } catch (err) {
     console.error('Error applying template:', err);

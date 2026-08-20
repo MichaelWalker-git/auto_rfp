@@ -20,6 +20,7 @@ import { useCustomDocumentTypes, useSaveCustomDocumentType } from '@/lib/hooks/u
 import { usePresignUpload, usePresignDownload, uploadFileToS3 } from '@/lib/hooks/use-presign';
 import type { Editor } from '@tiptap/react';
 import { MacroInsertionBar } from '@/components/templates/MacroInsertionBar';
+import { TemplateFurniturePanel, useTemplateFurniture } from '@/features/template-furniture';
 
 const BUILT_IN_CATEGORIES = [
   { value: 'COVER_LETTER', label: 'Cover Letter' },
@@ -42,6 +43,18 @@ const BUILT_IN_CATEGORIES = [
   { value: 'CUSTOM', label: 'Custom' },
 ];
 
+/**
+ * Detect the API silently discarding `furniture`.
+ *
+ * The deployed handler validates against a schema that predates this field, and Zod
+ * strips unknown keys — so the save succeeds, returns 200, and the header/footer is
+ * gone. Exactly the failure mode of the HigherGov `higherGovSearchId` bug: a silent
+ * drop that looks like success. Surface it rather than let a user discover it on
+ * reload.
+ */
+const furnitureWasDropped = (sent: unknown, saved: unknown): boolean =>
+  sent !== undefined && (saved === undefined || saved === null);
+
 export default function CreateTemplatePage() {
   const params = useParams();
   const router = useRouter();
@@ -56,6 +69,7 @@ export default function CreateTemplatePage() {
   const [newTypeName, setNewTypeName] = useState('');
   const [newTypeDescription, setNewTypeDescription] = useState('');
   const editorRef = useRef<Editor | null>(null);
+  const furnitureState = useTemplateFurniture();
 
   const { toast } = useToast();
   const { create, isCreating } = useCreateTemplate();
@@ -115,12 +129,24 @@ export default function CreateTemplatePage() {
     try {
       const cleanContent = stripPresignedUrlsFromHtml(content);
 
-      await create({
+      const sentFurniture = furnitureState.toPayload();
+      const created = await create({
         orgId,
         name: name.trim(),
         category,
         htmlContent: cleanContent,
+        // undefined when nothing is configured, so the template stays without
+        // a header/footer rather than gaining an empty one.
+        furniture: sentFurniture,
       });
+
+      if (furnitureWasDropped(sentFurniture, (created as { data?: { furniture?: unknown } })?.data?.furniture)) {
+        toast({
+          title: 'Header/footer was not saved',
+          description: 'The API discarded it — its schema needs updating. Everything else saved.',
+          variant: 'destructive',
+        });
+      }
 
       toast({
         title: 'Template created',
@@ -265,6 +291,7 @@ export default function CreateTemplatePage() {
               onChange={setContent}
               disabled={isDisabled}
               minHeight="500px"
+              furniture={furnitureState.furniture}
               onUploadImageToS3={handleUploadImageToS3}
               onGetDownloadUrl={handleGetDownloadUrl}
               onUploadingChange={setIsImageUploading}
@@ -275,15 +302,27 @@ export default function CreateTemplatePage() {
 
         {/* Right sidebar: Variables */}
         <div className="w-72 shrink-0 hidden lg:block">
-          <div className="sticky top-4">
+          <div className="sticky top-4 space-y-4">
             <MacroInsertionBar onInsert={insertMacro} disabled={isDisabled} />
+            <TemplateFurniturePanel
+              furnitureState={furnitureState}
+              bodyHtml={content}
+              disabled={isDisabled}
+              onUploadImage={handleUploadImageToS3}
+            />
           </div>
         </div>
       </div>
 
       {/* Mobile: show variables below editor */}
-      <div className="lg:hidden mt-6">
+      <div className="lg:hidden mt-6 space-y-4">
         <MacroInsertionBar onInsert={insertMacro} disabled={isDisabled} />
+        <TemplateFurniturePanel
+          furnitureState={furnitureState}
+          bodyHtml={content}
+          disabled={isDisabled}
+          onUploadImage={handleUploadImageToS3}
+        />
       </div>
 
       {/* Create Document Type Dialog */}

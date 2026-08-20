@@ -32,6 +32,9 @@ jest.mock('@/helpers/document-generation', () => ({
   loadQaPairs: jest.fn(),
   loadSolicitation: jest.fn(),
   resolveTemplateHtml: jest.fn(),
+  // Resolves the template's header/footer for snapshotting onto the document.
+  // Defaults to an empty result so these prompt-wiring tests are unaffected.
+  resolveTemplateFurniture: jest.fn().mockResolvedValue({}),
   buildMacroValues: jest.fn(),
   validateGeneratedContent: jest.requireActual('@/helpers/document-generation').validateGeneratedContent,
 }));

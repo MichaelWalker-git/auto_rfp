@@ -23,6 +23,7 @@ import { usePermission } from '@/components/permission-wrapper';
 import { usePresignUpload, usePresignDownload, uploadFileToS3 } from '@/lib/hooks/use-presign';
 import type { Editor } from '@tiptap/react';
 import { MacroInsertionBar } from '@/components/templates/MacroInsertionBar';
+import { TemplateFurniturePanel, useTemplateFurniture } from '@/features/template-furniture';
 
 const BUILT_IN_CATEGORIES = [
   { value: 'COVER_LETTER', label: 'Cover Letter' },
@@ -44,6 +45,18 @@ const BUILT_IN_CATEGORIES = [
   { value: 'CLARIFYING_QUESTIONS', label: 'Clarifying Questions' },
   { value: 'CUSTOM', label: 'Custom' },
 ];
+
+/**
+ * Detect the API silently discarding `furniture`.
+ *
+ * The deployed handler validates against a schema that predates this field, and Zod
+ * strips unknown keys — so the save succeeds, returns 200, and the header/footer is
+ * gone. Exactly the failure mode of the HigherGov `higherGovSearchId` bug: a silent
+ * drop that looks like success. Surface it rather than let a user discover it on
+ * reload.
+ */
+const furnitureWasDropped = (sent: unknown, saved: unknown): boolean =>
+  sent !== undefined && (saved === undefined || saved === null);
 
 export default function EditTemplatePage() {
   const params = useParams();
@@ -102,6 +115,8 @@ export default function EditTemplatePage() {
   const [name, setName] = useState(template?.name ?? '');
   const [category, setCategory] = useState(template?.category ?? '');
   const [content, setContent] = useState('');
+  const furnitureState = useTemplateFurniture();
+  const furnitureInitializedRef = useRef(false);
   const metadataInitializedRef = useRef(!!template);
 
   useEffect(() => {
@@ -110,6 +125,15 @@ export default function EditTemplatePage() {
     setName(template.name ?? '');
     setCategory(template.category ?? '');
   }, [template]);
+
+  // Hydrate the saved header/footer once, so later edits are not clobbered when
+  // SWR revalidates the template.
+  useEffect(() => {
+    if (!template || furnitureInitializedRef.current) return;
+    furnitureInitializedRef.current = true;
+    if (template.furniture) furnitureState.setFurniture(template.furniture);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [template?.id]);
 
   useEffect(() => {
     if (!template || contentInitializedRef.current) return;
@@ -224,11 +248,21 @@ export default function EditTemplatePage() {
       const contentWithUploadedImages = await uploadPendingImages(rawEditorHtml);
       const cleanContent = stripPresignedUrlsFromHtml(contentWithUploadedImages);
 
-      await update({
+      const sentFurniture = furnitureState.toPayload();
+      const updated = await update({
         name: name.trim(),
         category,
         htmlContent: cleanContent,
+        furniture: sentFurniture,
       });
+
+      if (furnitureWasDropped(sentFurniture, (updated as { data?: { furniture?: unknown } })?.data?.furniture)) {
+        toast({
+          title: 'Header/footer was not saved',
+          description: 'The API discarded it — its schema needs updating. Everything else saved.',
+          variant: 'destructive',
+        });
+      }
 
       setLastSavedAt(new Date());
 
@@ -506,7 +540,8 @@ export default function EditTemplatePage() {
                 onChange={setContent}
                 disabled={isUpdating}
                 minHeight="500px"
-                onUploadImageToS3={handleUploadImageToS3}
+                furniture={furnitureState.furniture}
+              onUploadImageToS3={handleUploadImageToS3}
                 onGetDownloadUrl={handleGetDownloadUrl}
                 onUploadingChange={setIsImageUploading}
                 onEditorReady={(editor) => { editorRef.current = editor; }}
@@ -517,15 +552,27 @@ export default function EditTemplatePage() {
 
         {/* Right sidebar: Variables */}
         <div className="w-72 shrink-0 hidden lg:block">
-          <div className="sticky top-4">
+          <div className="sticky top-4 space-y-4">
             <MacroInsertionBar onInsert={insertMacro} disabled={isDisabled} />
+            <TemplateFurniturePanel
+              furnitureState={furnitureState}
+              bodyHtml={content}
+              disabled={isDisabled}
+              onUploadImage={handleUploadImageToS3}
+            />
           </div>
         </div>
       </div>
 
       {/* Mobile: show variables below editor */}
-      <div className="lg:hidden mt-6">
+      <div className="lg:hidden mt-6 space-y-4">
         <MacroInsertionBar onInsert={insertMacro} disabled={isDisabled} />
+        <TemplateFurniturePanel
+          furnitureState={furnitureState}
+          bodyHtml={content}
+          disabled={isDisabled}
+          onUploadImage={handleUploadImageToS3}
+        />
       </div>
 
       {/* Create Document Type Dialog */}

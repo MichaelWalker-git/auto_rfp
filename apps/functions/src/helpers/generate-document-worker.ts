@@ -25,6 +25,7 @@ import {
   extractBedrockText,
   loadQaPairs,
   loadSolicitation,
+  resolveTemplateFurniture,
   resolveTemplateHtml,
   validateGeneratedContent,
   type QaPair,
@@ -1054,17 +1055,24 @@ export const processJobInner = async (job: Job): Promise<void> => {
   const macroValues = await buildMacroValues({ orgId, projectId, opportunityId });
   console.log(`Built macro values for documentId=${documentId}:`, Object.keys(macroValues));
 
-  // ─── Step 4: Gather enrichment context + template HTML + Solution Plan +
-  //             saved-team roster (TEAM_QUALIFICATIONS only) in parallel ───
-  const [enrichedKbText, templateHtmlScaffold, solutionPlanContext, teamQualificationsContext] =
-    await Promise.all([
-      gatherAllContext({ projectId, orgId, opportunityId, solicitation, documentType }),
-      resolveTemplateHtml(orgId, documentType, templateId, macroValues),
-      loadApprovedSolutionPlanContext({ orgId, projectId, opportunityId }),
-      documentType === 'TEAM_QUALIFICATIONS'
-        ? assembleTeamQualificationsContext({ orgId, projectId, opportunityId })
-        : Promise.resolve(null),
-    ]);
+  // ─── Step 4: Gather enrichment context + template HTML + furniture + Solution
+  //             Plan + saved-team roster (TEAM_QUALIFICATIONS only) in parallel ───
+  // The furniture lookup rides along here so it costs no extra wall-clock.
+  const [
+    enrichedKbText,
+    templateHtmlScaffold,
+    templateFurniture,
+    solutionPlanContext,
+    teamQualificationsContext,
+  ] = await Promise.all([
+    gatherAllContext({ projectId, orgId, opportunityId, solicitation, documentType }),
+    resolveTemplateHtml(orgId, documentType, templateId, macroValues),
+    resolveTemplateFurniture(orgId, documentType, templateId, macroValues),
+    loadApprovedSolutionPlanContext({ orgId, projectId, opportunityId }),
+    documentType === 'TEAM_QUALIFICATIONS'
+      ? assembleTeamQualificationsContext({ orgId, projectId, opportunityId })
+      : Promise.resolve(null),
+  ]);
 
   // Saved-team fallback (U4): the request-path guard refuses without a saved
   // team, but if the team vanished between request and SQS delivery the run
@@ -1518,6 +1526,10 @@ export const processJobInner = async (job: Job): Promise<void> => {
       title: finalDocument.title || getDocumentTypeLabel(documentType),
       name: finalDocument.title || getDocumentTypeLabel(documentType),
       htmlContentKey,
+      // Snapshot the template's header/footer onto the document — the export path
+      // reads it from here, having no access to the template itself.
+      ...(templateFurniture.templateId !== undefined && { templateId: templateFurniture.templateId }),
+      ...(templateFurniture.furniture !== undefined && { furniture: templateFurniture.furniture }),
       // Stamp which Solution Plan version this document was generated from (ADR-7)
       ...(solutionPlanContext && {
         solutionPlanId: solutionPlanContext.plan.id,

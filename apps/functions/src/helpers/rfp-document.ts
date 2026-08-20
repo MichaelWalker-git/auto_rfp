@@ -131,6 +131,8 @@ const UPDATABLE_METADATA_FIELDS = [
   'retryCount',
   'solutionPlanId',
   'solutionPlanVersion',
+  'templateId',
+  'furniture',
 ] as const;
 
 type UpdatableMetadataField = (typeof UPDATABLE_METADATA_FIELDS)[number];
@@ -172,6 +174,16 @@ export const updateRFPDocumentMetadata = async (args: {
     setParts.push(`#${field} = :${field}`);
     names[`#${field}`] = field;
     values[`:${field}`] = value;
+  }
+  if (args.updates.templateId !== undefined) {
+    setParts.push('#templateId = :templateId');
+    names['#templateId'] = 'templateId';
+    values[':templateId'] = args.updates.templateId;
+  }
+  if (args.updates.furniture !== undefined) {
+    setParts.push('#furniture = :furniture');
+    names['#furniture'] = 'furniture';
+    values[':furniture'] = args.updates.furniture;
   }
 
   const res = await docClient.send(
