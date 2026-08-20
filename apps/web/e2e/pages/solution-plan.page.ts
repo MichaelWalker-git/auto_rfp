@@ -12,7 +12,10 @@ export type GateTestDocumentType =
   | 'TECHNICAL_PROPOSAL'
   | 'COST_PROPOSAL'
   | 'PRICE_VOLUME'
-  | 'CLARIFYING_QUESTIONS';
+  | 'CLARIFYING_QUESTIONS'
+  // KB coverage precheck: the two types with knowledge-base requirements.
+  | 'TEAM_QUALIFICATIONS'
+  | 'CERTIFICATIONS';
 
 export class SolutionPlanPage {
   constructor(private readonly page: Page) {}
@@ -95,6 +98,25 @@ export class SolutionPlanPage {
    */
   documentTypeCheckbox(documentTypeKey: GateTestDocumentType): Locator {
     return this.generateDialog.locator(`#gen-${documentTypeKey}`);
+  }
+
+  /**
+   * The dialog row for a document type — the checkbox's parent, which also
+   * holds that row's badges. Anchored off the checkbox id for the same reason:
+   * visible labels are not unique across custom document types.
+   */
+  documentTypeRow(documentTypeKey: GateTestDocumentType): Locator {
+    return this.documentTypeCheckbox(documentTypeKey).locator('xpath=..');
+  }
+
+  /** KB coverage gap badge on a row: "⚠ Missing: personnel bios, …". */
+  kbCoverageGapBadge(documentTypeKey: GateTestDocumentType): Locator {
+    return this.documentTypeRow(documentTypeKey).getByText(/^Missing:/);
+  }
+
+  /** KB coverage "ready" badge on a row. */
+  kbCoverageReadyBadge(documentTypeKey: GateTestDocumentType): Locator {
+    return this.documentTypeRow(documentTypeKey).getByText('KB ready');
   }
 
   /**

@@ -22,7 +22,9 @@ import {
   useGenerateRFPDocument,
   useCustomDocumentTypes,
   isSolutionPlanRequiredError,
+  isKBCoverageIncompleteError,
 } from '@/lib/hooks/use-rfp-documents';
+import { useKBCoverage, KBCoverageBadge } from '@/features/kb-coverage';
 import { useGetExecutiveBriefByProject } from '@/lib/hooks/use-executive-brief';
 import { useCurrentOrganization } from '@/context/organization-context';
 import {
@@ -98,10 +100,30 @@ export const GenerateDocumentDialog = ({
 
   // Solution Plan gate (T12): gated doc types require a READY plan; exempt
   // types (Q&A-style) stay generatable. Server enforces the same rule (T9).
-  const { isGateActive, isGrandfathered, isDocumentTypeBlocked } = useSolutionPlanGate(
-    orgId,
-    projectId,
-    opportunityId,
+  const { isGateActive, isGrandfathered, isDocumentTypeBlocked: isPlanBlocked } =
+    useSolutionPlanGate(orgId, projectId, opportunityId);
+
+  // KB coverage precheck: name what the KB is missing for a document type
+  // *before* generation is triggered. Warns by default; blocks only when the
+  // org's gate is armed, matching the server.
+  //
+  // Gated on `open`: the badge only renders inside the dialog, and the probe's
+  // server side pages the org's whole content-library partition. This component
+  // mounts with the documents card on every opportunity view — including for
+  // users who lack `proposal:create` and will never open it — so fetching on
+  // mount would buy nothing and cost a scan per page view.
+  const {
+    hasRequirements: hasKBRequirements,
+    getMissing: getKBMissing,
+    isGateEnabled: isKBGateEnabled,
+    isDocumentTypeBlocked: isKBBlocked,
+    hasVerdict: hasKBVerdict,
+  } = useKBCoverage(open ? orgId : undefined);
+
+  /** Either precondition can block a row; both refuse with a 409 server-side. */
+  const isDocumentTypeBlocked = useCallback(
+    (documentType: string) => isPlanBlocked(documentType) || isKBBlocked(documentType),
+    [isPlanBlocked, isKBBlocked],
   );
 
   // Fetch required docs from brief when dialog opens (if not provided via props)
@@ -267,7 +289,12 @@ export const GenerateDocumentDialog = ({
       setOpen(false);
     } catch (err) {
       toast({
-        title: isSolutionPlanRequiredError(err) ? 'Solution Plan required' : 'Generation failed',
+        title: isKBCoverageIncompleteError(err)
+          ? 'Knowledge base incomplete'
+          : isSolutionPlanRequiredError(err)
+            ? 'Solution Plan required'
+            : 'Generation failed',
+        // The refusal message already names the missing categories.
         description: err instanceof Error ? err.message : 'Failed to start generation',
         variant: 'destructive',
       });
@@ -374,10 +401,21 @@ export const GenerateDocumentDialog = ({
                   >
                     {row.label}
                   </Label>
-                  {isBlocked && (
+                  {isPlanBlocked(row.key) && (
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0 text-muted-foreground">
                       Requires Solution Plan
                     </Badge>
+                  )}
+                  {/* Only types with KB requirements get a coverage badge —
+                      a green tick on the other 16 would carry no information.
+                      Withheld until the probe answers: an empty `missing` list
+                      reads as "KB ready", which would be a false reassurance
+                      while loading and a permanent one if the probe failed. */}
+                  {hasKBRequirements(row.key) && hasKBVerdict && (
+                    <KBCoverageBadge
+                      missing={getKBMissing(row.key)}
+                      isBlocking={isKBGateEnabled}
+                    />
                   )}
                   {row.isRequired && (
                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">

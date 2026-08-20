@@ -1,6 +1,8 @@
 import {
   ApiError,
+  KBCoverageIncompleteError,
   SolutionPlanRequiredError,
+  isKBCoverageIncompleteError,
   isSolutionPlanRequiredError,
   toGenerateDocumentError,
 } from '../use-rfp-documents';
@@ -51,6 +53,51 @@ describe('toGenerateDocumentError', () => {
 
     expect(isSolutionPlanRequiredError(mapped)).toBe(true);
     expect(mapped.solutionPlanStatus).toBeNull();
+  });
+
+  it('maps a 409 KB_COVERAGE_INCOMPLETE body to KBCoverageIncompleteError with the named gaps', () => {
+    const raw = new ApiError(
+      JSON.stringify({
+        code: 'KB_COVERAGE_INCOMPLETE',
+        message:
+          'The knowledge base is missing content this document type requires: personnel bios, certification records.',
+        missingCategories: [
+          { key: 'PERSONNEL_BIOS', label: 'personnel bios' },
+          { key: 'CERTIFICATIONS', label: 'certification records' },
+        ],
+      }),
+      409,
+    );
+
+    const mapped = toGenerateDocumentError(raw);
+
+    expect(isKBCoverageIncompleteError(mapped)).toBe(true);
+    // The two refusals must stay distinguishable — one gate, two precondition types.
+    expect(isSolutionPlanRequiredError(mapped)).toBe(false);
+    const err = mapped as KBCoverageIncompleteError;
+    expect(err.status).toBe(409);
+    expect(err.message).toContain('personnel bios');
+    expect(err.message).toContain('certification records');
+    expect(err.missingCategories.map((c) => c.label)).toEqual([
+      'personnel bios',
+      'certification records',
+    ]);
+  });
+
+  it('builds the named message itself when the coverage body carries an empty one', () => {
+    const raw = new ApiError(
+      JSON.stringify({
+        code: 'KB_COVERAGE_INCOMPLETE',
+        message: '',
+        missingCategories: [{ key: 'INSURANCE', label: 'insurance documents' }],
+      }),
+      409,
+    );
+
+    const mapped = toGenerateDocumentError(raw) as KBCoverageIncompleteError;
+
+    expect(isKBCoverageIncompleteError(mapped)).toBe(true);
+    expect(mapped.message).toContain('insurance documents');
   });
 
   it('passes through 409s with other codes', () => {

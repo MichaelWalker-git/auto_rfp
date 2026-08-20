@@ -29,8 +29,8 @@ jest.mock('@/helpers/rfp-document', () => ({
 }));
 
 const mockCheckGate = jest.fn();
-jest.mock('@/helpers/solution-plan-gate', () => ({
-  checkSolutionPlanGate: (...a: unknown[]) => mockCheckGate(...a),
+jest.mock('@/helpers/generation-preconditions', () => ({
+  checkGenerationPreconditions: (...a: unknown[]) => mockCheckGate(...a),
 }));
 
 const mockEnqueue = jest.fn();
@@ -67,7 +67,7 @@ const bodyOf = (res: unknown): Record<string, unknown> =>
 beforeEach(() => {
   jest.clearAllMocks();
   mockGetProjectById.mockResolvedValue(project);
-  mockCheckGate.mockResolvedValue({ allowed: true, solutionPlanStatus: 'READY' });
+  mockCheckGate.mockResolvedValue({ allowed: true });
   mockPutRFPDocument.mockResolvedValue(undefined);
   mockUpdateMetadata.mockResolvedValue({});
   mockGetRFPDocument.mockResolvedValue({ documentId: 'doc-1', documentType: 'COST_PROPOSAL' });
@@ -103,15 +103,23 @@ describe('generate-document handler — validation & lookup', () => {
   });
 });
 
-describe('generate-document handler — solution plan gate', () => {
+describe('generate-document handler — pre-generation gate', () => {
   const gatedBody = {
     projectId: 'proj-1',
     opportunityId: 'opp-1',
     documentType: 'COST_PROPOSAL',
   };
 
+  /** The refusal shape the gate returns; the handler passes it through verbatim. */
+  const refuse = (refusal: Record<string, unknown>) =>
+    mockCheckGate.mockResolvedValue({ allowed: false, refusal });
+
   it('returns 409 SOLUTION_PLAN_REQUIRED when the gate blocks', async () => {
-    mockCheckGate.mockResolvedValue({ allowed: false, solutionPlanStatus: null });
+    refuse({
+      code: 'SOLUTION_PLAN_REQUIRED',
+      message: 'A ready Solution Plan is required before generating this document type.',
+      solutionPlanStatus: null,
+    });
 
     const res = await baseHandler(buildEvent(gatedBody));
 
@@ -131,12 +139,56 @@ describe('generate-document handler — solution plan gate', () => {
   });
 
   it('surfaces the in-progress plan status in the 409 body', async () => {
-    mockCheckGate.mockResolvedValue({ allowed: false, solutionPlanStatus: 'GRILLING' });
+    refuse({
+      code: 'SOLUTION_PLAN_REQUIRED',
+      message: 'A ready Solution Plan is required before generating this document type.',
+      solutionPlanStatus: 'GRILLING',
+    });
 
     const res = await baseHandler(buildEvent(gatedBody));
 
     expect(statusOf(res)).toBe(409);
     expect(bodyOf(res)).toMatchObject({ solutionPlanStatus: 'GRILLING' });
+  });
+
+  it('returns 409 KB_COVERAGE_INCOMPLETE with the named missing categories', async () => {
+    refuse({
+      code: 'KB_COVERAGE_INCOMPLETE',
+      message:
+        'The knowledge base is missing content this document type requires: personnel bios, certification records.',
+      missingCategories: [
+        { key: 'PERSONNEL_BIOS', label: 'personnel bios' },
+        { key: 'CERTIFICATIONS', label: 'certification records' },
+      ],
+    });
+
+    const res = await baseHandler(
+      buildEvent({ ...gatedBody, documentType: 'TEAM_QUALIFICATIONS' }),
+    );
+
+    expect(statusOf(res)).toBe(409);
+    expect(bodyOf(res)).toMatchObject({
+      code: 'KB_COVERAGE_INCOMPLETE',
+      missingCategories: [
+        { key: 'PERSONNEL_BIOS', label: 'personnel bios' },
+        { key: 'CERTIFICATIONS', label: 'certification records' },
+      ],
+    });
+  });
+
+  it('starts no generation at all on a coverage refusal', async () => {
+    // AC #2: forcing generation must not leave a placeholder or queued job behind.
+    refuse({
+      code: 'KB_COVERAGE_INCOMPLETE',
+      message: 'missing personnel bios',
+      missingCategories: [{ key: 'PERSONNEL_BIOS', label: 'personnel bios' }],
+    });
+
+    await baseHandler(buildEvent({ ...gatedBody, documentType: 'TEAM_QUALIFICATIONS' }));
+
+    expect(mockPutRFPDocument).not.toHaveBeenCalled();
+    expect(mockUpdateMetadata).not.toHaveBeenCalled();
+    expect(mockEnqueue).not.toHaveBeenCalled();
   });
 
   it('creates the placeholder and enqueues when the gate passes', async () => {
@@ -151,7 +203,7 @@ describe('generate-document handler — solution plan gate', () => {
   });
 
   it('does not gate regeneration of an existing document', async () => {
-    mockCheckGate.mockResolvedValue({ allowed: false, solutionPlanStatus: null });
+    refuse({ code: 'SOLUTION_PLAN_REQUIRED', message: 'blocked', solutionPlanStatus: null });
 
     const res = await baseHandler(buildEvent({ ...gatedBody, documentId: 'doc-1' }));
 

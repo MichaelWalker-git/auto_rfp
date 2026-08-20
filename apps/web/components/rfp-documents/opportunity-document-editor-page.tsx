@@ -19,6 +19,7 @@ import {
   useRFPDocumentPolling,
   useUpdateRFPDocument,
   isSolutionPlanRequiredError,
+  isKBCoverageIncompleteError,
 } from '@/lib/hooks/use-rfp-documents';
 import { uploadFileToS3, usePresignDownload, usePresignUpload } from '@/lib/hooks/use-presign';
 import { useRevertVersion, useCherryPick } from '@/lib/hooks/use-document-versions';
@@ -312,8 +313,14 @@ export const OpportunityDocumentEditorPage = ({
     } catch (err) {
       // Regenerating an existing document is grandfathered past the Solution
       // Plan gate on the server (ADR-10) — this branch is defense-in-depth.
+      // The regenerate path is ungated for coverage too, so that branch is
+      // defense-in-depth as well.
       toast({
-        title: isSolutionPlanRequiredError(err) ? 'Solution Plan required' : 'Regeneration failed',
+        title: isKBCoverageIncompleteError(err)
+          ? 'Knowledge base incomplete'
+          : isSolutionPlanRequiredError(err)
+            ? 'Solution Plan required'
+            : 'Regeneration failed',
         description: err instanceof Error ? err.message : 'Could not start regeneration.',
         variant: 'destructive',
       });

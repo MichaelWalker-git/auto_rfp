@@ -85,6 +85,8 @@ export const OrganizationItemSchema = OrganizationCreateRequestSchema.extend({
   enableMemberDetection: z.boolean().optional().default(false),
   /** Whether the Solution Plan (Source of Truth) feature + generation gate is enabled for this org (set manually in DynamoDB; no UI) */
   enableSolutionPlan: z.boolean().optional(),
+  /** Whether the KB coverage precheck *blocks* generation for this org (set manually in DynamoDB; no UI). Off = warn only. */
+  enableKBCoverageGate: z.boolean().optional(),
 });
 
 export type OrganizationItem = z.infer<typeof OrganizationItemSchema>;
@@ -111,6 +113,7 @@ export const OrganizationListItemSchema = z.object({
   enablePOCGeneration: z.boolean().optional(),
   enableComplianceReview: z.boolean().optional(),
   enableSolutionPlan: z.boolean().optional(),
+  enableKBCoverageGate: z.boolean().optional(),
 });
 
 export type OrganizationListItem = z.infer<typeof OrganizationListItemSchema>;
