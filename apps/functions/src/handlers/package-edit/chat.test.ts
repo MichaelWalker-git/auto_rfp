@@ -59,6 +59,9 @@ jest.mock('@/helpers/audit-log', () => ({ writeAuditLog: jest.fn().mockResolvedV
 jest.mock('@/helpers/secret', () => ({ getHmacSecret: jest.fn().mockResolvedValue('secret') }));
 
 import { baseHandler } from './chat';
+import { makeComplianceToolExecutor } from '@/helpers/compliance-review-tools';
+
+const mockMakeExecutor = makeComplianceToolExecutor as unknown as jest.Mock;
 
 const query = { orgId: 'org-1', projectId: 'proj-1', opportunityId: 'opp-1' };
 const makeEvent = (body: unknown) =>
@@ -131,6 +134,16 @@ describe('package-edit chat handler', () => {
     );
     expect(mockCreateProposalRun).not.toHaveBeenCalled();
     expect(mockEnqueue).not.toHaveBeenCalled();
+  });
+
+  it('threads projectId into the compliance tool executor so verify_company_facts is project-scoped', async () => {
+    // Regression: chat built the executor without projectId, so KB search ran
+    // unscoped and the whole solution_plan source was skipped. projectId is in
+    // scope and must be passed.
+    await baseHandler(makeEvent({ message: 'what is the cost?' }));
+    expect(mockMakeExecutor).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: 'org-1', oppId: 'opp-1', projectId: 'proj-1' }),
+    );
   });
 
   it('CLARIFY → a plain answer (no findings, no propose_edits) is returned as-is, not swallowed', async () => {

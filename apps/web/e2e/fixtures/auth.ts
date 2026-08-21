@@ -8,6 +8,7 @@ import { KnowledgeBasePage } from '../pages/knowledge-base.page';
 import { OpportunitiesPage } from '../pages/opportunities.page';
 import { DocumentPromptsPage } from '../pages/document-prompts.page';
 import { SolutionPlanPage } from '../pages/solution-plan.page';
+import { ComplianceReviewPage } from '../pages/compliance-review.page';
 
 /**
  * Custom fixture types for authenticated tests.
@@ -31,6 +32,8 @@ interface AuthFixtures {
   documentPromptsPage: DocumentPromptsPage;
   /** Solution Plan panel + gated generate-dialog page object */
   solutionPlanPage: SolutionPlanPage;
+  /** AI Compliance Review panel page object */
+  complianceReviewPage: ComplianceReviewPage;
 }
 
 /**
@@ -94,6 +97,10 @@ export const test = base.extend<AuthFixtures>({
 
   solutionPlanPage: async ({ page }, use) => {
     await use(new SolutionPlanPage(page));
+  },
+
+  complianceReviewPage: async ({ page }, use) => {
+    await use(new ComplianceReviewPage(page));
   },
 });
 

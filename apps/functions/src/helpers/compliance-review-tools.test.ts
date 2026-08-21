@@ -8,7 +8,26 @@ jest.mock('@/helpers/rfp-document', () => ({
 }));
 jest.mock('@/helpers/required-form', () => ({ listRequiredFormsByOpportunity: jest.fn() }));
 
+const mockLoadCompanyFacts = jest.fn();
+const mockLoadCertRecords = jest.fn();
+const mockSearchKnowledgeBase = jest.fn();
+const mockSearchPastPerformanceUsable = jest.fn();
+const mockLoadSolutionPlanFacts = jest.fn();
+jest.mock('@/helpers/compliance-truth-sources', () => ({
+  loadCompanyFacts: (...a: unknown[]) => mockLoadCompanyFacts(...a),
+  loadCertRecords: (...a: unknown[]) => mockLoadCertRecords(...a),
+  searchKnowledgeBase: (...a: unknown[]) => mockSearchKnowledgeBase(...a),
+  searchPastPerformanceUsable: (...a: unknown[]) => mockSearchPastPerformanceUsable(...a),
+  loadSolutionPlanFacts: (...a: unknown[]) => mockLoadSolutionPlanFacts(...a),
+}));
+
+const mockGetLinkedKBIds = jest.fn();
+jest.mock('@/helpers/project-kb', () => ({
+  getLinkedKBIds: (...a: unknown[]) => mockGetLinkedKBIds(...a),
+}));
+
 import {
+  COMPLIANCE_REVIEW_TOOLS,
   makeComplianceToolExecutor,
   type PackageInventory,
   type FormFieldInventory,
@@ -184,5 +203,103 @@ describe('list_package_documents tool', () => {
     const res = await exec('list_package_documents', {}, 'tu-1');
     expect(res.content).toContain('documentId=q-1');
     expect(res.content).toContain('XLSX QUESTIONNAIRE | 4 filled cell(s) — read with get_questionnaire_cells');
+  });
+});
+
+// ─── verify_company_facts ────────────────────────────────────────────────────
+
+describe('verify_company_facts tool', () => {
+  const emptyInventory: PackageInventory = { documents: [], forms: [] };
+  const runVerify = (input: Record<string, unknown>) =>
+    makeComplianceToolExecutor({ orgId: 'o', oppId: 'opp', projectId: 'p', inventory: emptyInventory })(
+      'verify_company_facts',
+      input,
+      'tu-1',
+    );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetLinkedKBIds.mockResolvedValue([]);
+    mockLoadSolutionPlanFacts.mockResolvedValue(null);
+  });
+
+  it('is registered with claim required', () => {
+    const tool = COMPLIANCE_REVIEW_TOOLS.find((t) => t.name === 'verify_company_facts');
+    expect(tool).toBeTruthy();
+    expect(tool?.input_schema.required).toContain('claim');
+  });
+
+  it('aggregates profile, certs, KB and past-performance facts', async () => {
+    mockLoadCompanyFacts.mockResolvedValue({
+      companyName: 'HorusTech',
+      uei: 'ABC123',
+      primaryNaics: '541512',
+      entityType: 'LLC',
+      authorizedSignatory: { name: 'Jane Doe' },
+    });
+    mockLoadCertRecords.mockResolvedValue([
+      { source: 'kb', label: 'ISO 27001', verified: true, expiresAt: '2030-01-01' },
+    ]);
+    mockSearchKnowledgeBase.mockResolvedValue([
+      { itemId: 'kb-1', question: 'Do you offer 24/7?', answer: 'Yes.', category: 'Support', score: 0.9 },
+    ]);
+    mockSearchPastPerformanceUsable.mockResolvedValue([
+      { projectId: 'pp-1', title: 'Modernization', client: '[withheld]', description: '', value: 5000000, contractNumber: 'C-1', score: 0.9 },
+    ]);
+
+    const res = await runVerify({ claim: 'we are ISO 27001 certified' });
+    expect(res.content).toContain('HorusTech');
+    expect(res.content).toContain('ISO 27001');
+    expect(res.content).toContain('Do you offer 24/7?');
+    expect(res.content).toContain('Modernization');
+  });
+
+  it('honors the sources filter (only profile requested)', async () => {
+    mockLoadCompanyFacts.mockResolvedValue({ companyName: 'HorusTech' });
+    const res = await runVerify({ claim: 'name check', sources: ['profile'] });
+    expect(res.content).toContain('COMPANY PROFILE');
+    expect(mockSearchKnowledgeBase).not.toHaveBeenCalled();
+    expect(mockLoadCertRecords).not.toHaveBeenCalled();
+    expect(mockSearchPastPerformanceUsable).not.toHaveBeenCalled();
+    expect(mockLoadSolutionPlanFacts).not.toHaveBeenCalled();
+  });
+
+  it('includes the solution plan (prices + text) when requested', async () => {
+    mockLoadSolutionPlanFacts.mockResolvedValue({
+      planId: 'plan-1',
+      version: 3,
+      isStale: false,
+      text: 'AWS-based architecture with a team of 5 engineers.',
+      costItems: [{ label: 'AWS Hosting', amount: 5000, billing: 'MONTHLY', category: 'THIRD_PARTY', optional: false }],
+      currency: 'USD',
+    });
+    const res = await runVerify({ claim: 'AWS hosting is $9k/mo', sources: ['solution_plan'] });
+    expect(mockLoadSolutionPlanFacts).toHaveBeenCalledWith('o', 'p', 'opp');
+    expect(res.content).toContain('SOLUTION PLAN');
+    expect(res.content).toContain('AWS Hosting');
+    expect(res.content).toContain('5000');
+    expect(res.content).toContain('team of 5 engineers');
+  });
+
+  it('reports no solution plan safely when none is on record', async () => {
+    mockLoadSolutionPlanFacts.mockResolvedValue(null);
+    const res = await runVerify({ claim: 'anything', sources: ['solution_plan'] });
+    expect(res.content).toContain('(no approved solution plan on record)');
+  });
+
+  it('returns safe content when sources yield nothing (best-effort)', async () => {
+    mockLoadCompanyFacts.mockResolvedValue(null);
+    mockLoadCertRecords.mockResolvedValue([]);
+    mockSearchKnowledgeBase.mockResolvedValue([]);
+    mockSearchPastPerformanceUsable.mockResolvedValue([]);
+
+    const res = await runVerify({ claim: 'anything' });
+    expect(res.content).toContain('(no profile on record)');
+    expect(res.content).toContain('(none on record)');
+  });
+
+  it('requires a claim', async () => {
+    const res = await runVerify({ claim: '   ' });
+    expect(res.content).toContain('Provide a claim');
   });
 });
