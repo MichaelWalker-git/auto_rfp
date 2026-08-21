@@ -40,6 +40,17 @@ export const NotificationTypeSchema = z.enum([
   'DECISION_DATE_1_DAY',
   // Document generation
   'DOCUMENT_GENERATION_FAILED',
+  // FOIA automation
+  'FOIA_SCHEDULED',
+  'FOIA_BLOCKED',
+  'FOIA_APPROVAL_REQUESTED',
+  'FOIA_APPROVAL_REMINDER',
+  'FOIA_STALLED',
+  'FOIA_SENT',
+  'FOIA_SEND_FAILED',
+  'FOIA_BOUNCED',
+  'AWARD_DETECTED',
+  'SOLICITATION_CANCELLED',
 ]);
 export type NotificationType = z.infer<typeof NotificationTypeSchema>;
 

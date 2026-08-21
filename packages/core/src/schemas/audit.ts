@@ -157,6 +157,15 @@ export const AuditActionSchema = z.enum([
   'QUESTIONNAIRE_VERSION_REVERTED',
   // Past-performance disclosure (NDA / permission) review
   'PAST_PERF_DISCLOSURE_CONFIRMED',
+  /**
+   * A public-records request was transmitted to a government agency.
+   *
+   * Its own action rather than the `CONFIG_CHANGED` the manual handler had settled for:
+   * this is an outbound statutory filing made in the customer's name, and on the
+   * unattended path no human authorised the individual send. "Someone changed a config"
+   * is not a description an auditor can act on.
+   */
+  'FOIA_REQUEST_SENT',
   // Employee pool (team definition)
   'EMPLOYEE_CREATED',
   'EMPLOYEE_UPDATED',

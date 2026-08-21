@@ -67,6 +67,7 @@ import { dashboardDomain } from './routes/dashboard.routes';
 import { solutionPlanDomain } from './routes/solution-plan.routes';
 import { relatedRfpDomain } from './routes/related-rfp.routes';
 import { employeeDomain } from './routes/employee.routes';
+import { foiaConfigurationSetName } from '../foia-naming';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -300,6 +301,15 @@ export class ApiOrchestratorStack extends cdk.Stack {
       ...(rfpTrackingOrgId ? { RFP_TRACKING_ORG_ID: rfpTrackingOrgId } : {}),
       // Verified SES sender identity — horustech.dev domain must be verified in SES
       SES_FROM_EMAIL: 'noreply@horustech.dev',
+      // SES configuration set owned by FoiaAutomationStack. Naming it on a send
+      // is what routes bounces and complaints to the handler; without it a
+      // rejected FOIA request looks identical to a delivered one. Referenced by
+      // name rather than imported to avoid a cross-stack dependency cycle (that
+      // stack already depends on the database and storage stacks).
+      // Derived by the shared helper, not spelled here. The two derivations drifted on
+      // casing once; SES config-set names are case-sensitive, so the mismatch rejected
+      // every send on one path while the other kept working.
+      FOIA_SES_CONFIGURATION_SET: foiaConfigurationSetName(stage),
       // Construct the notification queue URL from the queue name — no cross-stack token reference
       ...(notificationQueueName ? {
         NOTIFICATION_QUEUE_URL: `https://sqs.${cdk.Aws.REGION}.amazonaws.com/${cdk.Aws.ACCOUNT_ID}/${notificationQueueName}`,
@@ -502,12 +512,20 @@ export class ApiOrchestratorStack extends cdk.Stack {
     });
     pocResultRule.addTarget(new eventsTargets.LambdaFunction(onPocResultFn));
 
-    // Grant SES send permission for FOIA auto-submit via email
+    // Grant SES send permission for FOIA auto-submit via email.
+    //
+    // The configuration-set ARN is required in addition to the identity: naming a
+    // configuration set on a send is authorized separately, so without it SES
+    // rejects the call outright — and that set is what routes bounces to the
+    // handler, so a send that skipped it would be undeliverable-but-silent.
     sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
         sid: 'SESFoiaSubmit',
         actions: ['ses:SendEmail', 'ses:SendRawEmail'],
-        resources: [`arn:aws:ses:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:identity/*`],
+        resources: [
+          `arn:aws:ses:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:identity/*`,
+          `arn:aws:ses:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:configuration-set/*`,
+        ],
       }),
     );
 
