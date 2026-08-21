@@ -19,13 +19,15 @@ import { EmployeeLocationSchema } from './employee';
 /**
  * Why a document produced no employee: UNREADABLE / INCOMPLETE_EXTRACTION are
  * the user-facing categories (Q2); EXTRACTION_FAILED / AMBIGUOUS_NAME are
- * operational (BR2.1, BR3.1).
+ * operational (BR2.1, BR3.1). UNMATCHED_PERSON is a personal-certification
+ * document whose holder is not in the employee pool.
  */
 export const ImportFailureReasonSchema = z.enum([
   'UNREADABLE',
   'INCOMPLETE_EXTRACTION',
   'EXTRACTION_FAILED',
   'AMBIGUOUS_NAME',
+  'UNMATCHED_PERSON',
 ]);
 export type ImportFailureReason = z.infer<typeof ImportFailureReasonSchema>;
 
@@ -63,6 +65,10 @@ export const EmployeeImportRunItemSchema = z.object({
   cvsDetected: z.number().int().nonnegative().default(0),
   employeesCreated: z.number().int().nonnegative().default(0),
   employeesUpdated: z.number().int().nonnegative().default(0),
+  /** Personal-certification documents detected (defaults keep pre-existing run records parseable). */
+  certificationDocsDetected: z.number().int().nonnegative().default(0),
+  /** Individual certifications appended to employees from certification documents. */
+  certificationsMapped: z.number().int().nonnegative().default(0),
   failedDocuments: z.array(ImportFailedDocumentSchema).default([]),
   /** The requesting user (must hold employee:manage — BR1.2). */
   triggeredBy: z.string().min(1),

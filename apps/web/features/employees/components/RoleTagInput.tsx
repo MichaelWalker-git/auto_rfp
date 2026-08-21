@@ -46,13 +46,16 @@ export const RoleTagInput = ({
       .slice(0, 8);
   }, [suggestions, value, inputText]);
 
-  const addEntry = (raw: string) => {
+  const addEntry = (raw: string, { refocus = true }: { refocus?: boolean } = {}) => {
     const entry = raw.trim().slice(0, maxEntryLength);
-    if (!entry || value.includes(entry)) return;
+    if (!entry || value.includes(entry)) {
+      if (entry && value.includes(entry)) setInputText('');
+      return;
+    }
     onChange([...value, entry]);
     setInputText('');
     setIsOpen(false);
-    inputRef.current?.focus();
+    if (refocus) inputRef.current?.focus();
   };
 
   const removeEntry = (entry: string) => {
@@ -112,6 +115,11 @@ export const RoleTagInput = ({
           onBlur={() => {
             // Delay so a suggestion click lands before the list closes.
             window.setTimeout(() => setIsOpen(false), 150);
+            // Commit pending text so tabbing away or clicking Save doesn't
+            // silently discard an entry the user typed but never Enter-ed.
+            // (Suggestion clicks preventDefault on mousedown, so they never
+            // blur the input and are unaffected.)
+            addEntry(inputText, { refocus: false });
           }}
           onKeyDown={handleKeyDown}
         />

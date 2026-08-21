@@ -16,6 +16,7 @@ const REASON_LABELS: Record<ImportFailureReason, string> = {
   INCOMPLETE_EXTRACTION: "didn't yield a person's name or valid details",
   EXTRACTION_FAILED: 'failed during AI processing',
   AMBIGUOUS_NAME: 'matches more than one existing employee — please resolve manually',
+  UNMATCHED_PERSON: "names a person who isn't in the employee pool",
 };
 
 /**
@@ -51,6 +52,13 @@ export const ImportResultBanner = ({ run, onDismiss }: ImportResultBannerProps) 
           {run.cvsDetected} CV{run.cvsDetected === 1 ? '' : 's'} detected ·{' '}
           {run.employeesCreated} employee{run.employeesCreated === 1 ? '' : 's'} added ·{' '}
           {run.employeesUpdated} updated.
+          {/* Older runs predate certificate mapping — hide the zero-valued segment for them. */}
+          {(run.certificationDocsDetected ?? 0) > 0 &&
+            ` ${run.certificationDocsDetected} certificate document${
+              run.certificationDocsDetected === 1 ? '' : 's'
+            } detected · ${run.certificationsMapped ?? 0} certification${
+              (run.certificationsMapped ?? 0) === 1 ? '' : 's'
+            } mapped to employees.`}
           {isFailed &&
             ' The AI service was unavailable, so the import could not finish. Everything imported so far has been kept — you can try again later.'}
         </p>

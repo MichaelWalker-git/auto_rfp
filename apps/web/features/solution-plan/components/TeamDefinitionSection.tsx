@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, ExternalLink, FileText, Pencil, RefreshCw, Sparkles, Users } from 'lucide-react';
+import { AlertTriangle, ExternalLink, FileText, Loader2, Pencil, RefreshCw, Sparkles, Users } from 'lucide-react';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -233,7 +233,8 @@ export const TeamDefinitionSection = ({
           />
           <div className="flex items-center gap-2">
             <Button onClick={handleSave} disabled={isBusy} data-testid="team-save">
-              Save
+              {isSaving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />}
+              {isSaving ? 'Saving…' : 'Save'}
             </Button>
             <Button variant="outline" onClick={handleCancel} disabled={isBusy} data-testid="team-cancel">
               Cancel
@@ -275,8 +276,12 @@ export const TeamDefinitionSection = ({
                 disabled={isBusy}
                 data-testid="team-retry"
               >
-                <RefreshCw className="mr-1.5 h-4 w-4" />
-                Retry
+                {isRegenerating ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <RefreshCw className="mr-1.5 h-4 w-4" />
+                )}
+                {isRegenerating ? 'Retrying…' : 'Retry'}
               </Button>
             </AlertDescription>
           </Alert>
@@ -317,12 +322,21 @@ export const TeamDefinitionSection = ({
               disabled={isBusy}
               data-testid="team-regenerate"
             >
-              {team ? (
+              {/* Matching is a 10-30s AI call — show live in-flight feedback. */}
+              {isRegenerating ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : team ? (
                 <RefreshCw className="mr-1.5 h-4 w-4" />
               ) : (
                 <Sparkles className="mr-1.5 h-4 w-4" />
               )}
-              {team ? 'Regenerate team' : 'Generate team'}
+              {isRegenerating
+                ? team
+                  ? 'Regenerating team…'
+                  : 'Generating team…'
+                : team
+                  ? 'Regenerate team'
+                  : 'Generate team'}
             </Button>
             <Button
               variant="outline"
@@ -336,7 +350,11 @@ export const TeamDefinitionSection = ({
               }
               data-testid="team-generate-qualifications"
             >
-              <FileText className="mr-1.5 h-4 w-4" />
+              {isGeneratingQualifications ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <FileText className="mr-1.5 h-4 w-4" />
+              )}
               {isGeneratingQualifications
                 ? 'Generating Team Qualifications…'
                 : 'Generate Team Qualifications'}
@@ -344,7 +362,7 @@ export const TeamDefinitionSection = ({
             {teamQualificationsDocument?.status === 'READY' && (
               <Button variant="ghost" size="sm" asChild data-testid="team-qualifications-view">
                 <Link
-                  href={`/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}/rfp-documents/${teamQualificationsDocument.documentId}`}
+                  href={`/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}/rfp-documents/${teamQualificationsDocument.documentId}/edit`}
                 >
                   <ExternalLink className="mr-1.5 h-4 w-4" />
                   View Team Qualifications

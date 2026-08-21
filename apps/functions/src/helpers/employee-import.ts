@@ -82,6 +82,8 @@ export const createImportRun = async (
       cvsDetected: 0,
       employeesCreated: 0,
       employeesUpdated: 0,
+      certificationDocsDetected: 0,
+      certificationsMapped: 0,
       failedDocuments: [],
       triggeredBy,
       startedAt: nowIso(),
@@ -127,6 +129,8 @@ export type ImportRunProgressPatch = Partial<{
   cvsDetected: number;
   employeesCreated: number;
   employeesUpdated: number;
+  certificationDocsDetected: number;
+  certificationsMapped: number;
   failedDocuments: ImportFailedDocument[];
 }>;
 

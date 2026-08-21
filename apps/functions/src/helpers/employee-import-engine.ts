@@ -39,28 +39,34 @@ const BEDROCK_MODEL_ID = requireEnv('BEDROCK_MODEL_ID', 'anthropic.claude-3-haik
 
 /* ── Prompts ────────────────────────────────────────────── */
 
-export const CV_EXTRACTION_SYSTEM_PROMPT = `You are an expert HR document analyst. You will be given the text of one document from a company's knowledge base. Your job is:
-1. Decide whether the document is a CV / resume / professional bio of a single person (as opposed to an RFP, contract, report, pricing sheet, or any other document type).
-2. If it is a CV, extract the person's details.
+export const CV_EXTRACTION_SYSTEM_PROMPT = `You are an expert HR document analyst. You will be given the text of one document from a company's knowledge base. Classify it and extract details.
+
+Document kinds:
+- "CV" — a CV / resume / professional bio of a single person.
+- "PERSONAL_CERTIFICATION" — a certificate, diploma, badge, license, or completion record awarded to a NAMED INDIVIDUAL (e.g. an AWS certification issued to Jane Smith). Certifications awarded to a company or organization (business licenses, DBE/MBE/small-business certifications, company ISO certificates) are NOT personal — classify those as "OTHER".
+- "OTHER" — anything else (RFPs, contracts, reports, pricing sheets, company-level certificates, ...).
 
 Respond ONLY with a single JSON object, no prose, in this exact shape:
 {
-  "isCv": boolean,
-  "name": string | null,            // the person's full name, or null if not detectable
-  "primaryRoles": string[],         // main professional roles/titles, each <= 100 chars
-  "secondaryRoles": string[],       // secondary roles/skills-as-roles, each <= 100 chars
-  "certifications": string[],       // professional certifications, each <= 200 chars
-  "location": "ONSHORE" | "OFFSHORE" | null   // ONSHORE if clearly US-based, OFFSHORE if clearly outside the US, null if unstated
+  "kind": "CV" | "PERSONAL_CERTIFICATION" | "OTHER",
+  "name": string | null,            // CV: the person's full name. PERSONAL_CERTIFICATION: the certificate holder's full name. null if not detectable.
+  "primaryRoles": string[],         // CV only: main professional roles/titles, each <= 100 chars
+  "secondaryRoles": string[],       // CV only: secondary roles/skills-as-roles, each <= 100 chars
+  "certifications": string[],       // CV: certifications listed in the CV. PERSONAL_CERTIFICATION: the exact name(s) of the certification(s) this document attests, each <= 200 chars
+  "location": "ONSHORE" | "OFFSHORE" | null   // CV only: ONSHORE if clearly US-based, OFFSHORE if clearly outside the US, null if unstated
 }
-If the document is not a CV, return {"isCv": false, "name": null, "primaryRoles": [], "secondaryRoles": [], "certifications": [], "location": null}.`;
+For "OTHER" return {"kind": "OTHER", "name": null, "primaryRoles": [], "secondaryRoles": [], "certifications": [], "location": null}.`;
 
 export const createCvExtractionUserPrompt = (documentText: string): string =>
   `Document text:\n\n${documentText.slice(0, 100_000)}`;
 
 /* ── Extracted-candidate schema ─────────────────────────── */
 
+export const DocumentKindSchema = z.enum(['CV', 'PERSONAL_CERTIFICATION', 'OTHER']);
+export type DocumentKind = z.infer<typeof DocumentKindSchema>;
+
 const ExtractedCvSchema = z.object({
-  isCv: z.boolean(),
+  kind: DocumentKindSchema,
   name: z.string().nullable().optional(),
   primaryRoles: z.array(z.string()).default([]),
   secondaryRoles: z.array(z.string()).default([]),
@@ -68,6 +74,13 @@ const ExtractedCvSchema = z.object({
   location: EmployeeLocationSchema.nullable().optional(),
 });
 type ExtractedCv = z.infer<typeof ExtractedCvSchema>;
+
+/** A personal-certification document held back until every CV has been processed. */
+interface PendingCertification {
+  documentName: string;
+  personName: string;
+  certifications: string[];
+}
 
 /* ── Org document listing ───────────────────────────────── */
 
@@ -224,6 +237,8 @@ interface RunCounters {
   cvsDetected: number;
   employeesCreated: number;
   employeesUpdated: number;
+  certificationDocsDetected: number;
+  certificationsMapped: number;
   failedDocuments: ImportFailedDocument[];
 }
 
@@ -251,6 +266,8 @@ export const runEmployeeImport = async (
     cvsDetected: 0,
     employeesCreated: 0,
     employeesUpdated: 0,
+    certificationDocsDetected: 0,
+    certificationsMapped: 0,
     failedDocuments: [],
   };
 
@@ -276,6 +293,11 @@ export const runEmployeeImport = async (
     console.log(`[employee-import] run ${importRunId}: scanning ${documents.length} org documents`);
 
     let consecutiveExtractionFailures = 0;
+
+    // Personal-certification documents are collected during the scan and
+    // mapped AFTER every CV has been processed, so a certificate can match an
+    // employee whose CV was imported in this same run.
+    const pendingCertifications: PendingCertification[] = [];
 
     for (const document of documents) {
       counters.documentsScanned++;
@@ -343,8 +365,27 @@ export const runEmployeeImport = async (
 
       consecutiveExtractionFailures = 0;
 
-      // BR2.1 — non-CV documents are skipped silently (not failures).
-      if (!extracted.isCv) {
+      // Personal certifications are held back for the post-CV mapping pass.
+      if (extracted.kind === 'PERSONAL_CERTIFICATION') {
+        counters.certificationDocsDetected++;
+        const holderName = extracted.name?.trim() ?? '';
+        const certNames = extracted.certifications.map((c) => c.trim()).filter(Boolean);
+        if (!holderName || certNames.length === 0) {
+          // A certificate without a detectable holder or certification name.
+          recordFailure(document.name, 'INCOMPLETE_EXTRACTION');
+        } else {
+          pendingCertifications.push({
+            documentName: document.name,
+            personName: holderName,
+            certifications: certNames,
+          });
+        }
+        await updateImportRunProgress(orgId, importRunId, counters);
+        continue;
+      }
+
+      // BR2.1 — other non-CV documents are skipped silently (not failures).
+      if (extracted.kind !== 'CV') {
         await updateImportRunProgress(orgId, importRunId, counters);
         continue;
       }
@@ -421,6 +462,59 @@ export const runEmployeeImport = async (
         recordFailure(document.name, 'INCOMPLETE_EXTRACTION');
       }
 
+      await updateImportRunProgress(orgId, importRunId, counters);
+    }
+
+    // Second pass — map personal certifications onto pool members by
+    // normalized name (runs after all CVs so same-run imports can match).
+    for (const pending of pendingCertifications) {
+      const matches = nameIndex.get(normalizeEmployeeName(pending.personName)) ?? [];
+      try {
+        if (matches.length === 0) {
+          recordFailure(pending.documentName, 'UNMATCHED_PERSON');
+        } else if (matches.length > 1) {
+          recordFailure(pending.documentName, 'AMBIGUOUS_NAME');
+        } else {
+          const existing = matches[0];
+          const current = existing.certifications ?? [];
+          const snapshot = await getExtractionSnapshot(orgId, existing.id);
+          const snapshotCerts = snapshot?.fields.certifications;
+
+          // BR3.3 — manual edits win: only an empty or AI-owned certifications
+          // field (current equals the last extraction) may be appended to.
+          const aiOwned =
+            current.length === 0 ||
+            (snapshotCerts !== undefined && valuesEqual(current, snapshotCerts));
+          if (aiOwned) {
+            const have = new Set(current.map((c) => c.trim().toLowerCase()));
+            const additions = pending.certifications.filter(
+              (c) => !have.has(c.trim().toLowerCase()),
+            );
+            if (additions.length > 0) {
+              const merged = [...current, ...additions];
+              const updated = await updateEmployee(orgId, existing.id, {
+                certifications: merged,
+              } as EmployeeUpdateRequest);
+              Object.assign(existing, updated); // keep the merge index current
+              // Refresh the snapshot so the merged list stays AI-owned next run.
+              await putExtractionSnapshot(orgId, existing.id, {
+                ...(snapshot?.fields ?? {}),
+                certifications: merged,
+              });
+              counters.certificationsMapped += additions.length;
+            }
+          }
+          // A manually edited certifications list is left untouched — the
+          // user's curation wins; this is not a failure.
+        }
+      } catch (certErr) {
+        // One certificate's write failure never sinks the run (BR3.4).
+        console.error(
+          `[employee-import] certification mapping failed for ${pending.documentName}:`,
+          certErr instanceof Error ? certErr.message : certErr,
+        );
+        recordFailure(pending.documentName, 'INCOMPLETE_EXTRACTION');
+      }
       await updateImportRunProgress(orgId, importRunId, counters);
     }
 

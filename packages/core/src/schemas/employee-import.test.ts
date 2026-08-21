@@ -23,6 +23,9 @@ describe('EmployeeImportRunItemSchema', () => {
     expect(data?.cvsDetected).toBe(0);
     expect(data?.employeesCreated).toBe(0);
     expect(data?.employeesUpdated).toBe(0);
+    // Certificate-mapping counters default to 0 so pre-existing run records parse.
+    expect(data?.certificationDocsDetected).toBe(0);
+    expect(data?.certificationsMapped).toBe(0);
     expect(data?.failedDocuments).toEqual([]);
   });
 
@@ -45,12 +48,13 @@ describe('EmployeeImportRunItemSchema', () => {
 });
 
 describe('ImportFailedDocumentSchema', () => {
-  it('accepts all four failure reasons and rejects unknown reasons', () => {
+  it('accepts all five failure reasons and rejects unknown reasons', () => {
     for (const reason of [
       'UNREADABLE',
       'INCOMPLETE_EXTRACTION',
       'EXTRACTION_FAILED',
       'AMBIGUOUS_NAME',
+      'UNMATCHED_PERSON',
     ]) {
       const { success } = ImportFailedDocumentSchema.safeParse({
         documentName: 'cv.pdf',

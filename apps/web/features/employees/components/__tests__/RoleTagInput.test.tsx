@@ -35,6 +35,31 @@ describe('RoleTagInput', () => {
     expect(screen.getByTestId('role-tag-input-tags')).toHaveTextContent('Developer');
   });
 
+  it('commits pending typed text on blur so click-away or Save does not lose it', () => {
+    render(<ControlledInput />);
+
+    const input = screen.getByTestId('role-tag-input-input');
+    fireEvent.change(input, { target: { value: 'PMP' } });
+    // No Enter — the user clicks straight onto the submit button.
+    fireEvent.blur(input);
+
+    expect(screen.getByTestId('role-tag-input-tags')).toHaveTextContent('PMP');
+    expect(input).toHaveValue('');
+  });
+
+  it('does not duplicate an existing entry committed via blur', () => {
+    render(<ControlledInput />);
+
+    const input = screen.getByTestId('role-tag-input-input');
+    fireEvent.change(input, { target: { value: 'PMP' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.change(input, { target: { value: 'PMP' } });
+    fireEvent.blur(input);
+
+    expect(screen.getAllByText('PMP')).toHaveLength(1);
+    expect(input).toHaveValue('');
+  });
+
   it('removes an entry via its remove button', () => {
     render(<ControlledInput />);
 
