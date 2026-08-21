@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   ComplianceFindingSchema,
+  ComplianceIssueTypeSchema,
   FindingAnchorSchema,
   ComplianceReviewRunSchema,
   FindingDecisionSchema,
@@ -30,6 +31,42 @@ describe('FindingAnchorSchema', () => {
 
   it('rejects a heading anchor missing text', () => {
     expect(FindingAnchorSchema.safeParse({ kind: 'heading' }).success).toBe(false);
+  });
+});
+
+describe('ComplianceIssueTypeSchema — factual-accuracy issue types', () => {
+  it.each(['FACTUAL_INACCURACY', 'UNVERIFIED_CLAIM', 'NDA_DISCLOSURE_LEAK', 'SOLUTION_PLAN_MISMATCH'])(
+    'accepts the new issue type %s',
+    (issueType) => {
+      expect(ComplianceIssueTypeSchema.safeParse(issueType).success).toBe(true);
+    },
+  );
+
+  it('still accepts the pre-existing issue types', () => {
+    for (const t of ['MISSING_REQUIREMENT', 'MISSING_FORM', 'INCONSISTENCY', 'OTHER']) {
+      expect(ComplianceIssueTypeSchema.safeParse(t).success).toBe(true);
+    }
+  });
+
+  it('rejects an unknown issue type', () => {
+    expect(ComplianceIssueTypeSchema.safeParse('MADE_UP').success).toBe(false);
+  });
+
+  it('parses a finding carrying a new issue type', () => {
+    const { success } = ComplianceFindingSchema.safeParse({
+      findingId: 'f-nda',
+      fingerprint: 'fp-nda',
+      targetKind: 'RFP_DOCUMENT',
+      documentId: 'doc-1',
+      documentTitle: 'Technical Volume',
+      anchor: { kind: 'heading', text: 'Past Performance' },
+      snippet: 'We supported Acme Corp...',
+      issueType: 'NDA_DISCLOSURE_LEAK',
+      severity: 'critical',
+      title: 'Confidential client named',
+      description: 'A withheld client name appears in the package.',
+    });
+    expect(success).toBe(true);
   });
 });
 

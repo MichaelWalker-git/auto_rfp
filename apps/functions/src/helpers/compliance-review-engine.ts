@@ -18,7 +18,12 @@ import {
 } from '@/helpers/compliance-review-tools';
 import { validateAndTagFindings, type RawFinding } from '@/helpers/compliance-review-validate';
 import { computeMissingFormFindings } from '@/helpers/compliance-review-missing-forms';
-import { computeConsistencyFindings } from '@/helpers/compliance-review-consistency';
+import { computeConsistencyFindings, computeProfileFactFindings } from '@/helpers/compliance-review-consistency';
+import { computeCertFindings } from '@/helpers/compliance-review-cert';
+import { computeKbContradictionFindings } from '@/helpers/compliance-review-kb-contradiction';
+import { computePastPerfValueFindings } from '@/helpers/compliance-review-pastperf';
+import { computeNdaLeakFindings } from '@/helpers/compliance-review-nda-leak';
+import { computeSolutionPlanFindings } from '@/helpers/compliance-review-solution-plan';
 import { MAX_TOKENS, MAX_TOKENS_FULL, MAX_TOOL_ROUNDS, MAX_TOOL_ROUNDS_FULL } from '@/constants/compliance-review';
 import type { ComplianceFinding } from '@auto-rfp/core';
 
@@ -46,7 +51,8 @@ const RawFindingSchema = z.object({
   issueType: z
     .enum([
       'MISSING_REQUIREMENT', 'MISSING_FORM', 'INCORRECT_ANSWER', 'POOR_ANSWER',
-      'FORMAT_ISSUE', 'INCONSISTENCY', 'OTHER',
+      'FORMAT_ISSUE', 'INCONSISTENCY', 'FACTUAL_INACCURACY', 'UNVERIFIED_CLAIM',
+      'NDA_DISCLOSURE_LEAK', 'SOLUTION_PLAN_MISMATCH', 'OTHER',
     ])
     .catch('OTHER'),
   severity: z.enum(['critical', 'major', 'minor', 'info']).catch('info'),
@@ -70,19 +76,24 @@ type ReviewOutput = z.infer<typeof ReviewOutputSchema>;
 
 const SYSTEM_PROMPT = `You are a senior proposal compliance reviewer for US federal government contracts.
 
-You review a SUBMISSION PACKAGE (RFP response documents + required forms) against the SOLICITATION to find where the response fails to meet the government's needs. You look for:
+You review a SUBMISSION PACKAGE (RFP response documents + required forms) against the SOLICITATION to find where the response fails to meet the government's needs. You also verify that the package is TRUE TO THE COMPANY'S OWN FACTS (company profile, knowledge base, past performance, certifications), not only solicitation-compliant. You look for:
 - Missing requirements (a Section L/M instruction or evaluation factor not addressed anywhere)
 - Missing required forms
 - Incorrect answers (content that contradicts the solicitation or is factually wrong)
 - Poor answers (vague, non-responsive, or unsupported content)
 - Format issues (page limits, naming, structure)
 - Inconsistencies (values that disagree across documents — cost, dates, quantities)
+- Factual inaccuracies (a claim about the company that contradicts an internal source of truth: profile identity fields, the knowledge base, or a past-performance record) → issueType FACTUAL_INACCURACY
+- Unverified claims (a certification or set-aside claimed in the package that is absent, unverified, or expired in the company's records) → issueType UNVERIFIED_CLAIM
+- NDA disclosure leaks (a client name the company must withhold under an NDA/permission gate appears in the package) → issueType NDA_DISCLOSURE_LEAK, severity critical
+- Solution-plan mismatches (a price, billing cadence, team staffing — a role given to a different person, or a person given a different role — approach, or service in the package that contradicts the latest approved solution plan) → issueType SOLUTION_PLAN_MISMATCH
 
 HOW TO WORK:
 1. Call list_package_documents FIRST to see the documents (with their heading list), XLSX questionnaires, and forms.
 2. Call search_solicitation to find the relevant requirements/instructions.
 3. Call get_document_section (RFP docs) / get_form_fields (forms) / get_questionnaire_cells (XLSX questionnaires) to read what the package actually says.
-4. Only then judge compliance.
+4. When judging whether a claim the package makes ABOUT THE COMPANY is accurate (identity fields, certifications, past-performance values, or a possible confidential-client name), call verify_company_facts BEFORE asserting it — never rely on memory for a company fact.
+5. Only then judge compliance and factual accuracy.
 
 OUTPUT FORMAT — return ONLY a JSON object, no markdown fences, no prose outside it:
 {
@@ -97,7 +108,7 @@ OUTPUT FORMAT — return ONLY a JSON object, no markdown fences, no prose outsid
                  // or { "kind": "field", "fieldId": "<EXACT fieldId from get_form_fields>" },
                  // or { "kind": "cell", "sheet": "<sheet name>", "row": <0-based row>, "col": <0-based col> } from get_questionnaire_cells,
       "snippet": "<a SHORT VERBATIM excerpt copied EXACTLY from the document/form text you read via a tool — do not paraphrase>",
-      "issueType": "MISSING_REQUIREMENT | MISSING_FORM | INCORRECT_ANSWER | POOR_ANSWER | FORMAT_ISSUE | INCONSISTENCY | OTHER",
+      "issueType": "MISSING_REQUIREMENT | MISSING_FORM | INCORRECT_ANSWER | POOR_ANSWER | FORMAT_ISSUE | INCONSISTENCY | FACTUAL_INACCURACY | UNVERIFIED_CLAIM | NDA_DISCLOSURE_LEAK | SOLUTION_PLAN_MISMATCH | OTHER",
       "severity": "critical | major | minor | info",
       "title": "<one-line summary>",
       "description": "<what is wrong and why, referencing the solicitation>",
@@ -160,7 +171,7 @@ const runReview = async (args: {
   const { orgId, projectId, oppId, modelId, userPrompt, maxToolRounds, maxTokens, augmentFindings } = args;
 
   const inventory = args.inventory ?? (await buildPackageInventory({ orgId, projectId, oppId }));
-  const executor = makeComplianceToolExecutor({ orgId, oppId, inventory });
+  const executor = makeComplianceToolExecutor({ orgId, oppId, projectId, inventory });
 
   const output = await invokeClaudeWithTools<ReviewOutput>({
     modelId,
@@ -201,8 +212,13 @@ export const runFullReview = async (args: {
     //   2. consistency: canonical company name/identifiers vs every doc's text —
     //      catches inconsistencies in sections the model never read (e.g. a large
     //      questionnaire). Runs in code, no model calls → token/time-safe.
+    // In addition to the two solicitation-side cross-checks (missing forms +
+    // canonical name/identifier consistency), the full review runs the
+    // factual-accuracy checks C1–C6 (fact-anchored two-stage pipeline). Every
+    // augmenter is best-effort ([] on failure) so a truth-source outage never
+    // fails a review, and all flow through validateAndTagFindings.
     augmentFindings: async (rawFindings, inventory) => {
-      const [missing, inconsistent] = await Promise.all([
+      const [missing, inconsistent, profileFacts, certs, kb, pastperf, ndaLeak, solutionPlan] = await Promise.all([
         computeMissingFormFindings({
           projectId: args.projectId,
           oppId: args.oppId,
@@ -211,8 +227,26 @@ export const runFullReview = async (args: {
           existingFindings: rawFindings,
         }),
         computeConsistencyFindings({ orgId: args.orgId, modelId: args.modelId, inventory }),
+        // C1 — profile identity fields (address/NAICS/zip/signatory/entityType…).
+        computeProfileFactFindings({ orgId: args.orgId, modelId: args.modelId, inventory }),
+        // C2 — claimed certifications vs KB/profile cert records.
+        computeCertFindings({ orgId: args.orgId, projectId: args.projectId, modelId: args.modelId, inventory }),
+        // C3 — package prose vs APPROVED knowledge base.
+        computeKbContradictionFindings({ orgId: args.orgId, projectId: args.projectId, modelId: args.modelId, inventory }),
+        // C4 — stated past-performance values vs usable PP records.
+        computePastPerfValueFindings({ orgId: args.orgId, modelId: args.modelId, inventory }),
+        // C5 — NDA client-name leak.
+        computeNdaLeakFindings({ orgId: args.orgId, modelId: args.modelId, inventory }),
+        // C6 — package vs the latest solution plan (prices/approach/team/services).
+        computeSolutionPlanFindings({
+          orgId: args.orgId,
+          projectId: args.projectId,
+          oppId: args.oppId,
+          modelId: args.modelId,
+          inventory,
+        }),
       ]);
-      return [...missing, ...inconsistent];
+      return [...missing, ...inconsistent, ...profileFacts, ...certs, ...kb, ...pastperf, ...ndaLeak, ...solutionPlan];
     },
   });
 

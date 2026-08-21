@@ -1,9 +1,34 @@
 import { test as setup, expect } from '@playwright/test';
+import fs from 'fs';
 import path from 'path';
 
 const authFile = path.join(__dirname, '.auth/user.json');
 
+/**
+ * A previously-captured session (e.g. via `e2e/capture-sso.ts` for SSO logins
+ * that the password flow below can't drive) is authoritative — never overwrite
+ * it. A file counts as a real session when it carries at least one origin with
+ * localStorage entries (Amplify persists Cognito tokens there).
+ */
+const hasCapturedSession = (): boolean => {
+  try {
+    const state = JSON.parse(fs.readFileSync(authFile, 'utf8')) as {
+      origins?: Array<{ localStorage?: unknown[] }>;
+    };
+    return (state.origins ?? []).some((o) => (o.localStorage ?? []).length > 0);
+  } catch {
+    return false;
+  }
+};
+
 setup('authenticate', async ({ page }) => {
+  // A hand-captured SSO session wins — leave it untouched so we don't clobber it
+  // with an empty state on runs that only set E2E_TEST_EMAIL (SSO, no password).
+  if (hasCapturedSession()) {
+    console.log('🔑 Reusing existing captured auth session (e2e/.auth/user.json)');
+    return;
+  }
+
   // Check if we have test credentials
   const testEmail = process.env.E2E_TEST_EMAIL;
   const testPassword = process.env.E2E_TEST_PASSWORD;

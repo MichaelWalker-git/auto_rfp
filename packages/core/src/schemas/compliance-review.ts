@@ -29,6 +29,10 @@ export const ComplianceIssueTypeSchema = z.enum([
   'POOR_ANSWER',         // Content is weak, vague, or non-responsive
   'FORMAT_ISSUE',        // Format/page-limit/naming problem
   'INCONSISTENCY',       // Values disagree across documents (cost, dates, etc.)
+  'FACTUAL_INACCURACY',  // A package claim contradicts an internal source of truth (C1, C3, C4)
+  'UNVERIFIED_CLAIM',    // A claimed cert is absent / unverified / expired (C2)
+  'NDA_DISCLOSURE_LEAK', // Package discloses a client name that must be withheld (C5)
+  'SOLUTION_PLAN_MISMATCH', // A package claim contradicts the latest solution plan (C6)
   'OTHER',
 ]);
 export type ComplianceIssueType = z.infer<typeof ComplianceIssueTypeSchema>;

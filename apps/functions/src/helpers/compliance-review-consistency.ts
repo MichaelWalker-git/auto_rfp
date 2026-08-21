@@ -25,12 +25,20 @@
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import { safeParseJsonFromModel } from '@/helpers/json';
 import { getCompanyProfile } from '@/helpers/company-profile';
-import { loadRFPDocumentHtml } from '@/helpers/rfp-document';
+import { loadInventoryDocHtml } from '@/helpers/compliance-review-doc-cache';
 import { stripHtml } from '@/helpers/compliance-review-html';
+import {
+  MAX_FACTUAL_CANDIDATES_PER_CHECK,
+  MAX_TOKENS_FACTUAL,
+} from '@/constants/compliance-review';
 import type { PackageInventory } from '@/helpers/compliance-review-tools';
 import type { RawFinding } from '@/helpers/compliance-review-validate';
+import type { FindingAnchor } from '@auto-rfp/core';
+import { norm, escapeRegex, tokens, containsWord } from '@/helpers/compliance-review-text';
 
-const norm = (s: string): string => s.replace(/\s+/g, ' ').trim();
+// Re-export so existing importers (e.g. compliance-review-solution-plan) keep a
+// stable path while the primitive now lives in compliance-review-text.
+export { containsWord };
 
 // ─── Candidate name-phrase extraction (deterministic) ─────────────────────────
 
@@ -134,29 +142,6 @@ interface CanonicalIdentifier {
   value: string;
 }
 
-const escapeRegex = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-/**
- * Whole-word presence test. A plain substring `.includes` produced false-positive
- * findings because the identifier acronyms occur INSIDE ordinary words — "being"
- * / "protein" / "ceiling" contain "ein", "cage" is itself a word — so any doc with
- * those words got a spurious inconsistency finding. `\b...\b` requires the token
- * to stand alone.
- *
- * `caseSensitive` matters for the two uses:
- *  - LABEL match → case-sensitive: the federal identifiers (UEI/CAGE/EIN) are
- *    ALWAYS uppercase acronyms in proposal text, so "CAGE" is the label but the
- *    lowercase word "cage" is not — case-sensitivity is what separates them
- *    (word boundaries alone can't).
- *  - VALUE match → case-insensitive: for the "value is absent" check, matching
- *    loosely means we're LESS likely to wrongly report it missing.
- */
-export const containsWord = (haystack: string, needle: string, caseSensitive = false): boolean => {
-  const n = needle.trim();
-  if (!n) return false;
-  return new RegExp(`\\b${escapeRegex(n)}\\b`, caseSensitive ? '' : 'i').test(haystack);
-};
-
 /**
  * Presence test for a formatted IDENTIFIER value (UEI / CAGE / EIN), tolerant of
  * separator and whitespace differences. Federal identifiers are written with
@@ -214,7 +199,7 @@ export const computeConsistencyFindings = async (args: {
       docs.map(async (d) => {
         try {
           if (d.htmlContentKey) {
-            texts.set(d.documentId, norm(stripHtml(await loadRFPDocumentHtml(d.htmlContentKey))));
+            texts.set(d.documentId, norm(stripHtml(await loadInventoryDocHtml(inventory, d.htmlContentKey))));
           } else if (d.questionnaireCells) {
             // Join cells with a delimiter that BREAKS phrase runs — cells are
             // distinct content units, so a value like "HORUSTECH" in its own cell
@@ -382,6 +367,475 @@ export const computeConsistencyFindings = async (args: {
     return findings;
   } catch (err) {
     console.warn('[compliance-review-consistency] cross-check failed:', (err as Error)?.message);
+    return [];
+  }
+};
+
+// ─── C1 — Profile identity fields (two-stage) ────────────────────────────────
+//
+// Extends the identity coverage of `computeConsistencyFindings` beyond the
+// name/UEI/CAGE/EIN it already handles. Two families of fields:
+//   - Deterministic-exact (high confidence): primaryNaics — fires ONLY when a
+//     value of the fact's shape (a 6-digit NAICS code) that DIFFERS from the
+//     canonical one actually appears near the label. The label alone ("NAICS
+//     codes are listed in the attached forms") is not enough — that over-flags
+//     cover pages. A competing concrete code is near-certain drift, so it emits
+//     directly with no Stage-2 model call.
+//   - Prose (Stage-2 verify): zip, address, city, state, entityType,
+//     authorizedSignatory.name — these appear in free text where a naive match
+//     over-flags (e.g. "LLC" in a legal clause, or "zip file"/"zip code" for the
+//     ZIP label), so Stage 1 only generates candidate spots near a label and the
+//     model confirms the genuine mismatch.
+//
+// FR-3: this NEVER re-flags the name/UEI/CAGE/EIN spots the existing pass covers
+// — those fact types are simply not among the ones scanned here.
+
+interface ProfileFact {
+  factType: string;
+  /** Human label used in the label-proximity generator + the finding text. */
+  label: string;
+  /** The canonical value from the profile. */
+  canonical: string;
+  /** Exact deterministic match, or prose (needs Stage-2 verify). */
+  mode: 'exact' | 'prose';
+  /**
+   * REQUIRED for `exact` facts: the shape of the value in text (e.g. a 6-digit
+   * NAICS). The exact path only fires when a value of THIS shape — differing from
+   * the canonical — actually appears; the label alone is NOT enough. This is what
+   * makes the direct (no-Stage-2) emit trustworthy: "NAICS codes are in the
+   * attached forms" (label, no code) is not a drift, but "NAICS 541511" (label +
+   * a competing code) is. Global (`/g`) so we can scan every occurrence.
+   */
+  valueShape?: RegExp;
+}
+
+/**
+ * How close (in characters) a value-shaped token must sit to a label occurrence
+ * to count as drift on the whole-document path. Without this, the deterministic
+ * exact path scanned the ENTIRE document for any value of the fact's shape, so a
+ * doc merely mentioning "NAICS" plus any unrelated 6-digit run — a comma-less
+ * dollar amount ("$500000"), a control number ("DOC-100234"), a yearmonth
+ * ("202412") — produced a spurious `major` finding. Requiring the competing
+ * value NEAR the label is what the design comment (and the finding text) promise.
+ */
+const EXACT_LABEL_PROXIMITY = 60;
+
+/**
+ * For an `exact` fact, find a value-shaped token in the text that DIFFERS from
+ * the canonical value — the concrete "competing value" that turns a bare label
+ * mention into genuine drift. Returns the differing value (for the finding text)
+ * or null when the only value-shaped tokens present ARE the canonical one (or
+ * none appear at all).
+ *
+ * `proximityLabel` constrains matching to value-shaped tokens that appear within
+ * `EXACT_LABEL_PROXIMITY` characters of a label occurrence — required on the
+ * whole-document path so an unrelated 6-digit run elsewhere in the doc is not
+ * mistaken for a competing value. Omit it when `text` is ALREADY scoped to the
+ * fact (e.g. a form field's own value), where every token is on-topic.
+ */
+const findExactDrift = (text: string, fact: ProfileFact, proximityLabel?: string): string | null => {
+  if (!fact.valueShape) return null;
+  const canon = norm(fact.canonical).toLowerCase();
+  // Collect label occurrences once (case-insensitive) for the proximity test.
+  let labelSpans: Array<[number, number]> | null = null;
+  if (proximityLabel) {
+    labelSpans = [];
+    const labelRe = new RegExp(`\\b${escapeRegex(proximityLabel)}\\b`, 'gi');
+    let lm: RegExpExecArray | null;
+    while ((lm = labelRe.exec(text)) !== null) {
+      labelSpans.push([lm.index, lm.index + lm[0].length]);
+      if (labelRe.lastIndex === lm.index) labelRe.lastIndex++;
+    }
+    if (labelSpans.length === 0) return null; // label not present as a whole word
+  }
+  const re = new RegExp(fact.valueShape.source, fact.valueShape.flags.includes('g') ? fact.valueShape.flags : `${fact.valueShape.flags}g`);
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const found = norm(m[0]);
+    const advance = () => {
+      if (re.lastIndex === m!.index) re.lastIndex++; // guard against zero-width stall
+    };
+    if (found.toLowerCase() === canon) {
+      advance();
+      continue;
+    }
+    if (labelSpans) {
+      const near = labelSpans.some(
+        ([ls, le]) => m!.index <= le + EXACT_LABEL_PROXIMITY && m!.index + m![0].length >= ls - EXACT_LABEL_PROXIMITY,
+      );
+      if (!near) {
+        advance();
+        continue;
+      }
+    }
+    return found;
+  }
+  return null;
+};
+
+/** Label tokens whose presence near a differing value makes a prose candidate. */
+const PROSE_LABELS: Record<string, string[]> = {
+  address: ['address', 'street'],
+  city: ['city'],
+  state: ['state'],
+  // "zip" is a common English word ("zip file", "zip code" in boilerplate), so
+  // the bare-label match over-flags on the exact path. Route it through Stage 2:
+  // the label seeds a candidate, the model confirms a genuine ZIP contradiction.
+  zip: ['zip', 'zip code', 'postal code', 'postal'],
+  entityType: ['entity', 'organization type', 'business type', 'incorporated', 'llc', 'inc', 'corporation'],
+  'authorizedSignatory.name': ['signature', 'signatory', 'authorized', 'name', 'title', 'printed name'],
+};
+
+interface FactCandidate {
+  fact: ProfileFact;
+  targetKind: RawFinding['targetKind'];
+  documentId: string;
+  documentTitle: string;
+  anchor?: FindingAnchor;
+  found: string;
+  snippet: string;
+}
+
+/**
+ * An abbreviation-shaped value — a short all-caps run such as a 2-letter state
+ * code ("IN", "OR", "ME", "OK", "OH", "HI") or a legal-entity suffix ("LLC",
+ * "INC") — collides with ordinary English words under a case-insensitive match,
+ * so it MUST be matched case-sensitively and whole-word, exactly as for the
+ * UEI/CAGE/EIN identifiers (see `containsWord`). Otherwise canonical "IN" reads
+ * as present in nearly every document, `proseCandidateSnippet` short-circuits,
+ * and a genuinely wrong state is silently never surfaced.
+ */
+const isAbbreviationShaped = (v: string): boolean => /^[A-Z]{2,5}$/.test(norm(v));
+
+const containsCanonical = (text: string, canonical: string): boolean => {
+  const c = norm(canonical);
+  // Abbreviation-shaped → case-sensitive whole-word only; the loose substring
+  // fallback below is what makes "IN" match "training"/"in"/"during".
+  if (isAbbreviationShaped(c)) return containsWord(text, c, true);
+  return containsWord(text, c) || text.toLowerCase().includes(c.toLowerCase());
+};
+
+
+/**
+ * Index of the first WHOLE-WORD occurrence of `label` in `text` (case-insensitive),
+ * or -1. Word-bounded like `containsWord` — a bare `indexOf` over-generated Stage-2
+ * candidates because short labels match inside unrelated words ("inc" in
+ * "province"/"since", "name" in "filename", "state" in "statement"), and each
+ * spurious hit costs a model item and can crowd out real ones under the candidate cap.
+ */
+const wholeWordIndex = (text: string, label: string): number => {
+  const n = label.trim();
+  if (!n) return -1;
+  const m = new RegExp(`\\b${escapeRegex(n)}\\b`, 'i').exec(text);
+  return m ? m.index : -1;
+};
+
+/**
+ * A prose candidate exists when the field's label (or a partial token of the
+ * canonical value) appears in the text but the canonical value itself does NOT —
+ * a spot that MIGHT state a different value for this fact. Loose on purpose
+ * (Stage 2 is the precision gate), but label matching is WHOLE-WORD so short
+ * label tokens don't match inside unrelated words.
+ */
+const proseCandidateSnippet = (text: string, fact: ProfileFact): string | null => {
+  if (containsCanonical(text, fact.canonical)) return null; // value present → consistent
+  const labels = PROSE_LABELS[fact.factType] ?? [fact.label.toLowerCase()];
+  let hitIdx = -1;
+  for (const label of labels) {
+    const idx = wholeWordIndex(text, label);
+    if (idx >= 0) {
+      hitIdx = idx;
+      break;
+    }
+  }
+  if (hitIdx < 0) {
+    // Partial token overlap with the canonical value (e.g. the street name
+    // without the suite) is a weaker signal but still a candidate.
+    const canonToks = tokens(fact.canonical);
+    const textToks = new Set(tokens(text));
+    if (!canonToks.some((t) => textToks.has(t))) return null;
+    hitIdx = 0;
+  }
+  const start = Math.max(0, hitIdx - 40);
+  return norm(text.slice(start, start + 200));
+};
+
+const buildFactVerifyPrompt = (items: Array<{ i: number; label: string; canonical: string; passage: string }>) => ({
+  anthropic_version: 'bedrock-2023-05-31',
+  system:
+    'You verify company identity facts. For each item you are given a FIELD label, the CANONICAL ' +
+    'value from the company profile, and a PASSAGE from a proposal document. Return ONLY the indices ' +
+    'where the passage states a value for THAT SAME field that genuinely CONTRADICTS the canonical ' +
+    'value (a real factual mismatch). Ignore passages that do not actually state the field, that ' +
+    'match the canonical value, or that merely use a word (e.g. "LLC") in unrelated boilerplate. ' +
+    'Return ONLY JSON: { "mismatches": [{ "index": <i>, "found": "<the differing value in the passage>" }, ...] }.',
+  messages: [
+    {
+      role: 'user',
+      content: [
+        {
+          type: 'text',
+          text:
+            'ITEMS:\n' +
+            items
+              .map((it) => `#${it.i} FIELD="${it.label}" CANONICAL="${it.canonical}"\nPASSAGE: ${it.passage}`)
+              .join('\n\n') +
+            '\n\nReturn only the genuine contradictions. JSON only.',
+        },
+      ],
+    },
+  ],
+  temperature: 0,
+  max_tokens: MAX_TOKENS_FACTUAL,
+});
+
+const parseMismatches = (modelOut: unknown): Map<number, string> => {
+  const out = new Map<number, string>();
+  if (!modelOut || typeof modelOut !== 'object') return out;
+  const arr = (modelOut as Record<string, unknown>).mismatches;
+  if (!Array.isArray(arr)) return out;
+  for (const entry of arr) {
+    if (entry && typeof entry === 'object') {
+      const i = Number((entry as Record<string, unknown>).index);
+      const found = (entry as Record<string, unknown>).found;
+      if (Number.isInteger(i)) out.set(i, typeof found === 'string' ? found : '');
+    }
+  }
+  return out;
+};
+
+const buildProfileFacts = (profile: {
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+  primaryNaics?: string | null;
+  entityType?: string | null;
+  authorizedSignatory?: { name: string } | null;
+}): ProfileFact[] => {
+  const facts: ProfileFact[] = [];
+  const add = (
+    factType: string,
+    label: string,
+    value: string | null | undefined,
+    mode: ProfileFact['mode'],
+    valueShape?: RegExp,
+  ) => {
+    const v = norm(value ?? '');
+    if (v) facts.push({ factType, label, canonical: v, mode, valueShape });
+  };
+  // NAICS stays on the deterministic (no-Stage-2) path, but only fires when a
+  // real 6-digit code — differing from the canonical — is present. The label
+  // alone ("NAICS codes are listed in the attached forms") is NOT drift.
+  add('primaryNaics', 'NAICS', profile.primaryNaics, 'exact', /\b\d{6}\b/);
+  // ZIP is prose (model-verified), not exact: "zip" is a common English word,
+  // so a bare-label match with no Stage-2 gate false-positives on boilerplate
+  // like "zip file". NAICS stays exact — a 6-digit code rarely appears sans value.
+  add('zip', 'ZIP', profile.zip, 'prose');
+  add('address', 'Address', profile.address, 'prose');
+  add('city', 'City', profile.city, 'prose');
+  add('state', 'State', profile.state, 'prose');
+  add('entityType', 'Entity type', profile.entityType, 'prose');
+  add('authorizedSignatory.name', 'Authorized signatory', profile.authorizedSignatory?.name, 'prose');
+  return facts;
+};
+
+/**
+ * Build the plain scan text for every doc + form (mirrors the delimiter logic in
+ * `computeConsistencyFindings`), keyed by documentId. Returns the text map plus
+ * the doc/form metadata needed to anchor findings.
+ */
+const loadScanText = async (
+  inventory: PackageInventory,
+): Promise<Map<string, { text: string; targetKind: RawFinding['targetKind']; title: string }>> => {
+  const map = new Map<string, { text: string; targetKind: RawFinding['targetKind']; title: string }>();
+  await Promise.all(
+    inventory.documents
+      .filter((d) => d.htmlContentKey || d.questionnaireCells)
+      .map(async (d) => {
+        try {
+          if (d.htmlContentKey) {
+            map.set(d.documentId, {
+              text: norm(stripHtml(await loadInventoryDocHtml(inventory, d.htmlContentKey))),
+              targetKind: d.targetKind,
+              title: d.title,
+            });
+          } else if (d.questionnaireCells) {
+            map.set(d.documentId, {
+              text: d.questionnaireCells.cells.map((c) => norm(c.value)).filter(Boolean).join(' | '),
+              targetKind: d.targetKind,
+              title: d.title,
+            });
+          }
+        } catch {
+          /* skip unreadable doc */
+        }
+      }),
+  );
+  return map;
+};
+
+/**
+ * C1 identity-field factual check. The deterministic-exact field (NAICS) emits
+ * directly; prose fields (zip, address, city, state, entityType, signatory)
+ * collect candidates that ONE batched model call confirms. Best-effort → `[]`
+ * on failure. Emits `FACTUAL_INACCURACY` / `major`.
+ */
+export const computeProfileFactFindings = async (args: {
+  orgId: string;
+  modelId: string;
+  inventory: PackageInventory;
+}): Promise<RawFinding[]> => {
+  try {
+    const { orgId, modelId, inventory } = args;
+    const profile = await getCompanyProfile(orgId).catch(() => null);
+    if (!profile) return [];
+
+    const facts = buildProfileFacts(profile);
+    if (facts.length === 0) return [];
+
+    const scan = await loadScanText(inventory);
+    const findings: RawFinding[] = [];
+    const proseCandidates: FactCandidate[] = [];
+    let generated = 0;
+
+    // Per-doc scan.
+    for (const [documentId, { text, targetKind, title }] of scan) {
+      if (!text) continue;
+      for (const fact of facts) {
+        if (fact.mode === 'exact') {
+          // Drift requires BOTH the label AND a competing value of the fact's
+          // shape (e.g. a 6-digit NAICS ≠ canonical). The label alone — "NAICS
+          // codes are listed in the attached forms" — is NOT a finding.
+          const labelPresent = containsWord(text, fact.label, true) || containsWord(text, fact.label, false);
+          // Whole-doc scan → require the competing value NEAR a label occurrence,
+          // not just anywhere in the document (an unrelated 6-digit run — a
+          // comma-less dollar amount, control number, or yearmonth — is not drift).
+          const drift =
+            labelPresent && !containsCanonical(text, fact.canonical) ? findExactDrift(text, fact, fact.label) : null;
+          if (drift) {
+            generated += 1;
+            findings.push({
+              findingId: `profile-fact-${fact.factType}-${documentId}`,
+              targetKind,
+              documentId,
+              documentTitle: title,
+              issueType: 'FACTUAL_INACCURACY',
+              severity: 'major',
+              title: `${fact.label} may not match the company profile in "${title}"`,
+              description:
+                `This document states a ${fact.label} of "${drift}", but the company profile's ` +
+                `${fact.label} is "${fact.canonical}". Verify the value here matches the company record.`,
+              suggestion: `Confirm the ${fact.label} in "${title}" is "${fact.canonical}".`,
+            });
+          }
+        } else {
+          const snippet = proseCandidateSnippet(text, fact);
+          if (snippet) {
+            generated += 1;
+            proseCandidates.push({ fact, targetKind, documentId, documentTitle: title, found: '', snippet });
+          }
+        }
+      }
+    }
+
+    // Form fields: exact + prose candidates anchored to the field.
+    for (const form of inventory.forms) {
+      for (const field of form.fields) {
+        const value = norm(field.value ?? '');
+        const label = norm(field.label ?? '');
+        if (!value) continue;
+        for (const fact of facts) {
+          const labels = PROSE_LABELS[fact.factType] ?? [fact.label.toLowerCase()];
+          // Whole-word label match (not substring) so a short label token like
+          // "name"/"inc" doesn't match inside "Filename"/"Province" field labels.
+          const labelNamesFact =
+            containsWord(label, fact.label, false) || labels.some((l) => containsWord(label, l, false));
+          if (!labelNamesFact) continue;
+          if (containsCanonical(value, fact.canonical)) continue;
+          const anchor: FindingAnchor = { kind: 'field', fieldId: field.fieldId };
+          if (fact.mode === 'exact') {
+            // Same rule as the doc scan: a value-shaped token (≠ canonical) must
+            // actually be in the field. A NAICS field reading "See attachment"
+            // is not drift — only a competing 6-digit code is.
+            const drift = findExactDrift(value, fact);
+            if (!drift) continue;
+            generated += 1;
+            findings.push({
+              findingId: `profile-fact-${fact.factType}-form-${form.formId}-${field.fieldId}`,
+              targetKind: form.targetKind,
+              documentId: form.formId,
+              documentTitle: form.name,
+              anchor,
+              issueType: 'FACTUAL_INACCURACY',
+              severity: 'major',
+              title: `${fact.label} may not match the company profile in "${form.name}"`,
+              description:
+                `The field "${field.label}" states a ${fact.label} of "${drift}", but the company ` +
+                `profile's ${fact.label} is "${fact.canonical}". Verify the value here matches the company record.`,
+              suggestion: `Confirm the ${fact.label} in "${form.name}" is "${fact.canonical}".`,
+            });
+          } else {
+            generated += 1;
+            proseCandidates.push({
+              fact,
+              targetKind: form.targetKind,
+              documentId: form.formId,
+              documentTitle: form.name,
+              anchor,
+              found: value,
+              snippet: `${label}: ${value}`.slice(0, 200),
+            });
+          }
+        }
+      }
+    }
+
+    // Stage 2 — verify the prose candidates (one batched call), capped.
+    const capped = proseCandidates.slice(0, MAX_FACTUAL_CANDIDATES_PER_CHECK);
+    if (capped.length > 0) {
+      try {
+        const items = capped.map((c, i) => ({
+          i,
+          label: c.fact.label,
+          canonical: c.fact.canonical,
+          passage: c.snippet,
+        }));
+        const body = await invokeModel(modelId, JSON.stringify(buildFactVerifyPrompt(items)));
+        const json = JSON.parse(new TextDecoder('utf-8').decode(body)) as Record<string, unknown>;
+        const blocks = (json?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
+        const raw = blocks.find((c) => c?.type === 'text')?.text ?? null;
+        const mismatches = raw ? parseMismatches(safeParseJsonFromModel(String(raw))) : new Map<number, string>();
+        capped.forEach((c, i) => {
+          if (!mismatches.has(i)) return;
+          const found = mismatches.get(i) || c.found;
+          findings.push({
+            findingId: `profile-fact-${c.fact.factType}-${c.documentId}-${i}`,
+            targetKind: c.targetKind,
+            documentId: c.documentId,
+            documentTitle: c.documentTitle,
+            anchor: c.anchor,
+            snippet: c.snippet,
+            issueType: 'FACTUAL_INACCURACY',
+            severity: 'major',
+            title: `${c.fact.label} contradicts the company profile in "${c.documentTitle}"`,
+            description:
+              `The company profile shows ${c.fact.label} "${c.fact.canonical}"` +
+              (found ? `, but this document shows "${found}".` : `, which this document appears to contradict.`),
+            suggestion: `Update "${c.documentTitle}" so the ${c.fact.label} matches "${c.fact.canonical}".`,
+          });
+        });
+      } catch (err) {
+        console.warn('[compliance-review-consistency] C1 prose verify failed:', (err as Error)?.message);
+      }
+    }
+
+    // FR-9 instrumentation.
+    console.log(JSON.stringify({ tag: 'factual-candidates', factType: 'C1-identity', generated, kept: findings.length }));
+
+    return findings;
+  } catch (err) {
+    console.warn('[compliance-review-consistency] profile-fact check failed:', (err as Error)?.message);
     return [];
   }
 };
