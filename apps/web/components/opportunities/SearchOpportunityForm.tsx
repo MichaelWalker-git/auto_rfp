@@ -310,10 +310,16 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
   const [saveName, setSaveName] = React.useState('My Search');
   const [isSaving, setIsSaving] = React.useState(false);
 
-  const mergedDefaults = React.useMemo(() => ({
-    ...DEFAULTS,
-    ...initialValues,
-  }), []); // eslint-disable-line react-hooks/exhaustive-deps -- only use initial mount values
+  // Explicit `undefined`s are stripped before the spread. `paramsToFormValues`
+  // returns a key for every field, so a URL without `from`/`to` used to overwrite
+  // the 30-day default with `undefined` — the date chip then read "Posted date"
+  // (i.e. unfiltered) while the hook still applied a 30-day window underneath.
+  const mergedDefaults = React.useMemo(() => {
+    const provided = Object.fromEntries(
+      Object.entries(initialValues ?? {}).filter(([, v]) => v !== undefined),
+    ) as Partial<FormValues>;
+    return { ...DEFAULTS, ...provided };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- only use initial mount values
 
   const { control, handleSubmit, watch, setValue, reset } = useForm<FormValues>({
     resolver: zodResolver(Schema), defaultValues: mergedDefaults,

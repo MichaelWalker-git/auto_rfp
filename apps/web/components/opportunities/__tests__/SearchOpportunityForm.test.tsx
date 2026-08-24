@@ -205,3 +205,34 @@ describe('SearchOpportunityForm — filters are provider-aware', () => {
     expect(criteria.higherGovSearchId).toBe('BWr0PdG39B6mX8cG47AQ8');
   });
 });
+
+describe('SearchOpportunityForm — restoring from a URL keeps the default date window', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAuthFetcher.mockResolvedValue({ ok: true, json: async () => ({}) } as unknown as Response);
+  });
+
+  it('does not let an absent URL date erase the 30-day default', async () => {
+    // `paramsToFormValues` returns a key for every field, so `postedFrom: undefined`
+    // used to overwrite the default — the chip then read as unfiltered while the
+    // hook still applied a 30-day window underneath.
+    const user = userEvent.setup();
+    const onSearch = jest.fn();
+    render(
+      <SearchOpportunityForm
+        orgId="org-1"
+        projectId="proj-1"
+        onSearch={onSearch}
+        isLoading={false}
+        initialValues={{ source: 'SAM_GOV', keywords: 'radar', postedFrom: undefined, postedTo: undefined }}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /^search$/i }));
+    await waitFor(() => expect(onSearch).toHaveBeenCalled());
+
+    const criteria = onSearch.mock.calls[0][0] as { postedFrom?: string; postedTo?: string };
+    expect(criteria.postedFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(criteria.postedTo).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
