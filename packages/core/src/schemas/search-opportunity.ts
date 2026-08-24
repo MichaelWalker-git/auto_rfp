@@ -70,6 +70,12 @@ export const LoadSearchOpportunitiesRequestSchema = z.object({
   postedTo:   MmDdYyyySchema.optional(),
   /** Response-deadline from (MM/dd/yyyy). SAM.gov `rdlfrom`. */
   rdlfrom:    MmDdYyyySchema.optional(),
+  /**
+   * Response-deadline to (MM/dd/yyyy). SAM.gov `rdlto`.
+   *
+   * Note SAM.gov caps a supplied `rdlfrom`+`rdlto` pair at a one-year span.
+   */
+  rdlto:      MmDdYyyySchema.optional(),
   /** Closing-from date (MM/dd/yyyy). DIBBS `closingFrom`. */
   closingFrom: MmDdYyyySchema.optional(),
   /** Closing-to date (MM/dd/yyyy). DIBBS `closingTo`. */

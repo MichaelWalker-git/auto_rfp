@@ -326,7 +326,10 @@ async function importNoticeUsingHelpers(args: {
       mimeType: finalContentType,
     });
 
-    await markProcessing(args.projectId, questionFileId, oppId);
+    // (projectId, oppId, questionFileId) — these were transposed, so the status
+    // write targeted a key that does not exist and auto-imported files were left
+    // stuck at 'uploaded' even though their pipeline had started.
+    await markProcessing(args.projectId, oppId, questionFileId);
     await startPipeline(args.orgId, args.projectId, questionFileId, oppId);
 
     imported++;
