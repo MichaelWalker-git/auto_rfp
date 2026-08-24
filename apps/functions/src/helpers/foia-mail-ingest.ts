@@ -285,6 +285,35 @@ export const decideInboundMail = (args: {
  * announcement, and strictly better evidence than a bid deadline. This is what
  * lets the timer re-anchor to something true.
  */
+
+/**
+ * Whether a `YYYY-MM-DD` string names a day that actually exists.
+ *
+ * Round-trips through `Date` and compares the parts back, because `Date.UTC` rolls
+ * out-of-range values over silently rather than rejecting them: month 13 becomes
+ * January of the next year, and day 45 becomes mid-February. Only comparing the
+ * components afterwards catches that — `!isNaN(date)` does not, since the rolled-over
+ * date is perfectly valid.
+ *
+ * Deliberately not `z.string().date()`, though that is the equivalent tool used in
+ * `pricing.ts` for the same reason. Pulling a Zod parse into this hot, synchronous
+ * helper for one field would be heavier than the four-line check, and the helper
+ * returns a discriminated result rather than throwing.
+ */
+const isRealCalendarDate = (iso: string): boolean => {
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!parts) return false;
+
+  const [year, month, day] = [Number(parts[1]), Number(parts[2]), Number(parts[3])];
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+};
+
 export const awardDateFromMail = (args: {
   receivedAt: string;
   bodyText: string;
@@ -316,12 +345,36 @@ export const awardDateFromMail = (args: {
   if (stated?.[1]) {
     const value = stated[1];
     const slash = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value);
-    if (slash) {
-      const [, month, day, year] = slash;
-      const iso = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const iso = slash
+      ? `${slash[3]}-${slash[1]!.padStart(2, '0')}-${slash[2]!.padStart(2, '0')}`
+      : value;
+
+    /**
+     * The regex proves the SHAPE of the date, never that the day exists.
+     *
+     * `Award Date: 13/45/2026` matches and formats to `2026-13-45`, which is not a
+     * date. Nothing downstream rejects it: the value is written to `outcomeDate`
+     * with `statedByAgency: true` — the gate that authorises an unattended send —
+     * and `new Date(Date.UTC(2026, 12, 45))` then rolls over silently to
+     * 2027-02-14. The letter would assert "awarded on or about" a day the agency
+     * never stated and that never happened, which is the wrong-award-date failure
+     * this function's own provenance rules exist to prevent.
+     *
+     * A malformed date is therefore treated as NO stated date, falling through to
+     * the receipt-date branch below. That branch already returns the weaker
+     * `RECORDED_OUTCOME` provenance and `statedByAgency: false`, so the outcome is
+     * a request held for human review rather than one sent asserting a fabricated
+     * date — the correct failure direction.
+     */
+    if (isRealCalendarDate(iso)) {
       return { date: iso, provenance: 'RECORDED_AWARD', statedByAgency: true };
     }
-    return { date: value, provenance: 'RECORDED_AWARD', statedByAgency: true };
+
+    console.warn(
+      '[foia-award-date] stated award date is not a real calendar date; ignoring it.',
+      `raw=${JSON.stringify(value)}`,
+      `normalised=${iso}`,
+    );
   }
 
   // No stated date. Logged because the fallback is materially weaker evidence than

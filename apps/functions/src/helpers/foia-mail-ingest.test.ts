@@ -421,6 +421,37 @@ describe('awardDateFromMail', () => {
     ).toEqual({ date: '2026-03-07', provenance: 'RECORDED_AWARD', statedByAgency: true });
   });
 
+  it('accepts a real leap day', () => {
+    // Guards the range check against being written as a naive "day <= 28" test.
+    expect(
+      awardDateFromMail({ receivedAt: '2026-08-12T10:00:00.000Z', bodyText: 'Award Date: 2024-02-29' }),
+    ).toEqual({ date: '2024-02-29', provenance: 'RECORDED_AWARD', statedByAgency: true });
+  });
+
+  /**
+   * A date-SHAPED string that names no real day must not be trusted.
+   *
+   * The regex proves shape, not existence, so `13/45/2026` formatted cleanly to
+   * `2026-13-45` and returned `statedByAgency: true` — the gate that writes straight
+   * to `outcomeDate` and authorises an unattended send. `Date.UTC` then rolled it
+   * over silently (month 13 day 45 → 2027-02-14), so the letter would assert
+   * "awarded on or about" a day the agency never stated and that never happened.
+   *
+   * Falling back to the receipt date is the correct failure direction: that branch
+   * returns the weaker RECORDED_OUTCOME and `statedByAgency: false`, so the request
+   * is held for a human instead of sent asserting a fabricated date.
+   */
+  it.each([
+    ['an impossible month and day', 'Award Date: 13/45/2026'],
+    ['a day that overflows the month', 'Award Date: 02/30/2026'],
+    ['an impossible ISO date', 'Award Date: 2026-13-45'],
+    ['Feb 29 in a non-leap year', 'Award Date: 2026-02-29'],
+  ])('ignores %s and falls back to the receipt date', (_label, bodyText) => {
+    expect(
+      awardDateFromMail({ receivedAt: '2026-08-12T10:00:00.000Z', bodyText }),
+    ).toEqual({ date: '2026-08-12', provenance: 'RECORDED_OUTCOME', statedByAgency: false });
+  });
+
   /**
    * The fallback must NOT claim RECORDED_AWARD.
    *
