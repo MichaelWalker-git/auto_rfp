@@ -54,25 +54,26 @@ describe('Search Opportunities', () => {
   before(() => { cy.login(); goToSearchOpportunities() })
 
   describe('Happy Path', () => {
+    // Filters are provider-aware: SAM.gov is the default provider, and only the
+    // filters SAM.gov's API actually supports are rendered. DIBBS and the old
+    // "All Sources" mode are no longer offered.
     it('loads the Search Opportunities page with all controls', () => {
       cy.contains('Search Opportunities').should('be.visible')
-      cy.contains('Search SAM.gov, DIBBS, and HigherGov').should('be.visible')
-      cy.get('input[placeholder*="Keywords" i], input[placeholder*="solicitation" i], input[placeholder*="technology" i]').should('be.visible')
+      cy.contains('Search SAM.gov and HigherGov').should('be.visible')
+      cy.get('input[placeholder*="Title contains" i]').should('be.visible')
       cy.contains('button', 'Search').should('be.visible')
       cy.contains('Saved Searches').should('be.visible')
-      cy.contains('All Sources').should('be.visible')
       cy.contains('NAICS').should('be.visible')
       cy.contains('Set-aside').should('be.visible')
       cy.contains('Closing date').should('be.visible')
       cy.contains('Ready to search').should('be.visible')
-      cy.contains('Search across SAM.gov, DIBBS, and HigherGov').should('be.visible')
     })
 
-    it('opens filter dropdowns', () => {
-      cy.contains('All Sources').click()
-      cy.contains('SAM.gov').should('be.visible')
-      cy.contains('DIBBS').should('be.visible')
+    it('offers only the two usable providers', () => {
+      cy.contains('button', 'SAM.gov').click()
       cy.contains('HigherGov').should('be.visible')
+      cy.contains('DIBBS').should('not.exist')
+      cy.contains('All Sources').should('not.exist')
       cy.get('body').type('{esc}')
 
       cy.contains('NAICS').click()
@@ -98,7 +99,7 @@ describe('Search Opportunities', () => {
     beforeEach(() => { stubSearch(); cy.login(); goToSearchOpportunities() })
 
     it('runs a keyword search and shows results with details', () => {
-      cy.get('input[placeholder*="Keywords" i], input[placeholder*="solicitation" i], input[placeholder*="technology" i]')
+      cy.get('input[placeholder*="Title contains" i]')
         .type('document')
       cy.contains('button', 'Search').click()
       cy.wait('@searchOpportunities')
@@ -123,7 +124,7 @@ describe('Search Opportunities', () => {
         body: { imported: 1 },
       }).as('importSolicitation')
 
-      cy.get('input[placeholder*="Keywords" i], input[placeholder*="solicitation" i], input[placeholder*="technology" i]')
+      cy.get('input[placeholder*="Title contains" i]')
         .type('document')
       cy.contains('button', 'Search').click()
       cy.wait('@searchOpportunities')
