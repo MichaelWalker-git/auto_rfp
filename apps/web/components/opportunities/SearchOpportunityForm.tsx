@@ -6,8 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { format, subDays } from 'date-fns';
 import {
-  BookmarkPlus, CalendarIcon, Check, ChevronDown,
-  ChevronsUpDown, Loader2, Search, SlidersHorizontal, X,
+  Bookmark, BookmarkPlus, CalendarIcon, Check, ChevronDown,
+  Loader2, Search, SlidersHorizontal, X,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -40,13 +40,24 @@ import type { SavedSearch } from '@auto-rfp/core';
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
-const SOURCE_LABELS: Record<string, string> = {
-  all: 'All Sources', SAM_GOV: 'SAM.gov', DIBBS: 'DIBBS', HIGHER_GOV: 'HigherGov',
-};
+/**
+ * Providers the UI offers. DIBBS is deliberately absent: it is still wired end to
+ * end in the backend (handlers, routes, saved-search runner) and previously-saved
+ * DIBBS searches keep running, but it is not a provider this product can actually
+ * use — offering it only produced empty result sets with no explanation.
+ *
+ * `all` is gone too. The three providers support wildly different filters, so a
+ * combined search silently dropped most of what the user typed for at least one of
+ * them. Filters are now provider-aware, which requires a single chosen provider.
+ */
+const SOURCE_LABELS = {
+  SAM_GOV: 'SAM.gov',
+  HIGHER_GOV: 'HigherGov',
+} as const satisfies Record<string, string>;
 
 const Schema = z.object({
   keywords:     z.string().optional(),
-  source:       z.enum(['all', 'SAM_GOV', 'DIBBS', 'HIGHER_GOV']).default('all'),
+  source:       z.enum(['SAM_GOV', 'HIGHER_GOV']).default('SAM_GOV'),
   naics:        z.array(z.string()).default([]),
   setAsideCode: z.string().default(''),
   postedFrom:   z.date().optional(),
@@ -60,7 +71,7 @@ const Schema = z.object({
 export type FormValues = z.input<typeof Schema>;
 
 const DEFAULTS: FormValues = {
-  keywords: '', source: 'all', naics: [], setAsideCode: '',
+  keywords: '', source: 'SAM_GOV', naics: [], setAsideCode: '',
   postedFrom: subDays(new Date(), 30), postedTo: new Date(),
   closingFrom: undefined, closingTo: undefined,
   higherGovSourceType: '',
@@ -131,6 +142,43 @@ const DateRangeFilter = ({
             </Button>
           ))}
         </div>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
+// ─── Single-day picker ────────────────────────────────────────────────────────
+
+/**
+ * HigherGov's `/opportunity/` takes a single `posted_date` day rather than a range,
+ * so showing a two-ended range picker for it would imply a filter the API cannot
+ * honour — the "To" half was previously collected and discarded.
+ */
+const SingleDateFilter = ({
+  label, value, onChange,
+}: {
+  label: string;
+  value: Date | undefined;
+  onChange: (d: Date | undefined) => void;
+}) => {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button" variant="outline" size="sm"
+          className={cn('h-8 gap-1.5 text-xs font-normal', !!value && 'border-primary bg-primary/5 text-primary font-medium')}
+        >
+          <CalendarIcon className="h-3.5 w-3.5" />
+          {value ? fmtShort(value) : label}
+          {value
+            ? <span role="button" tabIndex={0} aria-label={`Clear ${label}`} onClick={e => { e.stopPropagation(); onChange(undefined); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onChange(undefined); } }} className="ml-0.5 hover:text-destructive cursor-pointer"><X className="h-3 w-3" /></span>
+            : <ChevronDown className="h-3 w-3 opacity-50" />}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-4" align="start">
+        <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">{label}</p>
+        <Calendar mode="single" selected={value} onSelect={d => { onChange(d); setOpen(false); }} initialFocus />
       </PopoverContent>
     </Popover>
   );
@@ -228,71 +276,18 @@ const RecentSearches = ({ orgId, onApply }: { orgId: string; onApply: (s: SavedS
   );
 };
 
-// ─── HigherGov search_id selector ────────────────────────────────────────────
+// ─── HigherGov search_id ─────────────────────────────────────────────────────
 
-const extractSearchId = (input: string): string => {
+/**
+ * Accepts either a bare Search ID or a full HigherGov URL containing `searchID=`,
+ * so a user can paste straight from their browser's address bar.
+ *
+ * This used to live behind an "Apply" popover; the ID is now the primary HigherGov
+ * input, since it is that provider's only real filter.
+ */
+export const extractSearchId = (input: string): string => {
   const match = /searchID=([^&]+)/.exec(input);
   return match ? match[1] : input.trim();
-};
-
-const HigherGovSearchIdSelector = ({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (id: string) => void;
-  orgId?: string;
-}) => {
-  const [open, setOpen] = React.useState(false);
-  const inputRef = React.useRef<HTMLInputElement>(null);
-
-  const handleApply = () => {
-    const raw = inputRef.current?.value ?? '';
-    const id = extractSearchId(raw);
-    if (id) {
-      onChange(id);
-      setOpen(false);
-    }
-  };
-
-  return (
-    <Popover open={open} onOpenChange={(v) => { setOpen(v); if (v) setTimeout(() => inputRef.current?.focus(), 50); }}>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="outline" size="sm"
-          className={cn('h-8 gap-1.5 text-xs font-normal', !!value && 'border-primary bg-primary/5 text-primary font-medium')}>
-          {/* Deliberately not "Saved Search" — this form also has our own Saved
-              Searches picker, and one label for two features read as a bug. */}
-          {value ? `ID: ${value.slice(0, 12)}` : 'HigherGov ID'}
-          {value
-            ? <span role="button" tabIndex={0} aria-label="Clear HigherGov ID" onClick={e => { e.stopPropagation(); onChange(''); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onChange(''); } }} className="ml-0.5 hover:text-destructive cursor-pointer"><X className="h-3 w-3" /></span>
-            : <ChevronDown className="h-3 w-3 opacity-50" />}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80 p-3 space-y-3" align="start">
-        {/* Paste URL input */}
-        <div>
-          <Label className="text-xs font-medium mb-1.5 block">HigherGov search URL or ID</Label>
-          <div className="flex gap-1.5">
-            <Input
-              ref={inputRef}
-              key={value}
-              defaultValue={value}
-              placeholder="Paste URL or search ID…"
-              className="h-8 text-xs flex-1"
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleApply(); } }}
-            />
-            <Button type="button" size="sm" className="h-8 px-3 text-xs" onClick={handleApply}>
-              Apply
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            The searchID is extracted automatically from the URL.
-          </p>
-        </div>
-
-      </PopoverContent>
-    </Popover>
-  );
 };
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -325,35 +320,63 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
   });
   const w = watch();
 
-  const activeCount = [
-    (w.naics?.length ?? 0) > 0, !!w.setAsideCode, w.source !== 'all',
-    !!(w.closingFrom || w.closingTo),
-  ].filter(Boolean).length;
+  const isSamGov = w.source === 'SAM_GOV';
+  const isHigherGov = w.source === 'HIGHER_GOV';
 
-  // HigherGov can't filter by keyword/NAICS/set-aside directly — those only work
-  // through a saved search (search_id). Warn before the user runs a doomed search.
-  const higherGovNeedsSearchId =
-    w.source === 'HIGHER_GOV' &&
-    !w.higherGovSearchId?.trim() &&
-    !!(w.keywords?.trim() || (w.naics?.length ?? 0) > 0 || w.setAsideCode);
+  // Only counts filters that are actually live for the chosen provider, so the
+  // "Reset N" badge can never advertise a filter the provider ignores.
+  const activeCount = isSamGov
+    ? [
+        !!w.keywords?.trim(), (w.naics?.length ?? 0) > 0, !!w.setAsideCode,
+        !!(w.closingFrom || w.closingTo),
+      ].filter(Boolean).length
+    : [
+        !!w.higherGovSearchId?.trim(), !!w.higherGovSourceType,
+      ].filter(Boolean).length;
 
-  const buildCriteria = (v: FormValues): SearchOpportunityCriteria => ({
-    keywords:     v.keywords?.trim() || undefined,
-    naics:        v.naics?.length ? v.naics : undefined,
-    setAsideCode: v.setAsideCode || undefined,
-    sources:      v.source !== 'all' ? [v.source as 'SAM_GOV' | 'DIBBS' | 'HIGHER_GOV'] : undefined,
-    postedFrom:   toLocalIsoDate(v.postedFrom),
-    postedTo:     toLocalIsoDate(v.postedTo),
-    closingFrom:  toLocalIsoDate(v.closingFrom),
-    closingTo:    toLocalIsoDate(v.closingTo),
-    higherGovSourceType: v.higherGovSourceType || undefined,
-    higherGovSearchId: v.higherGovSearchId?.trim() || undefined,
-    limit: 25,
-  });
+  /**
+   * Emits only the criteria the chosen provider can honour.
+   *
+   * Previously every field was sent for every provider, so HigherGov received
+   * keyword/NAICS/set-aside values its API has no parameters for — the backend then
+   * client-filtered a 100-row slice, which reads as "filtering is broken". SAM.gov
+   * likewise received HigherGov-only fields it ignores.
+   */
+  const buildCriteria = (v: FormValues): SearchOpportunityCriteria => {
+    const base = {
+      sources: [v.source] as SearchOpportunityCriteria['sources'],
+      limit: 25,
+    };
+
+    if (v.source === 'HIGHER_GOV') {
+      return {
+        ...base,
+        // A search_id encodes its own keywords, filters and date range.
+        higherGovSearchId: v.higherGovSearchId?.trim() || undefined,
+        higherGovSourceType: v.higherGovSourceType || undefined,
+        postedFrom: toLocalIsoDate(v.postedFrom),
+      };
+    }
+
+    return {
+      ...base,
+      // SAM.gov matches this against notice TITLES only — `/opportunities/v2/search`
+      // has no free-text parameter. Labelled accordingly in the UI.
+      keywords:     v.keywords?.trim() || undefined,
+      naics:        v.naics?.length ? v.naics : undefined,
+      setAsideCode: v.setAsideCode || undefined,
+      postedFrom:   toLocalIsoDate(v.postedFrom),
+      postedTo:     toLocalIsoDate(v.postedTo),
+      closingFrom:  toLocalIsoDate(v.closingFrom),
+      closingTo:    toLocalIsoDate(v.closingTo),
+    };
+  };
 
   const applySearch = (s: SavedSearch) => {
     const c = s.criteria;
-    const source = s.source === 'DIBBS' ? 'DIBBS' : s.source === 'HIGHER_GOV' ? 'HIGHER_GOV' : 'SAM_GOV';
+    // A stored DIBBS search maps onto SAM.gov: DIBBS is no longer offered in the UI,
+    // and leaving `source` unset would strand the form on an unselectable provider.
+    const source = s.source === 'HIGHER_GOV' ? 'HIGHER_GOV' : 'SAM_GOV';
     reset({
       keywords: c.keywords ?? '', source,
       naics: c.naics ?? [], setAsideCode: c.setAsideCode ?? '',
@@ -370,10 +393,10 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
     try {
       const c = buildCriteria(w);
       const fmt = (iso?: string) => iso ? `${iso.slice(5,7)}/${iso.slice(8,10)}/${iso.slice(0,4)}` : '01/01/2025';
-      const source = w.source === 'DIBBS' ? 'DIBBS' : w.source === 'HIGHER_GOV' ? 'HIGHER_GOV' : 'SAM_GOV';
+      const source = w.source === 'HIGHER_GOV' ? 'HIGHER_GOV' : 'SAM_GOV';
       // Daily auto-import is scoped to HigherGov: its saved-search IDs pull a
-      // stable, filtered result set, so unattended daily imports are safe. SAM/
-      // DIBBS stay opt-out (autoImport false) to avoid flooding a project.
+      // stable, filtered result set, so unattended daily imports are safe. SAM.gov
+      // stays opt-out (autoImport false) to avoid flooding a project.
       const autoImport = source === 'HIGHER_GOV';
       const res = await authFetcher(`${env.BASE_API_URL}/search-opportunities/saved-search`, {
         method: 'POST',
@@ -400,13 +423,35 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
   return (
     <form onSubmit={handleSubmit(v => onSearch(buildCriteria(v)))} className="space-y-2">
 
-      {/* ── Row 1: search input + actions ── */}
+      {/* ── Row 1: primary input + actions ── */}
       <div className="flex gap-2">
+        {/* SAM.gov: title search. HigherGov: its Search ID, which is that provider's
+            only real filter — so it takes the primary slot rather than a chip. */}
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <Controller name="keywords" control={control} render={({ field }) => (
-            <Input {...field} placeholder="Keywords, solicitation number, technology area…" className="pl-10 h-10" />
-          )} />
+          {isSamGov ? (
+            <>
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <Controller name="keywords" control={control} render={({ field }) => (
+                <Input
+                  {...field}
+                  placeholder="Title contains… (SAM.gov matches notice titles only)"
+                  className="pl-10 h-10"
+                />
+              )} />
+            </>
+          ) : (
+            <>
+              <Bookmark className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <Controller name="higherGovSearchId" control={control} render={({ field }) => (
+                <Input
+                  {...field}
+                  onChange={e => field.onChange(extractSearchId(e.target.value))}
+                  placeholder="Paste a HigherGov search URL or Search ID…"
+                  className="pl-10 h-10"
+                />
+              )} />
+            </>
+          )}
         </div>
         <Button type="submit" disabled={isLoading} className="h-10 px-5 shrink-0">
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
@@ -440,23 +485,21 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
       {/* ── Row 2: filter chips ── */}
       <div className="flex flex-wrap items-center gap-1.5">
 
-        {/* Source */}
+        {/* Provider — always the first chip, since every other filter depends on it */}
         <Controller name="source" control={control} render={({ field }) => (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button type="button" variant="outline" size="sm"
-                className={cn('h-8 gap-1.5 text-xs font-normal', field.value !== 'all' && 'border-primary bg-primary/5 text-primary font-medium')}>
-                {SOURCE_LABELS[field.value ?? 'all'] ?? 'All Sources'}
+                className="h-8 gap-1.5 text-xs font-medium border-primary bg-primary/5 text-primary">
+                {SOURCE_LABELS[field.value as keyof typeof SOURCE_LABELS] ?? 'SAM.gov'}
                 <ChevronDown className="h-3 w-3 opacity-50" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-40">
-              <DropdownMenuLabel className="text-xs">Source</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-xs">Provider</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuRadioGroup value={field.value} onValueChange={field.onChange}>
-                <DropdownMenuRadioItem value="all" className="text-xs">All Sources</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="SAM_GOV" className="text-xs">SAM.gov</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="DIBBS" className="text-xs">DIBBS</DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="HIGHER_GOV" className="text-xs">HigherGov</DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
@@ -464,7 +507,7 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
         )} />
 
         {/* HigherGov source_type filter — only visible when HigherGov is selected */}
-        {w.source === 'HIGHER_GOV' && (
+        {isHigherGov && (
           <Controller name="higherGovSourceType" control={control} render={({ field }) => (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -492,21 +535,15 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
           )} />
         )}
 
-        {/* HigherGov saved search selector */}
-        {w.source === 'HIGHER_GOV' && (
-          <HigherGovSearchIdSelector
-            value={w.higherGovSearchId ?? ''}
-            onChange={(id) => setValue('higherGovSearchId', id)}
-            orgId={orgId}
-          />
-        )}
-
-        {/* NAICS */}
+        {/* NAICS — SAM.gov `ncode`. HigherGov's API has no NAICS parameter. */}
+        {isSamGov && (
         <Controller name="naics" control={control} render={({ field }) => (
           <NaicsFilter selected={field.value ?? []} onChange={field.onChange} />
         )} />
+        )}
 
-        {/* Set-aside */}
+        {/* Set-aside — SAM.gov `setAsideCode`. Unsupported by HigherGov's API. */}
+        {isSamGov && (
         <Controller name="setAsideCode" control={control} render={({ field }) => (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -528,20 +565,31 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
             </DropdownMenuContent>
           </DropdownMenu>
         )} />
+        )}
 
-        {/* Posted date */}
-        <Controller name="postedFrom" control={control} render={({ field: f1 }) => (
-          <Controller name="postedTo" control={control} render={({ field: f2 }) => (
-            <DateRangeFilter label="Posted date" from={f1.value} to={f2.value} onFromChange={f1.onChange} onToChange={f2.onChange} />
+        {/* Posted date — SAM.gov honours the full range (`postedFrom`/`postedTo`);
+            HigherGov takes a single `posted_date` day, so it gets a one-day picker. */}
+        {isSamGov ? (
+          <Controller name="postedFrom" control={control} render={({ field: f1 }) => (
+            <Controller name="postedTo" control={control} render={({ field: f2 }) => (
+              <DateRangeFilter label="Posted date" from={f1.value} to={f2.value} onFromChange={f1.onChange} onToChange={f2.onChange} />
+            )} />
           )} />
-        )} />
+        ) : (
+          <Controller name="postedFrom" control={control} render={({ field }) => (
+            <SingleDateFilter label="Posted on" value={field.value} onChange={field.onChange} />
+          )} />
+        )}
 
-        {/* Closing date */}
-        <Controller name="closingFrom" control={control} render={({ field: f1 }) => (
-          <Controller name="closingTo" control={control} render={({ field: f2 }) => (
-            <DateRangeFilter label="Closing date" from={f1.value} to={f2.value} onFromChange={f1.onChange} onToChange={f2.onChange} />
+        {/* Closing date — SAM.gov `rdlfrom`/`rdlto`. HigherGov's API has no
+            response-deadline filter, so this stays hidden for it. */}
+        {isSamGov && (
+          <Controller name="closingFrom" control={control} render={({ field: f1 }) => (
+            <Controller name="closingTo" control={control} render={({ field: f2 }) => (
+              <DateRangeFilter label="Closing date" from={f1.value} to={f2.value} onFromChange={f1.onChange} onToChange={f2.onChange} />
+            )} />
           )} />
-        )} />
+        )}
 
         {/* Divider + reset */}
         {activeCount > 0 && (
@@ -555,7 +603,7 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
         )}
 
         {/* Active NAICS chips */}
-        {(w.naics ?? []).length > 0 && (
+        {isSamGov && (w.naics ?? []).length > 0 && (
           <div className="flex flex-wrap gap-1 ml-1">
             {(w.naics ?? []).map(code => (
               <Badge key={code} variant="secondary" className="text-xs h-6 px-1.5 gap-1 font-normal">
@@ -567,14 +615,19 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
         )}
       </div>
 
-      {/* ── HigherGov keyword-search guidance ── */}
-      {higherGovNeedsSearchId && (
-        <p className="flex items-start gap-1.5 text-xs text-amber-700">
+      {/* ── Provider capability note ──
+          Replaces the old amber "this search is doomed" warning. That warning fired
+          after the user had already typed a keyword HigherGov cannot honour; the
+          filters above are now provider-aware, so the doomed combination is
+          unreachable and only an explanation of the remaining shape is needed. */}
+      {isHigherGov && (
+        <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
           <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 mt-0.5" />
           <span>
-            HigherGov can't filter by keyword, NAICS, or set-aside directly. Build the search on{' '}
-            <a href="https://www.highergov.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-amber-900">HigherGov</a>,
-            then paste its Search ID into the <span className="font-medium">HigherGov ID</span> field above.
+            HigherGov's API filters by saved search only — build the search on{' '}
+            <a href="https://www.highergov.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">HigherGov</a>{' '}
+            (keywords, NAICS, set-asides and all), then paste its URL or Search ID above.
+            Leave it empty to browse the most recently captured opportunities.
           </span>
         </p>
       )}

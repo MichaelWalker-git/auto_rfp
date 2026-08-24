@@ -75,7 +75,8 @@ export const criteriaToParams = (c: SearchOpportunityCriteria): URLSearchParams 
 export const savedSearchToParams = (s: SavedSearch): URLSearchParams =>
   criteriaToParams({
     keywords:            s.criteria.keywords,
-    sources:             s.source ? [s.source] : undefined,
+    // A stored DIBBS search reopens against SAM.gov — DIBBS is no longer selectable.
+    sources:             [s.source === 'HIGHER_GOV' ? 'HIGHER_GOV' : 'SAM_GOV'],
     naics:               s.criteria.naics,
     setAsideCode:        s.criteria.setAsideCode,
     postedFrom:          mmDdYyyyToIso(s.criteria.postedFrom),
@@ -97,12 +98,21 @@ export const savedSearchToParams = (s: SavedSearch): URLSearchParams =>
 const hasAnyCriteria = (p: URLSearchParams): boolean =>
   p.has('q') || p.has('source') || p.has('naics') || p.has('setAside') || p.has('from') || p.has('hgId');
 
+/**
+ * The UI now offers SAM.gov and HigherGov only, but URLs predating that are still
+ * bookmarked and still linked from saved searches — `?source=DIBBS` and `?source=all`
+ * were both valid. Anything unrecognised degrades to SAM.gov rather than stranding
+ * the form on a provider it can no longer select.
+ */
+const parseSource = (raw: string | null): 'SAM_GOV' | 'HIGHER_GOV' =>
+  raw === 'HIGHER_GOV' ? 'HIGHER_GOV' : 'SAM_GOV';
+
 export const paramsToFormValues = (p: URLSearchParams): Partial<FormValues> | null => {
   if (!hasAnyCriteria(p)) return null;
   const parseDate = (s: string | null) => (s ? isoToLocalDate(s) : undefined);
   return {
     keywords: p.get('q') ?? '',
-    source: (p.get('source') as FormValues['source']) ?? 'all',
+    source: parseSource(p.get('source')),
     naics: p.get('naics')?.split(',').filter(Boolean) ?? [],
     setAsideCode: p.get('setAside') ?? '',
     postedFrom: parseDate(p.get('from')),
@@ -116,10 +126,10 @@ export const paramsToFormValues = (p: URLSearchParams): Partial<FormValues> | nu
 
 export const paramsToCriteria = (p: URLSearchParams): SearchOpportunityCriteria | null => {
   if (!hasAnyCriteria(p)) return null;
-  const source = p.get('source') as 'SAM_GOV' | 'DIBBS' | 'HIGHER_GOV' | null;
+  const source = parseSource(p.get('source'));
   return {
     keywords:            p.get('q') ?? undefined,
-    sources:             source ? [source] : undefined,
+    sources:             [source],
     naics:               p.get('naics')?.split(',').filter(Boolean) ?? undefined,
     setAsideCode:        p.get('setAside') ?? undefined,
     postedFrom:          p.get('from') ?? undefined,
