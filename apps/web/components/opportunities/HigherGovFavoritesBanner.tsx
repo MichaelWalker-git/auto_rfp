@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { ArrowDownToLine, Heart, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -17,10 +16,11 @@ export const HigherGovFavoritesBanner = ({ orgId, projectId }: Props) => {
   const { toast } = useToast();
   const { unimportedCount, totalCount, configured, isLoading, error, refresh } = useHigherGovFavorites(orgId);
   const { importFavorites, isImporting } = useImportHigherGovFavorites();
-  const [dismissed, setDismissed] = useState(false);
 
-  // Don't show if not configured, still loading, no unimported, error, or dismissed
-  if (!configured || isLoading || unimportedCount === 0 || dismissed || error) return null;
+  // No dismiss: this is the fastest route from "I've shortlisted these in HigherGov"
+  // to "they're imported and being analysed", not an advisory notice. It disappears
+  // on its own once nothing is left to import.
+  if (!configured || isLoading || unimportedCount === 0 || error) return null;
 
   const handleImportAll = async () => {
     if (!projectId) {
@@ -64,9 +64,6 @@ export const HigherGovFavoritesBanner = ({ orgId, projectId }: Props) => {
             ) : (
               <><ArrowDownToLine className="mr-2 h-3.5 w-3.5" />Import All Favorites</>
             )}
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setDismissed(true)} className="text-violet-600">
-            Dismiss
           </Button>
         </div>
       </AlertDescription>
