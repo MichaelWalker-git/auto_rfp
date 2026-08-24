@@ -161,9 +161,15 @@ describe('htmlToDocxBuffer — furniture images', () => {
   ]);
 
   it('embeds a header logo as a media part', async () => {
-    mockSend.mockResolvedValue({
+    // mockImplementation, not mockResolvedValue: an async generator is a one-shot
+    // iterator, and mockResolvedValue would hand the SAME exhausted one to every
+    // call. Header and footer are built separately, so the logo is read more than
+    // once per document — the second read would see an empty stream, trip the
+    // `data.length < 100` guard, and drop the image, which is the very failure
+    // this test exists to catch.
+    mockSend.mockImplementation(async () => ({
       Body: (async function* () { yield new Uint8Array(pngBytes); })(),
-    });
+    }));
     const f = furniture({
       header: { enabled: true, html: '<img src="s3key:org/logo.png">', align: 'CENTER', heightIn: 0.5 },
     });
@@ -190,9 +196,10 @@ describe('htmlToDocxBuffer — furniture layout parity with PDF', () => {
     Buffer.alloc(150, 7),
   ]);
 
-  const serveLogo = () => mockSend.mockResolvedValue({
+  /** Fresh stream per call — see the note in the furniture-images suite above. */
+  const serveLogo = () => mockSend.mockImplementation(async () => ({
     Body: (async function* () { yield new Uint8Array(pngBytes); })(),
-  });
+  }));
 
   const headerXml = async (buf: Buffer): Promise<string[]> => {
     const { names, xml: _all } = await docxParts(buf);
