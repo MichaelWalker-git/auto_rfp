@@ -171,6 +171,11 @@ export async function createLinearTicket(params: CreateLinearTicketParams): Prom
         .filter((id): id is string => !!id);
     }
 
+    // Linear validates assigneeId as a UUID — an empty string (no
+    // LINEAR_DEFAULT_ASSIGNEE_ID configured) is rejected with
+    // "assigneeId must be a UUID", so only send it when we actually have one.
+    const assigneeId = params.assigneeId || LINEAR_DEFAULT_ASSIGNEE_ID || undefined;
+
     const issuePayload = await client.createIssue({
       teamId,
       projectId,
@@ -178,8 +183,8 @@ export async function createLinearTicket(params: CreateLinearTicketParams): Prom
       description: params.description,
       priority: params.priority ?? 3,
       dueDate: params.dueDate,
-      assigneeId: params.assigneeId || LINEAR_DEFAULT_ASSIGNEE_ID,
-      labelIds,
+      ...(assigneeId ? { assigneeId } : {}),
+      ...(labelIds && labelIds.length > 0 ? { labelIds } : {}),
     });
 
     const createdIssue = await issuePayload.issue;
@@ -196,6 +201,9 @@ export async function createLinearTicket(params: CreateLinearTicketParams): Prom
       url: createdIssue.url,
     };
   } catch (error) {
+    // Surface the reason — a swallowed error here previously masked an
+    // "assigneeId must be a UUID" validation failure as a missing API key.
+    console.error('Failed to create Linear ticket:', error);
     return null;
   }
 }
