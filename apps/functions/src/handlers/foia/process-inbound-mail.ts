@@ -124,6 +124,15 @@ const applyAwardNotice = async (args: {
   // Gated on `statedByAgency`, not on the provenance value: `RECORDED_OUTCOME` passes
   // `isVerifiedAwardDateProvenance`, so a provenance-based check here would write the
   // receipt date as the agency's award date.
+  //
+  // `agencyStatedAwardDate` is declared on `OpportunityItemSchema` in
+  // `packages/core/src/schemas/opportunity.ts` (added in #357), and
+  // `OpportunityDBItemSchema` inherits it via `.extend({ [PK_NAME], [SK_NAME] })` —
+  // so it is NOT redeclared there, per the 5-type entity pattern. Noted here because
+  // the field is date-only (`YYYY-MM-DD`) while `outcomeDate` is
+  // `z.string().datetime()`: they are deliberately different types answering
+  // different questions, and `updateOpportunity` accepts `Partial<OpportunityItem>`,
+  // so a value absent from the schema would be dropped rather than rejected.
   if (statedByAgency) {
     await updateOpportunity({
       orgId,

@@ -125,6 +125,10 @@ export const resolveAwardDate = (opportunity: OpportunityDBItem): ResolvedAwardD
      * and would have put "awarded on or about June 10, 2026" in a statutory filing,
      * 132 days wrong, with verified provenance that also satisfies the
      * unattended-send gate.
+     *
+     * Declared on `OpportunityItemSchema` in `packages/core/src/schemas/opportunity.ts`
+     * (added in #357) and inherited by `OpportunityDBItemSchema` through `.extend()`,
+     * so `OpportunityDBItem` carries it without a second declaration.
      */
     { value: opportunity.agencyStatedAwardDate, provenance: 'RECORDED_AWARD' },
     // Recorded outcomes — an award (or loss) actually happened and was written down.
