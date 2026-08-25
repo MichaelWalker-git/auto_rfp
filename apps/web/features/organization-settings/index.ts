@@ -3,6 +3,7 @@ export { OrganizationGeneralSettings } from './components/OrganizationGeneralSet
 export { OrganizationIntegrations } from './components/OrganizationIntegrations';
 export { OrganizationConfigurationLinks } from './components/OrganizationConfigurationLinks';
 export { OrganizationDangerZone } from './components/OrganizationDangerZone';
+export { FoiaAutomationSettings } from './components/FoiaAutomationSettings';
 
 // Hooks
 export { useOrganizationIcon } from './hooks/useOrganizationIcon';

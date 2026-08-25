@@ -33,6 +33,7 @@ import { useUsersList } from '@/lib/hooks/use-user';
 import { useAuth } from '@/components/AuthProvider';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { OpportunityStatusBadge } from './opportunity-status-badge';
+import { FoiaAutomationBadge } from '@/components/foia';
 import { ApprovalNeededBadge } from '@/features/opportunity-approval';
 
 import type { OpportunityStatus } from '@auto-rfp/core';
@@ -361,10 +362,12 @@ export const OpportunityItemCard = ({
           >
             {item.title}
           </h3>
-          <OpportunityStatusBadge
-            status={(item.status as OpportunityStatus | undefined) ?? (item.active ? 'PURSUING' : 'IDENTIFIED')}
-            className="shrink-0 mt-0.5"
-          />
+          <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+            <OpportunityStatusBadge
+              status={(item.status as OpportunityStatus | undefined) ?? (item.active ? 'PURSUING' : 'IDENTIFIED')}
+            />
+            <FoiaAutomationBadge state={item.foiaAutomationState} />
+          </div>
         </div>
 
         {/* Approval needed — shown when the current user is the assigned reviewer */}

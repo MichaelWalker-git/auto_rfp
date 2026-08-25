@@ -13,6 +13,7 @@ import {
 import type { RelatedRfpListItem } from '@auto-rfp/core';
 
 import { formatRelatedDate, formatMatchScore } from '../lib/format';
+import { safeExternalUrl } from '@/lib/safe-url';
 
 interface RelatedRfpRowProps {
   item: RelatedRfpListItem;
@@ -72,9 +73,21 @@ export const RelatedRfpRow = ({
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </Button>
-        ) : item.sourceUrl ? (
+        ) : safeExternalUrl(item.sourceUrl) ? (
+          /**
+           * Scheme-checked even though it comes from HigherGov rather than a user.
+           *
+           * `sourceUrl` is `z.string().nullish()` on the schema — no validation at all —
+           * and it is stored verbatim from an upstream API response. Trusting a third
+           * party's field to be http(s) is the same bet as trusting user input, and a
+           * `href` executes whatever scheme it is given.
+           */
           <Button asChild variant="ghost" size="sm" className="h-8 gap-1.5 px-2 text-xs">
-            <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">
+            <a
+              href={safeExternalUrl(item.sourceUrl) ?? undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               HigherGov
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
