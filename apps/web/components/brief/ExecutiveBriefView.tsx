@@ -10,9 +10,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 
-import { AlertTriangle, Briefcase, CalendarClock, CheckCircle2, Clock, DollarSign, Download, ExternalLink, FileText, ListChecks, Loader2, RefreshCw, Shield, Target, Users, XCircle } from 'lucide-react';
+import { AlertTriangle, Briefcase, CalendarClock, CheckCircle2, Clock, DollarSign, Download, ExternalLink, FileText, FolderPlus, ListChecks, Loader2, RefreshCw, Shield, Target, Ticket, Users, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { useToast } from '@/components/ui/use-toast';
 
 import DeadlinesDashboard from '../deadlines/DeadlinesDashboard';
 import { useProject } from '@/lib/hooks/use-api';
@@ -28,6 +37,7 @@ import {
   useGetExecutiveBriefByProject,
   useInitExecutiveBrief,
   useHandleLinearTicket,
+  useCreateDriveFolder,
 } from '@/lib/hooks/use-executive-brief';
 import { useGenerateExecutiveBriefPricing } from '@/lib/hooks/use-pricing';
 
@@ -236,6 +246,14 @@ export function ExecutiveBriefView({
   const genScoring = useGenerateExecutiveBriefScoring(currentOrganization?.id);
   const getBriefByProject = useGetExecutiveBriefByProject(currentOrganization?.id);
   const handleLinearTicket = useHandleLinearTicket(currentOrganization?.id);
+  const createDriveFolder = useCreateDriveFolder(currentOrganization?.id);
+  const { toast } = useToast();
+
+  // HOR-2729 — explicit, operator-triggered Linear ticket + Drive folder actions.
+  const [showLinearDialog, setShowLinearDialog] = useState(false);
+  const [isCreatingLinearTicket, setIsCreatingLinearTicket] = useState(false);
+  const [isCreatingDriveFolder, setIsCreatingDriveFolder] = useState(false);
+  const driveFolderPollRef = useRef<NodeJS.Timeout | null>(null);
 
   const [regenError, setRegenError] = useState<string | null>(null);
   const [previousBrief, setPreviousBrief] = useState<any>(null);
@@ -248,7 +266,6 @@ export function ExecutiveBriefView({
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(fixedOpportunityId ?? initialOpportunityId ?? null);
   const [selectedOpportunity, setSelectedOpportunity] = useState<OpportunityItem | null>(null);
   const localBusySectionsRef = useRef<Set<SectionKey>>(new Set());
-  const linearTicketAttemptedRef = useRef(false);
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const autoGenerateTriggeredRef = useRef(false);
@@ -393,32 +410,9 @@ export function ExecutiveBriefView({
 
           const locallyBusy = localBusySectionsRef.current.size > 0;
 
-          const scoringComplete = resp.brief.sections?.scoring?.status === 'COMPLETE';
-          const decision = resp.brief.decision || resp.brief.sections?.scoring?.data?.decision;
-          const executiveBriefId = resp.brief.sort_key;
-          
-          if (
-            scoringComplete && 
-            decision && 
-            !resp.brief.linearTicketId && 
-            !linearTicketAttemptedRef.current &&
-            executiveBriefId
-          ) {
-            linearTicketAttemptedRef.current = true;
-            try {
-              await handleLinearTicket.trigger({ executiveBriefId: String(executiveBriefId) });
-
-              const withTicket = await getBriefByProject.trigger({ 
-                projectId, 
-                opportunityId: currentOppId || undefined 
-              });
-              if (withTicket?.ok && withTicket?.brief) {
-                setBriefItem(withTicket.brief);
-              }
-            } catch (err) {
-              console.error('Failed to auto-create Linear ticket:', err);
-            }
-          }
+          // NOTE: Linear ticket creation is now an explicit, operator-triggered
+          // action (see the "Create Linear ticket" button in the card header) —
+          // it is deliberately NOT auto-created here (HOR-2729).
 
           if (!locallyBusy && (st === 'COMPLETE' || st === 'FAILED' || allTerminal)) {
             stopPollingBrief();
@@ -434,6 +428,101 @@ export function ExecutiveBriefView({
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
+    }
+  }
+
+  // ── HOR-2729: explicit Linear ticket + Drive folder actions ────────────────
+  const briefExecutiveId: string | undefined = briefItem?.sort_key ?? briefItem?.executiveBriefId;
+
+  async function refreshBriefOnce() {
+    const oppId = selectedOpportunityIdRef.current ?? briefItem?.opportunityId ?? undefined;
+    const resp = await getBriefByProject.trigger({ projectId, opportunityId: oppId });
+    if (resp?.ok && resp?.brief) {
+      setBriefItem(resp.brief);
+      return resp.brief;
+    }
+    return null;
+  }
+
+  async function handleCreateLinearTicket() {
+    if (!briefExecutiveId) return;
+    setShowLinearDialog(false);
+    setIsCreatingLinearTicket(true);
+    try {
+      await handleLinearTicket.trigger({ executiveBriefId: briefExecutiveId });
+      const latest = await refreshBriefOnce();
+      toast({
+        title: 'Linear ticket created',
+        description: latest?.linearTicketIdentifier
+          ? `Ticket ${latest.linearTicketIdentifier} is ready.`
+          : 'The Linear ticket is ready.',
+      });
+    } catch (err) {
+      console.error('Failed to create Linear ticket:', err);
+      toast({
+        title: 'Failed to create Linear ticket',
+        description: 'Could not create the Linear ticket. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCreatingLinearTicket(false);
+    }
+  }
+
+  function stopDriveFolderPoll() {
+    if (driveFolderPollRef.current) {
+      clearInterval(driveFolderPollRef.current);
+      driveFolderPollRef.current = null;
+    }
+  }
+
+  async function handleCreateDriveFolder() {
+    if (!briefExecutiveId) return;
+    setIsCreatingDriveFolder(true);
+    try {
+      const resp = await createDriveFolder.trigger({ executiveBriefId: briefExecutiveId });
+
+      // Already existed — surface the link immediately.
+      if (resp?.status === 'exists' && resp?.googleDriveFolderUrl) {
+        await refreshBriefOnce();
+        toast({ title: 'Drive folder ready', description: 'The Google Drive folder already exists.' });
+        setIsCreatingDriveFolder(false);
+        return;
+      }
+
+      // Enqueued — poll the brief until the folder URL appears.
+      toast({ title: 'Creating Drive folder', description: 'This may take a few moments…' });
+      let attempts = 0;
+      stopDriveFolderPoll();
+      driveFolderPollRef.current = setInterval(async () => {
+        attempts += 1;
+        try {
+          const latest = await refreshBriefOnce();
+          if (latest?.googleDriveFolderUrl) {
+            stopDriveFolderPoll();
+            setIsCreatingDriveFolder(false);
+            toast({ title: 'Drive folder ready', description: 'The Google Drive folder was created.' });
+          }
+        } catch {
+          // ignore transient errors while polling
+        }
+        if (attempts >= 30) {
+          stopDriveFolderPoll();
+          setIsCreatingDriveFolder(false);
+          toast({
+            title: 'Still working on the Drive folder',
+            description: 'It is taking longer than expected — refresh in a moment to see the link.',
+          });
+        }
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to create Drive folder:', err);
+      setIsCreatingDriveFolder(false);
+      toast({
+        title: 'Failed to create Drive folder',
+        description: 'Could not create the Google Drive folder. Please try again.',
+        variant: 'destructive',
+      });
     }
   }
 
@@ -508,6 +597,9 @@ export function ExecutiveBriefView({
     localBusySectionsRef.current = localBusySections;
   }, [localBusySections]);
 
+  // Clean up the Drive-folder poll on unmount (HOR-2729).
+  useEffect(() => stopDriveFolderPoll, []);
+
   async function ensureBriefId(): Promise<string> {
     // Check if we already have a brief for this opportunity
     if (briefItem?.sort_key) return briefItem.sort_key;
@@ -579,7 +671,6 @@ export function ExecutiveBriefView({
 
     setIsGeneratingBrief(true);
     setRegenError(null);
-    linearTicketAttemptedRef.current = false;
     if (!project) { setIsGeneratingBrief(false); return; }
     if (briefItem) setPreviousBrief(briefItem);
 
@@ -964,6 +1055,36 @@ export function ExecutiveBriefView({
         </div>
       ) : (
         <>
+          {/* HOR-2729 — Linear ticket preview + confirm dialog. */}
+          <Dialog open={showLinearDialog} onOpenChange={setShowLinearDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create Linear ticket</DialogTitle>
+                <DialogDescription>
+                  A Linear ticket will be created for this opportunity. It includes a link back to the
+                  AutoRFP opportunity so the team can jump straight to the brief.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="rounded-md border bg-muted/40 p-3 text-sm">
+                <p className="font-medium">
+                  {briefItem?.sections?.summary?.data?.title || project?.name || 'Untitled opportunity'}
+                </p>
+                {briefItem?.sections?.summary?.data?.agency && (
+                  <p className="text-muted-foreground mt-1">{briefItem.sections.summary.data.agency}</p>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" size="sm" onClick={() => setShowLinearDialog(false)}>
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={handleCreateLinearTicket} disabled={isCreatingLinearTicket}>
+                  {isCreatingLinearTicket && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Create ticket
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
           <Card>
             <CardHeader className="pb-2">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -992,6 +1113,57 @@ export function ExecutiveBriefView({
                       </Link>
                     </Button>
                   )}
+
+                  {/* HOR-2729 — Linear ticket: link when it exists, otherwise an explicit create action. */}
+                  {briefItem?.linearTicketUrl ? (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={briefItem.linearTicketUrl} target="_blank" rel="noopener noreferrer">
+                        <Ticket className="h-4 w-4 mr-2" />
+                        {briefItem.linearTicketIdentifier ? `View ${briefItem.linearTicketIdentifier}` : 'View in Linear'}
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowLinearDialog(true)}
+                      disabled={!briefExecutiveId || completedSections < totalSections || isCreatingLinearTicket}
+                      title={completedSections < totalSections ? 'All sections must complete first' : 'Create a Linear ticket for this opportunity'}
+                    >
+                      {isCreatingLinearTicket ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Ticket className="h-4 w-4 mr-2" />
+                      )}
+                      Create Linear ticket
+                    </Button>
+                  )}
+
+                  {/* HOR-2729 — Drive folder: link when it exists, otherwise an explicit create action. */}
+                  {briefItem?.googleDriveFolderUrl ? (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={briefItem.googleDriveFolderUrl} target="_blank" rel="noopener noreferrer">
+                        <FolderPlus className="h-4 w-4 mr-2" />
+                        Open Drive folder
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCreateDriveFolder}
+                      disabled={!briefExecutiveId || completedSections < totalSections || isCreatingDriveFolder}
+                      title={completedSections < totalSections ? 'All sections must complete first' : 'Create a Google Drive folder for this opportunity'}
+                    >
+                      {isCreatingDriveFolder ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <FolderPlus className="h-4 w-4 mr-2" />
+                      )}
+                      Create Drive folder
+                    </Button>
+                  )}
+
                   {anySectionInProgress || isGeneratingBrief ? (
                     <Button variant="outline" size="sm" disabled>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin"/>

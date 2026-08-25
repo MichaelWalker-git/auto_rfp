@@ -90,6 +90,11 @@ export interface ApiOrchestratorStackProps extends cdk.StackProps {
   sentryDNS: string;
   pineconeApiKey: string;
   /**
+   * Public URL of the frontend app, used to build deep links back into AutoRFP
+   * from external integrations (e.g. the opportunity link in Linear tickets).
+   */
+  frontendUrl?: string;
+  /**
    * Server-side allowlist for the RFP-tracking dashboard. When set, the
    * get-rfp-pipeline Lambda rejects any orgId that does not match this value
    * (closes the client-only gate / IDOR gap). Empty string = gate disabled
@@ -725,7 +730,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
     const allDomains: DomainRoutes[] = [
       organizationDomain(),
       answerDomain(),
-      briefDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '', googleDriveSyncQueueUrl: gdSyncQueueUrl }),
+      briefDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '', googleDriveSyncQueueUrl: gdSyncQueueUrl, frontendUrl: props.frontendUrl }),
       presignedDomain(),
       knowledgebaseDomain(),
       documentDomain(),

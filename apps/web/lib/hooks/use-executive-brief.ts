@@ -99,6 +99,19 @@ export type UpdateDecisionResponse = {
   error?: string;
 };
 
+export type CreateDriveFolderRequest = {
+  executiveBriefId: string;
+};
+
+export type CreateDriveFolderResponse = {
+  ok: boolean;
+  status?: 'enqueued' | 'exists';
+  executiveBriefId?: string;
+  googleDriveFolderUrl?: string;
+  message?: string;
+  error?: string;
+};
+
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   const res = await authFetcher(url, {
     method: 'POST',
@@ -134,6 +147,9 @@ const endpoints = {
   getByProject: (orgId?: string) => `${env.BASE_API_URL}/brief/get-executive-brief-by-project${orgId ? `?orgId=${orgId}` : ''}`,
   handleLinearTicket: (orgId?: string) => `${env.BASE_API_URL}/brief/handle-linear-ticket${orgId ? `?orgId=${orgId}` : ''}`,
   updateDecision: (orgId?: string) => `${env.BASE_API_URL}/brief/update-decision${orgId ? `?orgId=${orgId}` : ''}`,
+  // The Drive-folder action is folded onto the update-decision route (see
+  // HOR-2729) — no separate integration. Distinguished by an `action` field.
+  createDriveFolder: (orgId?: string) => `${env.BASE_API_URL}/brief/update-decision${orgId ? `?orgId=${orgId}` : ''}`,
 } as const;
 
 // ---------- hooks ----------
@@ -244,5 +260,14 @@ export function useUpdateDecision(orgId?: string) {
   return useSWRMutation<UpdateDecisionResponse, Error, string, UpdateDecisionRequest>(
     endpoints.updateDecision(orgId),
     (url, { arg }) => postJson<UpdateDecisionResponse>(url, arg),
+  );
+}
+
+export function useCreateDriveFolder(orgId?: string) {
+  return useSWRMutation<CreateDriveFolderResponse, Error, string, CreateDriveFolderRequest>(
+    endpoints.createDriveFolder(orgId),
+    // The route is shared with update-decision; the `action` discriminator
+    // routes it to the Drive-folder branch on the backend.
+    (url, { arg }) => postJson<CreateDriveFolderResponse>(url, { ...arg, action: 'create-drive-folder' }),
   );
 }

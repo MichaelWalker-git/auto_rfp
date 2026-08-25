@@ -403,6 +403,11 @@ export const ExecutiveBriefItemSchema = z.object({
   linearTicketId: z.string().nullish(),
   linearTicketIdentifier: z.string().nullish(),
   linearTicketUrl: z.string().nullish(),
+
+  // Google Drive folder (created on-demand via create-drive-folder / GO sync)
+  googleDriveFolderId: z.string().nullish(),
+  googleDriveFolderUrl: z.string().nullish(),
+  googleDriveSyncedAt: z.string().nullish(),
 }).passthrough();
 
 export type ExecutiveBriefItem = z.infer<typeof ExecutiveBriefItemSchema>;

@@ -33,6 +33,16 @@ const SUBFOLDERS = {
   finalDeliverables: 'Final Deliverables',
 } as const;
 
+// ─── Shared Drive target (HOR-2729 §2b) ───
+//
+// Opportunity folders are created inside the "Government Contracting" Shared
+// Drive, under the "00 To be approved" intake folder. The Shared Drive ID is
+// stable and configured via env; the intake folder is resolved BY NAME at
+// runtime (not hardcoded) so the operator can rename/move it without a deploy.
+// Reference intake folder ID (for support/debugging only): 1rxIWATfhgnMp2NXUy7jZHRQjDW74ei9-
+const SHARED_DRIVE_ID = process.env['GOOGLE_SHARED_DRIVE_ID'] ?? '0AMoWTKgyidQDUk9PVA';
+const INTAKE_FOLDER_NAME = process.env['GOOGLE_INTAKE_FOLDER_NAME'] ?? '00 To be approved';
+
 // ─── Auth (Domain-Wide Delegation only) ───
 
 async function getDriveClient(orgId: string): Promise<drive_v3.Drive | null> {
@@ -136,10 +146,16 @@ async function findOrCreateFolder(
     ? `name='${escapedName}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`
     : `name='${escapedName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`;
 
+  // Search WITHIN the target Shared Drive. Shared Drives require the drive-scoped
+  // corpora + includeItemsFromAllDrives/supportsAllDrives flags; plain 'drive'
+  // spaces search would not see Shared Drive items.
   const existing = await drive.files.list({
     q: query,
     fields: 'files(id, name)',
-    spaces: 'drive',
+    corpora: 'drive',
+    driveId: SHARED_DRIVE_ID,
+    includeItemsFromAllDrives: true,
+    supportsAllDrives: true,
   });
 
   if (existing.data.files?.length) {
@@ -153,6 +169,39 @@ async function findOrCreateFolder(
       ...(parentId ? { parents: [parentId] } : {}),
     },
     fields: 'id',
+    supportsAllDrives: true,
+  });
+
+  return folder.data.id!;
+}
+
+/**
+ * Resolve the "00 To be approved" intake folder inside the Shared Drive by
+ * name, creating it if absent. New opportunity folders are parented here.
+ */
+async function findOrCreateIntakeRoot(drive: drive_v3.Drive): Promise<string> {
+  const escapedName = INTAKE_FOLDER_NAME.replace(/'/g, '\\\'');
+  const existing = await drive.files.list({
+    q: `name='${escapedName}' and mimeType='application/vnd.google-apps.folder' and '${SHARED_DRIVE_ID}' in parents and trashed=false`,
+    fields: 'files(id, name)',
+    corpora: 'drive',
+    driveId: SHARED_DRIVE_ID,
+    includeItemsFromAllDrives: true,
+    supportsAllDrives: true,
+  });
+
+  if (existing.data.files?.length) {
+    return existing.data.files[0]!.id!;
+  }
+
+  const folder = await drive.files.create({
+    requestBody: {
+      name: INTAKE_FOLDER_NAME,
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: [SHARED_DRIVE_ID],
+    },
+    fields: 'id',
+    supportsAllDrives: true,
   });
 
   return folder.data.id!;
@@ -160,7 +209,7 @@ async function findOrCreateFolder(
 
 async function getFolderUrl(drive: drive_v3.Drive, folderId: string): Promise<string | undefined> {
   try {
-    const meta = await drive.files.get({ fileId: folderId, fields: 'webViewLink' });
+    const meta = await drive.files.get({ fileId: folderId, fields: 'webViewLink', supportsAllDrives: true });
     return meta.data.webViewLink || undefined;
   } catch {
     return undefined;
@@ -193,6 +242,7 @@ async function uploadFileFromS3(
     requestBody: { name: fileName, parents: [folderId] },
     media: { mimeType, body: stream },
     fields: 'id, webViewLink',
+    supportsAllDrives: true,
   });
 
   return { fileId: res.data.id!, webViewLink: res.data.webViewLink! };
@@ -210,6 +260,7 @@ async function uploadBuffer(
     requestBody: { name: fileName, parents: [folderId] },
     media: { mimeType, body: stream },
     fields: 'id, webViewLink',
+    supportsAllDrives: true,
   });
   return { fileId: res.data.id!, webViewLink: res.data.webViewLink! };
 }
@@ -228,9 +279,14 @@ async function shareWithEmails(
         fileId,
         requestBody: { type: 'user', role, emailAddress: email },
         sendNotificationEmail: false,
+        supportsAllDrives: true,
       });
     } catch (err) {
-      console.warn(`Failed to share with ${email}:`, (err as Error)?.message);
+      // No-harm fallback: inside a Shared Drive, members already have access
+      // via drive membership, so an explicit per-user grant can fail (e.g. the
+      // user is already a drive member, or the delegate lacks sharing rights).
+      // Downgrade to a warning rather than failing the whole sync.
+      console.warn(`Failed to share with ${email} (non-blocking):`, (err as Error)?.message);
     }
   }
 }
@@ -462,10 +518,12 @@ export async function syncToGoogleDrive(args: {
     const titlePart = (projectTitle || 'Opportunity').slice(0, 80);
     const rootFolderName = `${idPart} - ${agencyPart} - ${titlePart}`;
 
-    console.log(`[GoogleDrive] Creating folder: "${rootFolderName}" in delegate user's Drive`);
+    console.log(`[GoogleDrive] Creating folder: "${rootFolderName}" under "${INTAKE_FOLDER_NAME}" in Shared Drive ${SHARED_DRIVE_ID}`);
 
-    // 3. Create root folder in the delegate user's Drive (duplicate prevention — findOrCreate)
-    const rootFolderId = await findOrCreateFolder(drive, rootFolderName);
+    // 3. Resolve the "00 To be approved" intake root, then create the
+    // opportunity folder inside it (duplicate prevention — findOrCreate).
+    const intakeRootId = await findOrCreateIntakeRoot(drive);
+    const rootFolderId = await findOrCreateFolder(drive, rootFolderName, intakeRootId);
     const rootFolderUrl = await getFolderUrl(drive, rootFolderId);
 
     result.folderId = rootFolderId;

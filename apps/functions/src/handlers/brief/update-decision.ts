@@ -11,12 +11,31 @@ import { requireEnv } from '@/helpers/env';
 import { getExecutiveBrief } from '@/helpers/executive-opportunity-brief';
 import { getProjectById } from '@/helpers/project';
 import { enqueueGoogleDriveSync } from '@/helpers/google-drive-queue';
+import { enqueueDriveFolderForBrief } from '@/helpers/brief-drive-folder';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
-const RequestSchema = z.object({
+/**
+ * Two request shapes are accepted on this route (folded together to stay under
+ * the HTTP API's integration cap — see HOR-2729):
+ *
+ *  1. Decision update — `{ executiveBriefId, decision }`. The original,
+ *     unchanged behaviour. On a GO decision it also enqueues a Drive sync.
+ *  2. Drive-folder action — `{ executiveBriefId, action: 'create-drive-folder' }`.
+ *     Enqueues the folder without touching the decision (the "Create Drive
+ *     folder" button posts this).
+ *
+ * The `action` discriminator is optional, so every existing decision caller is
+ * byte-for-byte unaffected.
+ */
+const DecisionRequestSchema = z.object({
   executiveBriefId: z.string().min(1),
   decision: z.enum(['GO', 'NO_GO', 'CONDITIONAL_GO']),
+});
+
+const DriveFolderRequestSchema = z.object({
+  executiveBriefId: z.string().min(1),
+  action: z.literal('create-drive-folder'),
 });
 
 export const baseHandler = async (
@@ -24,8 +43,39 @@ export const baseHandler = async (
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const bodyJson = event.body ? JSON.parse(event.body) : {};
-    const { executiveBriefId, decision } = RequestSchema.parse(bodyJson);
     const orgId = getOrgId(event);
+
+    // ─── Drive-folder action (folded-in "Create Drive folder" button) ───
+    if ((bodyJson as { action?: unknown })?.action === 'create-drive-folder') {
+      const { success, data, error } = DriveFolderRequestSchema.safeParse(bodyJson);
+      if (!success) {
+        return apiResponse(400, { ok: false, error: 'Invalid payload', issues: error.issues });
+      }
+      if (!orgId) {
+        return apiResponse(400, { ok: false, error: 'orgId is required' });
+      }
+
+      const result = await enqueueDriveFolderForBrief(data.executiveBriefId, orgId);
+      if (result.status === 'not_found') {
+        return apiResponse(404, { ok: false, error: 'Executive brief not found' });
+      }
+      if (result.status === 'exists') {
+        return apiResponse(200, {
+          ok: true,
+          status: 'exists',
+          googleDriveFolderUrl: result.googleDriveFolderUrl,
+          message: 'Google Drive folder already exists',
+        });
+      }
+      return apiResponse(202, {
+        ok: true,
+        status: 'enqueued',
+        executiveBriefId: data.executiveBriefId,
+        message: 'Google Drive folder creation enqueued',
+      });
+    }
+
+    const { executiveBriefId, decision } = DecisionRequestSchema.parse(bodyJson);
 
     const now = new Date().toISOString();
 

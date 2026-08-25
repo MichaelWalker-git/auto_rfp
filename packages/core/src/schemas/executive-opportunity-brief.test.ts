@@ -7,6 +7,7 @@ import {
   RoleSchema,
   ContactSchema,
   ContactsSectionSchema,
+  ExecutiveBriefItemSchema,
 } from './executive-opportunity-brief';
 
 describe('QuickSummarySchema', () => {
@@ -371,6 +372,63 @@ describe('ContactsSectionSchema', () => {
       missingRecommendedRoles: ['CONTRACTING_OFFICER', 'TECHNICAL_POC'],
     };
     const { success } = ContactsSectionSchema.safeParse(section);
+    expect(success).toBe(true);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Google Drive folder fields (HOR-2729 §3)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('ExecutiveBriefItemSchema — Google Drive fields', () => {
+  const baseBrief = {
+    projectId: 'proj-1',
+    opportunityId: 'opp-1',
+    documentsBucket: 'bucket',
+    status: 'COMPLETE',
+    sections: {
+      summary: { data: { summary: 'A summary.' } },
+      deadlines: {},
+      requirements: {},
+      contacts: {},
+      risks: {},
+      pricing: {},
+      pastPerformance: {},
+      scoring: {},
+    },
+    createdAt: '2026-08-24T00:00:00.000Z',
+    updatedAt: '2026-08-24T00:00:00.000Z',
+  };
+
+  it('accepts populated Google Drive folder fields', () => {
+    const { success, data } = ExecutiveBriefItemSchema.safeParse({
+      ...baseBrief,
+      googleDriveFolderId: 'folder-abc',
+      googleDriveFolderUrl: 'https://drive.google.com/drive/folders/abc',
+      googleDriveSyncedAt: '2026-08-24T01:00:00.000Z',
+    });
+
+    expect(success).toBe(true);
+    expect(data?.googleDriveFolderId).toBe('folder-abc');
+    expect(data?.googleDriveFolderUrl).toBe('https://drive.google.com/drive/folders/abc');
+    expect(data?.googleDriveSyncedAt).toBe('2026-08-24T01:00:00.000Z');
+  });
+
+  it('allows the Google Drive fields to be omitted (nullish)', () => {
+    const { success, data } = ExecutiveBriefItemSchema.safeParse(baseBrief);
+
+    expect(success).toBe(true);
+    expect(data?.googleDriveFolderUrl).toBeUndefined();
+  });
+
+  it('accepts null for the Google Drive fields', () => {
+    const { success } = ExecutiveBriefItemSchema.safeParse({
+      ...baseBrief,
+      googleDriveFolderId: null,
+      googleDriveFolderUrl: null,
+      googleDriveSyncedAt: null,
+    });
+
     expect(success).toBe(true);
   });
 });

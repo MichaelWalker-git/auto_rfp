@@ -13,6 +13,7 @@ import { docClient } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
+const APP_URL = process.env['APP_URL'] ?? 'https://rfp.horustech.dev';
 
 const RequestSchema = z.object({
   executiveBriefId: z.string().min(1),
@@ -30,7 +31,7 @@ function formatDate(isoString: string): string {
   });
 }
 
-function buildTicketDescription(brief: any, _project: any): string {
+function buildTicketDescription(brief: any, _project: any, orgId: string): string {
   const summary = brief.sections?.summary?.data;
   const deadlines = brief.sections?.deadlines?.data;
   const scoring = brief.sections?.scoring?.data;
@@ -51,6 +52,15 @@ function buildTicketDescription(brief: any, _project: any): string {
     parts.push(`**Place of Performance:** ${summary.placeOfPerformance}`);
   }
   parts.push('');
+
+  // Link back to the AutoRFP opportunity so operators can jump straight to it.
+  // Built from known path segments (mirrors notification-worker's APP_URL pattern).
+  if (orgId && brief.projectId && brief.opportunityId) {
+    const opportunityUrl = `${APP_URL}/organizations/${orgId}/projects/${brief.projectId}/opportunities/${brief.opportunityId}`;
+    parts.push('## AutoRFP');
+    parts.push(`[Open opportunity in AutoRFP](${opportunityUrl})`);
+    parts.push('');
+  }
 
   if (summary?.summary) {
     parts.push('## Summary');
@@ -222,7 +232,7 @@ export const baseHandler = async (
     }
 
     // Create new ticket
-    const description = buildTicketDescription(brief, project);
+    const description = buildTicketDescription(brief, project, orgId);
     const dueDate = deadlines?.submissionDeadlineIso ?? undefined;
 
     const ticket = await createLinearTicket({

@@ -5,8 +5,14 @@ import type { DomainRoutes } from './types';
 export function briefDomain(args: {
   execBriefQueueUrl: string;
   googleDriveSyncQueueUrl: string;
+  frontendUrl?: string;
 }): DomainRoutes {
-  const { execBriefQueueUrl, googleDriveSyncQueueUrl } = args;
+  const { execBriefQueueUrl, googleDriveSyncQueueUrl, frontendUrl } = args;
+
+  // Public frontend URL used to build the opportunity deep-link in Linear
+  // tickets. Falls back to the prod custom domain so the handler never crashes
+  // if the value is unset at synth time.
+  const appUrl = frontendUrl ?? 'https://rfp.horustech.dev';
 
   return {
     basePath: 'brief',
@@ -67,9 +73,13 @@ export function briefDomain(args: {
         method: 'POST',
         path: 'handle-linear-ticket',
         entry: lambdaEntry('brief/handle-linear-ticket.ts'),
+        extraEnv: { APP_URL: appUrl },
       },
 
       {
+        // Also hosts the "Create Drive folder" action via an optional
+        // `action: 'create-drive-folder'` discriminator in the body — folded
+        // in here to stay under the HTTP API's integration cap (HOR-2729).
         method: 'POST',
         path: 'update-decision',
         entry: lambdaEntry('brief/update-decision.ts'),
