@@ -133,8 +133,8 @@ describe('savedSearchToParams', () => {
   });
 
   it('produces a URL the search page can actually parse', () => {
-    // The run button used to push `?search=<json>`, which only the older
-    // samgov-opportunity-search page reads — so it landed on an empty form.
+    // The run button used to push `?search=<json>`, which only a since-deleted
+    // SAM.gov-only search page read — so it landed on an empty form.
     const params = savedSearchToParams(makeSavedSearch({ higherGovSearchId: SEARCH_ID }));
 
     expect(params.get('hgId')).toBe(SEARCH_ID);

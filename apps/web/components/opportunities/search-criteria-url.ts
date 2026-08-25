@@ -68,7 +68,7 @@ export const criteriaToParams = (c: SearchOpportunityCriteria): URLSearchParams 
  * Query string that reopens a saved search on the search page.
  *
  * Saved searches used to navigate to `?search=<json>`, which no page on this route
- * reads — only the older `samgov-opportunity-search` page does — so the run button
+ * reads — only a since-deleted SAM.gov-only search page did — so the run button
  * landed on an empty form. Going through `criteriaToParams` produces the flat
  * shape the search page actually parses.
  */
