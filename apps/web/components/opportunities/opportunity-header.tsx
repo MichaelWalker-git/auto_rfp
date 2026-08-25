@@ -58,6 +58,9 @@ export const OpportunityHeader = () => {
     orgId,
     backUrl,
     currentDeliveryConstraint: opportunity?.deliveryLocationConstraint,
+    // Passed so a header edit preserves the LossData fields this form does not collect
+    // (bid amounts, evaluation scores) instead of replacing the whole attribute.
+    currentLossData: opportunity?.lossData,
     onSuccess: refetch,
   });
 

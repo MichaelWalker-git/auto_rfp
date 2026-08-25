@@ -13,6 +13,16 @@ interface UseOpportunityHeaderActionsProps {
   backUrl: string;
   /** The opportunity's currently-stored delivery constraint, used to detect a real user change. */
   currentDeliveryConstraint?: DeliveryLocationConstraint | null;
+  /**
+   * The opportunity's currently-stored loss detail.
+   *
+   * Required so a header edit can PRESERVE the LossData fields this form does not
+   * collect — `ourBidAmount`, `winningBidAmount`, `evaluationScores`, which the outcome
+   * dialog records and the FOIA comparison dashboard reads. `lossData` is one whole
+   * DynamoDB attribute, so rebuilding it from four form fields replaces the stored
+   * object and silently drops the rest.
+   */
+  currentLossData?: LossData | null;
   onSuccess?: () => void;
 }
 
@@ -52,6 +62,7 @@ export const useOpportunityHeaderActions = ({
   orgId,
   backUrl,
   currentDeliveryConstraint,
+  currentLossData,
   onSuccess,
 }: UseOpportunityHeaderActionsProps) => {
   const router = useRouter();
@@ -112,12 +123,42 @@ export const useOpportunityHeaderActions = ({
           if (values.keyFactors?.trim()) winData.keyFactors = values.keyFactors.trim();
           patch.winData = winData;
         } else if (values.status === 'LOST') {
+          /**
+           * Spread the STORED lossData first, then overwrite only the four fields this
+           * form owns.
+           *
+           * `lossData` is written to DynamoDB as one whole attribute, so a patch that
+           * rebuilds it from scratch REPLACES the stored object rather than merging into
+           * it. This form collects lossReason, lossDate, lossReasonDetails and
+           * winningContractor — but the outcome dialog also records `ourBidAmount`,
+           * `winningBidAmount` and `evaluationScores`, which feed the FOIA comparison
+           * dashboard. Rebuilding from scratch here silently deleted all three.
+           *
+           * The deletion failed in the dangerous direction: the row stays LOST, so it
+           * still counts in the dashboard's `pricingCoverage.total` while dropping out of
+           * `withPricing` — the chart quietly loses a bar and the coverage line reports
+           * the gap as missing data entry rather than as data we destroyed. No error, no
+           * audit signal.
+           *
+           * Any field a future form adds to LossData is preserved by this spread without
+           * needing to touch this hook again.
+           */
           const lossData: LossData = {
+            ...(currentLossData ?? {}),
             lossReason: values.lossReason ?? 'UNKNOWN',
             lossDate: values.lossDate ? new Date(values.lossDate).toISOString() : new Date().toISOString(),
           };
-          if (values.lossReasonDetails?.trim()) lossData.lossReasonDetails = values.lossReasonDetails.trim();
-          if (values.winningContractor?.trim()) lossData.winningContractor = values.winningContractor.trim();
+
+          // Empty input clears the field rather than leaving the stored value, so a user
+          // can genuinely blank out a detail they entered by mistake.
+          const details = values.lossReasonDetails?.trim();
+          if (details) lossData.lossReasonDetails = details;
+          else delete lossData.lossReasonDetails;
+
+          const contractor = values.winningContractor?.trim();
+          if (contractor) lossData.winningContractor = contractor;
+          else delete lossData.winningContractor;
+
           patch.lossData = lossData;
         }
       }
@@ -132,7 +173,9 @@ export const useOpportunityHeaderActions = ({
         setSubmitError((err as Error)?.message || 'Failed to update opportunity');
       }
     },
-    [oppId, projectId, updateOpportunity, onSuccess]
+    // currentLossData and currentDeliveryConstraint are read inside, so they belong
+    // here: a stale closure would spread yesterday's lossData over today's edit.
+    [oppId, projectId, updateOpportunity, onSuccess, currentDeliveryConstraint, currentLossData]
   );
 
   const handleDelete = useCallback(async () => {

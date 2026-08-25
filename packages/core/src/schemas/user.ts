@@ -133,6 +133,15 @@ export const ALL_PERMISSIONS = [
   'audit:report',
   // Approving and transmitting a statutory records request to an agency.
   'foia:send',
+  /**
+   * Opening the documents an agency released in response to a records request.
+   *
+   * Separate from `foia:send`, which is the authority to transmit a request — a
+   * different question with a different answer. Released records can name competitors'
+   * pricing and evaluators by name, so this is ADMIN-only, while the aggregate charts
+   * built from them are open to every role.
+   */
+  'foia:documents:read',
 ] as const;
 
 export type Permission = (typeof ALL_PERMISSIONS)[number];
