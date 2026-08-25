@@ -42,6 +42,23 @@ interface Props {
   projectId: string;
 }
 
+/**
+ * Suffix for the HigherGov results badge, so a blended `all` count isn't opaque about
+ * which markets it drew from. Empty for `all` — "HigherGov: 310" already reads as
+ * everything.
+ */
+const HIGHERGOV_MARKET_LABELS: Record<string, string> = {
+  all: '',
+  federal_contract: ' (federal)',
+  state_local: ' (state & local)',
+  federal_and_state_local: ' (federal + SLED)',
+  federal_grant: ' (grants)',
+  sbir: ' (SBIR)',
+  dibbs: ' (DIBBS)',
+  federal_forecast: ' (federal forecasts)',
+  sled_forecast: ' (SLED forecasts)',
+};
+
 /** Convert MM/dd/yyyy to ISO date string (yyyy-MM-dd) */
 const isoFromMmdd = (s: string): string | undefined => {
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
@@ -453,6 +470,15 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
                     </>
                   )}
                 </span>
+                {/* A HigherGov count looks broken next to their own site — the same words
+                    report 70 here and 2,675 there — and the entire difference is this
+                    filter. Naming it costs nothing; fetching the second number would cost
+                    100 records of a 10,000/month allowance per search. */}
+                {lastCriteriaRef?.sources?.includes('HIGHER_GOV') && lastCriteriaRef?.higherGovActiveOnly && (
+                  <span className="text-xs text-muted-foreground">
+                    · open opportunities only — turn off <span className="font-medium">Active only</span> to include closed and historical
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2 ml-auto">
                 {result.totalSamGov > 0 && (
@@ -463,7 +489,10 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
                 {/* HigherGov had no badge at all despite being a primary provider. */}
                 {result.totalHigherGov > 0 && (
                   <Badge className="text-xs bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-50">
-                    HigherGov: {result.totalHigherGov.toLocaleString()}
+                    {/* Name the market: an `all` search blends federal, SLED, grants and
+                        SBIR into one number, and the count alone doesn't say which. */}
+                    HigherGov{HIGHERGOV_MARKET_LABELS[lastCriteriaRef?.higherGovMarket ?? 'all']}
+                    : {result.totalHigherGov.toLocaleString()}
                   </Badge>
                 )}
                 <div className="flex items-center gap-1.5 border-l pl-3 ml-1">

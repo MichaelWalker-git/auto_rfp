@@ -144,7 +144,10 @@ export const paramsToCriteria = (p: URLSearchParams): SearchOpportunityCriteria 
     higherGovSourceType: p.get('hgSource') ?? undefined,
     higherGovSearchId:   p.get('hgId') ?? undefined,
     higherGovMarket:     (p.get('hgMarket') ?? undefined) as SearchOpportunityCriteria['higherGovMarket'],
-    higherGovActiveOnly: p.get('hgActive') === '0' ? false : undefined,
+    // Explicit `true` rather than undefined: the results bar keys its "open
+    // opportunities only" note off this, so an omitted param must still read as on —
+    // which is also what the backend defaults to.
+    higherGovActiveOnly: p.get('hgActive') !== '0',
     limit:               parseLimit(p.get('limit')),
   };
 };
