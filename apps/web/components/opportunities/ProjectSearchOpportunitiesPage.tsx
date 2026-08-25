@@ -495,25 +495,30 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
                     : {result.totalHigherGov.toLocaleString()}
                   </Badge>
                 )}
-                <div className="flex items-center gap-1.5 border-l pl-3 ml-1">
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">Per page:</span>
-                  <Select
-                    value={String(pageSize)}
-                    onValueChange={handlePageSizeChange}
-                    disabled={isLoading}
-                  >
-                    <SelectTrigger className="h-7 w-16 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PAGE_SIZE_OPTIONS.map((n) => (
-                        <SelectItem key={n} value={String(n)} className="text-xs">
-                          {n}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Hidden for HigherGov: their MCP tool fixes page size at 100 and
+                    ignores the requested value, so the control would read "25" while
+                    loading 100 — a setting that visibly does nothing. */}
+                {!lastCriteriaRef?.sources?.includes('HIGHER_GOV') && (
+                  <div className="flex items-center gap-1.5 border-l pl-3 ml-1">
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">Per page:</span>
+                    <Select
+                      value={String(pageSize)}
+                      onValueChange={handlePageSizeChange}
+                      disabled={isLoading}
+                    >
+                      <SelectTrigger className="h-7 w-16 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAGE_SIZE_OPTIONS.map((n) => (
+                          <SelectItem key={n} value={String(n)} className="text-xs">
+                            {n}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             </div>
           )}
