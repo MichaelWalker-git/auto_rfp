@@ -66,7 +66,18 @@ export type UnifiedSearchResult = SearchOpportunityResult;
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
+/**
+ * `yyyy-MM-dd` → `MM/dd/yyyy`, by string surgery rather than via `new Date()`.
+ *
+ * `new Date('2026-08-01')` is parsed as UTC midnight, so the local getters report
+ * 2026-07-31 for anyone west of UTC — a date the user picked was sent as the day before.
+ * The same trap is already documented in search-criteria-url.ts and SearchOpportunityForm.
+ */
 const toMMDDYYYY = (iso: string): string => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (m) return `${m[2]}/${m[3]}/${m[1]}`;
+  // Non-ISO input (e.g. an already-formatted or Date-stringified value): fall back to
+  // local-time getters, which are correct for those shapes.
   const d = new Date(iso);
   return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
 };
@@ -113,10 +124,18 @@ export const useSearchOpportunities = (orgId: string | undefined) => {
   ): Promise<boolean> => {
     if (!orgId) return false;
 
-    const from   = criteria.postedFrom ?? defaultFrom();
-    const to     = criteria.postedTo   ?? defaultTo();
     const source = criteria.sources?.length === 1 ? criteria.sources[0] : 'ALL';
     const limit  = criteria.limit ?? DEFAULT_PAGE_SIZE;
+
+    // SAM.gov REQUIRES a posted range, so it keeps the 30-day fallback. HigherGov must
+    // NOT get one: the backend maps postedFrom to their `posted_date`, which is a SINGLE
+    // DAY, so a defaulted "30 days ago" asks for opportunities posted on exactly that day
+    // and returns nothing. Measured: `keyword=saas` alone -> 310, with the defaulted date
+    // -> 0. The form deliberately leaves these undefined for HigherGov; re-adding them
+    // here silently undid that.
+    const isHigherGovOnly = source === 'HIGHER_GOV';
+    const from = criteria.postedFrom ?? (isHigherGovOnly ? undefined : defaultFrom());
+    const to   = criteria.postedTo   ?? (isHigherGovOnly ? undefined : defaultTo());
 
     const res = await authFetcher(
       `${env.BASE_API_URL}/search-opportunities/search?orgId=${encodeURIComponent(orgId)}`,
@@ -127,8 +146,8 @@ export const useSearchOpportunities = (orgId: string | undefined) => {
           keywords:     criteria.keywords || undefined,
           naics:        criteria.naics?.length ? criteria.naics : undefined,
           setAsideCode: criteria.setAsideCode || undefined,
-          postedFrom:   toMMDDYYYY(from),
-          postedTo:     toMMDDYYYY(to),
+          postedFrom:   from ? toMMDDYYYY(from) : undefined,
+          postedTo:     to   ? toMMDDYYYY(to)   : undefined,
           closingFrom:  criteria.closingFrom ? toMMDDYYYY(criteria.closingFrom) : undefined,
           closingTo:    criteria.closingTo   ? toMMDDYYYY(criteria.closingTo)   : undefined,
           higherGovSourceType: criteria.higherGovSourceType || undefined,
