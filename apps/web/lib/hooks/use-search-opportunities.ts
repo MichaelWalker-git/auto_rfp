@@ -24,9 +24,25 @@ export interface SearchOpportunityCriteria {
   higherGovSourceType?: string;
   /** HigherGov search_id — replay a saved search from HigherGov UI */
   higherGovSearchId?: string;
+  /** Which HigherGov market(s) to search — their MCP `opportunity_type`. */
+  higherGovMarket?: HigherGovMarket;
+  /** Restrict HigherGov to currently open opportunities. */
+  higherGovActiveOnly?: boolean;
   limit?: number;
   offset?: number;
 }
+
+/** Mirrors the `opportunity_type` enum of HigherGov's MCP `search_opportunities` tool. */
+export type HigherGovMarket =
+  | 'federal_contract'
+  | 'state_local'
+  | 'federal_and_state_local'
+  | 'federal_grant'
+  | 'dibbs'
+  | 'sbir'
+  | 'federal_forecast'
+  | 'sled_forecast'
+  | 'all';
 
 /** @deprecated use SearchOpportunityCriteria */
 export type UnifiedSearchCriteria = SearchOpportunityCriteria;
@@ -117,6 +133,8 @@ export const useSearchOpportunities = (orgId: string | undefined) => {
           closingTo:    criteria.closingTo   ? toMMDDYYYY(criteria.closingTo)   : undefined,
           higherGovSourceType: criteria.higherGovSourceType || undefined,
           higherGovSearchId: criteria.higherGovSearchId || undefined,
+          higherGovMarket: criteria.higherGovMarket || undefined,
+          higherGovActiveOnly: criteria.higherGovActiveOnly,
           limit,
           offset,
         }),
