@@ -570,6 +570,33 @@ describe('real subject lines from the monitored mailbox', () => {
     expect(canActAutomatically(r)).toBe(false);
   });
 
+  /**
+   * A retraction must name the AWARD as the thing cancelled.
+   *
+   * `Award Type: Award` alone was matched as a retraction, but BidNet emits that
+   * structured field on cancellation postings too — so a genuine cancellation carrying
+   * it was reclassified SOLICITATION_CANCELLED → AWARD_NOTICE. Because that path can
+   * act unattended, it went on to record an award and re-anchor the FOIA timer on a
+   * dead solicitation: the same inversion the retraction list exists to prevent,
+   * pointed the other way.
+   *
+   * The test above still passes on the real 4142 message, which says "award … has been
+   * cancelled" — so removing the bare field test costs no coverage.
+   */
+  it('does not let a bare "Award Type: Award" field hijack a real cancellation', () => {
+    const r = real(
+      'Solicitation 4142 cancelled',
+      [
+        'The following solicitation has been cancelled.',
+        '   - Award Type: Award',
+        '   - Solicitation Number: 4142',
+      ].join('\n'),
+    );
+
+    expect(r.classification).toBe('SOLICITATION_CANCELLED');
+    expect(r.matchedOn).not.toContain('award-retracted');
+  });
+
   it('recognises the "Cancelled:" subject prefix agencies use', () => {
     const r = real(
       'Cancelled: 26-061 - Digital Training Log and Certification of Public Works',

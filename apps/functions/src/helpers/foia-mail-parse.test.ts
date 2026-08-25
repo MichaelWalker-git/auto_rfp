@@ -293,11 +293,65 @@ describe('stripQuotedReply', () => {
      */
     const body = [
       '---------- Forwarded message ---------',
-      'From: Channel Coast District Contract Bids <ccdbid@parks.ca.gov>',
+      'From: Channel Coast District Contract Bids <bids@parks.ca.gov>',
       '',
       'Unfortunately, C25910004 was cancelled and not awarded via IFB.',
     ].join('\n');
 
     expect(stripQuotedReply(body)).toContain('was cancelled and not awarded');
+  });
+
+  /**
+   * The attribution must be anchored to a line start, with `On` matched case-sensitively.
+   *
+   * The unanchored, case-insensitive `\bOn\b` matched the lowercase "on" inside the
+   * agency's OWN sentence, and because `isOurs` is tested against the whole 200-char
+   * span, one of our addresses further along the line made that "on" the cut point.
+   * This body was truncated to "Based " — losing the agency's answer, and the
+   * NO_RECORDS_LOCATED outcome that depends on reading it.
+   */
+  it('does not cut at a lowercase "on" inside the agency\'s own prose', () => {
+    const body = [
+      'Based on a search of our files, no records were located for this request.',
+      '',
+      'On Mon, Aug 17, 2026 at 10:33 AM Brennen Stones <brennen@horustech.dev> wrote:',
+      '> Pursuant to the California Public Records Act, I am requesting records.',
+    ].join('\n');
+
+    const kept = stripQuotedReply(body);
+
+    expect(kept).toContain('no records were located');
+    expect(kept).not.toContain('Pursuant to the California Public Records Act');
+  });
+
+  /**
+   * A cut at offset 0 must not fall back to the whole body.
+   *
+   * A reply opening "On review of our files…" puts a cut at 0, and returning the body
+   * unchanged let our entire quoted letter back into the authorship haystack — the very
+   * defect this function exists to prevent, so the reply still booked as
+   * OUR_OWN_REQUEST. The first NON-ZERO cut is the usable one.
+   */
+  it('prefers the first non-zero cut over returning the whole body', () => {
+    const body = [
+      'On review of our files we located no records. Contact brennen@horustech.dev wrote:',
+      'From: Brennen Stones <brennen@horustech.dev>',
+      'Pursuant to the CPRA, I am requesting the notice of award.',
+    ].join('\n');
+
+    const kept = stripQuotedReply(body);
+
+    expect(kept).not.toContain('Pursuant to the CPRA');
+    expect(kept).toContain('we located no records');
+  });
+
+  it('still returns a genuine outbound letter of ours in full', () => {
+    // Every cut sits at 0 here, and an empty haystack would classify nothing — the
+    // outbound rules are meant to match our own letter.
+    const ours =
+      'Pursuant to the California Public Records Act, I am requesting copies of the ' +
+      'notice of award. Contact brennen@horustech.dev with questions.';
+
+    expect(stripQuotedReply(ours)).toBe(ours);
   });
 });

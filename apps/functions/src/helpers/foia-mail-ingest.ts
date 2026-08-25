@@ -174,18 +174,38 @@ export const readResponseOutcome = (args: {
    * required, since an agency writes "your request is denied" while our letter
    * writes "this request". Measured on the live corpus: 8 false DENIED before,
    * 0 after, with genuine agency denials still matching.
+   *
+   * The conditional test is applied PER SENTENCE, not to the whole body. Testing the
+   * body made it a global veto, and appeal-rights boilerplate carries a conditional
+   * "denied" in nearly every real denial letter: "Your request is denied in part
+   * under Exemption 6. If a request is denied in whole or in part, the requester may
+   * appeal within 90 days." — a genuine denial that returned ACKNOWLEDGED because a
+   * later, unrelated sentence was hypothetical. A denial is now recognised when ANY
+   * single sentence asserts it non-conditionally.
    */
-  const isConditional = /\b(?:if|should|unless|in\s+the\s+event)\b[^.]{0,80}\bdenied\b/i.test(
-    bodyText,
-  );
+  const DENIAL_PATTERNS: ReadonlyArray<RegExp> = [
+    /\b(?:we|the\s+\w+)\s+(?:are|is|has|have)\s+(?:withholding|withheld)\b/i,
+    /\byour\s+request\s+(?:is|has\s+been)\s+denied\b/i,
+    /\brecords?\s+(?:are|is)\s+exempt\s+from\s+disclosure\b/i,
+    /\bwe\s+(?:have\s+)?referred\b[^.]{0,60}\battorney general\b/i,
+    /\bdenying\s+(?:your\s+)?request\b/i,
+  ];
+
+  /** Hypothetical framing, scoped to the sentence that carries the assertion. */
+  const isConditionalSentence = (sentence: string): boolean =>
+    /\b(?:if|should|unless|in\s+the\s+event)\b[^.]{0,80}\b(?:denied|withheld|withholding|exempt)\b/i.test(
+      sentence,
+    );
+
+  // Split on sentence terminators. Newlines count: agencies format denials as
+  // fragments on their own lines, which carry no full stop.
+  const sentences = bodyText.split(/(?<=[.!?])\s+|\n+/);
 
   if (
-    !isConditional &&
-    (/\b(?:we|the\s+\w+)\s+(?:are|is|has|have)\s+(?:withholding|withheld)\b/i.test(bodyText) ||
-      /\byour\s+request\s+(?:is|has\s+been)\s+denied\b/i.test(bodyText) ||
-      /\brecords?\s+(?:are|is)\s+exempt\s+from\s+disclosure\b/i.test(bodyText) ||
-      /\bwe\s+(?:have\s+)?referred\b[^.]{0,60}\battorney general\b/i.test(bodyText) ||
-      /\bdenying\s+(?:your\s+)?request\b/i.test(bodyText))
+    sentences.some(
+      (sentence) =>
+        !isConditionalSentence(sentence) && DENIAL_PATTERNS.some((re) => re.test(sentence)),
+    )
   ) {
     return 'DENIED';
   }

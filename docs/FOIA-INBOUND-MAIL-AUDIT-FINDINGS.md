@@ -196,7 +196,7 @@ on Level 2's timer rather than inbound mail. Worth fixing the underlying data.
 ### 3 · An agency's "was cancelled" is filed as our own outgoing request — HIGH · ✅ FIXED
 
 Real: `i3o2h82ak04i` and `pm4tl45k4m77` (byte-identical body, two Message-IDs, two
-ledger rows — one message forwarded twice). CA State Parks, `ccdbid@parks.ca.gov`:
+ledger rows — one message forwarded twice). CA State Parks, `@parks.ca.gov`:
 
 > "Unfortunately, C25910004 was cancelled and not awarded via IFB."
 
@@ -378,7 +378,7 @@ the statute by acronym only".
 
 ### 9 · An agency forwarding our request internally is filed as ours — MEDIUM · ✅ FIXED
 
-Real: `obc93sn2d5kk`, `jeanette.martinezcastaneda@sbcusd.k12.ca.us` — an
+Real: `obc93sn2d5kk`, `@sbcusd.k12.ca.us` — an
 agency-domain sender, `Re:` subject, correlated cleanly to opp `92e0e4fe`:
 
 > "I am forwarding you the request for records I received."

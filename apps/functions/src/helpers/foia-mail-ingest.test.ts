@@ -239,6 +239,60 @@ describe('readResponseOutcome — what the agency actually did', () => {
     expect(outcome(ourClause)).toBe('ACKNOWLEDGED');
   });
 
+  /**
+   * The conditional guard is scoped PER SENTENCE, not to the whole body.
+   *
+   * Applying it to the body made it a global veto, and appeal-rights boilerplate
+   * carries a conditional "denied" in nearly every real denial letter — so a genuine
+   * denial returned ACKNOWLEDGED because a LATER, unrelated sentence was hypothetical.
+   * These cases pin the scoping: the suite passed with the whole-body test in place,
+   * which is why they are worth having.
+   */
+  it.each([
+    [
+      'appeal-rights boilerplate after the denial',
+      'Your request is denied in part under Exemption 6. If a request is denied in whole or in part, the requester may appeal within 90 days.',
+    ],
+    [
+      'conditional appeal wording after a withholding',
+      'We are withholding two documents as exempt. Should a request be denied, you may appeal to the custodian.',
+    ],
+    [
+      'exemption stated as a fragment on its own line',
+      'Re: your public records request\nRecords are exempt from disclosure\nRegards, City Clerk',
+    ],
+  ])('reads a denial that also carries %s', (_label, body) => {
+    expect(outcome(body)).toBe('DENIED');
+  });
+
+  /**
+   * The conditional guard has to be tested on a sentence that ALSO matches a denial
+   * pattern, or it is untested rather than merely unused.
+   *
+   * Our own template no longer matches any denial pattern (the possessive became
+   * mandatory), so the existing "our own letter" case passes with the guard deleted
+   * entirely — mutation-checked. These are agency sentences that DO match a pattern
+   * while being plainly hypothetical, which is the only shape the guard exists for.
+   */
+  it.each([
+    ['a conditional denial in appeal instructions', 'If your request is denied you may appeal within 30 days.'],
+    ['a conditional withholding', 'Unless we are withholding records, you should receive them shortly.'],
+    ['a conditional exemption', 'In the event records are exempt from disclosure we will identify them.'],
+  ])('does not read %s as a denial', (_label, body) => {
+    expect(outcome(body)).toBe('ACKNOWLEDGED');
+  });
+
+  it("still ignores our own letter when it spans several sentences", () => {
+    // Per-sentence scoping must not reopen the false positive it replaced: every
+    // clause here is ours, and the only "denied" is hypothetical.
+    expect(
+      outcome(
+        'Pursuant to the CPRA I request the notice of award. If any portion of this ' +
+          'request is denied, cite the exemption relied upon. Please respond within 10 days.',
+      ),
+    ).toBe('ACKNOWLEDGED');
+  });
+
   it('still reads a real agency denial', () => {
     // The guard above must not blunt genuine denials. An agency writes the
     // possessive and states the act in the present tense.

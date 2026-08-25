@@ -298,8 +298,21 @@ export const readMailHeader = (raw: string, name: string): string | undefined =>
  */
 const OUR_DOMAIN_PATTERN = /(?:horustech\.dev|@horustech\b)/i;
 const FROM_LINE_PATTERN = /^[ \t>]*\*?From:\*?[ \t]*(.{0,160})$/gim;
-/** `On <anything, possibly wrapped> wrote:` — the Gmail/Outlook attribution line. */
-const WROTE_ATTRIBUTION_PATTERN = /\bOn\b[\s\S]{5,200}?\bwrote:/gi;
+/**
+ * `On <anything, possibly wrapped> wrote:` — the Gmail/Outlook attribution line.
+ *
+ * Anchored to the start of a line, and `On` is matched case-sensitively. Both matter:
+ * the unanchored, case-insensitive `\bOn\b` matched the lowercase "on" inside an
+ * agency's own sentence, and since `isOurs` is tested against the whole 200-char span,
+ * one of our addresses further along the line made that "on" the cut point. "Based on a
+ * search of our files, no records were located…" was truncated to "Based " — losing the
+ * agency's answer, and the NO_RECORDS_LOCATED outcome with it.
+ *
+ * Gmail and Outlook both emit this attribution at the start of its own line, so the
+ * anchor costs no real coverage. Leading `>` and whitespace are allowed because nested
+ * replies indent it.
+ */
+const WROTE_ATTRIBUTION_PATTERN = /^[ \t>]*On\b[\s\S]{5,200}?\bwrote:/gm;
 
 /**
  * Returns only the text attributable to the most recent author who is not us.
@@ -326,8 +339,21 @@ export const stripQuotedReply = (
 
   if (cuts.length === 0) return body;
 
-  const earliest = Math.min(...cuts);
-  // A cut at the very start would leave nothing to classify; prefer the full body
-  // over an empty haystack.
-  return earliest > 0 ? body.slice(0, earliest) : body;
+  /**
+   * Prefer the earliest cut that leaves something to classify.
+   *
+   * Returning the whole body on a cut at offset 0 was the wrong fallback: a reply
+   * opening "On behalf of the City…" or "On review of our files…" puts a cut at 0, and
+   * our entire quoted letter then re-entered the authorship haystack — the exact defect
+   * `stripQuotedReply` exists to prevent, so the reply still booked as
+   * OUR_OWN_REQUEST. Sorting and taking the first non-zero cut keeps whatever the
+   * agency wrote above the next quoted block.
+   *
+   * The whole body is still returned when EVERY cut sits at 0, since an empty haystack
+   * would classify nothing at all and the outbound rules are meant to match a genuine
+   * letter of ours.
+   */
+  const firstUsableCut = [...cuts].sort((a, b) => a - b).find((cut) => cut > 0);
+
+  return firstUsableCut === undefined ? body : body.slice(0, firstUsableCut);
 };

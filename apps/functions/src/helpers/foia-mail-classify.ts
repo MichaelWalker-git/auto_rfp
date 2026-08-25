@@ -126,10 +126,18 @@ const AWARD_PATTERNS: ReadonlyArray<{ re: RegExp; label: string }> = [
  * "'Award' for the 4142 solicitation has been cancelled" satisfies
  * `has-been-cancelled` and (with no sentence boundary between the words)
  * `solicitation-cancelled` too.
+ *
+ * Every pattern must therefore name the AWARD as the thing cancelled. A bare
+ * `Award Type: Award` field test was removed: BidNet emits that structured field on
+ * cancellation postings too, so a genuine "The following solicitation has been
+ * cancelled… Award Type: Award" was reclassified SOLICITATION_CANCELLED → AWARD_NOTICE
+ * and, because this path can act unattended, went on to record an award and re-anchor
+ * the FOIA timer on a dead solicitation. That is the same inversion this list exists to
+ * prevent, pointed the other way. Patterns 1 and 3 already match the real 4142 message
+ * on its "award … has been cancelled" wording, so nothing is lost.
  */
 const AWARD_RETRACTION_PATTERNS: ReadonlyArray<RegExp> = [
   /\b(?:the\s+)?(?:following\s+)?award\b[^.]{0,40}\bhas\s+been\s+cancel(?:l)?ed\b/i,
-  /\baward\s+type\s*:?\s*award\b/i,
   /\b["']?award["']?\s+for\s+the\b[^.]{0,40}\bsolicitation\s+has\s+been\s+cancel(?:l)?ed\b/i,
 ];
 
