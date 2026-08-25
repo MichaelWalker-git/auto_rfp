@@ -143,7 +143,12 @@ export const paramsToCriteria = (p: URLSearchParams): SearchOpportunityCriteria 
     closingTo:           p.get('closingTo') ?? undefined,
     higherGovSourceType: p.get('hgSource') ?? undefined,
     higherGovSearchId:   p.get('hgId') ?? undefined,
-    higherGovMarket:     (p.get('hgMarket') ?? undefined) as SearchOpportunityCriteria['higherGovMarket'],
+    // Defaults to 'all', NOT undefined. `criteriaToParams` omits this param when it is
+    // 'all' to keep URLs readable, so an absent param means "all markets" — and sending
+    // undefined instead let HigherGov apply its own `federal_contract` default. That
+    // showed the UI reading "All sources" while returning the federal-only count (18
+    // instead of 310).
+    higherGovMarket:     (p.get('hgMarket') ?? 'all') as SearchOpportunityCriteria['higherGovMarket'],
     // Explicit `true` rather than undefined: the results bar keys its "open
     // opportunities only" note off this, so an omitted param must still read as on —
     // which is also what the backend defaults to.
