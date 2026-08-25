@@ -86,6 +86,13 @@ const Schema = z.object({
   higherGovSearchId: z.string().default(''),
   higherGovMarket: z.enum(HIGHERGOV_MARKETS.map(m => m.value) as [string, ...string[]]).default('all'),
   higherGovActiveOnly: z.boolean().default(true),
+  /**
+   * HigherGov's `posted_date` — a single day, kept separate from SAM.gov's
+   * postedFrom/postedTo range. Sharing them meant SAM.gov's "last 30 days" default
+   * was sent to HigherGov as "posted exactly 30 days ago", which returned nothing.
+   * Undefined by default: no date filter at all.
+   */
+  higherGovPostedOn: z.date().optional(),
 });
 export type FormValues = z.input<typeof Schema>;
 
@@ -360,6 +367,7 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
     : [
         !!w.keywords?.trim(), (w.naics?.length ?? 0) > 0,
         !!w.higherGovSearchId?.trim(), w.higherGovMarket !== 'all',
+        !!w.higherGovPostedOn,
       ].filter(Boolean).length;
 
   /**
@@ -387,7 +395,17 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
         higherGovSearchId: v.higherGovSearchId?.trim() || undefined,
         higherGovMarket: v.higherGovMarket as SearchOpportunityCriteria['higherGovMarket'],
         higherGovActiveOnly: v.higherGovActiveOnly,
-        postedFrom: toLocalIsoDate(v.postedFrom),
+        // Deliberately NOT forwarding the posted date by default.
+        //
+        // HigherGov's `posted_date` is a SINGLE DAY, while the shared form seeds
+        // postedFrom to "30 days ago" for SAM.gov's range. Sending it asked HigherGov
+        // for opportunities posted on exactly that one day, which reliably returned 0:
+        // `keyword=saas` alone gives 310, and the same query plus
+        // `posted_date=<30 days ago>` gives 0.
+        //
+        // Only send it when the user actually picked a day on the HigherGov single-day
+        // picker, which `higherGovPostedOn` records separately from the SAM.gov range.
+        postedFrom: toLocalIsoDate(v.higherGovPostedOn),
       };
     }
 
@@ -623,7 +641,9 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
             )} />
           )} />
         ) : (
-          <Controller name="postedFrom" control={control} render={({ field }) => (
+          // Bound to its own field, NOT postedFrom: that one is seeded to "30 days ago"
+          // for SAM.gov, and feeding it to HigherGov's single-day param matched nothing.
+          <Controller name="higherGovPostedOn" control={control} render={({ field }) => (
             <SingleDateFilter label="Posted on" value={field.value} onChange={field.onChange} />
           )} />
         )}

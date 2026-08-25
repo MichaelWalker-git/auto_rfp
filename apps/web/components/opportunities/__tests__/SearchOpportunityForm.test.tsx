@@ -204,6 +204,37 @@ describe('SearchOpportunityForm — filters are provider-aware', () => {
     expect(criteria.postedTo).toBeUndefined();
   });
 
+  // Regression: the form seeds postedFrom to "30 days ago" for SAM.gov's range, but
+  // HigherGov's `posted_date` is a SINGLE DAY. Forwarding it asked HigherGov for
+  // opportunities posted on exactly that one day and reliably returned 0 — measured live:
+  // `keyword=saas` alone gives 310, the same plus posted_date=<30 days ago> gives 0.
+  it('does not send SAM.gov\'s seeded date range as a HigherGov single-day filter', async () => {
+    const onSearch = renderForm({
+      source: 'HIGHER_GOV',
+      keywords: 'saas',
+      postedFrom: new Date(2026, 6, 26),
+      postedTo: new Date(2026, 7, 25),
+    });
+
+    const criteria = await submit(onSearch);
+
+    expect(criteria.keywords).toBe('saas');
+    expect(criteria.postedFrom).toBeUndefined();
+    expect(criteria.postedTo).toBeUndefined();
+  });
+
+  it('sends a posted date only when picked on the HigherGov single-day picker', async () => {
+    const onSearch = renderForm({
+      source: 'HIGHER_GOV',
+      keywords: 'saas',
+      higherGovPostedOn: new Date(2026, 7, 1),
+    });
+
+    const criteria = await submit(onSearch);
+
+    expect(criteria.postedFrom).toBe('2026-08-01');
+  });
+
   it('passes HigherGov query operators through verbatim', async () => {
     // Sanitising any of this would break their documented query language — quoting alone
     // is the difference between 40 and 1593 results for "Document Management".
