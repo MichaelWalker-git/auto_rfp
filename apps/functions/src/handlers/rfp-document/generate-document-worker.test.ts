@@ -179,6 +179,19 @@ describe('generate-document-worker — transient errors still retry', () => {
     expect(mockSqsSend).toHaveBeenCalledTimes(1);
   });
 
+  it('retries an oversized-item ValidationException rather than failing it outright', async () => {
+    // Shares the error NAME with the malformed-expression bug but not its cause:
+    // the item outgrew DynamoDB's 400 KB limit, which a later attempt can clear.
+    mockProcessJobInner.mockRejectedValue(
+      awsError('ValidationException', 'Item size to update has exceeded the maximum allowed size'),
+    );
+
+    await handler(sqsEvent, {} as never, () => {});
+
+    expect(mockSqsSend).toHaveBeenCalledTimes(1);
+    expect(metadataUpdates().some((u) => u.status === 'FAILED')).toBe(false);
+  });
+
   it('reports retries exhausted once the budget is spent', async () => {
     // Final permitted attempt: MAX_GENERATION_RETRIES is 3, so retryCount 2 has no budget left.
     mockGetRFPDocument.mockResolvedValue({
@@ -196,5 +209,37 @@ describe('generate-document-worker — transient errors still retry', () => {
 
     const failed = metadataUpdates().find((u) => u.status === 'FAILED');
     expect(failed!.generationError).toContain('after 3 attempts');
+  });
+
+  it('does not claim a full budget when the retry could not be enqueued', async () => {
+    // First attempt of a retryable error, but SQS is down — so the retry never
+    // happens and only ONE generation ran. Claiming 3 attempts here sends the
+    // next reader hunting for two failures that were never attempted.
+    mockProcessJobInner.mockRejectedValue(new Error('transient blip'));
+    mockSqsSend.mockRejectedValue(new Error('SQS unavailable'));
+
+    await handler(sqsEvent, {} as never, () => {});
+
+    const failed = metadataUpdates().find((u) => u.status === 'FAILED');
+    expect(failed!.generationError).toContain('after 1 of 3 attempts');
+    // Still a retryable failure that ran out of road, not a terminal one.
+    expect(failed!.generationError).not.toContain('cannot be retried');
+  });
+
+  it('reports a mid-budget S3 validation failure with the attempts actually made', async () => {
+    // retryCount 1 → this is attempt 2 of 3; content exists but is unreadable.
+    mockGetRFPDocument.mockResolvedValue({
+      documentId: 'doc-1',
+      retryCount: 1,
+      htmlContentKey: 'html-key',
+      createdBy: 'user-1',
+    });
+    mockLoadRFPDocumentHtml.mockRejectedValue(new Error('S3 unavailable'));
+    mockSqsSend.mockRejectedValue(new Error('SQS unavailable'));
+
+    await handler(sqsEvent, {} as never, () => {});
+
+    const failed = metadataUpdates().find((u) => u.status === 'FAILED');
+    expect(failed!.generationError).toContain('after 2 of 3 attempts');
   });
 });

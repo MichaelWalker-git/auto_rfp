@@ -761,7 +761,38 @@ describe('isTerminalGenerationError', () => {
   });
 
   it.each([
-    'ValidationException',
+    'Invalid UpdateExpression: Two document paths overlap with each other',
+    'Invalid ConditionExpression: Syntax error; token: "="',
+    'Invalid KeyConditionExpression: Syntax error',
+    'ExpressionAttributeValues contains invalid value',
+    'Value provided in ExpressionAttributeNames unused in expressions',
+  ])('treats a ValidationException naming a bad expression as terminal: %s', (message) => {
+    expect(isTerminalGenerationError(awsError('ValidationException', message))).toBe(true);
+  });
+
+  /**
+   * A `ValidationException` is only terminal when it names a malformed expression.
+   * AWS reuses the name for conditions that clear on their own, and failing those
+   * outright strands a document a retry would have saved.
+   */
+  it.each([
+    // `required-form.ts` documents this one: an item that outgrew the 400 KB limit.
+    // A document whose editHistory keeps growing hits it, and shrinking is possible.
+    'Item size to update has exceeded the maximum allowed size',
+    // `index-document.ts` deliberately counts this shape as throttling, not a fault.
+    'The level of configured provisioned throughput for the table was exceeded',
+    // Bedrock capacity/model-availability rejections share the name.
+    'Invocation of model ID with on-demand throughput is not supported',
+  ])('keeps a recoverable ValidationException retryable: %s', (message) => {
+    expect(isTerminalGenerationError(awsError('ValidationException', message))).toBe(false);
+  });
+
+  it('keeps a ValidationException with no message retryable', () => {
+    // Nothing identifies it as malformed, so the conservative default applies.
+    expect(isTerminalGenerationError(Object.assign(new Error(), { name: 'ValidationException' }))).toBe(false);
+  });
+
+  it.each([
     'SerializationException',
     'AccessDeniedException',
     'ResourceNotFoundException',

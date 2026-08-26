@@ -138,13 +138,19 @@ const enqueueRetry = async (job: Job, currentRetryCount: number): Promise<void> 
 const markAsPermanentlyFailed = async (
   job: Job,
   failureReason: string,
-  /** False when we gave up on a terminal error, so the message must not claim retries. */
-  retriesExhausted = true,
+  /**
+   * Why we stopped. `attemptsMade` counts generations actually run, so a run that
+   * gave up early — a terminal error, or a retry that could not be enqueued —
+   * never reports attempts it never made.
+   */
+  giveUp: { terminal?: boolean; attemptsMade: number },
 ): Promise<void> => {
   const { orgId, projectId, opportunityId, documentId, documentType } = job;
-  const attemptSummary = retriesExhausted
-    ? `after ${MAX_GENERATION_RETRIES} attempts`
-    : 'and cannot be retried';
+  const attemptSummary = giveUp.terminal
+    ? 'and cannot be retried'
+    : giveUp.attemptsMade >= MAX_GENERATION_RETRIES
+      ? `after ${MAX_GENERATION_RETRIES} attempts`
+      : `after ${giveUp.attemptsMade} of ${MAX_GENERATION_RETRIES} attempts`;
 
   // Get the document to find who created it
   const doc = await getRFPDocument(projectId, opportunityId, documentId);
@@ -255,7 +261,9 @@ const processJob = async (job: Job): Promise<void> => {
               return;
             } else {
               // No retries left - mark as permanently failed
-              await markAsPermanentlyFailed(job, `Cannot validate content: ${s3FailureReason}`);
+              await markAsPermanentlyFailed(job, `Cannot validate content: ${s3FailureReason}`, {
+                attemptsMade: currentRetryCount + 1,
+              });
               return;
             }
           }
@@ -277,7 +285,9 @@ const processJob = async (job: Job): Promise<void> => {
         return; // Don't throw - we're retrying
       } else {
         // Max retries reached (have made 3 total attempts): mark as permanently failed and notify
-        await markAsPermanentlyFailed(job, validation.reason ?? 'Unknown validation failure');
+        await markAsPermanentlyFailed(job, validation.reason ?? 'Unknown validation failure', {
+          attemptsMade: currentRetryCount + 1,
+        });
         return; // Don't throw - we've handled the failure
       }
     }
@@ -328,7 +338,11 @@ const processJob = async (job: Job): Promise<void> => {
 
     // Terminal error, max retries reached, or retry failed: mark as failed
     try {
-      await markAsPermanentlyFailed(job, errorMessage.substring(0, 500), !isTerminal);
+      await markAsPermanentlyFailed(job, errorMessage.substring(0, 500), {
+        terminal: isTerminal,
+        // This attempt counts; a retry that could not be enqueued does not.
+        attemptsMade: currentRetryCount + 1,
+      });
       // Successfully marked as failed - return normally so SQS deletes the message.
       // If we throw here, SQS will re-deliver and we'd send duplicate notifications.
       return;
