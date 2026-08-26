@@ -435,6 +435,12 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
       closingFrom: mmddToDate(c.closingFrom), closingTo: mmddToDate(c.closingTo),
       higherGovSourceType: (c.higherGovSourceType ?? '') as FormValues['higherGovSourceType'],
       higherGovSearchId: c.higherGovSearchId ?? '',
+      // Fall back to the form defaults, not undefined: `reset` replaces the whole
+      // form state, so an omitted key here would blank the market/active controls
+      // rather than leave them at 'all'/true. Rows saved before these fields
+      // existed therefore reopen the way they always ran.
+      higherGovMarket: c.higherGovMarket ?? 'all',
+      higherGovActiveOnly: c.higherGovActiveOnly ?? true,
     });
   };
 
@@ -454,7 +460,11 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
         body: JSON.stringify({
           source, orgId,
           name: saveName.trim() || 'My Search',
-          criteria: { postedFrom: fmt(c.postedFrom), postedTo: fmt(c.postedTo), keywords: c.keywords, naics: c.naics, setAsideCode: c.setAsideCode, closingFrom: c.closingFrom ? fmt(c.closingFrom) : undefined, closingTo: c.closingTo ? fmt(c.closingTo) : undefined, higherGovSourceType: c.higherGovSourceType, higherGovSearchId: c.higherGovSearchId },
+          // `higherGovMarket` / `higherGovActiveOnly` are persisted explicitly. MCP
+          // defaults `opportunity_type` to federal_contract, and an absent
+          // `active_opportunity` returns all history — so omitting them reopened a
+          // saved "State & Local, active only" search as federal-only, all-time.
+          criteria: { postedFrom: fmt(c.postedFrom), postedTo: fmt(c.postedTo), keywords: c.keywords, naics: c.naics, setAsideCode: c.setAsideCode, closingFrom: c.closingFrom ? fmt(c.closingFrom) : undefined, closingTo: c.closingTo ? fmt(c.closingTo) : undefined, higherGovSourceType: c.higherGovSourceType, higherGovSearchId: c.higherGovSearchId, higherGovMarket: c.higherGovMarket, higherGovActiveOnly: c.higherGovActiveOnly },
           projectId,
           frequency: 'DAILY', autoImport, notifyEmails: [], isEnabled: true,
         }),

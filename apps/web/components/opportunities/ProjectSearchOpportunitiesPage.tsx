@@ -337,6 +337,12 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
       // search_id. Dropping it re-ran the search as a plain keyword query, which
       // HigherGov's API cannot serve — so opening a saved search always errored.
       higherGovSearchId:   c.higherGovSearchId ?? undefined,
+      // Same reasoning as the search_id above: an omitted market means MCP applies
+      // its own `federal_contract` default, and an omitted active flag means all
+      // history. Fall back to the form's own defaults for searches saved before
+      // these fields existed, so an older row reopens the way it always ran.
+      higherGovMarket:     c.higherGovMarket ?? 'all',
+      higherGovActiveOnly: c.higherGovActiveOnly ?? true,
       limit:               pageSize,
     };
     syncToUrl(criteria);

@@ -55,6 +55,7 @@ const saveAndReadBody = async () => {
     autoImport: boolean;
     projectId?: string;
     frequency: string;
+    criteria: Record<string, unknown>;
   };
 };
 
@@ -289,5 +290,45 @@ describe('SearchOpportunityForm — restoring from a URL keeps the default date 
     const criteria = onSearch.mock.calls[0][0] as { postedFrom?: string; postedTo?: string };
     expect(criteria.postedFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(criteria.postedTo).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+/**
+ * The market and active-only filters have to be PERSISTED, not just sent.
+ *
+ * Both are "omitted means default" params on MCP's side — an absent
+ * `opportunity_type` means federal_contract and an absent `active_opportunity`
+ * means all history. Leaving them out of the saved-search body meant a saved
+ * "State & Local, active only" search reopened as federal-only, all-time.
+ */
+describe('SearchOpportunityForm — saved searches persist market and active-only', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAuthFetcher.mockResolvedValue({ ok: true, json: async () => ({}) } as unknown as Response);
+  });
+
+  it('writes a non-default market and active flag into the saved criteria', async () => {
+    renderForm({
+      source: 'HIGHER_GOV',
+      higherGovSearchId: 'BWr0PdG39B6mX8cG47AQ8',
+      higherGovMarket: 'state_local',
+      higherGovActiveOnly: false,
+    });
+
+    const { criteria } = await saveAndReadBody();
+
+    expect(criteria.higherGovMarket).toBe('state_local');
+    expect(criteria.higherGovActiveOnly).toBe(false);
+  });
+
+  it('writes the defaults explicitly rather than omitting them', async () => {
+    // 'all' and true must be on the wire: omitted, HigherGov would apply
+    // federal_contract and return all history instead.
+    renderForm({ source: 'HIGHER_GOV', higherGovSearchId: 'BWr0PdG39B6mX8cG47AQ8' });
+
+    const { criteria } = await saveAndReadBody();
+
+    expect(criteria.higherGovMarket).toBe('all');
+    expect(criteria.higherGovActiveOnly).toBe(true);
   });
 });
