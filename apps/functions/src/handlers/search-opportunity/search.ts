@@ -30,7 +30,7 @@ import {
 } from '@/constants/highergov';
 import { requireEnv } from '@/helpers/env';
 import { searchSamOpportunities, searchDibbsOpportunities, withSourceTimeout, HIGHERGOV_TIMEOUT_MS } from '@/helpers/search-opportunity';
-import { searchHigherGovViaMcp } from '@/helpers/highergov-mcp';
+import { searchHigherGovViaMcp, HIGHERGOV_MCP_PAGE_SIZE } from '@/helpers/highergov-mcp';
 import {
   getHigherGovSearchCache,
   isHigherGovSearchCacheStale,
@@ -270,7 +270,14 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
                 opportunityType: data.higherGovMarket,
                 activeOnly:      data.higherGovActiveOnly,
                 postedDate,
-                pageNumber: data.offset ? Math.floor(data.offset / pageSize) + 1 : 1,
+                // Paged against MCP's OWN fixed page size, not the caller's `limit`.
+                // MCP ignores `limit` and always returns 100 rows, and the frontend
+                // advances `offset` by rows actually received — so dividing by a
+                // 25-row limit jumped to page 5 after one "show more" and skipped
+                // records 100-399 entirely.
+                pageNumber: data.offset
+                  ? Math.floor(data.offset / HIGHERGOV_MCP_PAGE_SIZE) + 1
+                  : 1,
               },
             ),
             'HigherGov',
