@@ -443,6 +443,36 @@ export const calculateRetryDelay = (retryCount: number): number => {
  */
 export const RETRY_DELAY_SECONDS = 30;
 
+/**
+ * AWS error names that mean "this request is malformed and will never succeed".
+ * Retrying one re-runs the whole generation — a fresh Bedrock invocation — only
+ * to be rejected identically, so a terminal error should fail fast instead.
+ *
+ * A duplicated path in an UpdateExpression is exactly this case: it cost three
+ * full generations per document before surfacing as "Generation failed after 3
+ * attempts", which read like a flaky model rather than a bad request.
+ */
+const TERMINAL_AWS_ERROR_NAMES = new Set([
+  'ValidationException',
+  'SerializationException',
+  'AccessDeniedException',
+  'ResourceNotFoundException',
+]);
+
+/**
+ * Whether an error is permanent, so the caller should skip its retry budget.
+ *
+ * Deliberately conservative: only errors AWS reports as client-side faults
+ * count. Throttling, timeouts and 5xx stay retryable, and an unrecognised
+ * error is treated as retryable so a transient fault is never turned into a
+ * hard failure by this check.
+ */
+export const isTerminalGenerationError = (err: unknown): boolean => {
+  if (!err || typeof err !== 'object') return false;
+  const { name } = err as { name?: unknown };
+  return typeof name === 'string' && TERMINAL_AWS_ERROR_NAMES.has(name);
+};
+
 export interface DocumentGenerationMessage {
   orgId: string;
   projectId: string;

@@ -23,6 +23,7 @@ import {
   updateDocumentStatus,
   validateGeneratedContent,
   calculateRetryDelay,
+  isTerminalGenerationError,
 } from '@/helpers/document-generation';
 import { MAX_GENERATION_RETRIES } from '@auto-rfp/core';
 import { getRFPDocument, updateRFPDocumentMetadata, loadRFPDocumentHtml } from '@/helpers/rfp-document';
@@ -134,8 +135,16 @@ const enqueueRetry = async (job: Job, currentRetryCount: number): Promise<void> 
  * Mark document as permanently failed after all retries exhausted.
  * Sends notification to the user who triggered the generation.
  */
-const markAsPermanentlyFailed = async (job: Job, failureReason: string): Promise<void> => {
+const markAsPermanentlyFailed = async (
+  job: Job,
+  failureReason: string,
+  /** False when we gave up on a terminal error, so the message must not claim retries. */
+  retriesExhausted = true,
+): Promise<void> => {
   const { orgId, projectId, opportunityId, documentId, documentType } = job;
+  const attemptSummary = retriesExhausted
+    ? `after ${MAX_GENERATION_RETRIES} attempts`
+    : 'and cannot be retried';
 
   // Get the document to find who created it
   const doc = await getRFPDocument(projectId, opportunityId, documentId);
@@ -148,7 +157,7 @@ const markAsPermanentlyFailed = async (job: Job, failureReason: string): Promise
     documentId,
     updates: {
       status: 'FAILED',
-      generationError: `Generation failed after ${MAX_GENERATION_RETRIES} attempts: ${failureReason}`,
+      generationError: `Generation failed ${attemptSummary}: ${failureReason}`,
     },
     updatedBy: 'system',
   });
@@ -167,7 +176,7 @@ const markAsPermanentlyFailed = async (job: Job, failureReason: string): Promise
       const payload = buildNotification(
         'DOCUMENT_GENERATION_FAILED',
         'Document Generation Failed',
-        `Failed to generate "${documentTypeName}" after ${MAX_GENERATION_RETRIES} attempts. ${userSafeError}`,
+        `Failed to generate "${documentTypeName}" ${attemptSummary}. ${userSafeError}`,
         {
           orgId,
           projectId,
@@ -294,8 +303,19 @@ const processJob = async (job: Job): Promise<void> => {
 
     console.error(`[FATAL] processJob failed for documentId=${documentId}:`, errorMessage, err);
 
+    // A malformed request fails identically on every attempt, so spending the
+    // retry budget on it just burns a Bedrock generation per attempt and buries
+    // the real cause under "Generation failed after 3 attempts". Fail fast and
+    // report the actual error instead.
+    const isTerminal = isTerminalGenerationError(err);
+    if (isTerminal) {
+      console.error(
+        `[worker] Terminal error for documentId=${documentId} — skipping retries: ${errorMessage}`,
+      );
+    }
+
     // Check if we should retry or mark as failed
-    if (currentRetryCount < MAX_GENERATION_RETRIES - 1) {
+    if (!isTerminal && currentRetryCount < MAX_GENERATION_RETRIES - 1) {
       // Retry on error (content regeneration - clears content)
       console.log(`[worker] Retrying after error for documentId=${documentId}`);
       try {
@@ -306,9 +326,9 @@ const processJob = async (job: Job): Promise<void> => {
       }
     }
 
-    // Max retries reached or retry failed: mark as failed
+    // Terminal error, max retries reached, or retry failed: mark as failed
     try {
-      await markAsPermanentlyFailed(job, errorMessage.substring(0, 500));
+      await markAsPermanentlyFailed(job, errorMessage.substring(0, 500), !isTerminal);
       // Successfully marked as failed - return normally so SQS deletes the message.
       // If we throw here, SQS will re-deliver and we'd send duplicate notifications.
       return;
