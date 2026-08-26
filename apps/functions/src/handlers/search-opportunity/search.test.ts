@@ -103,6 +103,42 @@ describe('search handler', () => {
     process.env.HIGHERGOV_SEARCH_FUNCTION_NAME = 'test-worker';
   });
 
+  // The UI has always shown a two-ended "Closing date" range, but only the lower
+  // bound reached SAM.gov (`rdlfrom`) — the upper half was parsed and then dropped,
+  // so narrowing it changed nothing. SAM.gov does document an `rdlto`.
+  it('forwards both ends of the closing-date range to SAM.gov', async () => {
+    mockSearchSam.mockResolvedValue({ totalRecords: 0, opportunities: [] });
+
+    await baseHandler(makeEvent({
+      source: 'SAM_GOV',
+      closingFrom: '09/01/2026',
+      closingTo: '09/30/2026',
+    }));
+
+    expect(mockSearchSam).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ rdlfrom: '09/01/2026', rdlto: '09/30/2026' }),
+    );
+  });
+
+  // SAM.gov requires a posted range, and the fallback used to be the hardcoded
+  // literals '01/01/2025'–'12/31/2025' — so a request without dates silently
+  // excluded everything posted outside calendar 2025.
+  it('defaults a missing posted range to a recent window, not a fixed year', async () => {
+    mockSearchSam.mockResolvedValue({ totalRecords: 0, opportunities: [] });
+
+    await baseHandler(makeEvent({ source: 'SAM_GOV', keywords: 'radar' }));
+
+    const [, params] = mockSearchSam.mock.calls[0] as [unknown, { postedFrom: string; postedTo: string }];
+    const thisYear = String(new Date().getFullYear());
+
+    expect(params.postedFrom).toMatch(/^\d{2}\/\d{2}\/\d{4}$/);
+    expect(params.postedTo).toMatch(/^\d{2}\/\d{2}\/\d{4}$/);
+    expect(params.postedTo.endsWith(thisYear)).toBe(true);
+    expect(params.postedFrom).not.toBe('01/01/2025');
+    expect(params.postedTo).not.toBe('12/31/2025');
+  });
+
   it('returns partial results when one source times out', async () => {
     mockSearchSam.mockResolvedValue({ totalRecords: 2, opportunities: [{ id: '1' }, { id: '2' }] });
     mockSearchDibbs.mockRejectedValue(new Error('DIBBS is responding slowly. Please try again later.'));

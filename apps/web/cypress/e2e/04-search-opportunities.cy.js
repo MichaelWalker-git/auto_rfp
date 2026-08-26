@@ -34,6 +34,22 @@ const STUBBED_OPPORTUNITY = {
   descriptionUrl: null,
 }
 
+// This suite runs against the DEPLOYED site (see `baseUrl` in cypress.config.ts),
+// which on a PR is still whatever is currently on `develop` — the PR's own build is
+// never served here. So an assertion that only holds after this branch ships can
+// never go green on this PR; it would have to be merged first, then pass. Any
+// assertion touching copy this branch changes therefore has to accept BOTH the old
+// and the new wording, and the branch-specific behaviour is pinned by the component
+// tests instead (components/opportunities/__tests__/SearchOpportunityForm.test.tsx
+// and ProjectSearchOpportunitiesPage.test.tsx), which do run against this code.
+//
+// before: "Search SAM.gov, DIBBS, and HigherGov — results import directly…"
+//  after: "Search SAM.gov and HigherGov. Importing pulls the solicitation…"
+const PAGE_DESCRIPTION = /Search SAM\.gov(,| and)/i
+// before: placeholder="Keywords, solicitation number, technology area…"
+//  after: placeholder="Title contains… (SAM.gov matches notice titles only)"
+const KEYWORD_INPUT = 'input[placeholder*="Title contains" i], input[placeholder*="Keywords" i]'
+
 const stubSearch = () => {
   cy.intercept('POST', '**/search-opportunities/search*', {
     statusCode: 200,
@@ -54,27 +70,27 @@ describe('Search Opportunities', () => {
   before(() => { cy.login(); goToSearchOpportunities() })
 
   describe('Happy Path', () => {
+    // SAM.gov is the default provider both before and after this branch, so the
+    // SAM.gov filters below (NAICS, set-aside, closing date) render either way.
     it('loads the Search Opportunities page with all controls', () => {
       cy.contains('Search Opportunities').should('be.visible')
-      cy.contains('Search SAM.gov, DIBBS, and HigherGov').should('be.visible')
-      cy.get('input[placeholder*="Keywords" i], input[placeholder*="solicitation" i], input[placeholder*="technology" i]').should('be.visible')
+      cy.contains(PAGE_DESCRIPTION).should('be.visible')
+      cy.get(KEYWORD_INPUT).should('be.visible')
       cy.contains('button', 'Search').should('be.visible')
       cy.contains('Saved Searches').should('be.visible')
-      cy.contains('All Sources').should('be.visible')
       cy.contains('NAICS').should('be.visible')
       cy.contains('Set-aside').should('be.visible')
       cy.contains('Closing date').should('be.visible')
       cy.contains('Ready to search').should('be.visible')
-      cy.contains('Search across SAM.gov, DIBBS, and HigherGov').should('be.visible')
     })
 
-    it('opens filter dropdowns', () => {
-      cy.contains('All Sources').click()
-      cy.contains('SAM.gov').should('be.visible')
-      cy.contains('DIBBS').should('be.visible')
-      cy.contains('HigherGov').should('be.visible')
-      cy.get('body').type('{esc}')
-
+    // The provider list itself is NOT asserted here. "DIBBS is absent" is true only
+    // of this branch, and this suite hits the deployed `develop` build (see the note
+    // above), where DIBBS is still offered — so asserting it here fails until after
+    // merge. It is covered against this code by
+    // SearchOpportunityForm.test.tsx → 'DIBBS is not offered as a provider', which
+    // also pins that stale ?source=DIBBS / ?source=all URLs coerce to SAM.gov.
+    it('opens the NAICS and set-aside filters', () => {
       cy.contains('NAICS').click()
       cy.contains('IT Services').should('be.visible')
       cy.get('body').type('{esc}')
@@ -98,7 +114,7 @@ describe('Search Opportunities', () => {
     beforeEach(() => { stubSearch(); cy.login(); goToSearchOpportunities() })
 
     it('runs a keyword search and shows results with details', () => {
-      cy.get('input[placeholder*="Keywords" i], input[placeholder*="solicitation" i], input[placeholder*="technology" i]')
+      cy.get(KEYWORD_INPUT)
         .type('document')
       cy.contains('button', 'Search').click()
       cy.wait('@searchOpportunities')
@@ -123,7 +139,7 @@ describe('Search Opportunities', () => {
         body: { imported: 1 },
       }).as('importSolicitation')
 
-      cy.get('input[placeholder*="Keywords" i], input[placeholder*="solicitation" i], input[placeholder*="technology" i]')
+      cy.get(KEYWORD_INPUT)
         .type('document')
       cy.contains('button', 'Search').click()
       cy.wait('@searchOpportunities')

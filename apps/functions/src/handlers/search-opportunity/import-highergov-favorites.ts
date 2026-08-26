@@ -10,7 +10,6 @@ import https from 'https';
 import { z } from 'zod';
 
 import { apiResponse, getUserId } from '@/helpers/api';
-import { requireEnv } from '@/helpers/env';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
@@ -31,19 +30,10 @@ import {
 } from '@/helpers/highergov';
 import { createOpportunity, findOpportunityBySourceId } from '@/helpers/opportunity';
 import { syncOpportunityToApn } from '@/helpers/apn-db';
-import { uploadToS3 } from '@/helpers/s3';
-import { createQuestionFile } from '@/helpers/questionFile';
-import { startPipeline } from '@/helpers/solicitation';
-import {
-  httpsGetBuffer,
-  guessContentType,
-  buildAttachmentFilename,
-  buildAttachmentS3Key,
-} from '@/helpers/search-opportunity';
+import { importAttachments } from '@/helpers/attachment-importer';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
 import { resolveUserNames } from '@/helpers/resolve-users';
 
-const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const httpsAgent = new https.Agent({ keepAlive: true });
 const RATE_LIMIT_DELAY_MS = 150;
 
@@ -158,27 +148,24 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
         description: typeof item.description === 'string' ? item.description.substring(0, 500) : undefined,
       });
 
-      // Import attachments
-      for (const a of attachments) {
-        try {
-          await delay(RATE_LIMIT_DELAY_MS);
-          const { buf, contentType, filename: headerFilename } = await httpsGetBuffer(new URL(a.url), { httpsAgent });
-          const filename = buildAttachmentFilename(a, headerFilename);
-          const ct = a.mimeType || contentType || guessContentType(filename);
-          const fileKey = buildAttachmentS3Key({
-            orgId: data.orgId, projectId: data.projectId,
-            noticeId: oppKey, attachmentUrl: a.url, filename,
-          });
-          await uploadToS3(DOCUMENTS_BUCKET, fileKey, buf, ct ?? 'application/octet-stream');
-          const qf = await createQuestionFile({
-            orgId: data.orgId, oppId, projectId: data.projectId,
-            fileKey, originalFileName: filename, mimeType: ct ?? 'application/octet-stream',
-            depth: 0,  // User-initiated import = depth 0
-          });
-          await startPipeline(data.orgId, data.projectId, oppId, qf.questionFileId, qf.fileKey, qf.mimeType ?? undefined);
-        } catch (attachErr) {
-          console.warn(`[importFavorites] Attachment failed ${a.url}:`, (attachErr as Error)?.message);
-        }
+      // Attachments go through the shared importer rather than a local download
+      // loop. The hand-rolled version this replaces skipped every guard that
+      // `importAttachments` applies: the `isSafeUrlAsync` SSRF check (with its DNS
+      // rebinding protection), the redirect-time `urlValidator`, the 100 MB
+      // `maxBytes` ceiling, the 20-attachment-per-invocation cap, and the
+      // legacy-`.doc` skip. Bulk favorites import is the highest-volume path here,
+      // so it needed those guards most.
+      await delay(RATE_LIMIT_DELAY_MS);
+      const files = await importAttachments({
+        orgId: data.orgId,
+        projectId: data.projectId,
+        id: oppKey,
+        attachments,
+        oppId,
+        httpsAgent,
+      });
+      if (attachments.length > 0 && files.length === 0) {
+        console.warn(`[importFavorites] No attachments imported for ${oppKey} (${attachments.length} candidate(s))`);
       }
 
       results.push({ oppKey, title: item.title, status: 'imported', oppId });

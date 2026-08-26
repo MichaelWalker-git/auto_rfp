@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { SearchOpportunity } from '@auto-rfp/core';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -83,6 +84,11 @@ interface SearchOpportunityResultsTableProps {
    */
   isPending?: boolean;
   onImport: (id: string) => void;
+  /**
+   * Bulk import for the current selection. Optional so a caller that only wants
+   * per-row import can omit it — the selection UI hides itself when absent.
+   */
+  onImportMany?: (ids: string[]) => Promise<void>;
   importingId: string | null;
   orgId?: string;
 }
@@ -383,11 +389,16 @@ const OpportunityCard = ({
   onImport,
   importingId,
   orgId,
+  isSelected,
+  onToggleSelect,
 }: {
   opp: SearchOpportunity;
   onImport: (id: string) => void;
   importingId: string | null;
   orgId?: string;
+  /** Undefined when the caller passed no `onImportMany` — hides the checkbox. */
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }) => {
   const src = SOURCE_CONFIG[opp.source] ?? SOURCE_CONFIG['MANUAL_UPLOAD']!;
   const urgency = getClosingUrgency(opp.closingDate);
@@ -422,6 +433,16 @@ const OpportunityCard = ({
             and `Card` is a plain function component with no forwardRef, so a
             `ref` on it would be silently dropped. */}
         <div ref={cardRef} className="flex items-start gap-4">
+          {/* Bulk-select */}
+          {onToggleSelect && opp.id && (
+            <Checkbox
+              checked={!!isSelected}
+              onCheckedChange={() => onToggleSelect(opp.id)}
+              aria-label={`Select ${opp.title || 'opportunity'}`}
+              className="mt-0.5 shrink-0"
+            />
+          )}
+
           {/* Main content */}
           <div className="flex-1 min-w-0 space-y-2">
             {/* Title + source badge */}
@@ -545,9 +566,35 @@ export const SearchOpportunityResultsTable = ({
   isLoading,
   isPending,
   onImport,
+  onImportMany,
   importingId,
   orgId,
 }: SearchOpportunityResultsTableProps) => {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [isBulkImporting, setBulkImporting] = useState(false);
+
+  const toggle = (id: string) => setSelected((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  const importable = opportunities.filter((o) => !!o.id);
+  const allSelected = importable.length > 0 && importable.every((o) => selected.has(o.id));
+
+  const handleBulkImport = async () => {
+    if (!onImportMany || selected.size === 0) return;
+    setBulkImporting(true);
+    try {
+      // Preserve on-screen order rather than Set insertion order, so the progress
+      // the user sees matches the list they are looking at.
+      await onImportMany(importable.filter((o) => selected.has(o.id)).map((o) => o.id));
+      setSelected(new Set());
+    } finally {
+      setBulkImporting(false);
+    }
+  };
+
   if (isLoading) return <LoadingSkeleton />;
   // A HigherGov background fetch with nothing yet — keep the skeleton up rather
   // than flashing "No opportunities found" while results are still on the way.
@@ -556,6 +603,35 @@ export const SearchOpportunityResultsTable = ({
 
   return (
     <div className="space-y-3">
+      {onImportMany && (
+        <div className="flex items-center gap-3 rounded-lg border bg-muted/20 px-4 py-2">
+          <Checkbox
+            checked={allSelected}
+            onCheckedChange={() =>
+              setSelected(allSelected ? new Set() : new Set(importable.map((o) => o.id)))
+            }
+            aria-label="Select all results"
+          />
+          <span className="text-xs text-muted-foreground">
+            {selected.size > 0 ? `${selected.size} selected` : 'Select all'}
+          </span>
+          {selected.size > 0 && (
+            <Button
+              size="sm"
+              className="ml-auto h-8"
+              onClick={handleBulkImport}
+              disabled={isBulkImporting}
+            >
+              {isBulkImporting ? (
+                <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Importing {selected.size}…</>
+              ) : (
+                <><Download className="mr-1.5 h-3.5 w-3.5" />Import {selected.size} selected</>
+              )}
+            </Button>
+          )}
+        </div>
+      )}
+
       {opportunities.map((opp, idx) => (
         <OpportunityCard
           key={`${opp.source}-${opp.id}-${idx}`}
@@ -563,6 +639,8 @@ export const SearchOpportunityResultsTable = ({
           onImport={onImport}
           importingId={importingId}
           orgId={orgId}
+          isSelected={selected.has(opp.id)}
+          onToggleSelect={onImportMany ? toggle : undefined}
         />
       ))}
     </div>
