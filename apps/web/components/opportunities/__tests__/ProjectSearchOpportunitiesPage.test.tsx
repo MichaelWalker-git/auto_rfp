@@ -25,7 +25,8 @@ jest.mock('@/lib/hooks/use-search-opportunities', () => ({
     search: mockSearch, loadMore: jest.fn(),
   }),
 }));
-jest.mock('@/lib/auth/auth-fetcher', () => ({ authFetcher: jest.fn().mockResolvedValue({ ok: true, json: async () => ({}) }) }));
+const mockAuthFetcher = jest.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+jest.mock('@/lib/auth/auth-fetcher', () => ({ authFetcher: (...a: unknown[]) => mockAuthFetcher(...a) }));
 
 import ProjectSearchOpportunitiesPage from '../ProjectSearchOpportunitiesPage';
 
@@ -69,5 +70,117 @@ describe('canonical Search Opportunities page', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /^search$/i }));
     await waitFor(() => expect(screen.getByText(/Per page/i)).toBeTruthy());
+  });
+});
+
+/**
+ * Bulk import reports all three outcomes.
+ *
+ * A 409 duplicate is neither a thrown failure nor an import, so it needs its own
+ * count. Treating it as a success meant a batch of already-imported rows finished
+ * with nothing imported, nothing said, and the duplicate dialog holding only the
+ * last row — so "force import" would have silently dropped the others.
+ */
+describe('bulk import — duplicates are not counted as imports', () => {
+  const twoRows = [
+    { id: 'opp-1', source: 'SAM_GOV', title: 'First', noticeId: 'n-1' },
+    { id: 'opp-2', source: 'SAM_GOV', title: 'Second', noticeId: 'n-2' },
+  ];
+
+  /** Reply per import call, in order. Non-import calls (api-key) always succeed. */
+  const respondTo = (replies: Array<'ok' | 'duplicate' | 'error'>) => {
+    let i = 0;
+    mockAuthFetcher.mockImplementation((url: string) => {
+      if (!String(url).includes('import-solicitation')) {
+        return Promise.resolve({ ok: true, json: async () => ({}) });
+      }
+      const reply = replies[i++];
+      if (reply === 'duplicate') {
+        const body = { message: 'already imported', existing: { oppId: 'old', title: 'First' } };
+        return Promise.resolve({
+          status: 409, ok: false,
+          json: async () => body, text: async () => JSON.stringify(body),
+        });
+      }
+      if (reply === 'error') {
+        return Promise.resolve({
+          status: 500, ok: false,
+          json: async () => ({}), text: async () => JSON.stringify({ message: 'boom' }),
+        });
+      }
+      return Promise.resolve({
+        status: 202, ok: true,
+        json: async () => ({ imported: 1, opportunityId: 'new-opp' }),
+      });
+    });
+  };
+
+  const runBulk = async () => {
+    hookResult = {
+      opportunities: twoRows, totalSamGov: 2, totalDibbs: 0, totalHigherGov: 0, total: 2,
+      samGovError: null, dibbsError: null, higherGovError: null, higherGovPending: false,
+    };
+    render(<ProjectSearchOpportunitiesPage orgId="org-1" projectId="proj-1" />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /^search$/i }));
+    await waitFor(() => expect(screen.getByLabelText(/Select all results/i)).toBeTruthy());
+    await user.click(screen.getByLabelText(/Select all results/i));
+    await user.click(screen.getByRole('button', { name: /Import 2 selected/i }));
+    await waitFor(() => expect(mockToast).toHaveBeenCalled());
+    return mockToast.mock.calls.at(-1)![0] as { title: string; description: string; variant?: string };
+  };
+
+  beforeEach(() => { jest.clearAllMocks(); hookResult = null; });
+
+  it('says nothing was imported when every row is already in the project', async () => {
+    respondTo(['duplicate', 'duplicate']);
+
+    const t = await runBulk();
+
+    // The bug: this batch used to emit no toast at all.
+    expect(t.title).toMatch(/Nothing imported/i);
+    expect(t.description).toMatch(/2 already in this project/i);
+    expect(t.description).not.toMatch(/2 imported/);
+    expect(t.variant).toBe('destructive');
+  });
+
+  it('counts imports and duplicates separately in a mixed batch', async () => {
+    respondTo(['ok', 'duplicate']);
+
+    const t = await runBulk();
+
+    expect(t.title).toMatch(/Imported 1 of 2/i);
+    expect(t.description).toMatch(/1 imported/);
+    expect(t.description).toMatch(/1 already in this project/i);
+  });
+
+  it('still reports genuine failures alongside successes', async () => {
+    respondTo(['ok', 'error']);
+
+    const t = await runBulk();
+
+    expect(t.description).toMatch(/1 imported/);
+    expect(t.description).toMatch(/1 failed/i);
+    expect(t.variant).toBe('destructive');
+  });
+
+  it('does not open the duplicate dialog mid-batch', async () => {
+    // Prompting per row would leave only the last duplicate reachable, so bulk skips
+    // the dialog entirely and reports a count instead.
+    respondTo(['duplicate', 'duplicate']);
+
+    await runBulk();
+
+    expect(screen.queryByText(/already been imported/i)).toBeNull();
+  });
+
+  it('emits one summary toast, not one per row', async () => {
+    respondTo(['ok', 'ok']);
+
+    await runBulk();
+
+    const importToasts = mockToast.mock.calls.filter(c =>
+      /import/i.test(String((c[0] as { title?: string })?.title ?? '')));
+    expect(importToasts).toHaveLength(1);
   });
 });

@@ -10,7 +10,6 @@ import https from 'https';
 import { z } from 'zod';
 
 import { apiResponse, getUserId } from '@/helpers/api';
-import { requireEnv } from '@/helpers/env';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,

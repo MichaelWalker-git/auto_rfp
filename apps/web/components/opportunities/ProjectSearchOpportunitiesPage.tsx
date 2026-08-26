@@ -118,7 +118,28 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
   const opportunityUrl = (oppId: string) =>
     `/organizations/${orgId}/projects/${projectId}/opportunities/${oppId}`;
 
-  const doImportRequest = async (body: Record<string, unknown>) => {
+  /**
+   * What an import request actually did. A 409 duplicate is neither a success nor a
+   * thrown failure, so it needs its own outcome — the bulk path counted it as an
+   * import and reported rows as pulled in that were already in the project.
+   */
+  type ImportOutcome = 'imported' | 'duplicate';
+
+  interface ImportOptions {
+    /**
+     * `prompt` opens the duplicate dialog. Bulk passes `skip`: the dialog holds a
+     * single pending body, so prompting per row would leave only the last duplicate
+     * reachable and silently discard the rest.
+     */
+    onDuplicate?: 'prompt' | 'skip';
+    /** Bulk reports one summary instead of a toast per row. */
+    notifyOnSuccess?: boolean;
+  }
+
+  const doImportRequest = async (
+    body: Record<string, unknown>,
+    { onDuplicate = 'prompt', notifyOnSuccess = true }: ImportOptions = {},
+  ): Promise<ImportOutcome> => {
     const res = await authFetcher(
       `${env.BASE_API_URL}/search-opportunities/import-solicitation`,
       { method: 'POST', body: JSON.stringify(body) },
@@ -127,10 +148,12 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
     if (res.status === 409) {
       const json = await res.json().catch(() => null) as { existing?: DuplicateInfo } | null;
       if (json?.existing) {
-        setDuplicateInfo(json.existing);
-        setPendingImportBody(body);
-        setDuplicateDialogOpen(true);
-        return;
+        if (onDuplicate === 'prompt') {
+          setDuplicateInfo(json.existing);
+          setPendingImportBody(body);
+          setDuplicateDialogOpen(true);
+        }
+        return 'duplicate';
       }
     }
 
@@ -146,15 +169,19 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
     // Import is only the first half of the flow — documents are pulled and the
     // question pipeline starts immediately. Link straight to the opportunity so the
     // user can watch that happen instead of being left on the search page.
-    toast({
-      title: 'Import started — analysis running',
-      description: `${data.imported ?? 0} document(s) pulled in and queued for analysis.`,
-      action: data.opportunityId ? (
-        <Button asChild size="sm" variant="outline">
-          <Link href={opportunityUrl(data.opportunityId)}>View</Link>
-        </Button>
-      ) : undefined,
-    });
+    if (notifyOnSuccess) {
+      toast({
+        title: 'Import started — analysis running',
+        description: `${data.imported ?? 0} document(s) pulled in and queued for analysis.`,
+        action: data.opportunityId ? (
+          <Button asChild size="sm" variant="outline">
+            <Link href={opportunityUrl(data.opportunityId)}>View</Link>
+          </Button>
+        ) : undefined,
+      });
+    }
+
+    return 'imported';
   };
 
   const handleImport = async (id: string) => {
@@ -179,9 +206,14 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
    * Bulk import. Runs sequentially rather than in parallel: each import downloads
    * attachments and starts a Step Functions execution, so firing a whole page at
    * once would spike the import Lambda and the provider's rate limit.
+   *
+   * Reports all three outcomes. Duplicates are counted separately rather than as
+   * imports: a batch where every row was already in the project would otherwise
+   * finish silently, with nothing imported and nothing said.
    */
   const handleImportMany = async (ids: string[]) => {
-    let ok = 0;
+    let imported = 0;
+    let duplicates = 0;
     const failures: string[] = [];
 
     for (const id of ids) {
@@ -189,8 +221,14 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
       if (!opp) continue;
       setImportingId(id);
       try {
-        await doImportRequest(buildImportBody(opp, orgId, projectId));
-        ok++;
+        // `skip`, not `prompt`: the duplicate dialog holds one pending body, so
+        // prompting per row would strand every duplicate but the last.
+        const outcome = await doImportRequest(
+          buildImportBody(opp, orgId, projectId),
+          { onDuplicate: 'skip', notifyOnSuccess: false },
+        );
+        if (outcome === 'duplicate') duplicates++;
+        else imported++;
       } catch {
         // Keep going: one bad solicitation should not abandon the rest of the batch.
         failures.push(opp.title || id);
@@ -198,13 +236,21 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
     }
     setImportingId(null);
 
-    if (failures.length) {
-      toast({
-        title: `Imported ${ok} of ${ids.length}`,
-        description: `Failed: ${failures.slice(0, 3).join(', ')}${failures.length > 3 ? `, +${failures.length - 3} more` : ''}`,
-        variant: 'destructive',
-      });
-    }
+    const parts = [
+      `${imported} imported`,
+      duplicates > 0 ? `${duplicates} already in this project` : null,
+      failures.length > 0
+        ? `${failures.length} failed: ${failures.slice(0, 3).join(', ')}${failures.length > 3 ? `, +${failures.length - 3} more` : ''}`
+        : null,
+    ].filter(Boolean);
+
+    toast({
+      title: imported > 0
+        ? `Imported ${imported} of ${ids.length} — analysis running`
+        : `Nothing imported from ${ids.length} selected`,
+      description: parts.join(' · '),
+      variant: failures.length > 0 || imported === 0 ? 'destructive' : undefined,
+    });
   };
 
   const handleForceImport = async () => {
