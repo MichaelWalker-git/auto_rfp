@@ -12,6 +12,8 @@ import * as apigwv2Authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as path from 'path';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
@@ -20,6 +22,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import { ApiSharedInfraStack } from './api-shared-infra-stack';
 import { ApiDomainLambdaStack } from './api-domain-lambda-stack';
 import type { DomainRoutes } from './routes/types';
+import { apiTierForDomain, validateApiAssignment, SECONDARY_API_DOMAINS } from './routes/api-assignment';
 import { foiaDomain } from './routes/foia.routes';
 import { debriefingDomain } from './routes/debriefing.routes';
 import { answerDomain } from './routes/answer.routes';
@@ -110,6 +113,7 @@ export interface ApiOrchestratorStackProps extends cdk.StackProps {
 export class ApiOrchestratorStack extends cdk.Stack {
   public readonly commonLambdaRoleArn: string;
   public readonly httpApi: apigwv2.HttpApi;
+  public readonly httpApiSecondary: apigwv2.HttpApi;
   public readonly apiUrl: string;
 
   // Keep legacy fields for backward compatibility during migration
@@ -159,32 +163,52 @@ export class ApiOrchestratorStack extends cdk.Stack {
     this.restApiId = this.api.restApiId;
     this.rootResourceId = this.api.restApiRootResourceId;
 
-    // 1. Create HTTP API (v2) — no resource limit, cheaper, lower latency
+    // 1. Create the HTTP APIs (v2) — AWS caps each HTTP API at 300 integrations
+    // (hard limit) and we create one integration per route, so routes are split
+    // across two APIs by domain (see routes/api-assignment.ts). A CloudFront
+    // distribution created below routes by path prefix, so clients only ever
+    // see one base URL. Both APIs must keep identical CORS + stage config.
+    const corsPreflight: apigwv2.CorsPreflightOptions = {
+      allowOrigins: ['*'],
+      allowMethods: [apigwv2.CorsHttpMethod.ANY],
+      allowHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Amz-Date',
+        'X-Api-Key',
+        'X-Amz-Security-Token',
+        'X-Org-Id',
+      ],
+      allowCredentials: false, // Cannot be true with allowOrigins: ['*']
+      maxAge: cdk.Duration.hours(1),
+    };
+
     this.httpApi = new apigwv2.HttpApi(this, 'AutoRfpHttpApi', {
       apiName: `AutoRFP API (${stage})`,
-      corsPreflight: {
-        allowOrigins: ['*'],
-        allowMethods: [apigwv2.CorsHttpMethod.ANY],
-        allowHeaders: [
-          'Content-Type',
-          'Authorization',
-          'X-Amz-Date',
-          'X-Api-Key',
-          'X-Amz-Security-Token',
-          'X-Org-Id',
-        ],
-        allowCredentials: false, // Cannot be true with allowOrigins: ['*']
-        maxAge: cdk.Duration.hours(1),
-      },
+      corsPreflight,
       createDefaultStage: false,
     });
 
-    // apiUrl points to the NEW HTTP API (not the legacy REST API)
+    this.httpApiSecondary = new apigwv2.HttpApi(this, 'AutoRfpHttpApi2', {
+      apiName: `AutoRFP API 2 (${stage})`,
+      corsPreflight,
+      createDefaultStage: false,
+    });
 
-    // JWT authorizer using Cognito User Pool
+    // apiUrl points to the CloudFront distribution fronting both HTTP APIs
+
+    // JWT authorizers using the Cognito User Pool. An authorizer instance binds
+    // to exactly one API, so each HTTP API needs its own.
     const region = cdk.Aws.REGION;
     const jwtAuthorizer = new apigwv2Authorizers.HttpJwtAuthorizer(
       'CognitoJwtAuthorizer',
+      `https://cognito-idp.${region}.amazonaws.com/${userPool.userPoolId}`,
+      {
+        jwtAudience: [userPoolClientId],
+      },
+    );
+    const jwtAuthorizerSecondary = new apigwv2Authorizers.HttpJwtAuthorizer(
+      'CognitoJwtAuthorizer2',
       `https://cognito-idp.${region}.amazonaws.com/${userPool.userPoolId}`,
       {
         jwtAudience: [userPoolClientId],
@@ -1053,25 +1077,92 @@ export class ApiOrchestratorStack extends cdk.Stack {
       );
     }
 
+    // Fail synth (with guidance) before either API can hit the AWS hard limit
+    // of 300 integrations per HTTP API.
+    validateApiAssignment(allDomains);
+
     for (let i = 0; i < allDomains.length; i++) {
+      const tier = apiTierForDomain(allDomains[i]!.basePath);
       new ApiDomainLambdaStack(this, domainStackNames[i]!, {
-        httpApi: this.httpApi,
+        httpApi: tier === 'secondary' ? this.httpApiSecondary : this.httpApi,
         userPoolId: userPool.userPoolId,
         lambdaRole: sharedInfraStack.commonLambdaRole,
         commonEnv: sharedInfraStack.commonEnv,
         domain: allDomains[i]!,
-        authorizer: jwtAuthorizer,
+        authorizer: tier === 'secondary' ? jwtAuthorizerSecondary : jwtAuthorizer,
       });
     }
 
-    // 5. Create stage with auto-deploy
+    // 5. Create stages with auto-deploy. Both APIs use the same stage name so
+    // the origins share the path shape /{stage}/{basePath}/... — CloudFront's
+    // originPath re-adds the stage segment clients no longer send.
     const apiStage = new apigwv2.HttpStage(this, 'HttpApiStage', {
       httpApi: this.httpApi,
       stageName: stage,
       autoDeploy: true,
     });
 
-    this.apiUrl = apiStage.url ?? '';
+    const apiStageSecondary = new apigwv2.HttpStage(this, 'HttpApiStage2', {
+      httpApi: this.httpApiSecondary,
+      stageName: stage,
+      autoDeploy: true,
+    });
+
+    // 6. CloudFront distribution routing by path prefix — the single client-facing
+    // base URL. Default behavior → primary API; one /{basePath}/* behavior per
+    // secondary domain (behavior quota is 25 by default; we use |SECONDARY| + default).
+    //
+    // CachingDisabled + AllViewerExceptHostHeader is load-bearing: that pair
+    // forwards the Authorization header to the JWT authorizer without caching
+    // authed responses. CloudFront's defaults strip Authorization → blanket 401s.
+    const behaviorFor = (origin: cloudfront.IOrigin): cloudfront.BehaviorOptions => ({
+      origin,
+      allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+      cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+      originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+      viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
+      compress: true,
+    });
+
+    const primaryOrigin = new origins.HttpOrigin(
+      `${this.httpApi.apiId}.execute-api.${region}.${cdk.Aws.URL_SUFFIX}`,
+      { originPath: `/${stage}` },
+    );
+    const secondaryOrigin = new origins.HttpOrigin(
+      `${this.httpApiSecondary.apiId}.execute-api.${region}.${cdk.Aws.URL_SUFFIX}`,
+      { originPath: `/${stage}` },
+    );
+
+    const apiDistribution = new cloudfront.Distribution(this, 'ApiDistribution', {
+      comment: `AutoRFP API router (${stage})`,
+      priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
+      defaultBehavior: behaviorFor(primaryOrigin),
+      additionalBehaviors: Object.fromEntries(
+        [...SECONDARY_API_DOMAINS].map((basePath) => [`/${basePath}/*`, behaviorFor(secondaryOrigin)]),
+      ),
+    });
+
+    // The client-facing base URL is the distribution, not either execute-api URL.
+    // Flows to SSM (/auto-rfp/{stage}/api-url) and AmplifyFeStack → NEXT_PUBLIC_BASE_API_URL.
+    this.apiUrl = `https://${apiDistribution.distributionDomainName}`;
+
+    // TEMPORARY export-migration shim: apiUrl used to reference the HTTP API, so
+    // CloudFormation auto-exported the API's Ref for AmplifyFeStack to import.
+    // apiUrl now references the CloudFront distribution, which would DELETE that
+    // export in the same deploy that AmplifyFeStack (deployed after this stack)
+    // still imports it — "Cannot delete export ... in use by AmplifyFeStack".
+    // Keep the old export alive until AmplifyFeStack has deployed with the new
+    // value; remove this line after one successful full `cdk deploy --all`.
+    this.exportValue(this.httpApi.apiId);
+
+    new cdk.CfnOutput(this, 'PrimaryHttpApiUrl', {
+      value: apiStage.url ?? '',
+      description: 'Primary HTTP API execute-api URL (debugging only — clients use ApiBaseUrl)',
+    });
+    new cdk.CfnOutput(this, 'SecondaryHttpApiUrl', {
+      value: apiStageSecondary.url ?? '',
+      description: 'Secondary HTTP API execute-api URL (debugging only — clients use ApiBaseUrl)',
+    });
 
     // ─── DIBBS run-saved-search scheduler ────────────────────────────────────
     const dibbsRunSavedSearchFn = new lambdaNodejs.NodejsFunction(this, `DibbsRunSavedSearch-${stage}`, {
