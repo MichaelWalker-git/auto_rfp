@@ -299,6 +299,14 @@ export class ApiOrchestratorStack extends cdk.Stack {
       // Linear org id whose Secrets Manager entry (linear-api-key-<id>) holds the
       // key used to write RFP-tracking approval decisions back onto the Linear board.
       RFP_SYNC_LINEAR_ORG_ID: '6fbf749f-7173-489c-be0a-564f97ebf8b0',
+      // Target Linear team + project for auto-created RFP hand-off tickets
+      // (handle-linear-ticket → createLinearTicket). Without these the SDK
+      // createIssue call throws "Linear team ID not configured" (team unset) and
+      // the ticket silently fails to create — see HOR-2729. LINEAR_DEFAULT_ASSIGNEE_ID
+      // is intentionally left unset so createLinearTicket omits assigneeId rather
+      // than sending an empty string (which Linear rejects as "must be a UUID").
+      LINEAR_TEAM_ID: '014ad7fc-6875-4a34-973b-61d029c37116',
+      LINEAR_PROJECT_ID: '823d8281-c41e-4e00-b541-f31a5c91af46',
       // Server-side allowlist for the RFP-tracking dashboard (get-rfp-pipeline).
       // Mirrors the per-stage rfpTrackingOrgId used for the frontend feature gate,
       // but enforced in the Lambda so a caller cannot bypass the client check by

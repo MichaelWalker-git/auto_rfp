@@ -28,6 +28,7 @@ import { MAX_GENERATION_RETRIES } from '@auto-rfp/core';
 import { getRFPDocument, updateRFPDocumentMetadata, loadRFPDocumentHtml } from '@/helpers/rfp-document';
 import { JobSchema, processJobInner, type Job } from '@/helpers/generate-document-worker';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
+import { syncProposalMaterials } from '@/helpers/google-drive';
 import { RFP_DOCUMENT_TYPES } from '@auto-rfp/core';
 
 const sqs = new SQSClient({});
@@ -288,6 +289,24 @@ const processJob = async (job: Job): Promise<void> => {
       updatedBy: 'system',
     });
     console.log(`[worker] Document status set to READY for documentId=${documentId}`);
+
+    // Now that this proposal requirement document is READY, push it to the
+    // Google Drive /Proposal Materials folder and (if this is the first one)
+    // add the Documents link to the Linear offer note. Deferred here so the
+    // reviewer never gets a Documents link pointing at an empty folder
+    // (HOR-2729). No-ops when the opportunity has no Drive folder yet.
+    // Best-effort — a Drive/Linear hiccup must never fail document generation.
+    try {
+      const proposalSync = await syncProposalMaterials({ orgId, projectId, opportunityId });
+      console.log(
+        `[worker] Proposal materials sync: ${proposalSync.uploaded} uploaded, ${proposalSync.skipped} skipped, documentsLinked=${proposalSync.documentsLinked}`,
+      );
+    } catch (syncErr) {
+      console.error(
+        `[worker] Proposal materials sync failed (non-blocking) for documentId=${documentId}:`,
+        (syncErr as Error)?.message,
+      );
+    }
 
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';

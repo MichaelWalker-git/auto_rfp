@@ -1,7 +1,7 @@
 import { drive_v3, google } from 'googleapis';
 import { Readable } from 'stream';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 import { getApiKey } from './api-key-storage';
 import { GOOGLE_SECRET_PREFIX } from '../constants/google';
@@ -15,12 +15,16 @@ import { EXEC_BRIEF_PK } from '../constants/exec-brief';
 import { USER_PK } from '../constants/user';
 import { userSk } from './user';
 import { buildQuestionFileSK } from './questionFile';
-import { createLinearComment } from './linear';
+import { createLinearComment, updateLinearTicketDescription } from './linear';
+import { buildOfferMessage } from './linear-offer-message';
+import { loadRFPDocumentHtml } from './rfp-document';
+import { getExecutiveBrief } from './executive-opportunity-brief';
 import { QuestionFileItem } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const REGION = requireEnv('REGION', 'us-east-1');
+const APP_URL = process.env['APP_URL'] ?? 'https://rfp.horustech.dev';
 
 const s3 = new S3Client({ region: REGION });
 
@@ -248,17 +252,53 @@ async function uploadFileFromS3(
   return { fileId: res.data.id!, webViewLink: res.data.webViewLink! };
 }
 
-async function uploadBuffer(
+/**
+ * Upload a plain-text buffer as a NATIVE Google Doc. Setting the target
+ * mimeType to `application/vnd.google-apps.document` while sending `text/plain`
+ * media makes Drive convert the upload into an editable Google Doc, whose
+ * webViewLink is a `docs.google.com/document/...` URL — the "Analysis" link in
+ * the offer hand-off note.
+ */
+async function uploadTextAsGoogleDoc(
   drive: drive_v3.Drive,
-  buffer: Buffer,
-  fileName: string,
-  mimeType: string,
+  text: string,
+  name: string,
   folderId: string,
 ): Promise<{ fileId: string; webViewLink: string }> {
-  const stream = Readable.from(buffer);
+  const stream = Readable.from(Buffer.from(text, 'utf-8'));
   const res = await drive.files.create({
-    requestBody: { name: fileName, parents: [folderId] },
-    media: { mimeType, body: stream },
+    requestBody: {
+      name,
+      parents: [folderId],
+      mimeType: 'application/vnd.google-apps.document',
+    },
+    media: { mimeType: 'text/plain', body: stream },
+    fields: 'id, webViewLink',
+    supportsAllDrives: true,
+  });
+  return { fileId: res.data.id!, webViewLink: res.data.webViewLink! };
+}
+
+/**
+ * Upload an HTML string as a NATIVE Google Doc, preserving formatting. Sending
+ * `text/html` media against a `application/vnd.google-apps.document` target
+ * makes Drive convert the markup into a formatted, editable Google Doc — used
+ * for generated proposal documents, whose content is stored as HTML in S3.
+ */
+async function uploadHtmlAsGoogleDoc(
+  drive: drive_v3.Drive,
+  html: string,
+  name: string,
+  folderId: string,
+): Promise<{ fileId: string; webViewLink: string }> {
+  const stream = Readable.from(Buffer.from(html, 'utf-8'));
+  const res = await drive.files.create({
+    requestBody: {
+      name,
+      parents: [folderId],
+      mimeType: 'application/vnd.google-apps.document',
+    },
+    media: { mimeType: 'text/html', body: stream },
     fields: 'id, webViewLink',
     supportsAllDrives: true,
   });
@@ -333,7 +373,16 @@ async function loadQuestionFilesForOpportunity(
 async function loadRFPDocumentsForOpportunity(
   projectId: string,
   opportunityId: string,
-): Promise<Array<{ documentId: string; name: string; fileKey?: string; mimeType?: string; content?: any }>> {
+): Promise<Array<{
+  documentId: string;
+  name: string;
+  status?: string;
+  fileKey?: string;
+  mimeType?: string;
+  htmlContentKey?: string;
+  content?: any;
+  googleDriveFileId?: string;
+}>> {
   const res = await docClient.send(
     new QueryCommand({
       TableName: DB_TABLE_NAME,
@@ -350,9 +399,12 @@ async function loadRFPDocumentsForOpportunity(
   return (res.Items ?? []).map((item: any) => ({
     documentId: item.documentId,
     name: item.name || item.title || 'document',
+    status: item.status,
     fileKey: item.fileKey,
     mimeType: item.mimeType,
+    htmlContentKey: item.htmlContentKey,
     content: item.content,
+    googleDriveFileId: item.googleDriveFileId,
   }));
 }
 
@@ -386,18 +438,73 @@ async function updateQuestionFileGoogleDrive(
 
 async function updateBriefGoogleDrive(
   executiveBriefId: string, folderId: string, folderUrl: string,
+  analysisUrl?: string, proposalFolderId?: string,
 ): Promise<void> {
   const now = nowIso();
+  const names: Record<string, string> = {
+    '#gdFolderId': 'googleDriveFolderId', '#gdFolderUrl': 'googleDriveFolderUrl',
+    '#gdSyncedAt': 'googleDriveSyncedAt', '#updatedAt': 'updatedAt',
+  };
+  const values: Record<string, any> = { ':folderId': folderId, ':folderUrl': folderUrl, ':now': now };
+  const setParts = [
+    '#gdFolderId = :folderId', '#gdFolderUrl = :folderUrl',
+    '#gdSyncedAt = :now', '#updatedAt = :now',
+  ];
+
+  // Persist the Analysis Doc URL and the /Proposal Materials folder id so the
+  // deferred proposal-materials sync (fired as documents become READY) can
+  // re-render the full offer note — with the Documents link added — without
+  // dropping the Analysis link or re-resolving the subfolder.
+  if (analysisUrl) {
+    names['#gdAnalysisUrl'] = 'googleDriveAnalysisUrl';
+    values[':analysisUrl'] = analysisUrl;
+    setParts.push('#gdAnalysisUrl = :analysisUrl');
+  }
+  if (proposalFolderId) {
+    names['#gdProposalFolderId'] = 'googleDriveProposalFolderId';
+    values[':proposalFolderId'] = proposalFolderId;
+    setParts.push('#gdProposalFolderId = :proposalFolderId');
+  }
+
   await docClient.send(
     new UpdateCommand({
       TableName: DB_TABLE_NAME,
       Key: { [PK_NAME]: EXEC_BRIEF_PK, [SK_NAME]: executiveBriefId },
-      UpdateExpression: 'SET #gdFolderId = :folderId, #gdFolderUrl = :folderUrl, #gdSyncedAt = :now, #updatedAt = :now',
+      UpdateExpression: `SET ${setParts.join(', ')}`,
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: values,
+    }),
+  );
+}
+
+/**
+ * Record the Google Drive upload metadata on an RFP document item so the
+ * proposal-materials sync is idempotent — a document already carrying a
+ * `googleDriveFileId` is skipped rather than re-uploaded each time another
+ * document reaches READY. Mirrors {@link updateQuestionFileGoogleDrive}.
+ */
+async function updateRFPDocumentGoogleDrive(
+  projectId: string, opportunityId: string, documentId: string,
+  googleDriveFileId: string, googleDriveUrl: string, googleDriveFolderId: string,
+): Promise<void> {
+  const sk = `${projectId}#${opportunityId}#${documentId}`;
+  const now = nowIso();
+  await docClient.send(
+    new UpdateCommand({
+      TableName: DB_TABLE_NAME,
+      Key: { [PK_NAME]: RFP_DOCUMENT_PK, [SK_NAME]: sk },
+      UpdateExpression: 'SET #gdFileId = :gdFileId, #gdUrl = :gdUrl, #gdFolderId = :gdFolderId, #gdUploadedAt = :gdUploadedAt, #updatedAt = :now',
       ExpressionAttributeNames: {
-        '#gdFolderId': 'googleDriveFolderId', '#gdFolderUrl': 'googleDriveFolderUrl',
-        '#gdSyncedAt': 'googleDriveSyncedAt', '#updatedAt': 'updatedAt',
+        '#gdFileId': 'googleDriveFileId', '#gdUrl': 'googleDriveUrl',
+        '#gdFolderId': 'googleDriveFolderId', '#gdUploadedAt': 'googleDriveUploadedAt', '#updatedAt': 'updatedAt',
       },
-      ExpressionAttributeValues: { ':folderId': folderId, ':folderUrl': folderUrl, ':now': now },
+      ExpressionAttributeValues: {
+        ':gdFileId': googleDriveFileId,
+        ':gdUrl': googleDriveUrl,
+        ':gdFolderId': googleDriveFolderId,
+        ':gdUploadedAt': now,
+        ':now': now,
+      },
     }),
   );
 }
@@ -582,70 +689,82 @@ export async function syncToGoogleDrive(args: {
       }
     }
 
-    // 7. Upload Executive Brief to /Executive Brief
+    // 7. Upload Executive Brief to /Executive Brief as a native Google Doc.
+    //    The Doc's webViewLink is the "Analysis" link in the Linear offer note.
+    let analysisDocUrl: string | undefined;
     if (briefData) {
       try {
         const briefBuffer = await exportBriefAsBuffer(briefData);
         if (briefBuffer) {
-          await uploadBuffer(drive, briefBuffer, 'Executive_Opportunity_Brief.txt', 'text/plain', execBriefFolderId);
+          const { webViewLink } = await uploadTextAsGoogleDoc(
+            drive,
+            briefBuffer.toString('utf-8'),
+            'Offer Analysis',
+            execBriefFolderId,
+          );
+          analysisDocUrl = webViewLink;
           result.uploaded++;
-          console.log('[GoogleDrive] Uploaded executive brief');
+          console.log(`[GoogleDrive] Uploaded executive brief as Google Doc → ${webViewLink}`);
         }
       } catch (err) {
         result.errors.push(`Executive brief: ${(err as Error)?.message}`);
       }
     }
 
-    // 8. Upload RFP documents to /Proposal Materials
-    const rfpDocs = await loadRFPDocumentsForOpportunity(projectId, opportunityId);
-    for (const doc of rfpDocs) {
-      try {
-        if (doc.fileKey) {
-          await uploadFileFromS3(drive, doc.fileKey, doc.name, doc.mimeType || 'application/octet-stream', proposalFolderId);
-          result.uploaded++;
-          console.log(`[GoogleDrive] Uploaded RFP doc: ${doc.name}`);
-        } else if (doc.content) {
-          const contentBuffer = Buffer.from(JSON.stringify(doc.content, null, 2), 'utf-8');
-          await uploadBuffer(drive, contentBuffer, `${doc.name}.json`, 'application/json', proposalFolderId);
-          result.uploaded++;
-          console.log(`[GoogleDrive] Uploaded RFP doc content: ${doc.name}`);
-        }
-      } catch (err) {
-        result.errors.push(`RFP doc "${doc.name}": ${(err as Error)?.message}`);
-      }
-    }
-
-    // 9. Update executive brief with Google Drive folder metadata
+    // 8. Update executive brief with Google Drive folder metadata. Persist the
+    //    Analysis Doc URL and /Proposal Materials folder id too, so the deferred
+    //    proposal-materials sync can re-render the full offer note later without
+    //    dropping the Analysis link or re-resolving the subfolder.
     if (rootFolderUrl) {
       try {
-        await updateBriefGoogleDrive(executiveBriefId, rootFolderId, rootFolderUrl);
+        await updateBriefGoogleDrive(
+          executiveBriefId, rootFolderId, rootFolderUrl, analysisDocUrl, proposalFolderId,
+        );
       } catch (err) {
         console.warn('[GoogleDrive] Failed to update brief with Drive metadata:', (err as Error)?.message);
       }
     }
 
-    // 10. Post folder link to Linear issue as comment
+    // 9. Rewrite the Linear ticket body as the offer hand-off note with the
+    //    Analysis (Google Doc) link. The Documents (Proposal Materials) link is
+    //    intentionally deferred (HOR-2729) — it is added by syncProposalMaterials
+    //    only once the proposal requirement documents have been generated, so the
+    //    reviewer never receives a Documents link pointing at an empty folder.
     if (linearTicketId && rootFolderUrl) {
       try {
-        const comment = [
-          '📁 **Google Drive folder created**',
-          '',
-          `[Open in Google Drive](${rootFolderUrl})`,
-          '',
-          'Folder structure:',
-          `- 📄 Original Documents (${questionFiles.length} files)`,
-          `- 📋 Executive Brief`,
-          `- 📝 Proposal Materials (${rfpDocs.length} files)`,
-          `- ✅ Final Deliverables`,
-          '',
-          `Shared with ${emails.length} team member(s).`,
-        ].join('\n');
+        const autoRfpUrl = `${APP_URL}/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}`;
+        const description = buildOfferMessage({
+          analysisUrl: analysisDocUrl,
+          autoRfpUrl,
+        });
 
-        await createLinearComment(orgId, linearTicketId, comment);
-        console.log('[GoogleDrive] Posted Google Drive link to Linear issue');
+        const updated = await updateLinearTicketDescription(orgId, linearTicketId, description);
+        if (updated) {
+          console.log('[GoogleDrive] Updated Linear ticket body with offer analysis link (documents deferred)');
+        } else {
+          // Fall back to a comment so the links are never lost.
+          await createLinearComment(orgId, linearTicketId, description);
+          console.log('[GoogleDrive] Description update failed — posted offer links as a Linear comment instead');
+        }
       } catch (err) {
-        result.errors.push(`Linear comment: ${(err as Error)?.message}`);
+        result.errors.push(`Linear update: ${(err as Error)?.message}`);
       }
+    }
+
+    // 10. Best-effort: if proposal requirement documents already exist (e.g. they
+    //     were generated BEFORE the folder was created), upload them and add the
+    //     Documents link now. Otherwise this is a no-op and the per-document
+    //     generation completion path fills it in later.
+    try {
+      const proposalResult = await syncProposalMaterials({
+        orgId, projectId, opportunityId, executiveBriefId,
+        drive, proposalFolderId, rootFolderUrl,
+        linearTicketId, analysisDocUrl,
+      });
+      result.uploaded += proposalResult.uploaded;
+      result.errors.push(...proposalResult.errors);
+    } catch (err) {
+      result.errors.push(`Proposal materials: ${(err as Error)?.message}`);
     }
 
     console.log(`[GoogleDrive] Sync complete: ${result.uploaded} uploaded, ${result.skipped} skipped, ${result.errors.length} errors`);
@@ -656,6 +775,162 @@ export async function syncToGoogleDrive(args: {
     result.errors.push(msg);
     return result;
   }
+}
+
+export interface ProposalMaterialsResult {
+  uploaded: number;
+  skipped: number;
+  errors: string[];
+  /** True when the Documents link is present in the offer note after this run. */
+  documentsLinked: boolean;
+}
+
+/**
+ * Upload generated proposal requirement documents to /Proposal Materials and,
+ * once at least one is present, add the "Documents" link to the Linear offer
+ * note (HOR-2729).
+ *
+ * This is the deferred second phase of the Drive sync. It is invoked from two
+ * places, so it resolves whatever context it is not given:
+ *   - inline at the end of {@link syncToGoogleDrive} (drive + folder passed in),
+ *     to catch proposal docs that were generated before the folder existed; and
+ *   - from the document-generation worker as each document reaches READY, with
+ *     only orgId/projectId/opportunityId — it then loads the brief to find the
+ *     folder and NO-OPS if the Drive folder has not been created yet.
+ *
+ * Idempotent: documents already carrying a googleDriveFileId are skipped, and
+ * the offer note is only rewritten to ADD the Documents link — subsequent docs
+ * drop into the same folder without churning the link.
+ */
+export async function syncProposalMaterials(args: {
+  orgId: string;
+  projectId: string;
+  opportunityId: string;
+  executiveBriefId?: string;
+  // Optional pre-resolved context (passed from syncToGoogleDrive).
+  drive?: drive_v3.Drive | null;
+  proposalFolderId?: string;
+  rootFolderUrl?: string;
+  linearTicketId?: string;
+  analysisDocUrl?: string;
+}): Promise<ProposalMaterialsResult> {
+  const { orgId, projectId, opportunityId } = args;
+  const result: ProposalMaterialsResult = { uploaded: 0, skipped: 0, errors: [], documentsLinked: false };
+
+  // ── Resolve context not supplied by the caller ──
+  let {
+    drive, proposalFolderId, rootFolderUrl, linearTicketId, analysisDocUrl, executiveBriefId,
+  } = args;
+
+  // When invoked from the worker we only have opportunity coordinates; load the
+  // brief to recover the Drive folder + Linear metadata persisted at sync time.
+  const needsBrief =
+    !proposalFolderId || !rootFolderUrl || (!linearTicketId && !executiveBriefId);
+  let brief: any;
+  if (needsBrief) {
+    try {
+      const sk = executiveBriefId ?? `${projectId}#${opportunityId}`;
+      brief = await getExecutiveBrief(sk);
+    } catch {
+      brief = null;
+    }
+
+    // No Drive folder yet → nothing to sync. The GO / "Create Drive folder"
+    // flow will run the full sync (and pick up existing docs) when it fires.
+    if (!brief?.googleDriveProposalFolderId && !proposalFolderId) {
+      console.log(
+        `[GoogleDrive] syncProposalMaterials: no Drive folder for opportunity ${opportunityId} yet — skipping`,
+      );
+      return result;
+    }
+
+    executiveBriefId = executiveBriefId ?? brief?.[SK_NAME] ?? `${projectId}#${opportunityId}`;
+    proposalFolderId = proposalFolderId ?? brief?.googleDriveProposalFolderId;
+    rootFolderUrl = rootFolderUrl ?? brief?.googleDriveFolderUrl;
+    linearTicketId = linearTicketId ?? brief?.linearTicketId;
+    analysisDocUrl = analysisDocUrl ?? brief?.googleDriveAnalysisUrl;
+  }
+
+  if (!proposalFolderId) {
+    console.log('[GoogleDrive] syncProposalMaterials: no proposal folder id — skipping');
+    return result;
+  }
+
+  if (!drive) {
+    drive = await getDriveClient(orgId);
+    if (!drive) {
+      result.errors.push('Google Drive not configured for this organization.');
+      return result;
+    }
+  }
+
+  // ── Upload READY proposal documents that are not yet on Drive ──
+  const rfpDocs = await loadRFPDocumentsForOpportunity(projectId, opportunityId);
+  const readyDocs = rfpDocs.filter((doc) => doc.status === 'READY');
+  console.log(
+    `[GoogleDrive] syncProposalMaterials: ${readyDocs.length} READY proposal doc(s) of ${rfpDocs.length} total for opportunity ${opportunityId}`,
+  );
+
+  for (const doc of readyDocs) {
+    if (doc.googleDriveFileId) {
+      result.skipped++;
+      continue;
+    }
+    try {
+      let fileId: string | undefined;
+      let webViewLink: string | undefined;
+
+      if (doc.htmlContentKey) {
+        // Generated proposal content lives as HTML in S3 → convert to a Google Doc.
+        const html = await loadRFPDocumentHtml(doc.htmlContentKey);
+        ({ fileId, webViewLink } = await uploadHtmlAsGoogleDoc(drive, html, doc.name, proposalFolderId));
+      } else if (doc.fileKey) {
+        // Uploaded/binary document → upload as-is.
+        ({ fileId, webViewLink } = await uploadFileFromS3(
+          drive, doc.fileKey, doc.name, doc.mimeType || 'application/octet-stream', proposalFolderId,
+        ));
+      } else {
+        // Nothing renderable yet — skip without error.
+        continue;
+      }
+
+      if (fileId && webViewLink) {
+        await updateRFPDocumentGoogleDrive(
+          projectId, opportunityId, doc.documentId, fileId, webViewLink, proposalFolderId,
+        );
+        result.uploaded++;
+        console.log(`[GoogleDrive] Uploaded proposal doc: ${doc.name} → ${webViewLink}`);
+      }
+    } catch (err) {
+      result.errors.push(`Proposal doc "${doc.name}": ${(err as Error)?.message}`);
+    }
+  }
+
+  // ── Add the Documents link to the offer note, only if proposal docs now exist ──
+  const anyProposalDocs = readyDocs.some((doc) => doc.googleDriveFileId) || result.uploaded > 0;
+  if (linearTicketId && rootFolderUrl && anyProposalDocs) {
+    try {
+      const autoRfpUrl = `${APP_URL}/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}`;
+      const description = buildOfferMessage({
+        analysisUrl: analysisDocUrl,
+        documentsUrl: rootFolderUrl,
+        autoRfpUrl,
+      });
+      const updated = await updateLinearTicketDescription(orgId, linearTicketId, description);
+      if (updated) {
+        result.documentsLinked = true;
+        console.log('[GoogleDrive] Added Documents link to Linear offer note (proposal materials ready)');
+      } else {
+        await createLinearComment(orgId, linearTicketId, description);
+        result.documentsLinked = true;
+        console.log('[GoogleDrive] Description update failed — posted offer links as a Linear comment instead');
+      }
+    } catch (err) {
+      result.errors.push(`Linear documents-link update: ${(err as Error)?.message}`);
+    }
+  }
+
+  return result;
 }
 
 // Re-export for backward compatibility

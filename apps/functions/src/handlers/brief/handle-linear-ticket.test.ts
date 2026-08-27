@@ -1,7 +1,10 @@
 /**
- * Tests for the handle-linear-ticket handler — focused on the opportunity
- * deep-link (HOR-2729 §1): the ticket description must contain a link back to
- * the AutoRFP opportunity, built from APP_URL and the brief's path segments.
+ * Tests for the handle-linear-ticket handler (HOR-2729).
+ *
+ * The ticket body is a preliminary-offer hand-off note, not an RFP breakdown.
+ * At creation only the AutoRFP deep-link is known (Analysis/Documents links are
+ * filled in later by the Drive worker). These tests assert the offer-note shape
+ * and the AutoRFP link, built from APP_URL and the brief's path segments.
  */
 jest.mock('@/sentry-lambda', () => ({ withSentryLambda: (h: unknown) => h }));
 
@@ -66,18 +69,24 @@ beforeEach(() => {
   mockSend.mockResolvedValue({});
 });
 
-describe('handle-linear-ticket — opportunity deep-link (HOR-2729 §1)', () => {
-  it('includes the AutoRFP opportunity URL in the created ticket description', async () => {
+describe('handle-linear-ticket — offer hand-off note (HOR-2729 §1)', () => {
+  it('creates an offer-note body with the AutoRFP opportunity URL', async () => {
     const res = await baseHandler(makeEvent({ executiveBriefId: 'brief-1' }, 'org-1'));
 
     expect(statusOf(res)).toBe(200);
     expect(mockCreateLinearTicket).toHaveBeenCalledTimes(1);
 
     const { description } = mockCreateLinearTicket.mock.calls[0][0];
-    expect(description).toContain('## AutoRFP');
+    // Offer hand-off note — greeting + preamble, not an RFP breakdown.
+    expect(description).toContain('Hi Brennen,');
+    expect(description).toContain("I've prepared a preliminary offer");
+    expect(description).not.toContain('# RFP Opportunity');
+    // AutoRFP link present at creation; Analysis/Documents links fill in later.
     expect(description).toContain(
-      'https://app.test.example/organizations/org-1/projects/proj-1/opportunities/opp-1',
+      'AutoRFP: https://app.test.example/organizations/org-1/projects/proj-1/opportunities/opp-1',
     );
+    expect(description).not.toContain('Analysis:');
+    expect(description).not.toContain('Documents:');
   });
 
   it('returns 400 when no orgId can be resolved', async () => {
@@ -114,6 +123,8 @@ describe('handle-linear-ticket — opportunity deep-link (HOR-2729 §1)', () => 
 
     expect(statusOf(res)).toBe(200);
     const { description } = mockCreateLinearTicket.mock.calls[0][0];
-    expect(description).not.toContain('## AutoRFP');
+    // No opportunity segments → no AutoRFP line, but the offer greeting still renders.
+    expect(description).toContain('Hi Brennen,');
+    expect(description).not.toContain('AutoRFP:');
   });
 });

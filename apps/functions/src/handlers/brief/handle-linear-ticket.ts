@@ -5,6 +5,7 @@ import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import { createLinearTicket, updateLinearTicket } from '@/helpers/linear';
+import { buildOfferMessage } from '@/helpers/linear-offer-message';
 import { getExecutiveBrief } from '@/helpers/executive-opportunity-brief';
 import { getProjectById } from '@/helpers/project';
 import { PK_NAME, SK_NAME } from '@/constants/common';
@@ -19,137 +20,20 @@ const RequestSchema = z.object({
   executiveBriefId: z.string().min(1),
 });
 
-function formatDate(isoString: string): string {
-  const date = new Date(isoString);
-  return date.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZoneName: 'short',
-  });
-}
-
+/**
+ * Builds the initial Linear ticket body — a preliminary-offer hand-off note
+ * (HOR-2729). At creation time only the AutoRFP deep-link is known; the
+ * Analysis (Google Doc) and Documents (Drive folder) links are filled in later
+ * by the Google Drive sync worker, which rewrites the description once those
+ * artifacts exist.
+ */
 function buildTicketDescription(brief: any, _project: any, orgId: string): string {
-  const summary = brief.sections?.summary?.data;
-  const deadlines = brief.sections?.deadlines?.data;
-  const scoring = brief.sections?.scoring?.data;
-  const risks = brief.sections?.risks?.data;
+  const autoRfpUrl =
+    orgId && brief.projectId && brief.opportunityId
+      ? `${APP_URL}/organizations/${orgId}/projects/${brief.projectId}/opportunities/${brief.opportunityId}`
+      : undefined;
 
-  const parts: string[] = [];
-
-  parts.push('# RFP Opportunity');
-  parts.push('');
-
-  if (summary?.agency) parts.push(`**Agency:** ${summary.agency}`);
-  if (summary?.naics) parts.push(`**NAICS:** ${summary.naics}`);
-  if (summary?.contractType) parts.push(`**Contract Type:** ${summary.contractType}`);
-  if (summary?.estimatedValueUsd) {
-    parts.push(`**Estimated Value:** ${summary.estimatedValueUsd} USD`);
-  }
-  if (summary?.placeOfPerformance) {
-    parts.push(`**Place of Performance:** ${summary.placeOfPerformance}`);
-  }
-  parts.push('');
-
-  // Link back to the AutoRFP opportunity so operators can jump straight to it.
-  // Built from known path segments (mirrors notification-worker's APP_URL pattern).
-  if (orgId && brief.projectId && brief.opportunityId) {
-    const opportunityUrl = `${APP_URL}/organizations/${orgId}/projects/${brief.projectId}/opportunities/${brief.opportunityId}`;
-    parts.push('## AutoRFP');
-    parts.push(`[Open opportunity in AutoRFP](${opportunityUrl})`);
-    parts.push('');
-  }
-
-  if (summary?.summary) {
-    parts.push('## Summary');
-    parts.push(summary.summary);
-    parts.push('');
-  }
-
-  const hasDeadlines = deadlines?.submissionDeadlineIso || (deadlines?.deadlines && deadlines.deadlines.length > 0);
-
-  if (hasDeadlines) {
-    parts.push('## Deadlines');
-
-    const allDeadlines: Array<{
-      label: string;
-      dateTimeIso?: string;
-      rawText?: string;
-      timezone?: string;
-      type?: string;
-      isPrimary?: boolean;
-    }> = [];
-
-    if (deadlines.submissionDeadlineIso) {
-      allDeadlines.push({
-        label: 'Proposal Submission Deadline',
-        dateTimeIso: deadlines.submissionDeadlineIso,
-        type: 'PROPOSAL_DUE',
-        isPrimary: true,
-      });
-    }
-
-    if (deadlines.deadlines && deadlines.deadlines.length > 0) {
-      deadlines.deadlines.forEach((d: any) => {
-        if (d.type === 'PROPOSAL_DUE') return;
-
-        allDeadlines.push({
-          label: `${d.label || d.type}`,
-          dateTimeIso: d.dateTimeIso,
-          rawText: d.rawText,
-          timezone: d.timezone,
-          type: d.type,
-        });
-      });
-    }
-
-    allDeadlines.sort((a, b) => {
-      if (!a.dateTimeIso) return 1;
-      if (!b.dateTimeIso) return -1;
-      return new Date(a.dateTimeIso).getTime() - new Date(b.dateTimeIso).getTime();
-    });
-
-    allDeadlines.forEach(d => {
-      if (d.dateTimeIso) {
-        parts.push(`- **${d.label}:** ${formatDate(d.dateTimeIso)}${d.timezone ? ` (${d.timezone})` : ''}`);
-
-        if (d.isPrimary) {
-          const recommendedDate = new Date(new Date(d.dateTimeIso).getTime() - 24 * 60 * 60 * 1000);
-          parts.push(`  - ⚠️ *Recommended: Submit 24 hours early by ${formatDate(recommendedDate.toISOString())}*`);
-        }
-      } else if (d.rawText) {
-        parts.push(`- **${d.label}:** ${d.rawText}`);
-      }
-    });
-
-    parts.push('');
-  }
-
-  // Score
-  if (brief.compositeScore || scoring?.compositeScore) {
-    parts.push('## Scoring');
-    parts.push(`**Composite Score:** ${brief.compositeScore || scoring.compositeScore}/5`);
-    if (brief.confidence || scoring?.confidence) {
-      parts.push(`**Confidence:** ${brief.confidence || scoring.confidence}%`);
-    }
-    parts.push('');
-  }
-
-  // Top Risks
-  if (risks?.redFlags && risks.redFlags.length > 0) {
-    parts.push('## Key Risks');
-    risks.redFlags.slice(0, 3).forEach((risk: any) => {
-      parts.push(`- **[${risk.severity}]** ${risk.flag}`);
-      if (risk.whyItMatters) {
-        parts.push(`  - ${risk.whyItMatters}`);
-      }
-    });
-    parts.push('');
-  }
-
-  return parts.join('\n');
+  return buildOfferMessage({ autoRfpUrl });
 }
 
 export const baseHandler = async (

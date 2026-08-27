@@ -71,13 +71,14 @@ describe('update-decision — decision branch', () => {
     expect(mockEnqueue).not.toHaveBeenCalled();
   });
 
-  it('enqueues a Drive sync on a GO decision', async () => {
+  it('does NOT create a Drive folder on a GO decision (manual button only — HOR-2729)', async () => {
     const res = await baseHandler(makeEvent({ executiveBriefId: 'brief-1', decision: 'GO' }, 'org-1'));
 
     expect(statusOf(res)).toBe(200);
-    expect(mockEnqueue).toHaveBeenCalledWith(
-      expect.objectContaining({ orgId: 'org-1', executiveBriefId: 'brief-1' }),
-    );
+    expect(bodyOf(res).decision).toBe('GO');
+    // A GO decision no longer auto-syncs — the folder is created only via the
+    // explicit "Create Drive folder" action.
+    expect(mockEnqueue).not.toHaveBeenCalled();
   });
 
   it('returns 500 on an invalid decision payload', async () => {

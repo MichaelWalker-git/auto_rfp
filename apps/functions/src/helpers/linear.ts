@@ -208,6 +208,30 @@ export async function createLinearTicket(params: CreateLinearTicketParams): Prom
   }
 }
 
+/**
+ * Overwrite a Linear issue's description (markdown body). Used by the Google
+ * Drive sync worker to fill the offer hand-off note with the Analysis (Google
+ * Doc) and Documents (Drive folder) links once those artifacts exist. Best
+ * effort — logs and swallows on failure so a Drive sync is never lost to a
+ * transient Linear error.
+ */
+export async function updateLinearTicketDescription(
+  orgId: string,
+  issueId: string,
+  description: string,
+): Promise<boolean> {
+  try {
+    const apiKey = await getLinearApiKey(orgId);
+    const client = new LinearClient({ apiKey });
+    await client.updateIssue(issueId, { description });
+    console.log(`[linear] Updated description for issue ${issueId}`);
+    return true;
+  } catch (err) {
+    console.error(`[linear] Failed to update description for issue ${issueId}:`, err);
+    return false;
+  }
+}
+
 export async function createLinearComment(
   orgId: string,
   issueId: string,

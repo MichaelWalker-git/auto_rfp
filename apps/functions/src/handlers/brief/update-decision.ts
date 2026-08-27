@@ -8,9 +8,6 @@ import { PK_NAME, SK_NAME } from '@/constants/common';
 import { EXEC_BRIEF_PK } from '@/constants/exec-brief';
 import { docClient } from '@/helpers/db';
 import { requireEnv } from '@/helpers/env';
-import { getExecutiveBrief } from '@/helpers/executive-opportunity-brief';
-import { getProjectById } from '@/helpers/project';
-import { enqueueGoogleDriveSync } from '@/helpers/google-drive-queue';
 import { enqueueDriveFolderForBrief } from '@/helpers/brief-drive-folder';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
@@ -19,11 +16,12 @@ const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
  * Two request shapes are accepted on this route (folded together to stay under
  * the HTTP API's integration cap — see HOR-2729):
  *
- *  1. Decision update — `{ executiveBriefId, decision }`. The original,
- *     unchanged behaviour. On a GO decision it also enqueues a Drive sync.
+ *  1. Decision update — `{ executiveBriefId, decision }`. Records the GO /
+ *     NO_GO / CONDITIONAL_GO decision only. It does NOT create a Drive folder
+ *     (a GO decision no longer auto-syncs — see HOR-2729).
  *  2. Drive-folder action — `{ executiveBriefId, action: 'create-drive-folder' }`.
  *     Enqueues the folder without touching the decision (the "Create Drive
- *     folder" button posts this).
+ *     folder" button posts this) — the ONLY way a Drive folder is created.
  *
  * The `action` discriminator is optional, so every existing decision caller is
  * byte-for-byte unaffected.
@@ -131,33 +129,9 @@ export const baseHandler = async (
 
     console.log(`Updated brief ${executiveBriefId} decision to ${decision}`);
 
-    // ─── Google Drive Sync on GO Decision (async via SQS) ───
-    // When the decision is manually set to GO (approval), enqueue Google Drive sync.
-    // Processed asynchronously to avoid blocking the API response.
-    if (decision === 'GO' && orgId) {
-      try {
-        console.log(`GO decision approved for brief ${executiveBriefId} — enqueuing Google Drive sync`);
-
-        const brief = await getExecutiveBrief(executiveBriefId);
-        const summaryData = (brief.sections as any)?.summary?.data;
-        const project = await getProjectById(brief.projectId);
-        const projectName = (project as any)?.name || brief.projectId;
-
-        await enqueueGoogleDriveSync({
-          orgId,
-          projectId: brief.projectId,
-          opportunityId: brief.opportunityId as string,
-          executiveBriefId,
-          linearTicketId: brief.linearTicketId as string | undefined,
-          linearTicketIdentifier: brief.linearTicketIdentifier as string | undefined,
-          agencyName: summaryData?.agency,
-          projectTitle: summaryData?.title || projectName,
-        });
-      } catch (enqueueErr) {
-        // Non-blocking — don't fail the decision update if enqueue fails
-        console.error('Failed to enqueue Google Drive sync (non-blocking):', (enqueueErr as Error)?.message);
-      }
-    }
+    // A GO decision no longer auto-creates the Google Drive folder. The folder
+    // is created ONLY when a user explicitly clicks "Create Drive folder"
+    // (the { action: 'create-drive-folder' } branch above) — see HOR-2729.
 
     return apiResponse(200, {
       ok: true,
