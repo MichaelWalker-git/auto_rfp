@@ -10,6 +10,7 @@ export function requiredFormsDomain(): DomainRoutes {
     { method: 'POST', path: 'revert-version', entry: lambdaEntry('required-forms/revert-form-version.ts') },
     { method: 'GET', path: 'render', entry: lambdaEntry('required-forms/render-docx-form.ts'), timeoutSeconds: 30 },
     { method: 'PUT', path: 'field', entry: lambdaEntry('required-forms/update-form-field.ts') },
+    { method: 'POST', path: 'set-notary', entry: lambdaEntry('required-forms/set-form-notary.ts') },
     { method: 'PUT', path: 'save-fields', entry: lambdaEntry('required-forms/save-form-fields.ts') },
     { method: 'DELETE', path: 'delete', entry: lambdaEntry('required-forms/delete-required-form.ts') },
     {

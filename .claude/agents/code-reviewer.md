@@ -1,5 +1,6 @@
 ---
 name: code-reviewer
+display_name: Code Reviewer
 description: Use this agent to audit code for correctness, security, convention compliance, and completeness in the AutoRFP monorepo. Invoke after writing or changing a handler, helper, schema, or component, or when explicitly asked to review a feature, directory, or file. Produces a structured review report with severity-ranked, actionable findings. Examples — "Review the answer feature", "Review apps/functions/src/handlers/clustering/", "Security review the auth handlers".
 tools: Read, Grep, Glob, Bash, Write
 model: inherit

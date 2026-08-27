@@ -34,6 +34,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { OpportunityStatusBadge } from './opportunity-status-badge';
 import { FoiaAutomationBadge } from '@/components/foia';
+import { OpportunityNotaryChip } from './OpportunityNotaryChip';
 import { ApprovalNeededBadge } from '@/features/opportunity-approval';
 
 import type { OpportunityStatus } from '@auto-rfp/core';
@@ -418,8 +419,8 @@ export const OpportunityItemCard = ({
           'border-t pt-1.5 mt-auto',
           gridColumns === 4 ? 'flex flex-col gap-1.5' : 'flex items-center gap-1.5'
         )} onClick={e => e.stopPropagation()}>
-          {/* Badges */}
-          {(item.naicsCode || item.setAside || (item.type && item.type !== item.setAside)) && (
+          {/* Badges — also renders when only the notary chip is present */}
+          {(item.naicsCode || item.setAside || (item.type && item.type !== item.setAside) || item.notarySummary?.anyNotaryRequired) && (
             <div className="flex flex-wrap gap-1 flex-1 min-w-0">
               {item.naicsCode && (
                 <Badge variant="outline" className="text-xs h-4 px-1 text-muted-foreground">
@@ -437,6 +438,7 @@ export const OpportunityItemCard = ({
                   {item.type}
                 </Badge>
               )}
+              <OpportunityNotaryChip summary={item.notarySummary} />
             </div>
           )}
           {/* Assignee + favorite */}

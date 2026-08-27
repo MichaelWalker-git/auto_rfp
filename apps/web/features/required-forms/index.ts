@@ -1,7 +1,10 @@
 export { RequiredFormsList } from './components/RequiredFormsList';
+export { NotaryBadge } from './components/NotaryBadge';
+export { NotaryTriggerList } from './components/NotaryTriggerList';
 export { ReviewRequiredBanner } from './components/ReviewRequiredBanner';
 export { FormReviewButton } from './components/FormReviewButton';
 export { ExportAllRequiredFormsDialog } from './components/ExportAllRequiredFormsDialog';
 export { useAttachFormToProposal } from './hooks/useAttachFormToProposal';
 export { useMarkFormReviewed } from './hooks/useMarkFormReviewed';
+export { useSetFormNotary } from './hooks/useSetFormNotary';
 export { useExportAllRequiredForms, useExportMergedRequiredForms } from './hooks/useExportAllRequiredForms';

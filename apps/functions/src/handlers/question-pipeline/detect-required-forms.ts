@@ -5,6 +5,7 @@ import { safeParseJsonFromModel } from '@/helpers/json';
 import { getQuestionFileItem, checkQuestionFileCancelled, updateQuestionFile } from '@/helpers/questionFile';
 import { createRequiredForm, listRequiredFormsByOpportunity, updateRequiredForm } from '@/helpers/required-form';
 import { markFormsReadyIfAllDone } from '@/helpers/mark-forms-ready';
+import { runBodyNotaryScanAndPersist, rollupOpportunityNotary } from '@/helpers/notary-wiring';
 import { startFormsAnalysis } from '@/helpers/textract-forms';
 import { parseXlsxForms } from '@/helpers/xlsx-form-parser';
 import { extractAndAutofillDocxForm } from '@/helpers/docx-form-parser';
@@ -237,12 +238,42 @@ export const baseHandler = async (
     forms.push(...chunkForms);
   }
 
+  const sourceFileName = sourceFileKey.split('/').pop() ?? sourceFileKey;
+
   if (forms.length === 0) {
     console.log(`No forms detected across ${chunks.length} chunk(s) for ${sourceFileKey}`);
+    // The notary body scan is NOT gated on form detection (FR2.1): a solicitation
+    // with no fillable forms can still say "your bid must be notarized", and
+    // dropping that signal is exactly the silent miss BR10.3/NFR1 forbids. Hits
+    // land as unmapped opportunity-level triggers (or map to forms owned by
+    // OTHER documents of this opportunity).
+    const unmappedNotaryTriggers = await runBodyNotaryScanAndPersist({
+      orgId,
+      projectId,
+      opportunityId,
+      docText,
+      solicitationDocName: sourceFileName,
+      truncated: allChunks.length > MAX_DETECTION_CHUNKS,
+    });
+    if (existingForms.length > 0) {
+      // Forms exist (owned by other documents) — the established readiness check
+      // rolls up once they are all terminal.
+      await markFormsReadyIfAllDone(orgId, projectId, opportunityId, unmappedNotaryTriggers);
+    } else if (unmappedNotaryTriggers.length > 0) {
+      // Zero-forms opportunity: no form will ever reach a terminal state, so no
+      // markFormsReadyIfAllDone rollup would ever fire — roll up directly. Do NOT
+      // call markFormsReadyIfAllDone here: nothing was ever FILLING_FORMS, and it
+      // would clobber the status of question files still mid-pipeline.
+      await rollupOpportunityNotary({
+        orgId,
+        projectId,
+        oppId: opportunityId,
+        forms: [],
+        unmappedTriggers: unmappedNotaryTriggers,
+      });
+    }
     return { ok: true, formsDetected: 0 };
   }
-
-  const sourceFileName = sourceFileKey.split('/').pop() ?? sourceFileKey;
   const isPdf = mimeType.includes('pdf') || sourceFileKey.toLowerCase().endsWith('.pdf');
   const isXlsx = mimeType.includes('spreadsheet') || mimeType.includes('excel') ||
     sourceFileKey.toLowerCase().endsWith('.xlsx') || sourceFileKey.toLowerCase().endsWith('.xls');
@@ -487,6 +518,28 @@ export const baseHandler = async (
         : { status: 'FILLING_FORMS', docType: 'REQUIRED_FORM' };
     await updateQuestionFile(projectId, opportunityId, questionFileId, patch)
       .catch((err) => console.warn(`Failed to set FILLING_FORMS on ${questionFileId}:`, (err as Error)?.message));
+  }
+
+  // WF-A — solicitation-body notary scan + rollup. Unconditional here: this point
+  // is only reached when forms were detected in this document, and every detected
+  // form either was created this run or already exists by name (re-extract), so
+  // the opportunity always has forms. The zero-forms case runs the same scan in
+  // the early return above (FR2.1 — the scan is never gated on form detection).
+  // Best-effort, never throws into the Step Function.
+  {
+    // Scans the in-memory docText (+ inline DOCX/XLSX field text) for
+    // notarization requirements, persists per-mapped-form notary state, and
+    // returns the unmapped solicitation-instruction triggers to fold into the
+    // opportunity rollup. Truncation of the detection scan is signalled so the
+    // engine emits a review-manually entry rather than a clean NOT_REQUIRED.
+    const unmappedNotaryTriggers = await runBodyNotaryScanAndPersist({
+      orgId,
+      projectId,
+      opportunityId,
+      docText,
+      solicitationDocName: sourceFileName,
+      truncated: allChunks.length > MAX_DETECTION_CHUNKS,
+    });
 
     // XLSX/DOCX forms are parsed to READY inline above (no async Textract job),
     // so nothing else would flip the question file out of FILLING_FORMS for a
@@ -494,7 +547,9 @@ export const baseHandler = async (
     // it's a no-op while any form is still pending (e.g. a PDF form awaiting the
     // Textract callback in a mixed opportunity), and the Textract callback runs
     // the same check when it terminates — whichever path finishes last wins.
-    await markFormsReadyIfAllDone(orgId, projectId, opportunityId);
+    // The unmapped body triggers are folded into the opportunity notary rollup
+    // when this call runs the rollup (all-forms-terminal).
+    await markFormsReadyIfAllDone(orgId, projectId, opportunityId, unmappedNotaryTriggers);
   }
 
   return { ok: true, formsDetected: createdCount };

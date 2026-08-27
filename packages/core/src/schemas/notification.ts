@@ -25,6 +25,8 @@ export const NotificationTypeSchema = z.enum([
   'PROCESSING_COMPLETE',
   'PROCESSING_ERROR',
   'EXPORT_READY',
+  // Notary detection — proactive "forms need notarization" alert (u2)
+  'NOTARY_REQUIRED',
   // Stale content
   'STALE_CONTENT_WARNING',
   'STALE_CONTENT_DETECTED',
