@@ -20,13 +20,33 @@ interface ParsedPart {
   text?: string;
   /** Present when the part looks like a file. */
   fileName?: string;
+  /**
+   * True when the part is embedded in the message body rather than sent as a file —
+   * a signature logo, a social icon, a letterhead graphic.
+   */
+  isInline?: boolean;
 }
 
 export interface ParsedMail {
   /** Best-effort plain-text body, for phrase matching. */
   text: string;
-  /** Attachment file names, for recording what the agency sent. */
+  /**
+   * Names of parts the sender actually ATTACHED.
+   *
+   * Excludes inline images. This is read as evidence that an agency produced
+   * records, so a letterhead graphic must not count: in the live corpus 12 of 110
+   * messages carried nothing but decorative images and every one was scored
+   * RECORDS_RECEIVED, including replies that produced nothing and one that stated
+   * the agency held no documents at all.
+   *
+   * The distinction is reliable in real mail — released records arrive as
+   * `Content-Disposition: attachment` with a real filename, while every decoration
+   * observed here is `Content-Disposition: inline` with a `Content-ID` (Outlook
+   * `image001.png`, `Outlook-em5gwklr`, Gmail `image.png`, GSA `Cloud 4.png`).
+   */
   attachmentNames: string[];
+  /** Inline part names, kept separately so nothing is silently lost. */
+  inlineImageNames: string[];
 }
 
 /** Splits headers from body at the first blank line, tolerating CRLF or LF. */
@@ -132,6 +152,26 @@ const readFileName = (headers: string): string | undefined => {
 };
 
 /**
+ * Whether a named part is embedded in the body rather than attached.
+ *
+ * Either signal is sufficient, because real senders disagree about which they set:
+ * an explicit `Content-Disposition: inline`, or the presence of a `Content-ID` (how
+ * an HTML body references an embedded image via `cid:`). Requiring both would miss
+ * senders that omit one.
+ *
+ * A part with `Content-Disposition: attachment` is never inline, even if it also
+ * carries a Content-ID — the sender's explicit intent wins. That is what keeps a
+ * genuinely released record classified correctly; the real released records in this
+ * corpus carry both a Content-ID and an `attachment` disposition.
+ */
+const isInlinePart = (headers: string): boolean => {
+  const disposition = (readHeader(headers, 'Content-Disposition') ?? '').toLowerCase();
+  if (/\battachment\b/.test(disposition)) return false;
+
+  return /\binline\b/.test(disposition) || !!readHeader(headers, 'Content-ID');
+};
+
+/**
  * Strips tags from HTML so a text-free message still yields matchable words.
  *
  * Script and style content is removed first — otherwise CSS and JS tokens end up
@@ -177,7 +217,7 @@ const walkPart = (raw: string, depth: number): ParsedPart[] => {
   }
 
   if (fileName) {
-    return [{ contentType, fileName }];
+    return [{ contentType, fileName, isInline: isInlinePart(headers) }];
   }
 
   if (contentType.startsWith('text/html')) {
@@ -217,13 +257,103 @@ export const parseRawMail = (raw: string): ParsedMail => {
   const text =
     chosen.map((p) => p.text ?? '').join('\n').trim() || splitHeadersAndBody(raw).body.trim();
 
-  const attachmentNames = parts
-    .map((p) => p.fileName)
-    .filter((name): name is string => !!name && name.length > 0);
+  const named = parts.filter(
+    (p): p is ParsedPart & { fileName: string } => !!p.fileName && p.fileName.length > 0,
+  );
 
-  return { text, attachmentNames };
+  const attachmentNames = named.filter((p) => !p.isInline).map((p) => p.fileName);
+  const inlineImageNames = named.filter((p) => p.isInline).map((p) => p.fileName);
+
+  return { text, attachmentNames, inlineImageNames };
 };
 
 /** Reads a single header from a raw message, for callers that need one directly. */
 export const readMailHeader = (raw: string, name: string): string | undefined =>
   readHeader(splitHeadersAndBody(raw).headers, name);
+
+/**
+ * Where our own quoted text begins in a forwarded or replied thread.
+ *
+ * Agencies quote the original request in full, so a reply body contains both the
+ * agency's few new lines and our entire letter below them. Classifying the two
+ * together is the single most productive source of bugs in this pipeline: our
+ * letter's wording has been read as an agency announcement three separate times
+ * (an award notice, a `DENIED` outcome, and — in seven live messages — an agency
+ * reply booked as our own outgoing request). Patching individual phrasings does not
+ * fix that, because the text genuinely says what the pattern matches; it is
+ * attributed to the wrong author.
+ *
+ * Two markers, both taken from real mail in this mailbox:
+ *   - a `From:` line naming us (Outlook and Gmail both emit these, sometimes
+ *     `*From:*` with markdown emphasis, sometimes `>`-quoted)
+ *   - an `On <date> <us> wrote:` attribution, which **wraps across lines** in real
+ *     Gmail output and contains a narrow no-break space (U+202F) before "AM"
+ *
+ * Only a marker naming US is a cut point. A marker naming the agency is not: a
+ * forwarded thread often *opens* with `----- Forwarded message -----` / `From:
+ * <agency>`, so cutting at the first marker of any kind would discard the agency's
+ * words entirely — the opposite of the intent. Two real messages
+ * (`i3o2h82ak04i`, `615sciteu2kj`) have a separator at offset 0 for exactly this
+ * reason, and one nests three authors deep.
+ */
+const OUR_DOMAIN_PATTERN = /(?:horustech\.dev|@horustech\b)/i;
+const FROM_LINE_PATTERN = /^[ \t>]*\*?From:\*?[ \t]*(.{0,160})$/gim;
+/**
+ * `On <anything, possibly wrapped> wrote:` — the Gmail/Outlook attribution line.
+ *
+ * Anchored to the start of a line, and `On` is matched case-sensitively. Both matter:
+ * the unanchored, case-insensitive `\bOn\b` matched the lowercase "on" inside an
+ * agency's own sentence, and since `isOurs` is tested against the whole 200-char span,
+ * one of our addresses further along the line made that "on" the cut point. "Based on a
+ * search of our files, no records were located…" was truncated to "Based " — losing the
+ * agency's answer, and the NO_RECORDS_LOCATED outcome with it.
+ *
+ * Gmail and Outlook both emit this attribution at the start of its own line, so the
+ * anchor costs no real coverage. Leading `>` and whitespace are allowed because nested
+ * replies indent it.
+ */
+const WROTE_ATTRIBUTION_PATTERN = /^[ \t>]*On\b[\s\S]{5,200}?\bwrote:/gm;
+
+/**
+ * Returns only the text attributable to the most recent author who is not us.
+ *
+ * Falls back to the whole body when no marker names us, which is the right default
+ * for both a genuine outbound letter (all of it is ours, and the outbound rules are
+ * meant to match) and a plain agency message with nothing quoted.
+ *
+ * `isOurs` is injected rather than hardcoded so the caller decides what "ours"
+ * means — in practice the monitored mailbox's own domain.
+ */
+export const stripQuotedReply = (
+  body: string,
+  isOurs: (text: string) => boolean = (text) => OUR_DOMAIN_PATTERN.test(text),
+): string => {
+  const cuts: number[] = [];
+
+  for (const match of body.matchAll(FROM_LINE_PATTERN)) {
+    if (isOurs(match[1] ?? '')) cuts.push(match.index ?? 0);
+  }
+  for (const match of body.matchAll(WROTE_ATTRIBUTION_PATTERN)) {
+    if (isOurs(match[0])) cuts.push(match.index ?? 0);
+  }
+
+  if (cuts.length === 0) return body;
+
+  /**
+   * Prefer the earliest cut that leaves something to classify.
+   *
+   * Returning the whole body on a cut at offset 0 was the wrong fallback: a reply
+   * opening "On behalf of the City…" or "On review of our files…" puts a cut at 0, and
+   * our entire quoted letter then re-entered the authorship haystack — the exact defect
+   * `stripQuotedReply` exists to prevent, so the reply still booked as
+   * OUR_OWN_REQUEST. Sorting and taking the first non-zero cut keeps whatever the
+   * agency wrote above the next quoted block.
+   *
+   * The whole body is still returned when EVERY cut sits at 0, since an empty haystack
+   * would classify nothing at all and the outbound rules are meant to match a genuine
+   * letter of ours.
+   */
+  const firstUsableCut = [...cuts].sort((a, b) => a - b).find((cut) => cut > 0);
+
+  return firstUsableCut === undefined ? body : body.slice(0, firstUsableCut);
+};

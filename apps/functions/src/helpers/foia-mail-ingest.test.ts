@@ -23,6 +23,7 @@ import {
   readResponseOutcome,
   toCorrelationCandidates,
 } from './foia-mail-ingest';
+import { parseRawMail } from './foia-mail-parse';
 import type { OpportunityDBItem } from '@auto-rfp/core';
 
 const raw = (lines: string[]): string => lines.join('\r\n');
@@ -206,6 +207,256 @@ describe('readResponseOutcome — what the agency actually did', () => {
         'Evaluation.pdf',
       ]),
     ).toBe('NO_RECORDS_LOCATED');
+  });
+
+  it("does not read our own letter's conditional denial clause as a denial", () => {
+    /**
+     * The `withheld` half of this was fixed once (see the test below); the `denied`
+     * half was not. `/\b(?:your\s+)?request\s+(?:is|has\s+been)\s+denied\b/` makes
+     * "your" OPTIONAL, so it fires on our own template's conditional
+     * "If any portion of this request is denied ...".
+     *
+     * The comment above the denial block asserts "Every pattern requires the agency
+     * as the actor" and that "the passive and conditional forms that appear in our
+     * own letter cannot match". That guarantee is false for this pattern.
+     *
+     * Measured on the live corpus: the pattern fires on 8 of 110 real bodies, and in
+     * every single case the match is our own boilerplate — never an agency denial
+     * (files 848ko1tghclg, 9sqem1ljcnq4, ce9mrkq2imo2, etug8g8m9cnd, frlbqtfbnkrd,
+     * lanfoc9kkmg5, 615sciteu2kj, p1a3vs5829u7).
+     *
+     * Consequence: as soon as one of those forwarded replies is classified
+     * FOIA_RESPONSE (see the misclassification defects in foia-mail-classify.test.ts),
+     * applyResponse writes responseOutcome DENIED for a cooperative agency — poisoning
+     * the comparison dashboard and inviting an appeal against an agency that refused
+     * nothing.
+     */
+    const ourClause =
+      'Please provide these records in electronic format if available. If any portion ' +
+      'of this request is denied or withheld, please cite the specific RCW 42.56 ' +
+      'exemption relied upon for each withheld record, as required under the Act.';
+
+    expect(outcome(ourClause)).toBe('ACKNOWLEDGED');
+  });
+
+  /**
+   * The conditional guard is scoped PER SENTENCE, not to the whole body.
+   *
+   * Applying it to the body made it a global veto, and appeal-rights boilerplate
+   * carries a conditional "denied" in nearly every real denial letter — so a genuine
+   * denial returned ACKNOWLEDGED because a LATER, unrelated sentence was hypothetical.
+   * These cases pin the scoping: the suite passed with the whole-body test in place,
+   * which is why they are worth having.
+   */
+  it.each([
+    [
+      'appeal-rights boilerplate after the denial',
+      'Your request is denied in part under Exemption 6. If a request is denied in whole or in part, the requester may appeal within 90 days.',
+    ],
+    [
+      'conditional appeal wording after a withholding',
+      'We are withholding two documents as exempt. Should a request be denied, you may appeal to the custodian.',
+    ],
+    [
+      'exemption stated as a fragment on its own line',
+      'Re: your public records request\nRecords are exempt from disclosure\nRegards, City Clerk',
+    ],
+  ])('reads a denial that also carries %s', (_label, body) => {
+    expect(outcome(body)).toBe('DENIED');
+  });
+
+  /**
+   * The conditional guard has to be tested on a sentence that ALSO matches a denial
+   * pattern, or it is untested rather than merely unused.
+   *
+   * Our own template no longer matches any denial pattern (the possessive became
+   * mandatory), so the existing "our own letter" case passes with the guard deleted
+   * entirely — mutation-checked. These are agency sentences that DO match a pattern
+   * while being plainly hypothetical, which is the only shape the guard exists for.
+   */
+  it.each([
+    ['a conditional denial in appeal instructions', 'If your request is denied you may appeal within 30 days.'],
+    ['a conditional withholding', 'Unless we are withholding records, you should receive them shortly.'],
+    ['a conditional exemption', 'In the event records are exempt from disclosure we will identify them.'],
+  ])('does not read %s as a denial', (_label, body) => {
+    expect(outcome(body)).toBe('ACKNOWLEDGED');
+  });
+
+  it("still ignores our own letter when it spans several sentences", () => {
+    // Per-sentence scoping must not reopen the false positive it replaced: every
+    // clause here is ours, and the only "denied" is hypothetical.
+    expect(
+      outcome(
+        'Pursuant to the CPRA I request the notice of award. If any portion of this ' +
+          'request is denied, cite the exemption relied upon. Please respond within 10 days.',
+      ),
+    ).toBe('ACKNOWLEDGED');
+  });
+
+  it('still reads a real agency denial', () => {
+    // The guard above must not blunt genuine denials. An agency writes the
+    // possessive and states the act in the present tense.
+    expect(outcome('Your request is denied in its entirety under Exemption 5.')).toBe('DENIED');
+    expect(outcome('We are withholding the remaining records under Government Code 6254.')).toBe(
+      'DENIED',
+    );
+  });
+
+  it('ignores a denial clause quoted from our letter beneath an agency reply', () => {
+    /**
+     * The same clause as above, in the shape it actually arrives: below the agency's
+     * own two lines and a Gmail attribution. This is what the 8 real corpus bodies
+     * look like, and it is why the fix is `stripQuotedReply` rather than another
+     * pattern tweak — the text is genuinely there, it is just not the agency's.
+     */
+    const agencyReplyQuotingUs = [
+      'Good afternoon,',
+      '',
+      'Your request has been received and assigned to our records officer.',
+      '',
+      'On Mon, Aug 17, 2026 at 10:33 AM Brennen Stones <brennen@horustech.dev> wrote:',
+      '> If any portion of this request is denied or withheld, please cite the',
+      '> specific RCW 42.56 exemption relied upon for each withheld record.',
+    ].join('\n');
+
+    expect(outcome(agencyReplyQuotingUs)).toBe('ACKNOWLEDGED');
+  });
+
+  it('reads "we do not have any documents" as no records located', () => {
+    /**
+     * Real message 615sciteu2kj — SC Division of Procurement Services, 2026-07-09,
+     * on Solicitation 5400028096.
+     *
+     * The agency states plainly that it holds nothing, then closes the request. But
+     * the `no-records-located` pattern requires "no records ... was/were
+     * located|found|identified", and this agency wrote "We do not have any ...
+     * documents" — a form the regex cannot reach. So the check falls through to the
+     * attachment branch, where `attachmentNames` is `['Outlook-em5gwklr']`: an inline
+     * Outlook image artifact, not a produced record. `attachmentNames.length > 0`
+     * short-circuits to RECORDS_RECEIVED.
+     *
+     * Consequence: the opportunity records responseOutcome=RECORDS_RECEIVED for a
+     * request that returned nothing. That is the one fact observable nowhere else —
+     * it means we never bid, or the agency cancelled before award — and it is
+     * inverted. A reviewer sees "records received" and stops looking.
+     *
+     * Two defects, either of which alone would cause this: the phrasing gap, and
+     * treating any MIME filename as evidence of produced records.
+     */
+    const scReply = [
+      'Good afternoon,',
+      '',
+      'Our office has received your request regarding Solicitation #5400028096.',
+      'This solicitation was cancelled after opening but before award with the',
+      'intent to resolicit. We do not have any evaluation/scoring or debriefing',
+      'documents.',
+      '',
+      'This fulfills your request.',
+    ].join('\n');
+
+    expect(outcome(scReply, ['Outlook-em5gwklr'])).toBe('NO_RECORDS_LOCATED');
+  });
+
+  it('does not treat signature-block images as produced records (end to end)', () => {
+    /**
+     * The filtering happens in `parseRawMail`, so this exercises the real MIME shape
+     * rather than calling `readResponseOutcome` with a hand-made name list.
+     *
+     * Headers copied from real messages: every decorative image in the corpus is
+     * `Content-Disposition: inline` with a `Content-ID` (Outlook `image001.png`,
+     * `Outlook-em5gwklr`, Gmail `image.png`, GSA `Cloud 4.png`), while the three
+     * genuinely released records in `4soe9nenigvt` are `attachment`.
+     *
+     * The dangerous case is the one asserted here: an agency denying a request from
+     * Outlook had its denial MASKED, because the attachment count was checked before
+     * every DENIED pattern and a letterhead logo satisfied it.
+     */
+    const rawWithSignatureImage = [
+      'From: Records <records@city.gov>',
+      'Subject: RE: Public Records Request',
+      'Content-Type: multipart/related; boundary="BOUND1"',
+      '',
+      '--BOUND1',
+      'Content-Type: text/plain',
+      '',
+      'Your request is denied in its entirety under Government Code 6254.',
+      '--BOUND1',
+      'Content-Type: image/png; name="image001.png"',
+      'Content-Disposition: inline; filename="image001.png"; size=1527',
+      'Content-ID: <image001.png@01DD2C08.D837A9B0>',
+      'Content-Transfer-Encoding: base64',
+      '',
+      'iVBORw0KGgo=',
+      '--BOUND1--',
+      '',
+    ].join('\r\n');
+
+    const { text, attachmentNames, inlineImageNames } = parseRawMail(rawWithSignatureImage);
+
+    expect(attachmentNames).toEqual([]);
+    expect(inlineImageNames).toEqual(['image001.png']);
+    expect(
+      readResponseOutcome({
+        classification: { classification: 'FOIA_RESPONSE', confidence: 'HIGH', matchedOn: [] },
+        bodyText: text,
+        attachmentNames,
+      }),
+    ).toBe('DENIED');
+  });
+
+  it('still counts a genuinely attached record', () => {
+    // The other side of the same distinction: `attachment` disposition must survive.
+    const rawWithRealAttachment = [
+      'From: Records <records@city.gov>',
+      'Subject: RE: Public Records Request',
+      'Content-Type: multipart/mixed; boundary="B2"',
+      '',
+      '--B2',
+      'Content-Type: text/plain',
+      '',
+      'Please see the enclosed.',
+      '--B2',
+      'Content-Type: application/pdf; name="Notice of Selection.pdf"',
+      'Content-Disposition: attachment; filename="Notice of Selection.pdf"',
+      '',
+      'JVBERi0=',
+      '--B2--',
+      '',
+    ].join('\r\n');
+
+    const { text, attachmentNames } = parseRawMail(rawWithRealAttachment);
+
+    expect(attachmentNames).toEqual(['Notice of Selection.pdf']);
+    expect(
+      readResponseOutcome({
+        classification: { classification: 'FOIA_RESPONSE', confidence: 'HIGH', matchedOn: [] },
+        bodyText: text,
+        attachmentNames,
+      }),
+    ).toBe('RECORDS_RECEIVED');
+  });
+
+  it('trusts the attachment list it is given', () => {
+    /**
+     * Inline filtering belongs to `parseRawMail`, which is where MIME headers are
+     * available — see the end-to-end test above. Once a name reaches
+     * `readResponseOutcome` it has already been judged a real attachment, so this
+     * documents the remaining contract: a non-empty list means records were produced.
+     *
+     * The original version of this test asserted the opposite (that `image001.png` in
+     * the list must not count), which pushed extension-sniffing into the wrong layer —
+     * a released record can legitimately be a `.png` scan. Measured on the live corpus,
+     * the disposition check fixed all 12 affected messages, including three live
+     * FOIA_RESPONSE rows (615sciteu2kj, p1a3vs5829u7, vrl3d7c7m5q2).
+     *
+     * The dangerous case is this one: an agency that denies a request from Outlook has
+     * its denial MASKED, because the image short-circuits the DENIED branch. The
+     * opportunity is recorded as satisfied, the operator stops chasing it, and the
+     * appeal window on a real denial lapses unnoticed.
+     */
+    expect(
+      outcome('Please see the enclosed.', ['Notice of Selection.pdf']),
+    ).toBe('RECORDS_RECEIVED');
   });
 
   it('reads records received from an attachment', () => {

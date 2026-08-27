@@ -1,4 +1,4 @@
-import { parseRawMail, readMailHeader } from './foia-mail-parse';
+import { parseRawMail, readMailHeader, stripQuotedReply } from './foia-mail-parse';
 
 /** Builds a raw message with CRLF line endings, as SES delivers them. */
 const raw = (lines: string[]): string => lines.join('\r\n');
@@ -234,5 +234,124 @@ describe('parseRawMail — hostile and malformed input', () => {
   it('returns empty text for an empty message rather than throwing', () => {
     expect(parseRawMail('').text).toBe('');
     expect(parseRawMail('').attachmentNames).toEqual([]);
+  });
+});
+
+describe('stripQuotedReply', () => {
+  it('keeps only the agency prose above a Gmail attribution line', () => {
+    // Real shape from obc93sn2d5kk. Note the narrow no-break space (U+202F) before
+    // "AM", which Gmail emits and which broke a first attempt at this pattern, and
+    // the attribution wrapping across two lines.
+    const body = [
+      'Hi Krystal,',
+      '',
+      'I am forwarding you the request for records I received.',
+      '',
+      'On Mon, Aug 17, 2026 at 10:33 AM Brennen Stones <brennen@horustech.dev>',
+      'wrote:',
+      '',
+      '> Pursuant to the California Public Records Act, I am requesting copies of the',
+      '> following public records related to RFP No. 26-22.',
+    ].join('\n');
+
+    const stripped = stripQuotedReply(body);
+
+    expect(stripped).toContain('I am forwarding you the request for records I received.');
+    expect(stripped).not.toContain('Pursuant to the California Public Records Act');
+  });
+
+  it('cuts at an Outlook From: block naming us', () => {
+    const body = [
+      'All requests that fall under CPRA must be submitted through this link.',
+      '',
+      '________________________________',
+      '*From:* Brennen Stones <brennen@horustech.dev>',
+      '*Sent:* Monday, August 17, 2026',
+      '',
+      'This is a request under the California Public Records Act.',
+    ].join('\n');
+
+    expect(stripQuotedReply(body)).not.toContain('This is a request under');
+  });
+
+  it('returns the whole body when nothing is quoted from us', () => {
+    // A genuine outbound letter is entirely ours, and the outbound rules are meant
+    // to match it — stripping here would make our own request unrecognisable.
+    const ourLetter =
+      'Pursuant to the California Public Records Act, I am requesting copies of the ' +
+      'following public records. The undersigned will pay statutory fees.';
+
+    expect(stripQuotedReply(ourLetter)).toBe(ourLetter);
+  });
+
+  it('does not cut at a marker naming the agency', () => {
+    /**
+     * Two real messages (`i3o2h82ak04i`, `615sciteu2kj`) open with a forwarded
+     * separator at offset 0, because we forwarded the agency's reply to the mailbox.
+     * Cutting at the first marker of any kind would discard the agency's words
+     * entirely — the opposite of the intent.
+     */
+    const body = [
+      '---------- Forwarded message ---------',
+      'From: Channel Coast District Contract Bids <bids@parks.ca.gov>',
+      '',
+      'Unfortunately, C25910004 was cancelled and not awarded via IFB.',
+    ].join('\n');
+
+    expect(stripQuotedReply(body)).toContain('was cancelled and not awarded');
+  });
+
+  /**
+   * The attribution must be anchored to a line start, with `On` matched case-sensitively.
+   *
+   * The unanchored, case-insensitive `\bOn\b` matched the lowercase "on" inside the
+   * agency's OWN sentence, and because `isOurs` is tested against the whole 200-char
+   * span, one of our addresses further along the line made that "on" the cut point.
+   * This body was truncated to "Based " — losing the agency's answer, and the
+   * NO_RECORDS_LOCATED outcome that depends on reading it.
+   */
+  it('does not cut at a lowercase "on" inside the agency\'s own prose', () => {
+    const body = [
+      'Based on a search of our files, no records were located for this request.',
+      '',
+      'On Mon, Aug 17, 2026 at 10:33 AM Brennen Stones <brennen@horustech.dev> wrote:',
+      '> Pursuant to the California Public Records Act, I am requesting records.',
+    ].join('\n');
+
+    const kept = stripQuotedReply(body);
+
+    expect(kept).toContain('no records were located');
+    expect(kept).not.toContain('Pursuant to the California Public Records Act');
+  });
+
+  /**
+   * A cut at offset 0 must not fall back to the whole body.
+   *
+   * A reply opening "On review of our files…" puts a cut at 0, and returning the body
+   * unchanged let our entire quoted letter back into the authorship haystack — the very
+   * defect this function exists to prevent, so the reply still booked as
+   * OUR_OWN_REQUEST. The first NON-ZERO cut is the usable one.
+   */
+  it('prefers the first non-zero cut over returning the whole body', () => {
+    const body = [
+      'On review of our files we located no records. Contact brennen@horustech.dev wrote:',
+      'From: Brennen Stones <brennen@horustech.dev>',
+      'Pursuant to the CPRA, I am requesting the notice of award.',
+    ].join('\n');
+
+    const kept = stripQuotedReply(body);
+
+    expect(kept).not.toContain('Pursuant to the CPRA');
+    expect(kept).toContain('we located no records');
+  });
+
+  it('still returns a genuine outbound letter of ours in full', () => {
+    // Every cut sits at 0 here, and an empty haystack would classify nothing — the
+    // outbound rules are meant to match our own letter.
+    const ours =
+      'Pursuant to the California Public Records Act, I am requesting copies of the ' +
+      'notice of award. Contact brennen@horustech.dev with questions.';
+
+    expect(stripQuotedReply(ours)).toBe(ours);
   });
 });

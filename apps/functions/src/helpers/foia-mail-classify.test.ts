@@ -1,6 +1,7 @@
 import {
   canActAutomatically,
   classifyMailDeterministic,
+  hasGovernmentAuthorInThread,
   isGovernmentSender,
   isKnownSolicitationSender,
 } from './foia-mail-classify';
@@ -35,6 +36,43 @@ describe('sender recognition', () => {
     expect(isKnownSolicitationSender('sales@vendor.com')).toBe(false);
     // A lookalike domain must not pass.
     expect(isGovernmentSender('phish@notreally-gov.com')).toBe(false);
+  });
+
+  it('recovers a public-body author the Google Group relay hid', () => {
+    /**
+     * The monitored mailbox is a Google Group, and the relay rewrites `From:` to
+     * `proposals@horustech.dev` — so `isGovernmentSender` reports false for genuine
+     * agency replies (real messages `848ko1tghclg`, `lanfoc9kkmg5`, `6bh3ncdo9e10`,
+     * `04tvnbq4teg4`). The real author survives in the forwarded header block.
+     */
+    const forwarded = [
+      '---------- Forwarded message ---------',
+      'From: Channel Coast District Contract Bids <ccdbid@parks.ca.gov>',
+      'Subject: Re: California Public Records Act Request',
+      '',
+      'Unfortunately, C25910004 was cancelled and not awarded via IFB.',
+    ].join('\n');
+
+    expect(hasGovernmentAuthorInThread(forwarded)).toBe(true);
+  });
+
+  it('does not read the agency we wrote TO as the author', () => {
+    /**
+     * The stop condition that keeps this from inverting. In our own outbound letter
+     * the first `From:` is us; any `.gov` below it is a recipient, not an author.
+     * Without the stop, every request addressed to a `.gov` would look
+     * agency-authored — verified against all 11 genuine outbound letters in the
+     * corpus, which this correctly leaves alone.
+     */
+    const ourLetter = [
+      '---------- Forwarded message ---------',
+      'From: Brennen Stones <brennen@horustech.dev>',
+      'To: records@ci.example.gov',
+      '',
+      'Pursuant to the California Public Records Act, I am requesting copies of...',
+    ].join('\n');
+
+    expect(hasGovernmentAuthorInThread(ourLetter)).toBe(false);
   });
 });
 
@@ -117,6 +155,89 @@ describe('cancellations', () => {
     );
 
     expect(r.classification).toBe('SOLICITATION_CANCELLED');
+  });
+
+  it('recognises an agency stating a solicitation "was cancelled" in a reply', () => {
+    /**
+     * Real messages i3o2h82ak04i and pm4tl45k4m77 — CA State Parks, Channel Coast
+     * District (ccdbid@parks.ca.gov), 2026-07-21, replying about IFB C25910004.
+     * Two separate deliveries, two separate ledger rows, both misdecided.
+     *
+     * Three independent failures stack up:
+     *  1. No CANCELLED_PATTERNS entry matches "was cancelled". `has-been-cancelled`
+     *     needs "has been"; `solicitation-cancelled` needs the solicitation keyword
+     *     BEFORE the verb, but here IFB trails it ("cancelled and not awarded via IFB").
+     *  2. Even with a match, REQUEST_CONTEXT_MARKERS ctx2 and ctx3 fire on OUR OWN
+     *     quoted letter ("the notice of award and the awarded contract value",
+     *     "All individual evaluator scoresheets"), which sets cancelledHits = [].
+     *  3. The outbound gate then claims the message on `pursuant-to-act`, also
+     *     matched against the quoted original — so it books as our own outgoing mail.
+     *
+     * Consequence: the agency has stated on the record that no award exists. Nothing
+     * suppresses the automation and no human is told, so the Level 2 timer will
+     * transmit a statutory demand to CA Parks for evaluator scoresheets and "the
+     * awarded contract value" of a contract that was never awarded — in the
+     * customer's name. This is exactly what SOLICITATION_CANCELLED exists to prevent.
+     *
+     * At minimum this must not classify as OUR_OWN_REQUEST; a cancellation stated by
+     * an agency should suppress, and a reply should at least reach a human.
+     */
+    const r = classifyMailDeterministic({
+      from: 'Channel Coast District Contract Bids <ccdbid@parks.ca.gov>',
+      subject:
+        'Re: California Public Records Act Request – IFB C25910004, Lifeguard Dispatch Software Services, Channel Coast District',
+      body: [
+        'Hello,',
+        '',
+        'Unfortunately, C25910004 was cancelled and not awarded via IFB.',
+        '',
+        'Please let me know if you have any additional questions.',
+        '',
+        'Thank you,',
+        'Patrick Gallegos',
+        '',
+        'On Mon, Jul 20, 2026 Brennen Stones <brennen@horustech.dev> wrote:',
+        '> Pursuant to the California Public Records Act, I am requesting copies of the',
+        '> following public records related to IFB C25910004:',
+        '> 4. The notice of award and the awarded contract value for IFB C25910004;',
+        '> 5. All individual evaluator scoresheets prepared for this solicitation;',
+      ].join('\n'),
+    });
+
+    expect(r.classification).not.toBe('OUR_OWN_REQUEST');
+  });
+
+  it('does not treat a retracted AWARD posting as a cancelled solicitation', () => {
+    /**
+     * Real message 57k9ipvt8le8 (BidNet, forwarded 2026-06-25).
+     *
+     * BidNet cancels the *award publication* — the solicitation is alive and a new
+     * award will follow. `has-been-cancelled` matches "The following award has been
+     * cancelled", and `solicitation-cancelled` matches across the subject because
+     * `\b(solicitation|...)\b[^.]{0,40}\bcancel(l)?ed\b` spans "solicitation has
+     * been cancelled" with no sentence boundary between them.
+     *
+     * Consequence is the inverse of the intended safety property: SUPPRESSED
+     * withdraws the FOIA automation precisely when an award IS coming. It only
+     * escaped here because we hold no opportunity numbered 4142 — with the
+     * opportunity present this correlates and suppresses unattended (verified by
+     * replaying this body against a candidate list containing 4142).
+     *
+     * An award retraction should read as AWARD_NOTICE-adjacent or flag for review;
+     * it must never suppress.
+     */
+    const r = classifyMailDeterministic({
+      from: 'noreply@bidnet.com',
+      subject: 'Fwd: "Award" for the 4142 solicitation has been cancelled',
+      body: [
+        'Michael Walker, The following award has been cancelled:',
+        '   - Solicitation : 4142 - SolarWinds Renewal',
+        '   - Award Type: Award',
+        '   - Award Publication Date: 06/12/2026 12:42 PM EDT',
+      ].join('\n'),
+    });
+
+    expect(r.classification).not.toBe('SOLICITATION_CANCELLED');
   });
 
   it('takes precedence over an award phrase in the same message', () => {
@@ -273,6 +394,97 @@ describe('real subject lines from the monitored mailbox', () => {
     expect(r.classification).toBe('FOIA_RESPONSE');
   });
 
+  it('recognises an agency acknowledgement that names the statute by acronym only', () => {
+    /**
+     * Real message cvfodjo47ucp — LA Fire & Police Pensions (LAFPP) acknowledging a
+     * CPRA request and issuing tracking number CPRA-0319.
+     *
+     * It classified UNRELATED with `matchedOn: []` — not one pattern fired:
+     *
+     *  - `we-received-your-request` requires `request|records` IMMEDIATELY after
+     *    "your"; the real subject interposes the statute: "your CPRA / FOIA request".
+     *  - `records-request-received` needs "received" AFTER the phrase; here the
+     *    agency leads with it ("We have received your ... request").
+     *  - `records-act-request` and `records-act` need the statute spelled out;
+     *    LAFPP writes the acronym and pairs "Act" with "inquiry", not "request".
+     *  - `acronym-tracking` and the tracking-number patterns want DD-DDDD after the
+     *    acronym; "CPRA-0319" is acronym + one 4-digit group.
+     *
+     * Consequence: an agency's formal acknowledgement is IGNORED — no state change,
+     * no responseReceivedAt, no agencyTrackingNumber. The FOIA reads as unanswered,
+     * the escalation clock keeps running, and the tracking number the agency told us
+     * to quote on every follow-up is thrown away. UNRELATED is also the one class
+     * that leaves nothing for a human to review.
+     */
+    const r = classifyMailDeterministic({
+      from: "\"'LAFPP_CPRA' via Proposals\" <proposals@horustech.dev>",
+      subject: 'We have received your CPRA / FOIA request. CPRA-0319',
+      body: [
+        'Thank you for',
+        'your California Public Records Act (CPRA) inquiry. Your request number',
+        'is CPRA-0319. Please reference your request',
+        'number for any follow-up.',
+        '',
+        'LAFPP staff will be contacting you within ten days regarding your',
+        'request. In the meantime, please note that responsive records are provided via',
+        'email.',
+      ].join('\n'),
+    });
+
+    expect(r.classification).toBe('FOIA_RESPONSE');
+    expect(r.trackingNumber).toBe('CPRA-0319');
+  });
+
+  it('treats an agency forwarding our request internally as a reply, not as ours', () => {
+    /**
+     * Real message obc93sn2d5kk, from the live mailbox (2026-08-17).
+     *
+     * A buyer at San Bernardino City USD replied to our PRA request and copied a
+     * colleague, quoting our letter in full below her own two lines. Her own words
+     * match NONE of the FOIA_RESPONSE patterns — she never writes "in receipt of",
+     * "in response to", or a tracking number — while our quoted letter matches two
+     * OUTBOUND_MARKERS (`pursuant-to-act`, `copies-of-following`). The outbound gate
+     * fires first, so a genuine agency reply is filed as our own outgoing request.
+     *
+     * Consequence: OWN_REQUEST_LOGGED changes no state and records no
+     * responseReceivedAt, so a real agency response is invisible. The request looks
+     * unanswered, the escalation clock keeps running, and a duplicate follow-up
+     * gets sent to an agency that already engaged. Note the sender is on a `.k12.ca.us`
+     * domain — `gov-sender` was matched and then ignored.
+     *
+     * This is the same class as the "agency reply quoting our request" case above,
+     * which passes only because that agency happened to use recognised phrasing.
+     */
+    const r = classifyMailDeterministic({
+      from: '"Jeanette MartinezCastaneda (Purchasing Department)" <jeanette.martinezcastaneda@sbcusd.k12.ca.us>',
+      subject:
+        'Re: California Public Records Act Request – RFP No . 26-22, Data Management and Business Intelligence Platform  Solution',
+      body: [
+        'Hi Krystal,',
+        '',
+        'I am forwarding you the request for records I received.',
+        '',
+        'Kind regards,',
+        'Jeanette Martinez-Castañeda',
+        'Buyer - Purchasing Department',
+        '',
+        'On Mon, Aug 17, 2026 at 10:33 AM Brennen Stones <brennen@horustech.dev> wrote:',
+        '',
+        '> To the Public Records Custodian:',
+        '>',
+        '> Pursuant to the California Public Records Act, Government Code section',
+        '> 7920.000 et seq. (formerly Government Code section 6250 et seq.), I am',
+        '> requesting copies of the following public records related to RFP No. 26-22,',
+        '> Data Management and Business Intelligence Platform Solution, issued by San',
+        '> Bernardino City Unified School District ("District"):',
+        '>',
+        '> 1. All evaluator scoresheets and individual evaluator scores for RFP No. 26-22;',
+      ].join('\n'),
+    });
+
+    expect(r.classification).toBe('FOIA_RESPONSE');
+  });
+
   it('does not read our own generated letter as an agency reply', () => {
     // Regression: "responsive records" appears three times in our own template,
     // and matching that phrase alone made every outbound letter classify as a
@@ -320,20 +532,69 @@ describe('real subject lines from the monitored mailbox', () => {
     expect(r.classification).toBe('AWARD_NOTICE');
   });
 
-  it('recognises a real cancellation with the identifier only in the subject', () => {
+  it('treats the real 4142 message as an award retraction, not a cancellation', () => {
     /**
-     * From the real archive, and the first cancellation ever tested — this path had
-     * zero real coverage before. The identifier is "4142", which no solicitation
-     * regex matches, so the classification is right but nothing can be acted on
-     * until an opportunity with that number exists. Refusing is correct.
+     * This test previously asserted SOLICITATION_CANCELLED with a hand-written body
+     * ("The award for this solicitation has been cancelled by the agency"), while
+     * only its subject came from the archive. Reading the real message
+     * (`57k9ipvt8le8`) shows the body is a BidNet award-posting retraction:
+     *
+     *   "The following award has been cancelled:
+     *      - Solicitation : 4142 - SolarWinds Renewal
+     *      - Award Type: Award
+     *      - Award Publication Date: 06/12/2026 12:42 PM EDT"
+     *
+     * The solicitation is alive and a new award will follow, so SOLICITATION_CANCELLED
+     * was the wrong verdict — and the harmful one. Replay confirmed that with an
+     * opportunity numbered 4142 present, it produced `SUPPRESSED`: the FOIA automation
+     * withdrawn precisely when an award is coming. It escaped only because we hold no
+     * such opportunity.
+     *
+     * Recorded as award-side news so a human sees it; it cannot act on its own, since
+     * no award date is stated and the receipt-date fallback is refused by the
+     * `RECORDED_AWARD` guard.
      */
     const r = real(
       '"Award" for the 4142 solicitation has been cancelled',
-      'The award for this solicitation has been cancelled by the agency.',
+      [
+        'Michael Walker, The following award has been cancelled:',
+        '   - Solicitation : 4142 - SolarWinds Renewal',
+        '   - Award Type: Award',
+        '   - Award Publication Date: 06/12/2026 12:42 PM EDT',
+      ].join('\n'),
+    );
+
+    expect(r.classification).not.toBe('SOLICITATION_CANCELLED');
+    expect(r.matchedOn).toContain('award-retracted');
+    // Still not actionable: nothing may move a schedule off a retraction.
+    expect(canActAutomatically(r)).toBe(false);
+  });
+
+  /**
+   * A retraction must name the AWARD as the thing cancelled.
+   *
+   * `Award Type: Award` alone was matched as a retraction, but BidNet emits that
+   * structured field on cancellation postings too — so a genuine cancellation carrying
+   * it was reclassified SOLICITATION_CANCELLED → AWARD_NOTICE. Because that path can
+   * act unattended, it went on to record an award and re-anchor the FOIA timer on a
+   * dead solicitation: the same inversion the retraction list exists to prevent,
+   * pointed the other way.
+   *
+   * The test above still passes on the real 4142 message, which says "award … has been
+   * cancelled" — so removing the bare field test costs no coverage.
+   */
+  it('does not let a bare "Award Type: Award" field hijack a real cancellation', () => {
+    const r = real(
+      'Solicitation 4142 cancelled',
+      [
+        'The following solicitation has been cancelled.',
+        '   - Award Type: Award',
+        '   - Solicitation Number: 4142',
+      ].join('\n'),
     );
 
     expect(r.classification).toBe('SOLICITATION_CANCELLED');
-    expect(canActAutomatically(r)).toBe(false);
+    expect(r.matchedOn).not.toContain('award-retracted');
   });
 
   it('recognises the "Cancelled:" subject prefix agencies use', () => {

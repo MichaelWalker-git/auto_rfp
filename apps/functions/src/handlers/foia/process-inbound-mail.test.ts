@@ -194,13 +194,17 @@ describe('award notices', () => {
   it('records the agency-stated award date and re-anchors the timer', async () => {
     await processInboundMail(sesEvent({}));
 
-    // The award date the agency stated, not the receipt date.
+    // The award date the agency stated, not the receipt date — and written to
+    // `agencyStatedAwardDate` rather than `outcomeDate`. The latter is also stamped
+    // with `now` by every terminal status transition, and on read it was outranked
+    // by `lossData.lossDate` (a UI click timestamp), which silently replaced a real
+    // 2026-01-29 with 2026-06-10 on opportunity 06b56638 in dev.
     expect(mockUpdateOpportunity).toHaveBeenCalledWith(
       expect.objectContaining({
         orgId: 'org-horus',
         projectId: 'proj-1',
         oppId: 'opp-tx',
-        patch: { outcomeDate: '2026-01-29' },
+        patch: { agencyStatedAwardDate: '2026-01-29' },
       }),
     );
 
@@ -247,7 +251,7 @@ describe('award notices', () => {
     await processInboundMail(sesEvent({}));
 
     expect(mockUpdateOpportunity).toHaveBeenCalledWith(
-      expect.objectContaining({ patch: { outcomeDate: '2026-01-29' } }),
+      expect.objectContaining({ patch: { agencyStatedAwardDate: '2026-01-29' } }),
     );
   });
 
@@ -427,7 +431,7 @@ describe('locating the stored message', () => {
 
     expect(mockS3Send).toHaveBeenCalled();
     expect(mockUpdateOpportunity).toHaveBeenCalledWith(
-      expect.objectContaining({ patch: { outcomeDate: '2026-01-29' } }),
+      expect.objectContaining({ patch: { agencyStatedAwardDate: '2026-01-29' } }),
     );
   });
 
