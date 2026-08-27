@@ -127,3 +127,66 @@ describe('UpdateRequiredFormDTOSchema — docxFillStrategy', () => {
     expect(UpdateRequiredFormDTOSchema.safeParse({ status: 'READY' }).success).toBe(true);
   });
 });
+
+describe('RequiredFormItemSchema — notary fields (u2)', () => {
+  it('defaults notaryStatus/notaryRequirements/notarySource on legacy records', () => {
+    const { success, data } = RequiredFormItemSchema.safeParse(validFormItem);
+    expect(success).toBe(true);
+    expect(data?.notaryStatus).toBe('NOT_REQUIRED');
+    expect(data?.notaryRequirements).toEqual([]);
+    expect(data?.notarySource).toBe('AI_DETECTED');
+  });
+
+  it('accepts populated notary state (REQUIRED + evidence + USER_SET)', () => {
+    const { success, data } = RequiredFormItemSchema.safeParse({
+      ...validFormItem,
+      notaryStatus: 'REQUIRED',
+      notaryRequirements: [
+        {
+          formId: 'form-123',
+          documentName: 'Data Security Addendum',
+          status: 'REQUIRED',
+          cue: 'ACK_BLOCK',
+          pageNumber: 3,
+          triggeringText: 'must be notarized before the notary public',
+        },
+      ],
+      notarySource: 'USER_SET',
+    });
+    expect(success).toBe(true);
+    expect(data?.notaryStatus).toBe('REQUIRED');
+    expect(data?.notaryRequirements[0]?.cue).toBe('ACK_BLOCK');
+    expect(data?.notarySource).toBe('USER_SET');
+  });
+
+  it('rejects an invalid notaryStatus / notarySource', () => {
+    expect(RequiredFormItemSchema.safeParse({ ...validFormItem, notaryStatus: 'MAYBE' }).success).toBe(false);
+    expect(RequiredFormItemSchema.safeParse({ ...validFormItem, notarySource: 'ROBOT' }).success).toBe(false);
+  });
+});
+
+describe('UpdateRequiredFormDTOSchema — notary fields (u2)', () => {
+  it('allows patching notaryStatus + notarySource (user override → USER_SET)', () => {
+    const { success, data } = UpdateRequiredFormDTOSchema.safeParse({
+      notaryStatus: 'NOT_REQUIRED',
+      notarySource: 'USER_SET',
+    });
+    expect(success).toBe(true);
+    expect(data?.notaryStatus).toBe('NOT_REQUIRED');
+    expect(data?.notarySource).toBe('USER_SET');
+  });
+
+  it('allows patching notaryRequirements alongside status', () => {
+    const { success } = UpdateRequiredFormDTOSchema.safeParse({
+      notaryStatus: 'POSSIBLY_REQUIRED',
+      notaryRequirements: [
+        { documentName: 'Form A', status: 'POSSIBLY_REQUIRED', cue: 'KEYWORD', triggeringText: 'notary' },
+      ],
+    });
+    expect(success).toBe(true);
+  });
+
+  it('does not require any notary field (all optional on the patch)', () => {
+    expect(UpdateRequiredFormDTOSchema.safeParse({ status: 'READY' }).success).toBe(true);
+  });
+});

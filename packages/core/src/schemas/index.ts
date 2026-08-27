@@ -60,3 +60,4 @@ export * from './solution-plan';
 export * from './service-pricing-cache';
 export * from './related-rfp';
 export * from './kb-coverage';
+export * from './notary';

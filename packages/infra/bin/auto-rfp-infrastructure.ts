@@ -153,6 +153,9 @@ const questionsPipelineStack = new QuestionExtractionPipelineStack(app, `AutoRfp
   sentryDNS,
   pineconeApiKey,
   answerGenerationStateMachineArn: answerGenerationStack.stateMachine.stateMachineArn,
+  // Queue name (plain string, same convention as the API stack) — the notary
+  // rollup notification fires from detect-required-forms / textract-forms-callback.
+  notificationQueueName: `auto-rfp-notifications-${stage.toLowerCase()}`,
 });
 
 // Question pipeline depends on answer generation stack

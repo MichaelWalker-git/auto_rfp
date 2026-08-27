@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
-import { X, Bell, AtSign, UserCheck, FileText, CheckCircle, Trophy, XCircle, Clock, AlertCircle, FileCheck, Download, ClipboardCheck, AlertTriangle } from 'lucide-react';
+import { X, Bell, AtSign, UserCheck, FileText, CheckCircle, Trophy, XCircle, Clock, AlertCircle, FileCheck, Download, ClipboardCheck, AlertTriangle, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { NotificationItem as NotificationItemType, NotificationType } from '@auto-rfp/core';
@@ -57,6 +57,7 @@ const TYPE_CONFIG: Record<NotificationType, { icon: React.ElementType; color: st
   FOIA_BOUNCED:            { icon: AlertCircle,    color: 'text-red-600 dark:text-red-400',      bg: 'bg-red-100 dark:bg-red-900/50' },
   AWARD_DETECTED:          { icon: Trophy,         color: 'text-amber-600 dark:text-amber-400',  bg: 'bg-amber-100 dark:bg-amber-900/50' },
   SOLICITATION_CANCELLED:  { icon: XCircle,        color: 'text-slate-600 dark:text-slate-400',  bg: 'bg-slate-100 dark:bg-slate-800/50' },
+  NOTARY_REQUIRED:         { icon: Scale,          color: 'text-amber-600 dark:text-amber-400',  bg: 'bg-amber-100 dark:bg-amber-900/50' },
 };
 
 const DEFAULT_CONFIG = { icon: Bell, color: 'text-muted-foreground', bg: 'bg-muted' };
@@ -121,6 +122,9 @@ const buildNotificationLink = (
       return entityId ? `${base}/opportunities` : `${base}/search-opportunities`;
     case 'OPPORTUNITY_ASSIGNED':
       // entityId is the opportunity ID (oppId)
+      return entityId ? `${base}/opportunities/${entityId}` : `${base}/opportunities`;
+    case 'NOTARY_REQUIRED':
+      // Notary rollup carries entityId = oppId; the badges live on the opportunity page.
       return entityId ? `${base}/opportunities/${entityId}` : `${base}/opportunities`;
     case 'DECISION_DATE_7_DAYS':
     case 'DECISION_DATE_3_DAYS':

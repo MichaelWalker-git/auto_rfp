@@ -13,6 +13,7 @@ import { PK_NAME, SK_NAME } from '../constants';
 import { JurisdictionSchema } from './foia';
 import { FoiaAutomationStateSchema } from './foia-automation';
 import { WinDataSchema, LossDataSchema } from './outcome-detail';
+import { NotarySummarySchema, NotaryClassificationSourceSchema, NotaryRequirementSchema } from './notary';
 
 const flexibleDateSchema = z
   .string()
@@ -390,6 +391,36 @@ export const OpportunityItemSchema = z.object({
   /** Short rationale for the detected constraint (quote/keyword from solicitation). */
   deliveryConstraintRationale: z.string().max(500).nullish(),
 
+  // ── Notary detection rollup (u2-notary-backend-wiring) ──
+  /**
+   * Opportunity-level notary rollup, computed by mark-forms-ready once every
+   * required form reaches a terminal state. Absent/null until then. `.nullish()`
+   * (optional, like the sibling deliveryConstraintSource) so existing opportunity
+   * records and construction sites read cleanly with no migration.
+   */
+  notarySummary: NotarySummarySchema.nullish(),
+  /**
+   * Provenance of notarySummary. AI_DETECTED is recomputed by the rollup on every
+   * terminal event; a USER_SET summary is never overwritten (enforced by the
+   * rollup's atomic conditional write, BR10.2). Absent is treated as AI_DETECTED
+   * by the guard condition.
+   */
+  notarySummarySource: NotaryClassificationSourceSchema.nullish(),
+  /**
+   * Opportunity-level store of UNMAPPED solicitation-instruction notary triggers —
+   * generic body mentions ("all certifications must be notarized") that the body
+   * scan could not attribute to a specific form (BR10.3). Persisted here at scan
+   * time so a generic trigger survives the async gap on a MIXED opportunity (inline
+   * forms READY, PDF forms still pending): the FINAL rollup — whichever
+   * markFormsReadyIfAllDone call fires last, including the Textract callback with no
+   * passed-in triggers — reads this store and folds it into the summary counts, so
+   * the mention is never silently dropped (NFR1 zero-miss). AI-detected evidence,
+   * recomputed wholesale (merge/union, deduped by natural key) on every re-scan.
+   * `.nullish()` (like the sibling notarySummarySource) so legacy records and
+   * construction sites read cleanly with no migration.
+   */
+  notaryUnmappedTriggers: z.array(NotaryRequirementSchema).nullish(),
+
   // ── FOIA automation ──
   /**
    * Denormalized mirror of the FOIA automation state, for badges in list and
@@ -498,6 +529,11 @@ export const OpportunityListItemSchema = z.object({
   assigneeName:         z.string().nullish(),
   /** Drives the FOIA badge in list/board views. */
   foiaAutomationState:  FoiaAutomationStateSchema.nullish(),
+  /**
+   * Mirrored from OpportunityItem so the list/card notary badge can read it — a
+   * field added only to the full item would never reach the card projection.
+   */
+  notarySummary:        NotarySummarySchema.nullable().default(null),
 });
 
 export type OpportunityListItem = z.infer<typeof OpportunityListItemSchema>;

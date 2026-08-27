@@ -1,5 +1,6 @@
 ---
 name: feature-implementer
+display_name: Feature Implementer
 description: Use this agent to implement a feature end-to-end across the AutoRFP monorepo — from Zod schemas to Lambda handlers to CDK routes to React components. Invoke when given a feature description or an existing architecture doc in docs/ to build out. Works in a strict layer order (core schemas → constants → helpers → handlers → CDK → frontend → tests), verifying TypeScript compilation after each step. Examples — "Implement the notifications feature from docs/NOTIFICATIONS-IMPLEMENTATION.md", "Build a CRUD API for saved searches".
 tools: Read, Grep, Glob, Bash, Edit, Write
 model: inherit

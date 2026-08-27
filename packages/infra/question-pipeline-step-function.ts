@@ -19,6 +19,14 @@ interface Props extends StackProps {
   sentryDNS: string;
   pineconeApiKey: string;
   answerGenerationStateMachineArn?: string;
+  /**
+   * Name of the shared notification SQS queue (owned by the storage stack).
+   * Passed as a NAME and turned into a URL/ARN by convention — same pattern as
+   * api-orchestrator-stack — to avoid a cross-stack token reference. Needed by
+   * the notary rollup (WF-D) fired from detect-required-forms and
+   * textract-forms-callback; without it sendNotification silently skips.
+   */
+  notificationQueueName?: string;
 }
 
 export class QuestionExtractionPipelineStack extends Stack {
@@ -29,9 +37,23 @@ export class QuestionExtractionPipelineStack extends Stack {
   constructor(scope: Construct, id: string, props: Props) {
     super(scope, id, props);
 
-    const { stage, documentsBucket, mainTable, sentryDNS } = props;
+    const { stage, documentsBucket, mainTable, sentryDNS, notificationQueueName } = props;
     // Note: pineconeApiKey is in Props but not used in this stack (moved to answer-generation-step-function)
     const prefix = `AutoRfp-${stage}-Question`;
+
+    // Notification queue URL/ARN derived by name convention (no cross-stack token).
+    const notificationQueueEnv: Record<string, string> = notificationQueueName
+      ? { NOTIFICATION_QUEUE_URL: `https://sqs.${this.region}.amazonaws.com/${this.account}/${notificationQueueName}` }
+      : {};
+    const grantNotificationQueueSend = (fn: lambdaNode.NodejsFunction) => {
+      if (!notificationQueueName) return;
+      fn.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ['sqs:SendMessage'],
+          resources: [`arn:aws:sqs:${this.region}:${this.account}:${notificationQueueName}`],
+        }),
+      );
+    };
 
     const sfLogGroup = new logs.LogGroup(this, `${prefix}-LogGroup`, {
       logGroupName: `/aws/stepfunctions/${prefix}-Pipeline`,
@@ -312,10 +334,13 @@ export class QuestionExtractionPipelineStack extends Stack {
         PINECONE_INDEX: 'documents',
         TEXTRACT_FORMS_SNS_TOPIC_ARN: textractFormsTopic.topicArn,
         TEXTRACT_FORMS_ROLE_ARN: textractFormsRole.roleArn,
+        // Notary rollup (WF-D) fires a change-guarded NOTARY_REQUIRED notification.
+        ...notificationQueueEnv,
       },
     });
     documentsBucket.grantReadWrite(detectRequiredFormsLambda);
     mainTable.grantReadWriteData(detectRequiredFormsLambda);
+    grantNotificationQueueSend(detectRequiredFormsLambda);
 
     detectRequiredFormsLambda.addToRolePolicy(
       new iam.PolicyStatement({
@@ -364,10 +389,14 @@ export class QuestionExtractionPipelineStack extends Stack {
         ...commonLambdaEnv,
         BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
         BEDROCK_REGION: 'us-east-1',
+        // Notary rollup (WF-D) fires from markFormsReadyIfAllDone here too — the
+        // LAST terminal form on a mixed opportunity is usually a Textract callback.
+        ...notificationQueueEnv,
       },
     });
     mainTable.grantReadWriteData(textractFormsCallbackLambda);
     documentsBucket.grantRead(textractFormsCallbackLambda);
+    grantNotificationQueueSend(textractFormsCallbackLambda);
 
     textractFormsCallbackLambda.addToRolePolicy(
       new iam.PolicyStatement({
