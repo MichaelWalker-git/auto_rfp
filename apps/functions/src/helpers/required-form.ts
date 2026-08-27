@@ -178,6 +178,15 @@ export const updateRequiredForm = async (args: {
    * bridge RFP doc and leave one orphaned.
    */
   requireUnattached?: boolean;
+  /**
+   * When true, the update only succeeds if `notarySource` is AI_DETECTED (or
+   * absent). Guards the notary-detection re-run/callback writes (u2 WF-C /
+   * BR12.2) so a concurrent USER_SET override is never clobbered — the write
+   * condition IS the guard, so there is no read-check-write race. A rejected
+   * write throws ConditionalCheckFailedException (callers detect it via
+   * `isConditionalCheckFailed`).
+   */
+  guardNotaryAiDetected?: boolean;
 }): Promise<RequiredFormDBItem> => {
   const forbidden = new Set(['partition_key', 'sort_key', 'createdAt', 'updatedAt', 'formId', 'orgId', 'projectId', 'opportunityId']);
   const patchEntries = Object.entries(args.patch).filter(
@@ -211,6 +220,15 @@ export const updateRequiredForm = async (args: {
     names['#f_proposalDocumentId'] = 'proposalDocumentId';
     values[':null'] = null;
     conditionExpression += ' AND (attribute_not_exists(#f_proposalDocumentId) OR #f_proposalDocumentId = :null)';
+  }
+  if (args.guardNotaryAiDetected) {
+    // Only overwrite AI-owned notary state — a USER_SET override rejects the
+    // write atomically (u2 WF-C / BR12.2). #f_notarySource may already be seeded
+    // by a notarySource patch entry above; re-adding the same mapping is a no-op.
+    names['#f_notarySource'] = 'notarySource';
+    values[':notaryAiDetected'] = 'AI_DETECTED';
+    conditionExpression +=
+      ' AND (attribute_not_exists(#f_notarySource) OR #f_notarySource = :notaryAiDetected)';
   }
 
   const res = await docClient.send(

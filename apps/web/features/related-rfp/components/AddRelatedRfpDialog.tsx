@@ -18,6 +18,7 @@ import type { AgencyHistoryItem } from '@auto-rfp/core';
 
 import { useAgencyHistory } from '../hooks/useAgencyHistory';
 import { formatRelatedDate } from '../lib/format';
+import { safeExternalUrl } from '@/lib/safe-url';
 
 interface AddRelatedRfpDialogProps {
   orgId: string;
@@ -103,9 +104,11 @@ export const AddRelatedRfpDialog = ({ orgId, projectId, oppId, onAdd }: AddRelat
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="truncate text-sm font-medium text-foreground">{item.title}</span>
-                    {item.sourceUrl && (
+                    {/* Scheme-checked: `sourceUrl` is unvalidated on the schema and comes
+                        straight from the HigherGov API, and a href executes any scheme. */}
+                    {safeExternalUrl(item.sourceUrl) && (
                       <a
-                        href={item.sourceUrl}
+                        href={safeExternalUrl(item.sourceUrl) ?? undefined}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="shrink-0 text-muted-foreground hover:text-foreground"

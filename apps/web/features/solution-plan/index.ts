@@ -15,5 +15,16 @@ export { useInitSolutionPlan } from './hooks/useInitSolutionPlan';
 export { useSolutionPlanActions } from './hooks/useSolutionPlanActions';
 export { useUpdateSolutionPlan } from './hooks/useUpdateSolutionPlan';
 export { useSolutionPlanGate, type SolutionPlanGate } from './hooks/useSolutionPlanGate';
+export { TeamDefinitionSection } from './components/TeamDefinitionSection';
+export { TeamViewTable } from './components/TeamViewTable';
+export { TeamEditTable, type DraftTeamMember } from './components/TeamEditTable';
+export { usePlanTeam, planTeamKey } from './hooks/usePlanTeam';
+export { useSavePlanTeam } from './hooks/useSavePlanTeam';
+export { useRegeneratePlanTeam } from './hooks/useRegeneratePlanTeam';
+export {
+  useGenerateTeamQualifications,
+  toTeamRequiredMessage,
+  TEAM_REQUIRED_MESSAGE,
+} from './hooks/useGenerateTeamQualifications';
 export { canGenerateDocuments, isSolutionPlanRunning } from './lib/status';
 export { hasGrandfatheredDocument, isGeneratedDocument } from './lib/gating';

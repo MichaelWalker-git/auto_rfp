@@ -14,9 +14,13 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+  Check,
   CheckCircle2,
   ClipboardList,
   Download,
@@ -27,18 +31,29 @@ import {
   Paperclip,
   PaperclipIcon,
   Pencil,
+  Stamp,
   Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 
 import { useApi, apiMutate, buildApiUrl } from '@/lib/hooks/api-helpers';
 import { usePermission } from '@/components/permission-wrapper';
 import { ReviewRequiredBanner } from './ReviewRequiredBanner';
+import { NotaryBadge } from './NotaryBadge';
+import { NotaryTriggerList } from './NotaryTriggerList';
 import { useAttachFormToProposal } from '../hooks/useAttachFormToProposal';
+import { useSetFormNotary } from '../hooks/useSetFormNotary';
 import { ExportAllRequiredFormsDialog } from './ExportAllRequiredFormsDialog';
 
-import type { RequiredFormItem, RequiredFormsListResponse } from '@auto-rfp/core';
+import type { NotaryStatus, RequiredFormItem, RequiredFormsListResponse } from '@auto-rfp/core';
+
+// Manual notary override options (FR7.2) — order mirrors severity.
+const NOTARY_STATUS_OPTIONS: Array<{ value: NotaryStatus; label: string }> = [
+  { value: 'REQUIRED', label: 'Notary required' },
+  { value: 'POSSIBLY_REQUIRED', label: 'Possibly required' },
+  { value: 'NOT_REQUIRED', label: 'Not required' },
+];
 
 interface RequiredFormsListProps {
   orgId: string;
@@ -86,6 +101,26 @@ const FormRow = ({
   const { toast } = useToast();
   const router = useRouter();
   const { attach, detach } = useAttachFormToProposal();
+  const { setFormNotary } = useSetFormNotary();
+  // Notary evidence panel — expanded state lives here so the panel renders as a
+  // full-width block BELOW the row, never inline beside the form name.
+  const [isNotaryExpanded, setIsNotaryExpanded] = useState(false);
+  const notaryDetailId = useId();
+  const handleToggleNotaryDetail = () => setIsNotaryExpanded((prev) => !prev);
+
+  const handleSetNotary = useCallback(async (notaryStatus: NotaryStatus) => {
+    try {
+      await setFormNotary({ orgId, projectId, opportunityId, formId: form.formId, notaryStatus });
+      toast({ title: 'Notary status updated', description: form.name });
+      onChanged();
+    } catch (err) {
+      toast({
+        title: 'Failed to update notary status',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    }
+  }, [setFormNotary, orgId, projectId, opportunityId, form.formId, form.name, toast, onChanged]);
 
   const handleAttach = useCallback(async () => {
     try {
@@ -182,6 +217,14 @@ const FormRow = ({
                 In proposal
               </Badge>
             )}
+            <div data-row-actions onClick={(e) => e.stopPropagation()}>
+              <NotaryBadge
+                status={form.notaryStatus}
+                isExpanded={isNotaryExpanded}
+                onToggleExpanded={handleToggleNotaryDetail}
+                detailId={notaryDetailId}
+              />
+            </div>
           </div>
 
           <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
@@ -229,6 +272,32 @@ const FormRow = ({
                   <><Eye className="h-4 w-4 mr-2" /> View</>
                 )}
               </DropdownMenuItem>
+              {canEdit && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger data-testid="notary-status-menu">
+                    <Stamp className="h-4 w-4 mr-2" /> Notary status
+                    {form.notarySource === 'USER_SET' && (
+                      <span className="ml-1.5 text-xs text-muted-foreground">manual</span>
+                    )}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {NOTARY_STATUS_OPTIONS.map(({ value, label }) => {
+                      const isCurrent = (form.notaryStatus ?? 'NOT_REQUIRED') === value;
+                      return (
+                        <DropdownMenuItem
+                          key={value}
+                          data-testid={`notary-status-option-${value}`}
+                          disabled={isCurrent}
+                          onClick={() => handleSetNotary(value)}
+                        >
+                          <Check className={cn('h-4 w-4 mr-2', !isCurrent && 'invisible')} />
+                          {label}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
               {form.status === 'DONE' && canEdit && (
                 form.attachedToProposal ? (
                   <DropdownMenuItem onClick={handleDetach}>
@@ -255,6 +324,17 @@ const FormRow = ({
           </DropdownMenu>
         </div>
       </div>
+
+      {isNotaryExpanded && (
+        <div
+          id={notaryDetailId}
+          data-row-actions
+          className="mt-2"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <NotaryTriggerList requirements={form.notaryRequirements ?? []} />
+        </div>
+      )}
 
       {form.status === 'FAILED' && form.errorMessage && (
         <p className="mt-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded px-2 py-1">

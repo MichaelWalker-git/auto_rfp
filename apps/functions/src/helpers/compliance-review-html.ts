@@ -30,6 +30,56 @@ export const extractHeadings = (html: string): string[] => {
   return headings;
 };
 
+/** One non-overlapping slice of a document, anchored to its nearest heading. */
+export interface DocumentSection {
+  /** Heading text this segment falls under, or '' for text before the first heading. */
+  heading: string;
+  /** Plain text of THIS segment only (not including child subsections). */
+  text: string;
+}
+
+/**
+ * Split a document into NON-OVERLAPPING sections — one segment per heading,
+ * covering the text from that heading up to the NEXT heading of ANY level, so
+ * every character of the document belongs to exactly one segment (its nearest
+ * preceding heading).
+ *
+ * This is deliberately different from `getSectionText`, which lets a parent
+ * heading's section SWALLOW its child subsections (correct for "read this whole
+ * section" but wrong for scanning: a single occurrence would then appear in the
+ * parent segment AND every enclosing child, producing duplicate findings for one
+ * spot). Scanners (NDA-leak, KB-contradiction) must use THIS to attribute each
+ * occurrence to a single anchor.
+ *
+ * Text before the first heading (or a document with no headings) yields one
+ * segment with `heading: ''`.
+ */
+export const splitIntoSections = (html: string): DocumentSection[] => {
+  const matches: Array<{ index: number; end: number; text: string }> = [];
+  let m: RegExpExecArray | null;
+  HEADING_RE.lastIndex = 0;
+  while ((m = HEADING_RE.exec(html)) !== null) {
+    matches.push({ index: m.index, end: HEADING_RE.lastIndex, text: stripHtml(m[2]) });
+  }
+
+  const sections: DocumentSection[] = [];
+
+  // Preamble: any text before the first heading (or the whole doc if none).
+  const firstStart = matches.length > 0 ? matches[0].index : html.length;
+  const preamble = stripHtml(html.slice(0, firstStart));
+  if (preamble) sections.push({ heading: '', text: preamble });
+
+  for (let i = 0; i < matches.length; i++) {
+    const start = matches[i].end;
+    const end = i + 1 < matches.length ? matches[i + 1].index : html.length;
+    const text = stripHtml(html.slice(start, end));
+    // Keep even empty-body headings out (nothing to scan there).
+    if (text) sections.push({ heading: matches[i].text, text });
+  }
+
+  return sections;
+};
+
 /**
  * Return the plain-text content under the heading whose text matches `heading`
  * (up to the next heading of the same-or-higher level), truncated to maxChars.

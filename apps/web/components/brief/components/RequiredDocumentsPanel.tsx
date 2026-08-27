@@ -11,8 +11,10 @@ import {
   useRFPDocuments,
   RFP_DOCUMENT_TYPES,
   isSolutionPlanRequiredError,
+  isKBCoverageIncompleteError,
 } from '@/lib/hooks/use-rfp-documents';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { useKBCoverage, KBCoverageBadge } from '@/features/kb-coverage';
 import {
   useSolutionPlanGate,
   SolutionPlanGateCallout,
@@ -47,11 +49,25 @@ export const RequiredDocumentsPanel = ({
 
   // Solution Plan gate (T12): gated doc types require a READY plan (server
   // enforces the same rule via 409 SOLUTION_PLAN_REQUIRED, T9).
-  const { isGateActive, isGrandfathered, isDocumentTypeBlocked } = useSolutionPlanGate(
-    orgId || undefined,
-    projectId,
-    opportunityId,
-  );
+  const { isGateActive, isGrandfathered, isDocumentTypeBlocked: isPlanBlocked } =
+    useSolutionPlanGate(orgId || undefined, projectId, opportunityId);
+
+  // KB coverage precheck: this panel generates from the brief, so it needs the
+  // same pre-generation warning as the dialog — naming the gap only in the 409
+  // toast would mean the operator learns it after the round-trip. Unlike the
+  // dialog these badges are visible on render, so the probe can't wait for an
+  // open event; it is skipped only when there is nothing to badge.
+  const {
+    hasRequirements: hasKBRequirements,
+    getMissing: getKBMissing,
+    isGateEnabled: isKBGateEnabled,
+    isDocumentTypeBlocked: isKBBlocked,
+    hasVerdict: hasKBVerdict,
+  } = useKBCoverage(requiredDocuments.length ? orgId || undefined : undefined);
+
+  /** Either precondition can block a row; both refuse with a 409 server-side. */
+  const isDocumentTypeBlocked = (documentType: string) =>
+    isPlanBlocked(documentType) || isKBBlocked(documentType);
 
   if (!requiredDocuments.length) return null;
 
@@ -82,9 +98,11 @@ export const RequiredDocumentsPanel = ({
       onGenerated?.();
     } catch (err: unknown) {
       toast({
-        title: isSolutionPlanRequiredError(err)
-          ? 'Solution Plan required'
-          : `Failed to generate "${doc.name}"`,
+        title: isKBCoverageIncompleteError(err)
+          ? 'Knowledge base incomplete'
+          : isSolutionPlanRequiredError(err)
+            ? 'Solution Plan required'
+            : `Failed to generate "${doc.name}"`,
         description: err instanceof Error ? err.message : 'Generation failed',
         variant: 'destructive',
       });
@@ -193,6 +211,15 @@ export const RequiredDocumentsPanel = ({
                     <Badge variant="destructive" className="text-xs h-5 px-1.5">
                       Required
                     </Badge>
+                  )}
+                  {/* Named KB gap, before anyone presses Generate. Withheld until
+                      the probe answers — an empty missing list would otherwise
+                      render as an affirmative "KB ready". */}
+                  {hasKBRequirements(doc.documentType) && hasKBVerdict && (
+                    <KBCoverageBadge
+                      missing={getKBMissing(doc.documentType)}
+                      isBlocking={isKBGateEnabled}
+                    />
                   )}
                   {doc.pageLimit && (
                     <span className="text-xs text-muted-foreground">· {doc.pageLimit}</span>

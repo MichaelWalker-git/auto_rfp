@@ -154,7 +154,7 @@ describe('create-foia-request handler', () => {
     });
   });
 
-  describe('baseHandler — checkLostOutcome guard', () => {
+  describe('baseHandler — checkEligibleOutcome guard', () => {
     const validBody = {
       projectId: 'proj-123',
       orgId: 'org-456',
@@ -188,23 +188,47 @@ describe('create-foia-request handler', () => {
       const parsed = JSON.parse(result.body as string);
 
       expect(result.statusCode).toBe(400);
-      expect(parsed.message).toContain('LOST');
+      expect(parsed.message).toContain('WON or LOST');
     });
 
-    it('returns 400 when outcome exists but is not LOST', async () => {
+    it('returns 400 when outcome exists but is SUBMITTED', async () => {
       mockSend.mockResolvedValueOnce({
-        Item: { status: 'WON' },
+        Item: { status: 'SUBMITTED' },
       });
 
       const result = await baseHandler(makeEvent(validBody));
       const parsed = JSON.parse(result.body as string);
 
       expect(result.statusCode).toBe(400);
-      expect(parsed.message).toContain('LOST');
+      expect(parsed.message).toContain('WON or LOST');
+    });
+
+    it('returns 400 when outcome exists but is NO_BID', async () => {
+      mockSend.mockResolvedValueOnce({
+        Item: { status: 'NO_BID' },
+      });
+
+      const result = await baseHandler(makeEvent(validBody));
+      const parsed = JSON.parse(result.body as string);
+
+      expect(result.statusCode).toBe(400);
+      expect(parsed.message).toContain('WON or LOST');
+    });
+
+    it('returns 400 when outcome exists but is WITHDRAWN', async () => {
+      mockSend.mockResolvedValueOnce({
+        Item: { status: 'WITHDRAWN' },
+      });
+
+      const result = await baseHandler(makeEvent(validBody));
+      const parsed = JSON.parse(result.body as string);
+
+      expect(result.statusCode).toBe(400);
+      expect(parsed.message).toContain('WON or LOST');
     });
 
     it('allows creation (201) when outcome has status LOST', async () => {
-      // First call: GetCommand for checkLostOutcome
+      // First call: GetCommand for checkEligibleOutcome
       mockSend.mockResolvedValueOnce({
         Item: { status: 'LOST' },
       });
@@ -216,8 +240,21 @@ describe('create-foia-request handler', () => {
       expect(result.statusCode).toBe(201);
     });
 
+    it('allows creation (201) when outcome has status WON', async () => {
+      // First call: GetCommand for checkEligibleOutcome
+      mockSend.mockResolvedValueOnce({
+        Item: { status: 'WON' },
+      });
+      // Second call: PutCommand for createFOIARequest
+      mockSend.mockResolvedValueOnce({});
+
+      const result = await baseHandler(makeEvent(validBody));
+
+      expect(result.statusCode).toBe(201);
+    });
+
     it('looks up the opportunity with the full 3-part SK', async () => {
-      mockSend.mockResolvedValueOnce({ Item: { status: 'LOST' } });
+      mockSend.mockResolvedValueOnce({ Item: { status: 'WON' } });
       mockSend.mockResolvedValueOnce({});
 
       await baseHandler(makeEvent(validBody));

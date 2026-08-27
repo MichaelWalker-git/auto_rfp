@@ -167,7 +167,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
   // only records the instruction (no scan on the request path); the read tools
   // let the model answer review questions in the SAME pass.
   const inventory = await buildPackageInventory({ orgId, projectId, oppId });
-  const readExecutor = makeComplianceToolExecutor({ orgId, oppId, inventory });
+  const readExecutor = makeComplianceToolExecutor({ orgId, oppId, projectId, inventory });
 
   let capturedInstruction: string | undefined;
   const executor = async (

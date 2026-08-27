@@ -93,6 +93,29 @@ async function presignFetcher(
 }
 
 /**
+ * Request a download URL for one S3 key, without going through SWR.
+ *
+ * `usePresignDownload` is a `useSWRMutation`, keyed on the single constant
+ * `PRESIGN_URL`. SWR aborts an in-flight trigger when a new one starts on the same
+ * key, so two components resolving different images through one hook instance
+ * cancel each other — which is exactly how a header and footer logo racing each
+ * other left one of them broken.
+ *
+ * Callers that may resolve several keys concurrently should use this (via
+ * `lib/presign-cache.ts`, which also dedupes) rather than the hook.
+ */
+export async function presignDownloadUrl(key: string): Promise<string> {
+  const res = await authedJsonPost<PresignDownloadResponse, PresignRequest>(PRESIGN_URL, {
+    key,
+    operation: "download",
+  });
+  return res.url;
+}
+
+/** Seconds a presigned URL stays valid, mirroring the backend default. */
+export const PRESIGN_TTL_SECONDS = 900;
+
+/**
  * Hook for getting presigned URL for *upload*.
  *
  * Usage:

@@ -20,6 +20,7 @@ import { buildExportHtml } from '@/helpers/export-html-builder';
 import { htmlToPdfBuffer } from '@/helpers/export-pdf';
 import { htmlToDocxBuffer } from '@/helpers/export-docx';
 import { htmlToPptxBuffer } from '@/helpers/export-pptx';
+import type { TemplateFurniture } from '@auto-rfp/core';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const REGION = requireEnv('REGION', 'us-east-1');
@@ -171,6 +172,10 @@ export const baseHandler = async (
       || doc.name
       || 'document';
     const pageSize = exportOptions?.pageSize ?? 'letter';
+    // Header/footer snapshot taken from the source template at generation time.
+    // Undefined for documents created before this feature, which then export
+    // exactly as they did previously.
+    const furniture = (doc as { furniture?: TemplateFurniture | null }).furniture ?? undefined;
     const contentType = CONTENT_TYPES[format] || 'application/octet-stream';
     const s3Key = buildExportS3Key(orgId, projectId, opportunityId, documentId, title, format);
 
@@ -215,13 +220,13 @@ export const baseHandler = async (
     switch (format) {
       // ── PDF: Headless Chromium renders the styled HTML to PDF ──
       case 'pdf': {
-        exportBuffer = await htmlToPdfBuffer(html, { title, pageSize });
+        exportBuffer = await htmlToPdfBuffer(html, { title, pageSize, furniture });
         break;
       }
 
       // ── DOCX: native docx library converts HTML to proper Word OOXML ──
       case 'docx': {
-        exportBuffer = await htmlToDocxBuffer(html, { title, pageSize });
+        exportBuffer = await htmlToDocxBuffer(html, { title, pageSize, furniture });
         break;
       }
 
@@ -239,7 +244,7 @@ export const baseHandler = async (
 
       // ── HTML: Wrap in styled HTML document ──
       case 'html': {
-        exportBuffer = buildExportHtml(html, { title, pageSize });
+        exportBuffer = buildExportHtml(html, { title, pageSize, furniture });
         break;
       }
 

@@ -475,3 +475,54 @@ describe('Approved Solution Plan injection (ADR-7)', () => {
     });
   });
 });
+
+describe('Saved Team injection (team-definition U4, BR2.1/BR2.4)', () => {
+  const TEAM_TEXT = 'SAVED TEAM ROSTER (opportunity opp-1)\n1. Jane Doe — Project Manager';
+  const baseContext = { solicitation: 's', qaText: 'q', enrichedKbText: 'k' };
+
+  it('renders the SAVED TEAM source-of-truth block between Q&A and enrichment when teamContext is present', () => {
+    const prompt = buildUserPromptForDocumentType('TEAM_QUALIFICATIONS', {
+      ...baseContext,
+      teamContext: TEAM_TEXT,
+    });
+
+    expect(prompt).toContain('SAVED TEAM (SOURCE OF TRUTH FOR PERSONNEL)');
+    expect(prompt).toContain('EXCLUSIVE source for all personnel content');
+    expect(prompt).toContain('NEVER invent, rename, or add');
+    expect(prompt).toContain(TEAM_TEXT);
+    const qaIdx = prompt.indexOf('QUESTIONS & ANSWERS');
+    const teamIdx = prompt.indexOf('SAVED TEAM (SOURCE OF TRUTH FOR PERSONNEL)');
+    const kbIdx = prompt.indexOf('ENRICHMENT CONTEXT');
+    expect(teamIdx).toBeGreaterThan(qaIdx);
+    expect(kbIdx).toBeGreaterThan(teamIdx);
+  });
+
+  it('omits the block when teamContext is absent, null, or blank', () => {
+    for (const teamContext of [undefined, null, '', '   ']) {
+      const prompt = buildUserPromptForDocumentType('TEAM_QUALIFICATIONS', {
+        ...baseContext,
+        teamContext,
+      });
+      expect(prompt).not.toContain('SAVED TEAM (SOURCE OF TRUTH FOR PERSONNEL)');
+    }
+  });
+
+  it('renders after the solution-plan block when both are present', () => {
+    const prompt = buildUserPromptForDocumentType('TEAM_QUALIFICATIONS', {
+      ...baseContext,
+      solutionPlanText: 'Approved plan body',
+      teamContext: TEAM_TEXT,
+    });
+    const planIdx = prompt.indexOf('APPROVED SOLUTION PLAN (SOURCE OF TRUTH)');
+    const teamIdx = prompt.indexOf('SAVED TEAM (SOURCE OF TRUTH FOR PERSONNEL)');
+    expect(planIdx).toBeGreaterThanOrEqual(0);
+    expect(teamIdx).toBeGreaterThan(planIdx);
+  });
+
+  it('directs the TEAM_QUALIFICATIONS task to the SAVED TEAM block instead of KB personnel data', () => {
+    const task = getDefaultTask('TEAM_QUALIFICATIONS');
+    expect(task).toContain('SAVED TEAM block');
+    expect(task).toContain('never from the Knowledge Base');
+    expect(task).not.toContain('personnel data from the Knowledge Base');
+  });
+});

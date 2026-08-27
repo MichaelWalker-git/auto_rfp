@@ -16,7 +16,12 @@ jest.mock('@/helpers/bedrock-http-client', () => ({
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.REGION = 'us-east-1';
 
-import { extractNamePhrases, containsIdentifierValue, computeConsistencyFindings } from './compliance-review-consistency';
+import {
+  extractNamePhrases,
+  containsIdentifierValue,
+  computeConsistencyFindings,
+  computeProfileFactFindings,
+} from './compliance-review-consistency';
 import type { PackageInventory } from '@/helpers/compliance-review-tools';
 
 const CANON = 'Interesting Interests Inc. DBA Horus Technology';
@@ -409,5 +414,251 @@ describe('computeConsistencyFindings', () => {
       orgId: 'o', modelId: 'm', inventory: inv([{ documentId: 'd1', title: 'A' }]),
     });
     expect(findings.filter((f) => f.title?.includes('name'))).toHaveLength(0);
+  });
+});
+
+describe('computeProfileFactFindings (C1 identity fields)', () => {
+  it('returns [] when there is no profile', async () => {
+    mockGetProfile.mockResolvedValueOnce(null);
+    const findings = await computeProfileFactFindings({
+      orgId: 'o', modelId: 'm', inventory: inv([{ documentId: 'd1', title: 'A' }]),
+    });
+    expect(findings).toEqual([]);
+  });
+
+  it('flags an exact field (NAICS) when a competing 6-digit code is present', async () => {
+    mockGetProfile.mockResolvedValueOnce({ companyName: CANON, primaryNaics: '541512' });
+    mockLoadHtml.mockResolvedValue('<p>Our primary NAICS is 541511 for this effort.</p>');
+
+    const findings = await computeProfileFactFindings({
+      orgId: 'o', modelId: 'm', inventory: inv([{ documentId: 'd1', title: 'Cover' }]),
+    });
+    const naics = findings.find((f) => f.title?.includes('NAICS'));
+    expect(naics).toBeTruthy();
+    expect(naics?.issueType).toBe('FACTUAL_INACCURACY');
+    expect(naics?.severity).toBe('major');
+    // The finding surfaces the competing code, not just the canonical one.
+    expect(naics?.description).toContain('541511');
+    expect(naics?.description).toContain('541512');
+    // Exact-field findings do not need a Stage-2 model call.
+    expect(mockInvokeModel).not.toHaveBeenCalled();
+  });
+
+  it('does NOT flag NAICS when the label appears with no competing code (cover-page boilerplate)', async () => {
+    // Regression: the exact path used to fire on the word "NAICS" alone, so a
+    // cover page mentioning NAICS without the org's code got a spurious major.
+    mockGetProfile.mockResolvedValueOnce({ companyName: CANON, primaryNaics: '541512' });
+    mockLoadHtml.mockResolvedValue('<p>NAICS codes are listed in the attached forms.</p>');
+    const findings = await computeProfileFactFindings({
+      orgId: 'o', modelId: 'm', inventory: inv([{ documentId: 'd1', title: 'Cover' }]),
+    });
+    expect(findings.find((f) => f.title?.includes('NAICS'))).toBeUndefined();
+    expect(mockInvokeModel).not.toHaveBeenCalled();
+  });
+
+  it('does NOT flag NAICS when the only 6-digit run is an unrelated number far from the label', async () => {
+    // Regression (MT-1): the exact path scanned the WHOLE doc for any 6-digit
+    // run, so "NAICS" anywhere + an unrelated 6-digit token anywhere (a
+    // comma-less dollar amount, control number, or yearmonth) emitted a spurious
+    // major. The competing code must now sit NEAR a label occurrence.
+    mockGetProfile.mockResolvedValueOnce({ companyName: CANON, primaryNaics: '541512' });
+    mockLoadHtml.mockResolvedValue(
+      '<p>NAICS codes are provided by the CO. ' +
+        'The total ceiling for this base year is $500000 across all deliverables, ' +
+        'tracked under control number DOC-100234 and revised as of 202412.</p>',
+    );
+    const findings = await computeProfileFactFindings({
+      orgId: 'o', modelId: 'm', inventory: inv([{ documentId: 'd1', title: 'Cover' }]),
+    });
+    expect(findings.find((f) => f.title?.includes('NAICS'))).toBeUndefined();
+    expect(mockInvokeModel).not.toHaveBeenCalled();
+  });
+
+  it('does NOT flag a NAICS form field whose value is not a 6-digit code', async () => {
+    mockGetProfile.mockResolvedValueOnce({ companyName: CANON, primaryNaics: '541512' });
+    const inventory: PackageInventory = {
+      documents: [],
+      forms: [
+        {
+          formId: 'form-1',
+          name: 'SF-1449',
+          targetKind: 'PDF_FORM',
+          fields: [{ fieldId: 'f-naics', label: 'NAICS Code', value: 'See attachment' }],
+        },
+      ],
+    };
+    const findings = await computeProfileFactFindings({ orgId: 'o', modelId: 'm', inventory });
+    expect(findings.find((f) => f.title?.includes('NAICS'))).toBeUndefined();
+  });
+
+  it('does NOT flag an exact field when the canonical value is present', async () => {
+    mockGetProfile.mockResolvedValueOnce({ companyName: CANON, primaryNaics: '541512' });
+    mockLoadHtml.mockResolvedValue('<p>Our primary NAICS is 541512.</p>');
+    const findings = await computeProfileFactFindings({
+      orgId: 'o', modelId: 'm', inventory: inv([{ documentId: 'd1', title: 'Cover' }]),
+    });
+    expect(findings.find((f) => f.title?.includes('NAICS'))).toBeUndefined();
+  });
+
+  it('flags a prose field (address) only when the Stage-2 model confirms a mismatch', async () => {
+    mockGetProfile.mockResolvedValueOnce({ companyName: CANON, address: '123 Main St' });
+    mockLoadHtml.mockResolvedValue('<p>Company address: 999 Elsewhere Ave, Suite 5.</p>');
+    // Model confirms the passage states a contradicting address.
+    mockInvokeModel.mockResolvedValueOnce(
+      modelReply({ mismatches: [{ index: 0, found: '999 Elsewhere Ave' }] }),
+    );
+
+    const findings = await computeProfileFactFindings({
+      orgId: 'o', modelId: 'm', inventory: inv([{ documentId: 'd1', title: 'Cover' }]),
+    });
+    const addr = findings.find((f) => f.title?.includes('Address'));
+    expect(addr).toBeTruthy();
+    expect(addr?.description).toContain('123 Main St');
+    expect(addr?.description).toContain('999 Elsewhere Ave');
+  });
+
+  it('does NOT flag a prose candidate the Stage-2 model rejects', async () => {
+    mockGetProfile.mockResolvedValueOnce({ companyName: CANON, address: '123 Main St' });
+    mockLoadHtml.mockResolvedValue('<p>The mailing address label appears but states nothing contradictory.</p>');
+    mockInvokeModel.mockResolvedValueOnce(modelReply({ mismatches: [] }));
+
+    const findings = await computeProfileFactFindings({
+      orgId: 'o', modelId: 'm', inventory: inv([{ documentId: 'd1', title: 'Cover' }]),
+    });
+    expect(findings.find((f) => f.title?.includes('Address'))).toBeUndefined();
+  });
+
+  it('does NOT flag the bare word "zip" (boilerplate) — ZIP is now model-verified, not exact', async () => {
+    // Regression: ZIP used to be an EXACT fact, so "zip file" in boilerplate with
+    // no canonical ZIP present emitted a major finding with no Stage-2 gate. Now
+    // it's a prose candidate the model can reject.
+    mockGetProfile.mockResolvedValueOnce({ companyName: CANON, zip: '20500' });
+    mockLoadHtml.mockResolvedValue('<p>Deliverables will be provided as a zip file per the instructions.</p>');
+    mockInvokeModel.mockResolvedValueOnce(modelReply({ mismatches: [] })); // model: not a ZIP statement
+
+    const findings = await computeProfileFactFindings({
+      orgId: 'o', modelId: 'm', inventory: inv([{ documentId: 'd1', title: 'Cover' }]),
+    });
+    expect(findings.find((f) => f.title?.includes('ZIP'))).toBeUndefined();
+  });
+
+  it('does NOT seed an entityType candidate from a substring-only label collision ("inc" in "province"/"since")', async () => {
+    // Regression: prose label matching used a bare indexOf, so the short token
+    // "inc" (an entityType label) matched inside "province"/"since" and generated
+    // a spurious Stage-2 candidate — cost/precision drag that can crowd the cap.
+    // Whole-word matching means these unrelated words no longer seed a candidate.
+    mockGetProfile.mockResolvedValueOnce({ companyName: CANON, entityType: 'LLC' });
+    mockLoadHtml.mockResolvedValue(
+      '<p>We have operated across the province since 2019, expanding our reach statewide.</p>',
+    );
+    const findings = await computeProfileFactFindings({
+      orgId: 'o', modelId: 'm', inventory: inv([{ documentId: 'd1', title: 'Cover' }]),
+    });
+    // No label present as a whole word → no candidate → no Stage-2 model call.
+    expect(mockInvokeModel).not.toHaveBeenCalled();
+    expect(findings.find((f) => f.title?.includes('Entity type'))).toBeUndefined();
+  });
+
+  it('flags a ZIP contradiction only when the Stage-2 model confirms it', async () => {
+    mockGetProfile.mockResolvedValueOnce({ companyName: CANON, zip: '20500' });
+    mockLoadHtml.mockResolvedValue('<p>Remit to our office, ZIP 90210, for correspondence.</p>');
+    mockInvokeModel.mockResolvedValueOnce(modelReply({ mismatches: [{ index: 0, found: '90210' }] }));
+
+    const findings = await computeProfileFactFindings({
+      orgId: 'o', modelId: 'm', inventory: inv([{ documentId: 'd1', title: 'Cover' }]),
+    });
+    const zip = findings.find((f) => f.title?.includes('ZIP'));
+    expect(zip).toBeTruthy();
+    expect(zip?.description).toContain('20500');
+    expect(zip?.description).toContain('90210');
+  });
+
+  it('surfaces a wrong State even though the canonical code collides with an English word', async () => {
+    // Regression: canonical state "IN" matched the ordinary word "in" under the
+    // case-insensitive containsCanonical, so the fact read as present everywhere,
+    // the prose candidate was never generated, and a genuinely wrong state was
+    // silently never flagged. Abbreviation-shaped values now match case-sensitive
+    // whole-word only, so "in"/"training" no longer count as the canonical value.
+    mockGetProfile.mockResolvedValueOnce({ companyName: CANON, state: 'IN' });
+    mockLoadHtml.mockResolvedValue(
+      '<p>The team will be trained in advance and located in our State office in Ohio, OH.</p>',
+    );
+    mockInvokeModel.mockResolvedValueOnce(modelReply({ mismatches: [{ index: 0, found: 'OH' }] }));
+
+    const findings = await computeProfileFactFindings({
+      orgId: 'o', modelId: 'm', inventory: inv([{ documentId: 'd1', title: 'Cover' }]),
+    });
+    // A prose candidate was generated (the model was consulted) and the finding surfaced.
+    expect(mockInvokeModel).toHaveBeenCalled();
+    const state = findings.find((f) => f.title?.includes('State'));
+    expect(state).toBeTruthy();
+    expect(state?.description).toContain('IN');
+  });
+
+  it('does NOT generate a State candidate when the canonical code is genuinely present (whole word)', async () => {
+    // The correct state IS in the doc as a whole-word uppercase code → consistent,
+    // no candidate, no model call.
+    mockGetProfile.mockResolvedValueOnce({ companyName: CANON, state: 'IN' });
+    mockLoadHtml.mockResolvedValue('<p>Our headquarters is registered in Indianapolis, IN 46204.</p>');
+
+    const findings = await computeProfileFactFindings({
+      orgId: 'o', modelId: 'm', inventory: inv([{ documentId: 'd1', title: 'Cover' }]),
+    });
+    expect(mockInvokeModel).not.toHaveBeenCalled();
+    expect(findings.find((f) => f.title?.includes('State'))).toBeUndefined();
+  });
+
+  it('anchors a form-field prose mismatch to the field', async () => {
+    mockGetProfile.mockResolvedValueOnce({ companyName: CANON, entityType: 'LLC' });
+    mockInvokeModel.mockResolvedValueOnce(
+      modelReply({ mismatches: [{ index: 0, found: 'Corporation' }] }),
+    );
+    const inventory: PackageInventory = {
+      documents: [],
+      forms: [
+        {
+          formId: 'form-1',
+          name: 'SF-1449',
+          targetKind: 'PDF_FORM',
+          fields: [{ fieldId: 'f-type', label: 'Entity Type', value: 'Corporation' }],
+        },
+      ],
+    };
+    const findings = await computeProfileFactFindings({ orgId: 'o', modelId: 'm', inventory });
+    const entity = findings.find((f) => f.title?.includes('Entity type'));
+    expect(entity).toBeTruthy();
+    expect(entity?.anchor).toEqual({ kind: 'field', fieldId: 'f-type' });
+  });
+
+  it('does not re-flag name/UEI/CAGE/EIN (those fact types are not scanned here)', async () => {
+    mockGetProfile.mockResolvedValueOnce({
+      companyName: CANON,
+      uei: 'ABC123DEF456',
+      cage: '1ABC5',
+      ein: '12-3456789',
+      primaryNaics: '541512',
+    });
+    mockLoadHtml.mockResolvedValue('<p>UEI XYZ, CAGE 9ZZZ9, EIN 99-9999999, NAICS 541512.</p>');
+    const findings = await computeProfileFactFindings({
+      orgId: 'o', modelId: 'm', inventory: inv([{ documentId: 'd1', title: 'Cover' }]),
+    });
+    // No identity-identifier findings from the C1 pass — those belong to the
+    // existing consistency pass (FR-3). NAICS matches so nothing at all here.
+    expect(findings.find((f) => f.title?.includes('UEI'))).toBeUndefined();
+    expect(findings.find((f) => f.title?.includes('CAGE'))).toBeUndefined();
+    expect(findings.find((f) => f.title?.includes('EIN'))).toBeUndefined();
+  });
+
+  it('is best-effort: a Stage-2 model failure keeps exact findings, drops prose, does not throw', async () => {
+    mockGetProfile.mockResolvedValueOnce({ companyName: CANON, primaryNaics: '541512', address: '123 Main St' });
+    mockLoadHtml.mockResolvedValue('<p>NAICS 541511. Company address: 999 Elsewhere Ave.</p>');
+    mockInvokeModel.mockRejectedValueOnce(new Error('bedrock down'));
+
+    const findings = await computeProfileFactFindings({
+      orgId: 'o', modelId: 'm', inventory: inv([{ documentId: 'd1', title: 'Cover' }]),
+    });
+    // Exact NAICS mismatch survives; the prose address candidate is dropped.
+    expect(findings.find((f) => f.title?.includes('NAICS'))).toBeTruthy();
+    expect(findings.find((f) => f.title?.includes('Address'))).toBeUndefined();
   });
 });

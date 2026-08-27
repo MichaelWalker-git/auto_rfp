@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { Fragment, useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronDown } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { useUpdateOpportunity } from '@/lib/hooks/use-opportunities';
 import {
@@ -35,6 +37,7 @@ import type {
   WinData,
   LossData,
   LossReasonCategory,
+  EvaluationScores,
   Jurisdiction,
 } from '@auto-rfp/core';
 
@@ -51,6 +54,56 @@ interface SetOpportunityOutcomeDialogProps {
 // Outcome statuses selectable from the outcome card.
 const OUTCOME_STATUSES: OpportunityStatus[] = ['WON', 'LOST', 'NO_BID', 'WITHDRAWN'];
 const LOSS_REASONS = Object.entries(LOSS_REASON_LABELS) as [LossReasonCategory, string][];
+
+/** The criteria on EvaluationScoresSchema, in the order a scoring sheet lists them. */
+const SCORE_CRITERIA = [
+  { key: 'technical', label: 'Technical' },
+  { key: 'price', label: 'Price' },
+  { key: 'pastPerformance', label: 'Past Performance' },
+  { key: 'management', label: 'Management' },
+  { key: 'overall', label: 'Overall' },
+] as const satisfies readonly { key: keyof EvaluationScores; label: string }[];
+
+const SCORE_MIN = 0;
+const SCORE_MAX = 100;
+
+/** The five score inputs held as raw strings, so an untouched box stays untouched. */
+type ScoreInputs = Record<keyof EvaluationScores, string>;
+
+/** Stored numbers back to input strings. A missing score stays an empty box, never a 0. */
+const toScoreInputs = (stored: EvaluationScores | undefined): ScoreInputs => ({
+  technical: stored?.technical?.toString() ?? '',
+  price: stored?.price?.toString() ?? '',
+  pastPerformance: stored?.pastPerformance?.toString() ?? '',
+  management: stored?.management?.toString() ?? '',
+  overall: stored?.overall?.toString() ?? '',
+});
+
+const EMPTY_SCORE_INPUTS = toScoreInputs(undefined);
+
+/**
+ * An empty (or unparseable) input yields `undefined` — deliberately NOT 0.
+ *
+ * A recorded bid of $0 is a factual claim about a procurement; a blank box means the
+ * number is not known yet. Coercing the second into the first would feed the pricing
+ * chart and the dashboard's coverage count a figure nobody entered.
+ */
+const parseOptionalNumber = (raw: string): number | undefined => {
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  const value = Number(trimmed);
+  return Number.isFinite(value) ? value : undefined;
+};
+
+/** Collects only the criteria the user actually filled in. */
+const collectScores = (inputs: ScoreInputs): EvaluationScores => {
+  const scores: EvaluationScores = {};
+  for (const { key } of SCORE_CRITERIA) {
+    const value = parseOptionalNumber(inputs[key]);
+    if (value !== undefined) scores[key] = value;
+  }
+  return scores;
+};
 
 export function SetOpportunityOutcomeDialog({
   isOpen,
@@ -78,6 +131,13 @@ export function SetOpportunityOutcomeDialog({
   const [lossReasonDetails, setLossReasonDetails] = useState('');
   const [winningContractor, setWinningContractor] = useState('');
   const [lossDate, setLossDate] = useState('');
+  // Bid amounts and scores are held as strings, not numbers: '' has to stay
+  // distinguishable from 0 all the way to submit.
+  const [ourBidAmount, setOurBidAmount] = useState('');
+  const [winningBidAmount, setWinningBidAmount] = useState('');
+  const [scores, setScores] = useState<ScoreInputs>(EMPTY_SCORE_INPUTS);
+  const [winnerScores, setWinnerScores] = useState<ScoreInputs>(EMPTY_SCORE_INPUTS);
+  const [isScoresOpen, setIsScoresOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -94,13 +154,79 @@ export function SetOpportunityOutcomeDialog({
     setLossReasonDetails(opportunity.lossData?.lossReasonDetails ?? '');
     setWinningContractor(opportunity.lossData?.winningContractor ?? '');
     setLossDate(opportunity.lossData?.lossDate?.split('T')[0] ?? '');
+    setOurBidAmount(opportunity.lossData?.ourBidAmount?.toString() ?? '');
+    setWinningBidAmount(opportunity.lossData?.winningBidAmount?.toString() ?? '');
+    const storedScores = opportunity.lossData?.evaluationScores;
+    const storedWinnerScores = opportunity.lossData?.winnerScores;
+    setScores(toScoreInputs(storedScores));
+    setWinnerScores(toScoreInputs(storedWinnerScores));
+    // Open the disclosure when EITHER side is already on file, so re-opening the dialog
+    // does not hide numbers someone previously entered behind a collapsed section.
+    // `typeof v === 'number'` rather than truthiness: a recorded score of 0 is real.
+    setIsScoresOpen(
+      [...Object.values(storedScores ?? {}), ...Object.values(storedWinnerScores ?? {})].some(
+        (v) => typeof v === 'number',
+      ),
+    );
   }, [isOpen, opportunity]);
+
+  const handleScoreChange = (key: keyof EvaluationScores, value: string) => {
+    setScores((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleWinnerScoreChange = (key: keyof EvaluationScores, value: string) => {
+    setWinnerScores((prev) => ({ ...prev, [key]: value }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (jurisdiction === 'STATE' && !state) {
       toast({ title: 'Select a state', description: 'Choose the state whose public records law applies.', variant: 'destructive' });
+      return;
+    }
+
+    const enteredScores = status === 'LOST' ? collectScores(scores) : {};
+    const enteredWinnerScores = status === 'LOST' ? collectScores(winnerScores) : {};
+    const enteredOurBid = status === 'LOST' ? parseOptionalNumber(ourBidAmount) : undefined;
+    const enteredWinningBid = status === 'LOST' ? parseOptionalNumber(winningBidAmount) : undefined;
+
+    /**
+     * Reject rather than clamp. An out-of-range score is a typo or a sheet on a
+     * different scale, and silently rewriting 105 to 100 would invent a score the
+     * agency never gave — the dashboard renders these as bar widths and cannot tell.
+     *
+     * The inputs carry min/max, so a browser normally blocks this before submit. It
+     * does NOT when the disclosure is collapsed: Radix unmounts the content, taking
+     * the fields out of constraint validation while their values survive in state.
+     * That path is why this runs here rather than relying on the attributes.
+     */
+    const isOutOfRange = (value: number | undefined): boolean =>
+      value !== undefined && (value < SCORE_MIN || value > SCORE_MAX);
+
+    // Names the SIDE as well as the criterion: with two columns, "Check Technical" is
+    // ambiguous and sends the user hunting.
+    const outOfRange = [
+      ...SCORE_CRITERIA.filter(({ key }) => isOutOfRange(enteredScores[key])).map(
+        ({ label }) => `${label} (ours)`,
+      ),
+      ...SCORE_CRITERIA.filter(({ key }) => isOutOfRange(enteredWinnerScores[key])).map(
+        ({ label }) => `${label} (winner)`,
+      ),
+    ];
+    if (outOfRange.length > 0) {
+      // Re-open the disclosure — otherwise the toast names a field the user cannot see.
+      setIsScoresOpen(true);
+      toast({
+        title: 'Scores must be between 0 and 100',
+        description: `Check ${outOfRange.join(', ')}.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if ((enteredOurBid !== undefined && enteredOurBid < 0) || (enteredWinningBid !== undefined && enteredWinningBid < 0)) {
+      toast({ title: 'Bid amounts cannot be negative', description: 'Enter the amount as a positive figure.', variant: 'destructive' });
       return;
     }
 
@@ -126,6 +252,12 @@ export function SetOpportunityOutcomeDialog({
       };
       if (lossReasonDetails.trim()) lossData.lossReasonDetails = lossReasonDetails.trim();
       if (winningContractor.trim()) lossData.winningContractor = winningContractor.trim();
+      if (enteredOurBid !== undefined) lossData.ourBidAmount = enteredOurBid;
+      if (enteredWinningBid !== undefined) lossData.winningBidAmount = enteredWinningBid;
+      // Omit the whole object when nothing was scored — an empty `evaluationScores`
+      // would make the dashboard count this loss as scored and render an empty card.
+      if (Object.keys(enteredScores).length > 0) lossData.evaluationScores = enteredScores;
+      if (Object.keys(enteredWinnerScores).length > 0) lossData.winnerScores = enteredWinnerScores;
       patch.lossData = lossData;
     }
 
@@ -242,6 +374,85 @@ export function SetOpportunityOutcomeDialog({
                   <Label htmlFor="outcome-loss-date">Loss Date</Label>
                   <Input id="outcome-loss-date" type="date" value={lossDate} onChange={(e) => setLossDate(e.target.value)} />
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-2">
+                    <Label htmlFor="outcome-our-bid">Our Bid Amount ($)</Label>
+                    <Input id="outcome-our-bid" type="number" min={0} step="any" value={ourBidAmount} onChange={(e) => setOurBidAmount(e.target.value)} placeholder="250000" />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="outcome-winning-bid">Winning Bid Amount ($)</Label>
+                    <Input id="outcome-winning-bid" type="number" min={0} step="any" value={winningBidAmount} onChange={(e) => setWinningBidAmount(e.target.value)} placeholder="198500" />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Leave an amount blank if you do not know it yet — a blank field is
+                  recorded as unknown, not as $0.
+                </p>
+
+                {/* Five more always-open inputs would push the loss reason off-screen,
+                    and most losses are recorded before any debrief happens. */}
+                <Collapsible open={isScoresOpen} onOpenChange={setIsScoresOpen}>
+                  <CollapsibleTrigger asChild>
+                    <Button type="button" variant="ghost" size="sm" className="w-full justify-between px-0 text-muted-foreground">
+                      {isScoresOpen ? 'Hide evaluation scores' : 'Add evaluation scores'}
+                      <ChevronDown className={`h-4 w-4 transition-transform ${isScoresOpen ? 'rotate-180' : ''}`} />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="grid gap-3 pt-2">
+                    <p className="text-xs text-muted-foreground">
+                      From a debrief or a released scoring sheet. Scored 0&ndash;100; leave
+                      any criterion blank if it was not scored or not disclosed. Agencies
+                      often release a total without the criterion breakdown, and a partial
+                      comparison is still worth recording.
+                    </p>
+                    {/* Criterion label, our score, the winner's — one row each, so the
+                        two sides read as a comparison rather than two lists. */}
+                    <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 gap-y-2">
+                      <span aria-hidden />
+                      <span className="w-24 text-center text-xs font-medium text-muted-foreground">
+                        Ours
+                      </span>
+                      <span className="w-24 text-center text-xs font-medium text-muted-foreground">
+                        Winner
+                      </span>
+
+                      {SCORE_CRITERIA.map(({ key, label }) => (
+                        <Fragment key={key}>
+                          <Label htmlFor={`outcome-score-${key}`} className="text-sm">
+                            {label}
+                          </Label>
+                          <Input
+                            id={`outcome-score-${key}`}
+                            // Our own column keeps the bare criterion name as its
+                            // accessible label, so existing tests and screen readers
+                            // still find it by "Technical" alone.
+                            aria-label={label}
+                            type="number"
+                            min={SCORE_MIN}
+                            max={SCORE_MAX}
+                            step="any"
+                            value={scores[key]}
+                            onChange={(e) => handleScoreChange(key, e.target.value)}
+                            placeholder="0-100"
+                            className="w-24"
+                          />
+                          <Input
+                            id={`outcome-winner-score-${key}`}
+                            aria-label={`${label} (winner)`}
+                            type="number"
+                            min={SCORE_MIN}
+                            max={SCORE_MAX}
+                            step="any"
+                            value={winnerScores[key]}
+                            onChange={(e) => handleWinnerScoreChange(key, e.target.value)}
+                            placeholder="0-100"
+                            className="w-24"
+                          />
+                        </Fragment>
+                      ))}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               </>
             )}
           </div>

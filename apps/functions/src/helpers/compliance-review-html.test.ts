@@ -1,4 +1,4 @@
-import { extractHeadings, getSectionText, stripHtml } from './compliance-review-html';
+import { extractHeadings, getSectionText, splitIntoSections, stripHtml } from './compliance-review-html';
 
 const HTML = `
   <h1>Cover Letter</h1>
@@ -79,5 +79,44 @@ describe('getSectionText', () => {
     const text = getSectionText(nested, '3.1 Rates', 2000);
     expect(text).toContain('child content');
     expect(text).not.toContain('escalation content');
+  });
+});
+
+describe('splitIntoSections (non-overlapping — used by scanners)', () => {
+  it('gives each heading ONLY its own body, never a child subsection', () => {
+    const html =
+      '<h2>4. Contract #3</h2><p>intro alpha</p>' +
+      '<h3>4.2 Relevance</h3><p>relevance beta</p>' +
+      '<h3>4.3 Approach</h3><p>approach gamma</p>';
+    const sections = splitIntoSections(html);
+    expect(sections.map((s) => s.heading)).toEqual(['4. Contract #3', '4.2 Relevance', '4.3 Approach']);
+    expect(sections[0].text).toContain('intro alpha');
+    expect(sections[0].text).not.toContain('relevance beta');
+    expect(sections[0].text).not.toContain('approach gamma');
+  });
+
+  it('a word occurring once under a nested heading appears in exactly ONE segment (dup regression)', () => {
+    // Previously getSectionText let the parent swallow the child, so "Ricoh"
+    // matched under both "Past Performance Volume" and "4.2 Relevance",
+    // producing two NDA-leak findings for one occurrence.
+    const html =
+      '<h2>Past Performance Volume</h2><p>overview</p>' +
+      '<h3>4.2 Relevance to Current Opportunity</h3><p>This contract with Ricoh was great.</p>';
+    const hits = splitIntoSections(html).filter((s) => s.text.includes('Ricoh'));
+    expect(hits).toHaveLength(1);
+    expect(hits[0].heading).toBe('4.2 Relevance to Current Opportunity');
+  });
+
+  it('captures preamble before the first heading with an empty heading', () => {
+    const sections = splitIntoSections('<p>before anything</p><h2>Section A</h2><p>body</p>');
+    expect(sections[0]).toEqual({ heading: '', text: 'before anything' });
+    expect(sections[1].heading).toBe('Section A');
+  });
+
+  it('returns a single empty-heading segment for a heading-less document', () => {
+    const sections = splitIntoSections('<p>just prose here</p>');
+    expect(sections).toHaveLength(1);
+    expect(sections[0].heading).toBe('');
+    expect(sections[0].text).toContain('just prose here');
   });
 });

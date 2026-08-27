@@ -26,6 +26,10 @@ const ISSUE_LABELS: Record<ComplianceIssueType, string> = {
   POOR_ANSWER: 'poor answers',
   FORMAT_ISSUE: 'format issues',
   INCONSISTENCY: 'inconsistencies',
+  FACTUAL_INACCURACY: 'factual inaccuracies',
+  UNVERIFIED_CLAIM: 'unverified claims',
+  NDA_DISCLOSURE_LEAK: 'NDA disclosure leaks',
+  SOLUTION_PLAN_MISMATCH: 'solution-plan mismatches',
   OTHER: 'other',
 };
 

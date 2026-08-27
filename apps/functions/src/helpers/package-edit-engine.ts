@@ -474,7 +474,7 @@ export const runProposeEdits = async (args: {
   const { orgId, projectId, oppId, modelId, instruction } = args;
 
   const inventory = args.inventory ?? (await buildPackageInventory({ orgId, projectId, oppId }));
-  const executor = makeComplianceToolExecutor({ orgId, oppId, inventory });
+  const executor = makeComplianceToolExecutor({ orgId, oppId, projectId, inventory });
 
   const output = await invokeClaudeWithTools<ProposeOutput>({
     modelId,

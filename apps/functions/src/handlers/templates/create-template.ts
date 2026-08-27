@@ -47,6 +47,9 @@ const baseHandler = async (
       sections: [],
       macros: allMacros,
       htmlContentKey,
+      // Left undefined when absent, so a template without furniture renders
+      // exactly as it did before this feature existed.
+      ...(data.furniture !== undefined && { furniture: data.furniture }),
       tags: data.tags ?? [],
       isDefault: false,
       status: 'DRAFT' as const,

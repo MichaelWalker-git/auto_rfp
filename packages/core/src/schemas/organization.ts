@@ -14,6 +14,25 @@ export const OrganizationCreateRequestSchema = z.object({
     .max(500, 'Description cannot exceed 500 characters')
     .optional(),
 
+  /**
+   * Registered legal entity, when it differs from the trading name.
+   *
+   * Agencies index a procurement file under the name on the bid, which is
+   * frequently the legal entity rather than the brand. Real correspondence for
+   * one company shows all three forms in use — "Interesting Interests dba Horus
+   * Technology" on a California award response, "Interesting Interests Inc." on a
+   * school-district scoring sheet, "Horus Technology" in the trading name — and a
+   * records request naming only the brand can come back "no record located" purely
+   * because the officer searched the wrong string.
+   *
+   * Optional: most organizations trade under their legal name and should leave
+   * this empty rather than duplicate it.
+   */
+  legalName: z.string()
+    .trim()
+    .max(200, 'Legal name cannot exceed 200 characters')
+    .optional(),
+
   bucketName: z.string()
     .optional(),
 
@@ -85,6 +104,8 @@ export const OrganizationItemSchema = OrganizationCreateRequestSchema.extend({
   enableMemberDetection: z.boolean().optional().default(false),
   /** Whether the Solution Plan (Source of Truth) feature + generation gate is enabled for this org (set manually in DynamoDB; no UI) */
   enableSolutionPlan: z.boolean().optional(),
+  /** Whether the KB coverage precheck *blocks* generation for this org (set manually in DynamoDB; no UI). Off = warn only. */
+  enableKBCoverageGate: z.boolean().optional(),
 });
 
 export type OrganizationItem = z.infer<typeof OrganizationItemSchema>;
@@ -111,6 +132,7 @@ export const OrganizationListItemSchema = z.object({
   enablePOCGeneration: z.boolean().optional(),
   enableComplianceReview: z.boolean().optional(),
   enableSolutionPlan: z.boolean().optional(),
+  enableKBCoverageGate: z.boolean().optional(),
 });
 
 export type OrganizationListItem = z.infer<typeof OrganizationListItemSchema>;

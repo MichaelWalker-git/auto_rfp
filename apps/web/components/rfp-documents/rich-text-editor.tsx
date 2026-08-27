@@ -35,6 +35,10 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { Pagination } from './extensions/pagination';
+import type { TemplateFurniture } from '@auto-rfp/core';
+import { PageFurnitureOverlay } from '@/features/template-furniture/components/PageFurnitureOverlay';
+import { useResolvedFurnitureImages } from '@/features/template-furniture/hooks/useResolvedFurnitureImages';
 
 // ─── Page Size Configuration ──────────────────────────────────────────────────
 
@@ -695,12 +699,21 @@ const PageSheets = ({
   editorElement,
   pageSize,
   updateTrigger,
+  furniture,
+  resolvedFurnitureImages,
+  failedFurnitureImages,
 }: {
   editorElement: HTMLElement | null;
   pageSize: PageSize;
   updateTrigger: number;
+  /** Running header/footer drawn into each page's margins, as Word does. */
+  furniture?: TemplateFurniture;
+  resolvedFurnitureImages?: Record<string, string>;
+  failedFurnitureImages?: Record<string, true>;
 }) => {
   const [pageCount, setPageCount] = useState(1);
+  // Page index -> 0-based furniture section, so per-section toggles apply here too.
+  const [pageSections, setPageSections] = useState<number[]>([]);
   const dims = PAGE_SIZES[pageSize];
   // Content area per page = total page height minus top and bottom margins
   const contentAreaHeight = dims.height - dims.paddingY * 2;
@@ -712,9 +725,33 @@ const PageSheets = ({
       const proseMirror = editorElement.querySelector('.ProseMirror') as HTMLElement | null;
       if (!proseMirror) return;
       const totalHeight = proseMirror.scrollHeight;
-      // Subtract the initial top padding, then divide by content area per page
-      const contentOnly = totalHeight - dims.paddingY;
-      setPageCount(Math.max(1, Math.ceil(contentOnly / contentAreaHeight)));
+      // The Pagination extension inserts spacers so content advances one FULL page
+      // height per page, so divide by that rather than by the content area.
+      const contentOnly = Math.max(0, totalHeight - dims.paddingY);
+      const pages = Math.max(1, Math.ceil(contentOnly / dims.height));
+      setPageCount(pages);
+
+      // Map each page to its furniture section by counting the explicit page breaks
+      // that start at or before it. Uses measured offsets, since a break's page
+      // depends on where it actually falls.
+      const breaks = Array.from(
+        proseMirror.querySelectorAll('[data-page-break], .page-break-node'),
+      ).map((el) => {
+        let top = 0;
+        let cur = el as HTMLElement | null;
+        while (cur && cur !== proseMirror) {
+          top += cur.offsetTop;
+          cur = cur.offsetParent as HTMLElement | null;
+        }
+        return top;
+      });
+
+      const sections: number[] = [];
+      for (let page = 0; page < pages; page++) {
+        const pageEndsAt = dims.paddingY + (page + 1) * dims.height;
+        sections.push(breaks.filter((b) => b < pageEndsAt).length);
+      }
+      setPageSections(sections);
     };
 
     calculate();
@@ -741,17 +778,24 @@ const PageSheets = ({
    * Each page sheet is positioned to show the full page (with margins) around
    * the content area boundary.
    */
-  const getPageTop = (i: number) => {
-    if (i === 0) return 0;
-    // Each subsequent page starts at the boundary minus the top margin
-    return dims.paddingY + i * contentAreaHeight - dims.paddingY;
-  };
+  /**
+   * Top of each page sheet.
+   *
+   * The Pagination extension inserts real spacers so no block crosses a content
+   * boundary, which means the content stream now advances by exactly
+   * contentAreaHeight per page. Sheets are therefore spaced by contentAreaHeight
+   * and drawn from the top of their own content area, minus the top margin.
+   *
+   * Previously this used the same spacing but sheets are `height` tall, so
+   * consecutive sheets overlapped by 2 * paddingY (144px for Letter) and a sheet's
+   * "margin" was really the previous page's text. The spacers are what make the
+   * margins genuine.
+   */
+  const getPageTop = (i: number) => i * dims.height;
 
-  // The boundary line position: where content for page i ends
-  const getBoundaryTop = (i: number) => {
-    // After page (i+1): top padding + (i+1) content areas
-    return dims.paddingY + (i + 1) * contentAreaHeight;
-  };
+  // The boundary line sits at the bottom of page i's CONTENT area, i.e. where the
+  // bottom margin begins. With a full-page pitch there is real space below it.
+  const getBoundaryTop = (i: number) => dims.paddingY + i * dims.height + contentAreaHeight;
 
   return (
     <>
@@ -764,6 +808,24 @@ const PageSheets = ({
             height: `${dims.height}px`,
           }}
         >
+          {/*
+            Running header/footer in this page's margins, as Word and Google Docs
+            show them. Safe now that the page pitch is a full page height: there is
+            real empty space in the margins. The earlier attempt was reverted because
+            the pitch equalled the content height, so bands landed on body text.
+            Decorative only — the sheet is pointer-events:none.
+          */}
+          <PageFurnitureOverlay
+            furniture={furniture}
+            pageIndex={i}
+            totalPages={pageCount}
+            sectionIndex={pageSections[i] ?? 0}
+            paddingY={dims.paddingY}
+            paddingX={dims.paddingX}
+            resolved={resolvedFurnitureImages ?? {}}
+            failedKeys={failedFurnitureImages ?? {}}
+          />
+
           {/* Page number — bottom-right corner, inside the bottom margin area */}
           <div
             className="absolute select-none"
@@ -1211,6 +1273,11 @@ interface RichTextEditorProps {
   pageSize?: PageSize;
   /** Callback when user changes page size via toolbar */
   onPageSizeChange?: (size: PageSize) => void;
+  /**
+   * Running header/footer to draw into each page's margins, the way Word and Google
+   * Docs display them. Decorative — never edited here.
+   */
+  furniture?: TemplateFurniture;
 }
 
 // ─── RichTextEditor ───────────────────────────────────────────────────────────
@@ -1231,6 +1298,7 @@ export const RichTextEditor = ({
   onEditorReady,
   pageSize: pageSizeProp,
   onPageSizeChange: onPageSizeChangeProp,
+  furniture,
 }: RichTextEditorProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
@@ -1251,6 +1319,14 @@ export const RichTextEditor = ({
 
   // Compute min height: at least one full page content area
   const effectiveMinHeight = minHeight ?? `${dims.height}px`;
+
+  // Presign the furniture images once here, so every page sheet reuses the same
+  // resolved URLs rather than each requesting its own.
+  const { resolved: resolvedFurnitureImages, failedKeys: failedFurnitureImages } =
+    useResolvedFurnitureImages([
+      furniture?.header.html ?? '',
+      furniture?.footer.html ?? '',
+    ]);
 
   const initializedRef = useRef(false);
 
@@ -1281,6 +1357,15 @@ export const RichTextEditor = ({
       }),
       ResizableImage,
       PageBreak,
+      // Keeps body text from rendering across a simulated page boundary.
+      Pagination.configure({
+        contentAreaPx:
+          PAGE_SIZES[pageSizeProp ?? 'letter'].height -
+          PAGE_SIZES[pageSizeProp ?? 'letter'].paddingY * 2,
+        // Full page height, so a real margin gap opens between pages for the
+        // running header and footer to occupy.
+        pitchPx: PAGE_SIZES[pageSizeProp ?? 'letter'].height,
+      }),
       TableOfContents,
       Table.configure({ resizable: true }),
       TableRow,
@@ -1494,6 +1579,9 @@ export const RichTextEditor = ({
                   editorElement={editorContainerRef.current}
                   pageSize={pageSize}
                   updateTrigger={updateTrigger}
+                  furniture={furniture}
+                  resolvedFurnitureImages={resolvedFurnitureImages}
+                  failedFurnitureImages={failedFurnitureImages}
                 />
 
                 {/* Editor content */}
@@ -1524,6 +1612,48 @@ export const RichTextEditor = ({
       <UploadErrorDialog open={uploadErrorOpen} message={uploadErrorMsg} onClose={() => setUploadErrorOpen(false)} />
 
       <style>{`
+        /* ── In-page furniture (running header / footer) ── */
+        .page-sheet .furniture-img-stub {
+          display: inline-block;
+          vertical-align: middle;
+          margin: 0 4px 0 0;
+          padding: 0 3px;
+          border: 1px dashed #cbd5e1;
+          border-radius: 2px;
+          font-size: 8px;
+          font-style: italic;
+          opacity: 0.7;
+        }
+        .page-sheet .furniture-chip {
+          display: inline-block;
+          padding: 0 3px;
+          border-radius: 2px;
+          background: rgba(99, 102, 241, 0.1);
+          color: #6366f1;
+          font-size: 8px;
+          font-weight: 500;
+          white-space: nowrap;
+        }
+        /* Explicit px cap from the band: a percentage max-height resolves to none
+           against a parent without a definite height, which clipped large logos. */
+        .page-sheet .furniture-band img {
+          display: inline-block;
+          vertical-align: middle;
+          max-height: var(--furniture-img-max, 48px);
+          max-width: 100%;
+          width: auto;
+          height: auto;
+          object-fit: contain;
+          margin: 0 4px 0 0;
+        }
+        /* Block children inline, so "logo + name" reads as one line as in the PDF. */
+        .page-sheet .furniture-band p,
+        .page-sheet .furniture-band div {
+          display: inline;
+          margin: 0;
+          padding: 0;
+          font-size: inherit;
+        }
         /* ── Page sheet styling ── */
         .editor-page-wrapper .page-sheet {
           background: white;
