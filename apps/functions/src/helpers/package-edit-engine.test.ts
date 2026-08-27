@@ -32,7 +32,10 @@ process.env.DB_TABLE_NAME = 'test-table';
 process.env.REGION = 'us-east-1';
 
 import { ProposeOutputSchema, runProposeEdits } from './package-edit-engine';
+import { makeComplianceToolExecutor } from '@/helpers/compliance-review-tools';
 import type { PackageInventory } from '@/helpers/compliance-review-tools';
+
+const mockMakeExecutor = makeComplianceToolExecutor as unknown as jest.Mock;
 
 const inventory: PackageInventory = {
   documents: [
@@ -124,6 +127,16 @@ describe('runProposeEdits — find/replace expansion (backend owns recall)', () 
   const emailHtml =
     '<p>Call Reference: ACWS26 | Email: brennen@horustech.dev | AOS.</p>' +
     '<p>Point of Contact: Brennen Stones, Manager | brennen@horustech.dev</p>';
+
+  it('threads projectId into the compliance tool executor (verify_company_facts stays project-scoped)', async () => {
+    // Regression: runProposeEdits built the executor without projectId, so the
+    // verify_company_facts tool ran KB search unscoped and skipped solution_plan.
+    mockInvoke.mockResolvedValueOnce({ answer: 'no-op', replacements: [] });
+    await runProposeEdits({ orgId: 'o', projectId: 'p', oppId: 'opp', modelId: 'm', instruction: 'x' });
+    expect(mockMakeExecutor).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: 'o', oppId: 'opp', projectId: 'p' }),
+    );
+  });
 
   it('expands ONE find/replace to EVERY occurrence across docs AND forms (recall fix)', async () => {
     mockBuildInventory.mockResolvedValue(emailInventory);

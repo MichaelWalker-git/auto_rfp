@@ -1,0 +1,588 @@
+import middy from '@middy/core';
+
+import {
+  FoiaRecipientSourceSchema,
+  computeFoiaScheduledSendAt,
+  isFoiaEligibleStatus,
+  type FoiaAutomationDBItem,
+  type FoiaAutomationState,
+  type FoiaSettingsItem,
+  type OpportunityDBItem,
+} from '@auto-rfp/core';
+
+import { withSentryLambda } from '@/sentry-lambda';
+import { nowIso } from '@/helpers/date';
+import { listAllOrgIds } from '@/helpers/org';
+import { listOpportunitiesByOrg } from '@/helpers/opportunity';
+import { getSubmissionHistory } from '@/helpers/proposal-submission';
+import { getFoiaSettings } from '@/helpers/foia-settings';
+import {
+  countFoiaSentToday,
+  getFoiaAutomation,
+  setFoiaAutomationState,
+  syncOpportunityFoiaMarker,
+  transitionFoiaAutomationState,
+  upsertFoiaAutomation,
+} from '@/helpers/foia-automation';
+import { prepareFoiaRequest } from '@/helpers/foia-prepare';
+import { dispatchFoiaRequest } from '@/helpers/foia-dispatch';
+
+/**
+ * Daily reconciler for automatic FOIA requests (Level 2).
+ *
+ * This is deliberately a RECONCILER, not a one-shot timer. On every pass it
+ * recomputes the intended state of every eligible opportunity from current
+ * inputs, which buys several properties that a fire-once design does not have:
+ *
+ *  - no backfill migration is needed for opportunities that already exist;
+ *  - a missed write-time hook self-corrects within 24 hours;
+ *  - changing the org's delay, editing a deadline, or withdrawing a submission
+ *    is picked up automatically;
+ *  - the denormalized marker on the opportunity is re-synced each pass, so
+ *    display drift heals itself.
+ *
+ * Because it is idempotent, an incomplete pass is always safe to repeat.
+ *
+ * NOTE: this phase stops at SCHEDULED / NOT_APPLICABLE / SUPPRESSED. Preparing
+ * the letter, resolving the recipient and requesting approval arrive with the
+ * send path; nothing here transmits email.
+ */
+
+/** States the reconciler is allowed to overwrite. Anything else is left alone. */
+const RECONCILABLE_STATES: readonly FoiaAutomationState[] = [
+  'NOT_APPLICABLE',
+  'SCHEDULED',
+];
+
+interface ScanEventDetail {
+  /** Compute and report, but persist nothing. */
+  dryRun?: boolean;
+  /** Restrict the pass to a single org, for manual invocation. */
+  orgId?: string;
+}
+
+interface ScanEvent {
+  detail?: ScanEventDetail;
+}
+
+interface OrgScanResult {
+  orgId: string;
+  scheduled: number;
+  notApplicable: number;
+  suppressed: number;
+  unchanged: number;
+  skipped: number;
+  errors: number;
+  /** Due requests composed and advanced to AWAITING_APPROVAL. */
+  prepared: number;
+  /** Due requests that need human input before they can proceed. */
+  blocked: number;
+  /** Requests transmitted unattended, with no human click. */
+  sent: number;
+}
+
+/** A zeroed result, so every construction site stays in sync. */
+const emptyResult = (orgId: string): OrgScanResult => ({
+  orgId,
+  scheduled: 0,
+  notApplicable: 0,
+  suppressed: 0,
+  unchanged: 0,
+  skipped: 0,
+  errors: 0,
+  prepared: 0,
+  blocked: 0,
+  sent: 0,
+});
+
+/** What the reconciler decided an opportunity's automation should look like. */
+interface Intent {
+  state: FoiaAutomationState;
+  scheduledSendAt: string | null;
+  suppressedReason?: string;
+}
+
+/**
+ * Decides the intended automation state for one opportunity.
+ *
+ * Pure apart from the submission lookup, so the decision table stays readable:
+ *   not WON/LOST                 → NOT_APPLICABLE (nothing to request yet)
+ *   submission withdrawn         → SUPPRESSED
+ *   no submission and no deadline→ NOT_APPLICABLE (no basis for a clock)
+ *   otherwise                    → SCHEDULED at anchor + delay
+ */
+const decideIntent = async (args: {
+  opportunity: OpportunityDBItem;
+  settings: FoiaSettingsItem;
+  delayDaysOverride?: number | null;
+  /**
+   * The award date an agency's own notice supplied, when one has arrived.
+   *
+   * Outranks the submission date as the clock anchor. Without it this function
+   * recomputed the schedule from the submission every pass and overwrote the re-anchor
+   * that `applyAwardNotice` had just written — reverting, within a day, the behaviour of
+   * counting from the real award.
+   */
+  awardAnchorAt?: string | null;
+}): Promise<Intent> => {
+  const { opportunity, settings, delayDaysOverride, awardAnchorAt } = args;
+  const { orgId, projectId, oppId } = opportunity;
+
+  if (!isFoiaEligibleStatus(opportunity.status)) {
+    return { state: 'NOT_APPLICABLE', scheduledSendAt: null };
+  }
+
+  // A submission record is the preferred clock anchor — the feature is
+  // "automatic FOIA post submission".
+  let submittedAt: string | null = null;
+  if (orgId && projectId && oppId) {
+    const history = await getSubmissionHistory(orgId, projectId, oppId);
+    const active = history.find((entry) => entry.status === 'SUBMITTED');
+
+    // Every submission withdrawn means there is no proposal to ask about.
+    if (!active && history.length > 0) {
+      return {
+        state: 'SUPPRESSED',
+        scheduledSendAt: null,
+        suppressedReason: 'Proposal submission was withdrawn',
+      };
+    }
+
+    submittedAt = active?.submittedAt ?? null;
+  }
+
+  const delayDays = delayDaysOverride ?? settings.delayDays;
+
+  const scheduledSendAt = computeFoiaScheduledSendAt({
+    // An agency-stated award date wins over the submission date: it is the event the
+    // statutory clock actually runs from, and it is why the re-anchor exists.
+    submittedAt: awardAnchorAt ?? submittedAt,
+    // Ignored once anchored on an award — the deadline is only a fallback for when we
+    // have neither a submission nor an award notice.
+    responseDeadlineIso: awardAnchorAt ? null : opportunity.responseDeadlineIso ?? null,
+    delayDays,
+  });
+
+  if (!scheduledSendAt) {
+    // Neither a submission nor a response deadline — nothing to count from.
+    return { state: 'NOT_APPLICABLE', scheduledSendAt: null };
+  }
+
+  return { state: 'SCHEDULED', scheduledSendAt };
+};
+
+/** True when the stored record already matches the intent. */
+const matchesIntent = (existing: FoiaAutomationDBItem | null, intent: Intent): boolean =>
+  !!existing &&
+  existing.state === intent.state &&
+  (existing.scheduledSendAt ?? null) === intent.scheduledSendAt;
+
+/**
+ * True when a scheduled timestamp has arrived.
+ *
+ * A plain `<= now` comparison rather than a window match: an exact-window scanner
+ * silently skips anything it misses (a failed run, a clock skew), which for a
+ * months-long timer means the FOIA simply never fires. Treating "past due" as due
+ * makes a missed night self-correcting.
+ */
+const isDue = (scheduledSendAt: string | null, now: number = Date.now()): boolean => {
+  if (!scheduledSendAt) return false;
+  const due = new Date(scheduledSendAt).getTime();
+  return !Number.isNaN(due) && due <= now;
+};
+
+/**
+ * Composes a due request and advances it out of SCHEDULED.
+ *
+ * The conditional transition happens FIRST, moving the record to a transient
+ * PREPARING-equivalent before any artifact is written, so two overlapping scanner
+ * runs cannot both compose the same request. Only the run that wins the
+ * transition proceeds.
+ */
+const prepareDueAutomation = async (args: {
+  orgId: string;
+  projectId: string;
+  oppId: string;
+  opportunity: OpportunityDBItem;
+  settings: FoiaSettingsItem;
+  dryRun: boolean;
+  /**
+   * Whether the org's daily unattended-send budget still has room.
+   *
+   * Passed in rather than computed here so the count is seeded once per org pass
+   * instead of re-queried per opportunity.
+   */
+  hasSendBudget: boolean;
+}): Promise<'PREPARED' | 'SENT' | 'BLOCKED' | 'SKIPPED'> => {
+  const { orgId, projectId, oppId, opportunity, settings, dryRun, hasSendBudget } = args;
+
+  const outcome = await prepareFoiaRequest({
+    orgId,
+    projectId,
+    oppId,
+    opportunity,
+    settings,
+    dryRun,
+    // The document scan reads S3 per opportunity; skip it on dry runs so a
+    // preview stays cheap and side-effect free.
+    skipDocumentScan: dryRun,
+  });
+
+  if (dryRun) {
+    return outcome.status === 'PREPARED' ? 'PREPARED' : 'BLOCKED';
+  }
+
+  if (outcome.status === 'BLOCKED') {
+    const moved = await transitionFoiaAutomationState({
+      orgId,
+      projectId,
+      oppId,
+      from: 'SCHEDULED',
+      to: 'BLOCKED',
+      patch: {
+        becameDueAt: nowIso(),
+        blockedReason: outcome.blockedReason,
+        missingFields: outcome.missingFields,
+        recipientCandidates: outcome.recipientCandidates,
+      },
+    });
+
+    if (!moved) return 'SKIPPED';
+
+    await syncOpportunityFoiaMarker(orgId, projectId, oppId, 'BLOCKED');
+    return 'BLOCKED';
+  }
+
+  /**
+   * Every prepared request lands in AWAITING_APPROVAL first, including the ones
+   * eligible to send unattended.
+   *
+   * The scanner must never *rest* a record in SENDING, because SENDING is a lock
+   * and an interrupted pass would strand it there — indistinguishable from a send
+   * in progress, while the statutory deadline goes by. So preparation and
+   * transmission are separate transitions: this one records that the request is
+   * ready and whether it may go unattended, and `dispatchFoiaRequest` below claims
+   * the lock only when it is about to call SES, and releases it on every path.
+   *
+   * The practical benefit is that a crash between the two leaves a record a human
+   * can see and act on, rather than a lock nothing can open.
+   */
+  const nextState: FoiaAutomationState = 'AWAITING_APPROVAL';
+
+  const moved = await transitionFoiaAutomationState({
+    orgId,
+    projectId,
+    oppId,
+    from: 'SCHEDULED',
+    to: nextState,
+    patch: {
+      becameDueAt: nowIso(),
+      blockedReason: null,
+      foiaRequestId: outcome.request.foiaId,
+      resolvedRecipientEmail: outcome.request.agencyFOIAEmail,
+      resolvedRecipientAddress: outcome.request.agencyFOIAAddress,
+      // Widened to `string` on FOIARequestItemSchema to avoid a circular import;
+      // the value originates from the resolver, which only ever sets a real
+      // FoiaRecipientSource. Parsed back to the enum here.
+      recipientSource: FoiaRecipientSourceSchema.safeParse(outcome.request.recipientSource).data,
+      artifacts: outcome.artifacts,
+      // Store the eligibility decision so the downstream sender knows whether it
+      // needs a human click or can proceed unattended.
+      autoSendEligible: outcome.autoSendEligible,
+    },
+  });
+
+  // A null transition means a concurrent run already advanced this record. The
+  // artifacts it wrote are keyed by that run's foiaId, so they are simply
+  // unreferenced — harmless, and cheaper than trying to unwind them.
+  if (!moved) return 'SKIPPED';
+
+  await syncOpportunityFoiaMarker(orgId, projectId, oppId, nextState);
+
+  /**
+   * Send now, if this request has earned it.
+   *
+   * Three independent conditions had to hold for `autoSendEligible`: the recipient
+   * came from a trusted source, the org opted in, and the award date is one we can
+   * substantiate. With all three, a human click adds nothing a human would catch.
+   *
+   * Dispatch owns the lock end to end, so a failure here lands in FAILED or back in
+   * AWAITING_APPROVAL — never in SENDING. A failed unattended send is therefore
+   * exactly a request waiting for a human, which is the right fallback.
+   */
+  /**
+   * A request that is eligible but over budget simply stays in AWAITING_APPROVAL.
+   *
+   * Not an error and not BLOCKED: the request is prepared, visible, and a human can
+   * send it today or the scanner will send it tomorrow when the budget resets. The
+   * cap is a throttle on automation, not a rejection of the filing.
+   */
+  if (outcome.autoSendEligible && !dryRun && !hasSendBudget) {
+    console.log(
+      `[foia-scan] ${orgId}/${projectId}/${oppId}: auto-send eligible but the daily cap (${settings.dailySendCap}) is reached; left awaiting approval`,
+    );
+    return 'PREPARED';
+  }
+
+  if (outcome.autoSendEligible && !dryRun) {
+    const dispatched = await dispatchFoiaRequest({
+      automation: { ...(moved as FoiaAutomationDBItem), artifacts: outcome.artifacts },
+      ...(opportunity.jurisdiction ? { jurisdiction: opportunity.jurisdiction } : {}),
+      ...(opportunity.state ? { state: opportunity.state } : {}),
+      sentBy: 'system',
+    });
+
+    if (dispatched.status === 'SENT') return 'SENT';
+
+    // Not an error for the scan: the request is prepared and visible, and a human
+    // can send it. Logged so an unattended failure is never silent.
+    console.warn(
+      `[foia-scan] auto-send did not complete for ${orgId}/${projectId}/${oppId}:`,
+      dispatched.status === 'FAILED' ? dispatched.error : dispatched.reason,
+    );
+  }
+
+  return 'PREPARED';
+};
+
+const reconcileOrg = async (args: {
+  orgId: string;
+  dryRun: boolean;
+}): Promise<OrgScanResult> => {
+  const { orgId, dryRun } = args;
+
+  const result = emptyResult(orgId);
+
+  const settings = await getFoiaSettings(orgId);
+
+  if (!settings.automationEnabled) {
+    console.log(`[foia-scan] org ${orgId}: automation disabled, skipping`);
+    return result;
+  }
+
+  /**
+   * Unattended sends counted against the org's daily cap.
+   *
+   * `dailySendCap` is validated, persisted and editable in Organization Settings,
+   * but nothing read it — `countFoiaSentToday` existed with zero callers, so the
+   * number in the UI was decorative. That matters most in exactly the situation the
+   * cap is for: a backlog of past-due opportunities all becoming due on the same
+   * pass (a newly-enabled org, a shortened delay, a first run after a long outage)
+   * would have fired every one of them at once, in the customer's name.
+   *
+   * Seeded once from what has already gone out today, then incremented locally —
+   * re-querying per opportunity would be a table scan per send, and the scanner is
+   * the only writer of `sentAt` during its own pass.
+   *
+   * The cap bounds the UNATTENDED path only. A human clicking send is making a
+   * deliberate choice and is not rate-limited by a background job's budget.
+   */
+  let sentToday = dryRun ? 0 : await countFoiaSentToday(orgId);
+
+  const { items: opportunities } = await listOpportunitiesByOrg({ orgId });
+
+  for (const opportunity of opportunities) {
+    const { projectId, oppId } = opportunity;
+    if (!projectId || !oppId) {
+      result.skipped += 1;
+      continue;
+    }
+
+    // One opportunity must never abort the pass — a bad record would otherwise
+    // starve every opportunity after it, indefinitely.
+    try {
+      const existing = await getFoiaAutomation(orgId, projectId, oppId);
+
+      // Leave anything the reconciler does not own: a record mid-approval,
+      // already sent, failed, or manually completed is not ours to rewrite.
+      if (existing && !RECONCILABLE_STATES.includes(existing.state)) {
+        result.skipped += 1;
+        continue;
+      }
+
+      const intent = await decideIntent({
+        opportunity,
+        settings,
+        delayDaysOverride: existing?.delayDaysOverride ?? null,
+        // Preserves an award-notice re-anchor across passes. Without it this recompute
+        // reverted the re-anchor to deadline-plus-delay on the next nightly run.
+        awardAnchorAt: existing?.awardAnchorAt ?? null,
+      });
+
+      // Never create a record just to say "nothing to do" — that would put a
+      // row under every opportunity in the table for no benefit.
+      if (!existing && intent.state === 'NOT_APPLICABLE') {
+        result.skipped += 1;
+        continue;
+      }
+
+      /**
+       * Idempotency gates the WRITE, not the pass.
+       *
+       * This used to `continue` here, which silently killed the entire Level 2
+       * timer. `decideIntent` is a pure recompute from inputs that do not change
+       * between nights, and `computeFoiaScheduledSendAt` is deterministic, so the
+       * recomputed intent is byte-identical to the stored record on every pass
+       * after the first. `matchesIntent` was therefore permanently true from the
+       * moment the record was written, and the due-check below — the thing that
+       * actually composes and sends the request — was reachable only on the one
+       * pass that changed the record. A request scheduled 90 days out was never
+       * prepared, on any night, ever.
+       *
+       * The reconciler's own comments assumed the opposite ("a missed night
+       * self-corrects within 24 hours"); it self-corrected nothing, precisely
+       * because nothing changed. The existing tests missed it because they stub
+       * `getFoiaAutomation` to null, exercising only the first pass.
+       */
+      const alreadyMatches = matchesIntent(existing, intent);
+      if (alreadyMatches) {
+        result.unchanged += 1;
+      }
+
+      if (!alreadyMatches && !dryRun) {
+        if (existing) {
+          await setFoiaAutomationState({
+            orgId,
+            projectId,
+            oppId,
+            state: intent.state,
+            patch: {
+              scheduledSendAt: intent.scheduledSendAt,
+              ...(intent.suppressedReason
+                ? { suppressedReason: intent.suppressedReason }
+                : {}),
+            },
+          });
+        } else {
+          await upsertFoiaAutomation({
+            orgId,
+            projectId,
+            oppId,
+            state: intent.state,
+            scheduledSendAt: intent.scheduledSendAt,
+            triggeredBy: 'TIMER',
+          });
+        }
+
+        await syncOpportunityFoiaMarker(orgId, projectId, oppId, intent.state);
+      }
+
+      // Only count a state transition we actually made; an unchanged record was
+      // already tallied above and must not be double-counted.
+      if (!alreadyMatches) {
+        if (intent.state === 'SCHEDULED') result.scheduled += 1;
+        else if (intent.state === 'SUPPRESSED') result.suppressed += 1;
+        else result.notApplicable += 1;
+      }
+
+      // A scheduled request whose time has arrived gets composed now. This is a
+      // separate transition from scheduling on purpose: preparation writes a real
+      // FOIA record and S3 artifacts, so it must be reached through a conditional
+      // state change that cannot fire twice.
+      if (intent.state === 'SCHEDULED' && isDue(intent.scheduledSendAt)) {
+        const outcome = await prepareDueAutomation({
+          orgId,
+          projectId,
+          oppId,
+          opportunity,
+          settings,
+          dryRun,
+          hasSendBudget: sentToday < settings.dailySendCap,
+        });
+
+        if (outcome === 'PREPARED') result.prepared += 1;
+        else if (outcome === 'SENT') {
+          result.sent += 1;
+          // Only a real transmission consumes budget. Counted here rather than
+          // inside the send so a SKIPPED or FAILED attempt does not silently eat
+          // the org's allowance for the day.
+          sentToday += 1;
+        } else if (outcome === 'BLOCKED') result.blocked += 1;
+      }
+    } catch (err) {
+      result.errors += 1;
+      /**
+       * Log the whole error, not just `.message`.
+       *
+       * This previously logged `err.message` alone, which cost real time: a
+       * DynamoDB "AttributeValue for a key attribute cannot contain an empty
+       * string value" told us a partition key was empty somewhere in a call graph
+       * spanning a dozen helpers, but not which call. The message alone is the
+       * least useful part of an AWS SDK error — the stack names the caller, and
+       * for validation failures that is the entire diagnosis.
+       */
+      console.error(`[foia-scan] org ${orgId} opp ${oppId}: reconcile failed:`, err);
+    }
+  }
+
+  return result;
+};
+
+export const baseHandler = async (event: ScanEvent) => {
+  const dryRun = Boolean(event?.detail?.dryRun);
+  const onlyOrgId = event?.detail?.orgId;
+  const ranAt = nowIso();
+
+  // The single-org escape hatch mirrors run-saved-search.ts, so this Lambda can
+  // be invoked manually against one tenant without touching the others.
+  const orgIds = onlyOrgId ? [onlyOrgId] : await listAllOrgIds();
+
+  console.log(`[foia-scan] starting${dryRun ? ' (dry run)' : ''} for ${orgIds.length} org(s)`);
+
+  const results: OrgScanResult[] = [];
+
+  // Sequential per org: this runs nightly with no latency requirement, and
+  // serial execution keeps DynamoDB consumption flat and the logs readable.
+  for (const orgId of orgIds) {
+    try {
+      results.push(await reconcileOrg({ orgId, dryRun }));
+    } catch (err) {
+      console.error(
+        `[foia-scan] org ${orgId}: scan failed:`,
+        err instanceof Error ? err.message : String(err),
+      );
+      results.push({ ...emptyResult(orgId), errors: 1 });
+    }
+  }
+
+  const totals = results.reduce(
+    (acc, r) => ({
+      scheduled: acc.scheduled + r.scheduled,
+      notApplicable: acc.notApplicable + r.notApplicable,
+      suppressed: acc.suppressed + r.suppressed,
+      unchanged: acc.unchanged + r.unchanged,
+      skipped: acc.skipped + r.skipped,
+      errors: acc.errors + r.errors,
+      prepared: acc.prepared + r.prepared,
+      sent: acc.sent + r.sent,
+      blocked: acc.blocked + r.blocked,
+    }),
+    {
+      scheduled: 0,
+      notApplicable: 0,
+      suppressed: 0,
+      unchanged: 0,
+      skipped: 0,
+      errors: 0,
+      prepared: 0,
+      blocked: 0,
+      sent: 0,
+    },
+  );
+
+  console.log(`[foia-scan] finished:`, JSON.stringify(totals));
+
+  return {
+    ok: true,
+    dryRun,
+    ranAt,
+    orgCount: orgIds.length,
+    totals,
+    results: results.filter(
+      (r) =>
+        r.scheduled || r.suppressed || r.notApplicable || r.errors || r.prepared || r.blocked || r.sent,
+    ),
+  };
+};
+
+export const handler = withSentryLambda(middy(baseHandler));

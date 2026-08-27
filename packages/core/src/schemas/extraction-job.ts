@@ -33,13 +33,20 @@ export const ExtractionTargetTypeSchema = z.enum([
   'PAST_PERFORMANCE',
   'LABOR_RATE',
   'BOM_ITEM',
+  'EMPLOYEE',      // team-definition U2: direct-write employee CV import (no drafts)
 ]);
 
 export type ExtractionTargetType = z.infer<typeof ExtractionTargetTypeSchema>;
 
-// Alias for DraftType (same as ExtractionTargetType)
-export const DraftTypeSchema = ExtractionTargetTypeSchema;
-export type DraftType = ExtractionTargetType;
+// Draft-based target types only. EMPLOYEE is deliberately excluded: the
+// employee import writes directly through the employee helpers (ADR-004,
+// direct import) and never creates draft records.
+export const DraftTypeSchema = z.enum([
+  'PAST_PERFORMANCE',
+  'LABOR_RATE',
+  'BOM_ITEM',
+]);
+export type DraftType = z.infer<typeof DraftTypeSchema>;
 
 // ================================
 // Source File Schema

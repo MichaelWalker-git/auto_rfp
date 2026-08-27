@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getExtractionJobRecord, updateExtractionJobProgress } from '@/helpers/extraction';
 import { nowIso } from '@/helpers/date';
 import { extractPastPerformanceFromDocument, extractLaborRatesFromDocument, extractBOMItemsFromDocument } from '@/helpers/extraction-processor';
+import { runEmployeeImport } from '@/helpers/employee-import-engine';
 import { writeAuditLog } from '@/helpers/audit-log';
 import { getHmacSecret } from '@/helpers/secret';
 import type { ExtractionTargetType } from '@auto-rfp/core';
@@ -10,6 +11,8 @@ import type { ExtractionTargetType } from '@auto-rfp/core';
 interface ExtractionMessage {
   jobId: string;
   orgId: string;
+  /** Present only for EMPLOYEE jobs (team-definition U2) — the run to execute. */
+  importRunId?: string;
 }
 
 /**
@@ -48,6 +51,75 @@ export const handler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
         startedAt: nowIso(),
       });
 
+      const targetType = job.targetType ?? 'PAST_PERFORMANCE';
+
+      // team-definition U2 (ADR-004): EMPLOYEE jobs scan the org's documents and
+      // write employees directly through the employee helpers — no draft records,
+      // no source files. The engine owns run progress and the completion summary
+      // (BR4.1/BR4.2); the worker mirrors the outcome onto the job record.
+      if (targetType === 'EMPLOYEE') {
+        const { importRunId } = message;
+        if (!importRunId) {
+          console.error(`EMPLOYEE extraction job ${jobId} has no importRunId - failing (will not retry)`);
+          await updateExtractionJobProgress(orgId, jobId, {
+            status: 'FAILED',
+            completedAt: nowIso(),
+          });
+          continue;
+        }
+
+        const run = await runEmployeeImport({ orgId, importRunId, triggeredBy: job.createdBy });
+
+        const jobStatus = run.status === 'FAILED' ? 'FAILED' : 'COMPLETED';
+        const jobCompletedAt = nowIso();
+        await updateExtractionJobProgress(orgId, jobId, {
+          status: jobStatus,
+          processedItems: run.documentsScanned,
+          successfulItems: run.employeesCreated + run.employeesUpdated,
+          failedItems: run.failedDocuments.length,
+          completedAt: jobCompletedAt,
+        });
+
+        console.log(
+          `Completed employee import run ${importRunId} (job ${jobId}): status=${run.status}, ` +
+          `scanned=${run.documentsScanned}, created=${run.employeesCreated}, updated=${run.employeesUpdated}, failures=${run.failedDocuments.length}`,
+        );
+
+        // Non-blocking audit log — same pattern as the draft-based targets below.
+        getHmacSecret().then(hmacSecret => {
+          writeAuditLog(
+            {
+              logId: uuidv4(),
+              timestamp: jobCompletedAt,
+              userId: 'system',
+              userName: 'system',
+              organizationId: orgId,
+              action: jobStatus === 'COMPLETED' ? 'EXTRACTION_JOB_COMPLETED' : 'EXTRACTION_JOB_FAILED',
+              resource: 'extraction_job',
+              resourceId: jobId,
+              changes: {
+                after: {
+                  status: jobStatus,
+                  targetType,
+                  importRunId,
+                  runStatus: run.status,
+                  documentsScanned: run.documentsScanned,
+                  employeesCreated: run.employeesCreated,
+                  employeesUpdated: run.employeesUpdated,
+                  failedDocuments: run.failedDocuments.length,
+                },
+              },
+              ipAddress: '0.0.0.0',
+              userAgent: 'system',
+              result: jobStatus === 'COMPLETED' ? 'success' : 'failure',
+            },
+            hmacSecret,
+          ).catch(err => console.warn('Failed to write audit log:', err.message));
+        }).catch(err => console.warn('Failed to get HMAC secret for audit:', err.message));
+
+        continue;
+      }
+
       const draftsCreated: string[] = [];
       const errors: { source: string; error: string; timestamp: string }[] = [];
       let processedItems = 0;
@@ -55,7 +127,6 @@ export const handler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
       let failedItems = 0;
 
       // Process each source file based on targetType
-      const targetType = job.targetType ?? 'PAST_PERFORMANCE';
       console.log(`Processing ${job.sourceFiles.length} files with targetType: ${targetType}`);
       
       for (const sourceFile of job.sourceFiles) {

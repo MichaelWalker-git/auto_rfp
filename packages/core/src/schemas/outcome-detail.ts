@@ -73,7 +73,20 @@ export const LossDataSchema = z.object({
   winningContractor: z.string().optional(),
   winningBidAmount: z.number().nonnegative().optional(),
   ourBidAmount: z.number().nonnegative().optional(),
+  /** How the agency scored US, from a debrief or a released scoring sheet. */
   evaluationScores: EvaluationScoresSchema.optional(),
+  /**
+   * How the agency scored the WINNER, where the release discloses it.
+   *
+   * Separate from `evaluationScores` rather than a field on it, because the two have
+   * different provenance and different completeness. Ours usually comes from a debrief
+   * we requested; the winner's only appears if the agency released a comparative
+   * tabulation, and agencies frequently disclose a total while withholding the
+   * criterion breakdown. Keeping them apart lets the dashboard show a half comparison
+   * — "they beat us 92 to 61 on price, technical not disclosed" — which is still the
+   * most useful thing on the page, instead of hiding the row for want of a full set.
+   */
+  winnerScores: EvaluationScoresSchema.optional(),
 });
 
 export type LossData = z.infer<typeof LossDataSchema>;

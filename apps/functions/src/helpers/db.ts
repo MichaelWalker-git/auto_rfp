@@ -304,7 +304,12 @@ export const putItem = async <T extends Record<string, any>>(
    * Keys are applied AFTER the spread, so the caller's item can never clobber them.
    *
    * They used to come first, which meant an item carrying its own
-   * `partition_key`/`sort_key` silently overwrote the arguments.
+   * `partition_key`/`sort_key` silently overwrote the arguments. That is not
+   * hypothetical: `deriveFoiaRequest` seeded both with `''` to satisfy the
+   * `DBFOIARequestItem` type, and every automated FOIA preparation then failed
+   * with "The AttributeValue for a key attribute cannot contain an empty string
+   * value" — a message that names the symptom and none of the twelve helpers in
+   * the call graph.
    *
    * The `item: Omit<T, typeof PK_NAME | typeof SK_NAME>` signature does not
    * prevent this. `PK_NAME` is a `const` of type `string`, so that resolves to

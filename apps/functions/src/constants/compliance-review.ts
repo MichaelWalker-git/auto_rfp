@@ -107,3 +107,48 @@ export const MISSING_FORM_MIN_MATCH_LEN = 4;
  */
 export const RUN_KEEP_COUNT = 10;
 export const RUN_TTL_DAYS = 90;
+
+// ─── Factual-accuracy review (C1–C5, full review only) ──────────────────────
+//
+// The factual-accuracy checks follow a two-stage pipeline: cheap deterministic
+// candidate generation (high recall) → one batched model verification call per
+// check (the precision gate). These bounds keep Stage 2 token-safe even on a
+// pathological package, and cap retrieval breadth for the KB/PP checks.
+
+/** Top-K KB (content-library) hits retrieved per document section in C3. */
+export const FACTUAL_KB_TOP_K = 3;
+/** Top-K usable past-performance records retrieved per candidate reference in C4. */
+export const FACTUAL_PP_TOP_K = 3;
+/** Max output tokens for a factual-accuracy Stage-2 verification call. */
+export const MAX_TOKENS_FACTUAL = 4000;
+/**
+ * Stage-1 hard cap on candidate spots fed into a single check's Stage-2 model
+ * call. A pathological package (thousands of cells, every one a candidate) must
+ * not explode the verification prompt; excess candidates are dropped and the
+ * drop is logged via the `factual-candidates` instrumentation line.
+ */
+export const MAX_FACTUAL_CANDIDATES_PER_CHECK = 60;
+/** Max characters of a section's text fed to the C3 KB-contradiction verifier. */
+export const MAX_FACTUAL_SECTION_CHARS = 3000;
+
+// ─── Solution-plan consistency review (C6, full review only) ────────────────
+//
+// C6 checks the package against the opportunity's latest READY solution plan:
+//   C6a — structured cost schedule (service label + price) vs package (deterministic → verify)
+//   C6b — plan prose (approach/team/services) vs package HTML sections (section-chunked → verify)
+//   C6c — structured team roster (role → assigned person) vs package (deterministic → verify).
+//         The roster is a plan sidecar written AFTER synthesis (NOT in the prose the
+//         plan HTML carries), so team consistency needs its own structured check —
+//         C6b can only catch team claims that happen to appear in the plan prose.
+//   C6d — structured person→role (the transpose of C6c): the SAME plan person listed
+//         under a DIFFERENT role vs package (deterministic → verify). C6c keys on the
+//         role (wrong person?); C6d keys on the person (wrong role?). A package edit
+//         that only relabels an existing person's role trips C6d, never C6c.
+
+/**
+ * Max characters of the solution-plan text fed to the C6b prose-contradiction
+ * verifier. The plan is loaded pre-truncated to SOLUTION_PLAN_TEXT_BUDGET
+ * (~12k); this caps what a single contradiction call carries alongside the
+ * package sections so the prompt stays well under Bedrock's limit.
+ */
+export const MAX_SOLUTION_PLAN_TEXT_CHARS = 8000;

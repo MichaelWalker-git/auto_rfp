@@ -1,0 +1,26 @@
+{
+  "stage": "code-generation",
+  "unit": "u1-employee-pool",
+  "upstream_ids": ["FR1.1", "FR1.2", "FR1.3", "FR1.4", "FR1.5", "FR5.1", "BR1.1", "BR1.2", "BR1.3", "BR1.4", "BR1.5", "BR2.1", "BR2.2", "BR2.3", "BR3.1", "BR3.2", "BR4.1", "BR4.2", "BR4.3"],
+  "coverage": [
+    { "id": "FR1.1", "status": "OK", "target": "apps/web/features/employees/components/EmployeesPageContent.tsx" },
+    { "id": "FR1.2", "status": "OK", "target": "apps/web/app/organizations/[orgId]/employees/create/page.tsx" },
+    { "id": "FR1.3", "status": "OK", "target": "packages/core/src/schemas/employee.ts" },
+    { "id": "FR1.4", "status": "OK", "target": "packages/core/src/schemas/employee.ts" },
+    { "id": "FR1.5", "status": "OK", "target": "apps/web/features/employees/components/EmployeeEmptyState.tsx" },
+    { "id": "FR5.1", "status": "OK", "target": "packages/core/src/schemas/user.ts" },
+    { "id": "BR1.1", "status": "OK", "target": "packages/core/src/schemas/employee.ts" },
+    { "id": "BR1.2", "status": "OK", "target": "packages/core/src/schemas/employee.ts" },
+    { "id": "BR1.3", "status": "OK", "target": "packages/core/src/schemas/employee.ts" },
+    { "id": "BR1.4", "status": "OK", "target": "packages/core/src/schemas/employee.ts" },
+    { "id": "BR1.5", "status": "OK", "target": "apps/web/features/employees/components/RoleTagInput.tsx" },
+    { "id": "BR2.1", "status": "OK", "target": "apps/functions/src/handlers/employee/list-employees.ts" },
+    { "id": "BR2.2", "status": "OK", "target": "apps/functions/src/handlers/employee/create-employee.ts" },
+    { "id": "BR2.3", "status": "OK", "target": "apps/functions/src/helpers/employee.ts" },
+    { "id": "BR3.1", "status": "OK", "target": "apps/functions/src/helpers/employee.ts" },
+    { "id": "BR3.2", "status": "OK", "target": "apps/functions/src/helpers/employee.ts" },
+    { "id": "BR4.1", "status": "OK", "target": "apps/web/features/employees/components/EmployeeTable.tsx" },
+    { "id": "BR4.2", "status": "OK", "target": "apps/web/features/employees/components/EmployeeTableSkeleton.tsx" },
+    { "id": "BR4.3", "status": "OK", "target": "apps/web/features/employees/components/EmployeeForm.tsx" }
+  ]
+}

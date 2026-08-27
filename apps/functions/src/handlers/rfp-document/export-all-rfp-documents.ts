@@ -27,7 +27,7 @@ import { htmlToPdfBuffer } from '@/helpers/export-pdf';
 import { htmlToDocxBuffer } from '@/helpers/export-docx';
 import { htmlToPptxBuffer } from '@/helpers/export-pptx';
 import { buildExportHtml } from '@/helpers/export-html-builder';
-import { parsePageRange } from '@auto-rfp/core';
+import { parsePageRange, type TemplateFurniture } from '@auto-rfp/core';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const REGION = requireEnv('REGION', 'us-east-1');
@@ -124,11 +124,15 @@ const exportDocumentToFormat = async (
     // DOCX handles TOC natively; txt/md should not contain TOC markup.
     const withToc = expandTableOfContents(processed);
 
+    // Header/footer snapshot carried on the document by generation. Undefined for
+    // documents predating the feature, which keeps their output unchanged.
+    const furniture = (doc as { furniture?: TemplateFurniture | null } | undefined)?.furniture ?? undefined;
+
     switch (format) {
       case 'pdf':
-        return await htmlToPdfBuffer(withToc, { title, pageSize });
+        return await htmlToPdfBuffer(withToc, { title, pageSize, furniture });
       case 'docx':
-        return await htmlToDocxBuffer(withToc, { title, pageSize });
+        return await htmlToDocxBuffer(withToc, { title, pageSize, furniture });
       case 'pptx': {
         const contentObj = doc?.content as Record<string, unknown> | null;
         return await htmlToPptxBuffer(withToc, {
@@ -139,7 +143,7 @@ const exportDocumentToFormat = async (
         });
       }
       case 'html':
-        return Buffer.from(buildExportHtml(withToc, { title, pageSize }), 'utf-8');
+        return Buffer.from(buildExportHtml(withToc, { title, pageSize, furniture }), 'utf-8');
       case 'txt':
         return Buffer.from(htmlToPlainText(processed), 'utf-8');
       case 'md':

@@ -89,6 +89,13 @@ export const PRICING_PERMISSIONS = [
   'pricing:create', 'pricing:read', 'pricing:edit', 'pricing:delete', 'pricing:calculate'
 ] as const;
 
+export const EMPLOYEE_PERMISSIONS = [
+  // Viewing the org employee pool — open to every org member (BR2.1).
+  'employee:read',
+  // Create/edit/delete employees and trigger CV import — org admins only (BR2.2).
+  'employee:manage',
+] as const;
+
 export const ALL_PERMISSIONS = [
   ...USER_PERMISSIONS,
   ...ORG_PERMISSIONS,
@@ -99,6 +106,7 @@ export const ALL_PERMISSIONS = [
   ...CONTENT_LIBRARY_PERMISSIONS,
   ...APN_PERMISSIONS,
   ...PRICING_PERMISSIONS,
+  ...EMPLOYEE_PERMISSIONS,
   'kb:upload', 'kb:read', 'kb:create', 'kb:edit', 'kb:delete',
   'project:create', 'project:edit', 'project:read', 'project:delete',
   'question:read', 'question:create', 'question:edit', 'question:delete',
@@ -123,6 +131,17 @@ export const ALL_PERMISSIONS = [
   'notification:manage',
   'audit:read',
   'audit:report',
+  // Approving and transmitting a statutory records request to an agency.
+  'foia:send',
+  /**
+   * Opening the documents an agency released in response to a records request.
+   *
+   * Separate from `foia:send`, which is the authority to transmit a request — a
+   * different question with a different answer. Released records can name competitors'
+   * pricing and evaluators by name, so this is ADMIN-only, while the aggregate charts
+   * built from them are open to every role.
+   */
+  'foia:documents:read',
 ] as const;
 
 export type Permission = (typeof ALL_PERMISSIONS)[number];
@@ -132,6 +151,8 @@ export const VIEWER_PERMISSIONS = [
   'template:read',
   'pricing:read',
   'form:read',
+  // Employee pool is readable by every org member (BR2.1).
+  'employee:read',
 ] as const;
 
 export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
@@ -165,10 +186,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'apn:read',
     'apn:retry',
     'pricing:create', 'pricing:read', 'pricing:edit', 'pricing:calculate',
+    'foia:send',
   ],
   BILLING: [
     'question:read', 'org:read', 'kb:read', 'proposal:read', 'project:read',
     'pricing:read', 'pricing:calculate',
+    // Employee pool is readable by every org member (BR2.1).
+    'employee:read',
     // RFP-tracking approval is open to every org member (both gates).
     'rfp:approve_initial',
     'rfp:approve_final',

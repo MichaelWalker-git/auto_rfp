@@ -12,7 +12,9 @@ export class OpportunitiesPage {
 
   constructor(private page: Page) {
     this.heading = page.locator('h1:has-text("Opportunities")');
-    this.keywordInput = page.locator('input[placeholder*="Keywords"]');
+    // SAM.gov's API matches notice titles only — there is no free-text parameter —
+    // so the field is labelled "Title contains" rather than "Keywords".
+    this.keywordInput = page.locator('input[placeholder*="Title contains"]');
     this.searchButton = page.locator('button:has-text("Search")');
     this.filtersButton = page.locator('button:has-text("Filters")');
     this.saveButton = page.locator('button:has-text("Save")');
