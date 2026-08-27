@@ -3,8 +3,9 @@ import { Readable } from 'stream';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { GetCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
-import { getApiKey } from './api-key-storage';
-import { GOOGLE_SECRET_PREFIX } from '../constants/google';
+import { getDriveClientForOrg } from './google-drive-client';
+import { pushDocumentToDrive } from './google-drive-document-sync';
+import type { DriveSyncDocument } from './google-drive-document-sync';
 import { requireEnv } from './env';
 import { docClient } from './db';
 import { nowIso } from './date';
@@ -17,7 +18,6 @@ import { userSk } from './user';
 import { buildQuestionFileSK } from './questionFile';
 import { createLinearComment, updateLinearTicketDescription } from './linear';
 import { buildOfferMessage } from './linear-offer-message';
-import { loadRFPDocumentHtml } from './rfp-document';
 import { getExecutiveBrief } from './executive-opportunity-brief';
 import { QuestionFileItem } from '@auto-rfp/core';
 
@@ -49,93 +49,22 @@ const INTAKE_FOLDER_NAME = process.env['GOOGLE_INTAKE_FOLDER_NAME'] ?? '00 To be
 
 // ─── Auth (Domain-Wide Delegation only) ───
 
+/**
+ * Thin wrapper over the shared client in `./google-drive-client`.
+ *
+ * Keeps this module's historical extra behaviour: when the service account JSON
+ * carries no `delegate_email`, fall back to the first org member's email. That
+ * lookup needs DynamoDB, which the shared client deliberately does not import, so
+ * it is injected as a resolver here.
+ */
 async function getDriveClient(orgId: string): Promise<drive_v3.Drive | null> {
-  console.log(`[GoogleDrive] Getting Drive client for org ${orgId}`);
-  const serviceAccountJson = await getApiKey(orgId, GOOGLE_SECRET_PREFIX);
-  if (!serviceAccountJson) {
-    console.log(`[GoogleDrive] No Google service account key found for org ${orgId}`);
-    return null;
-  }
-
-  console.log(`[GoogleDrive] Service account JSON retrieved (length: ${serviceAccountJson.length})`);
-
-  try {
-    const credentials = JSON.parse(serviceAccountJson);
-
-    console.log(`[GoogleDrive] Parsed credentials - client_email: ${credentials.client_email}, delegate_email: ${credentials.delegate_email || 'NOT SET'}`);
-
-    if (!credentials.client_email || !credentials.private_key) {
-      console.error(
-        '[GoogleDrive] Invalid Google service account key: missing client_email or private_key. ' +
-        'A Google Service Account JSON key is required (not a simple API key). ' +
-        'Please update the Google Drive configuration in organization settings.',
-      );
-      return null;
-    }
-
-    // Determine the delegate email for domain-wide delegation
-    // Priority: 1) explicit delegate_email in JSON, 2) first org member email
-    let delegateEmail = credentials.delegate_email;
-
-    if (!delegateEmail) {
-      console.log(`[GoogleDrive] No delegate_email in credentials, looking up org member emails...`);
-      try {
-        const emails = await getOrgMemberEmails(orgId);
-        console.log(`[GoogleDrive] Found ${emails.length} org member emails: ${emails.slice(0, 3).join(', ')}${emails.length > 3 ? '...' : ''}`);
-        if (emails.length > 0) {
-          delegateEmail = emails[0];
-        }
-      } catch (emailErr) {
-        console.error(`[GoogleDrive] Failed to get org member emails: ${(emailErr as Error)?.message}`);
-      }
-    }
-
-    if (!delegateEmail) {
-      console.error(
-        '[GoogleDrive] ERROR: No delegate email available. Domain-wide delegation requires a delegate_email. ' +
-        'Please add "delegate_email": "user@yourdomain.com" to the service account JSON key in organization settings. ' +
-        'The delegate email must be a Google Workspace user with Drive storage.',
-      );
-      return null;
-    }
-
-    console.log(`[GoogleDrive] Using domain-wide delegation to impersonate: ${delegateEmail}`);
-    const jwtClient = new google.auth.JWT({
-      email: credentials.client_email,
-      key: credentials.private_key,
-      scopes: ['https://www.googleapis.com/auth/drive'],
-      subject: delegateEmail,
-    });
-
-    // Verify the delegation works by authorizing the JWT client
-    try {
-      await jwtClient.authorize();
-      console.log(`[GoogleDrive] JWT authorization successful for delegate: ${delegateEmail}`);
-    } catch (authErr) {
-      console.error(
-        `[GoogleDrive] JWT authorization FAILED for delegate ${delegateEmail}: ${(authErr as Error)?.message}. ` +
-        'Ensure domain-wide delegation is configured in admin.google.com: ' +
-        'Security → Access and data control → API controls → Manage Domain Wide Delegation. ' +
-        `Add Client ID: ${credentials.client_id} with scope: https://www.googleapis.com/auth/drive`,
-      );
-      return null;
-    }
-
-    console.log(`[GoogleDrive] Drive client initialized successfully with delegation`);
-    return google.drive({ version: 'v3', auth: jwtClient });
-  } catch (err) {
-    const message = (err as Error)?.message || '';
-    if (message.includes('is not valid JSON')) {
-      console.error(
-        '[GoogleDrive] Failed to initialize Drive client: The stored credential is not valid JSON. ' +
-        'A Google Service Account JSON key is required (not a simple API key). ' +
-        'Please update the Google Drive configuration in organization settings.',
-      );
-    } else {
-      console.error(`[GoogleDrive] Failed to initialize Drive client: ${message}`);
-    }
-    return null;
-  }
+  const client = await getDriveClientForOrg(orgId, {
+    resolveDelegateFallback: async () => {
+      const emails = await getOrgMemberEmails(orgId);
+      return emails[0] ?? null;
+    },
+  });
+  return client?.drive ?? null;
 }
 
 // ─── Folder Management ───
@@ -279,32 +208,6 @@ async function uploadTextAsGoogleDoc(
   return { fileId: res.data.id!, webViewLink: res.data.webViewLink! };
 }
 
-/**
- * Upload an HTML string as a NATIVE Google Doc, preserving formatting. Sending
- * `text/html` media against a `application/vnd.google-apps.document` target
- * makes Drive convert the markup into a formatted, editable Google Doc — used
- * for generated proposal documents, whose content is stored as HTML in S3.
- */
-async function uploadHtmlAsGoogleDoc(
-  drive: drive_v3.Drive,
-  html: string,
-  name: string,
-  folderId: string,
-): Promise<{ fileId: string; webViewLink: string }> {
-  const stream = Readable.from(Buffer.from(html, 'utf-8'));
-  const res = await drive.files.create({
-    requestBody: {
-      name,
-      parents: [folderId],
-      mimeType: 'application/vnd.google-apps.document',
-    },
-    media: { mimeType: 'text/html', body: stream },
-    fields: 'id, webViewLink',
-    supportsAllDrives: true,
-  });
-  return { fileId: res.data.id!, webViewLink: res.data.webViewLink! };
-}
-
 // ─── Sharing ───
 
 async function shareWithEmails(
@@ -370,19 +273,15 @@ async function loadQuestionFilesForOpportunity(
   return (res.Items ?? []).filter((item: any) => item.fileKey && item.status !== 'DELETED') as QuestionFileItem[];
 }
 
+/**
+ * Load the full document records, not a projection: `pushDocumentToDrive` needs
+ * `googleDriveFileId` to update in place instead of creating a duplicate, and
+ * `htmlContentKey` to upload the current editor content.
+ */
 async function loadRFPDocumentsForOpportunity(
   projectId: string,
   opportunityId: string,
-): Promise<Array<{
-  documentId: string;
-  name: string;
-  status?: string;
-  fileKey?: string;
-  mimeType?: string;
-  htmlContentKey?: string;
-  content?: any;
-  googleDriveFileId?: string;
-}>> {
+): Promise<DriveSyncDocument[]> {
   const res = await docClient.send(
     new QueryCommand({
       TableName: DB_TABLE_NAME,
@@ -396,16 +295,7 @@ async function loadRFPDocumentsForOpportunity(
       },
     }),
   );
-  return (res.Items ?? []).map((item: any) => ({
-    documentId: item.documentId,
-    name: item.name || item.title || 'document',
-    status: item.status,
-    fileKey: item.fileKey,
-    mimeType: item.mimeType,
-    htmlContentKey: item.htmlContentKey,
-    content: item.content,
-    googleDriveFileId: item.googleDriveFileId,
-  }));
+  return (res.Items ?? []) as DriveSyncDocument[];
 }
 
 // ─── DB Updates ───
@@ -473,38 +363,6 @@ async function updateBriefGoogleDrive(
       UpdateExpression: `SET ${setParts.join(', ')}`,
       ExpressionAttributeNames: names,
       ExpressionAttributeValues: values,
-    }),
-  );
-}
-
-/**
- * Record the Google Drive upload metadata on an RFP document item so the
- * proposal-materials sync is idempotent — a document already carrying a
- * `googleDriveFileId` is skipped rather than re-uploaded each time another
- * document reaches READY. Mirrors {@link updateQuestionFileGoogleDrive}.
- */
-async function updateRFPDocumentGoogleDrive(
-  projectId: string, opportunityId: string, documentId: string,
-  googleDriveFileId: string, googleDriveUrl: string, googleDriveFolderId: string,
-): Promise<void> {
-  const sk = `${projectId}#${opportunityId}#${documentId}`;
-  const now = nowIso();
-  await docClient.send(
-    new UpdateCommand({
-      TableName: DB_TABLE_NAME,
-      Key: { [PK_NAME]: RFP_DOCUMENT_PK, [SK_NAME]: sk },
-      UpdateExpression: 'SET #gdFileId = :gdFileId, #gdUrl = :gdUrl, #gdFolderId = :gdFolderId, #gdUploadedAt = :gdUploadedAt, #updatedAt = :now',
-      ExpressionAttributeNames: {
-        '#gdFileId': 'googleDriveFileId', '#gdUrl': 'googleDriveUrl',
-        '#gdFolderId': 'googleDriveFolderId', '#gdUploadedAt': 'googleDriveUploadedAt', '#updatedAt': 'updatedAt',
-      },
-      ExpressionAttributeValues: {
-        ':gdFileId': googleDriveFileId,
-        ':gdUrl': googleDriveUrl,
-        ':gdFolderId': googleDriveFolderId,
-        ':gdUploadedAt': now,
-        ':now': now,
-      },
     }),
   );
 }
@@ -715,6 +573,11 @@ export async function syncToGoogleDrive(args: {
     //    Analysis Doc URL and /Proposal Materials folder id too, so the deferred
     //    proposal-materials sync can re-render the full offer note later without
     //    dropping the Analysis link or re-resolving the subfolder.
+    //
+    //    RFP documents are NOT uploaded inline here (HOR-2729): syncProposalMaterials
+    //    (step 10 below, and the per-document generation completion path) owns that,
+    //    routed through pushDocumentToDrive so re-syncs update in place instead of
+    //    leaving orphaned duplicates.
     if (rootFolderUrl) {
       try {
         await updateBriefGoogleDrive(
@@ -876,31 +739,26 @@ export async function syncProposalMaterials(args: {
       result.skipped++;
       continue;
     }
+    if (!doc.htmlContentKey && !doc.fileKey && !doc.content) {
+      // Nothing renderable yet — skip without error.
+      continue;
+    }
     try {
-      let fileId: string | undefined;
-      let webViewLink: string | undefined;
-
-      if (doc.htmlContentKey) {
-        // Generated proposal content lives as HTML in S3 → convert to a Google Doc.
-        const html = await loadRFPDocumentHtml(doc.htmlContentKey);
-        ({ fileId, webViewLink } = await uploadHtmlAsGoogleDoc(drive, html, doc.name, proposalFolderId));
-      } else if (doc.fileKey) {
-        // Uploaded/binary document → upload as-is.
-        ({ fileId, webViewLink } = await uploadFileFromS3(
-          drive, doc.fileKey, doc.name, doc.mimeType || 'application/octet-stream', proposalFolderId,
-        ));
-      } else {
-        // Nothing renderable yet — skip without error.
-        continue;
-      }
-
-      if (fileId && webViewLink) {
-        await updateRFPDocumentGoogleDrive(
-          projectId, opportunityId, doc.documentId, fileId, webViewLink, proposalFolderId,
-        );
-        result.uploaded++;
-        console.log(`[GoogleDrive] Uploaded proposal doc: ${doc.name} → ${webViewLink}`);
-      }
+      // Routed through pushDocumentToDrive (HOR-2607) so the Drive fileId is
+      // recorded on the document and a concurrent re-sync updates in place
+      // instead of leaving an orphaned duplicate.
+      const { googleDriveUrl } = await pushDocumentToDrive({
+        drive,
+        doc,
+        orgId,
+        projectId,
+        opportunityId,
+        documentId: doc.documentId,
+        updatedBy: 'system',
+        folderId: proposalFolderId,
+      });
+      result.uploaded++;
+      console.log(`[GoogleDrive] Uploaded proposal doc: ${doc.name} → ${googleDriveUrl}`);
     } catch (err) {
       result.errors.push(`Proposal doc "${doc.name}": ${(err as Error)?.message}`);
     }

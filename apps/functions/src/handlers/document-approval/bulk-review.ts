@@ -7,6 +7,7 @@ import { getApprovalRecord, updateApprovalStatus } from '@/helpers/document-appr
 import { updateRFPDocumentMetadata } from '@/helpers/rfp-document';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
 import { reassignLinearTicket } from '@/helpers/linear';
+import { captureApprovedSnapshotIfConfigured } from '@/helpers/google-drive-document-sync';
 import { writeAuditLog } from '@/helpers/audit-log';
 import { getHmacSecret } from '@/helpers/secret';
 import { nowIso } from '@/helpers/date';
@@ -69,6 +70,22 @@ const processReview = async (
       updates: { signatureStatus: newSignatureStatus, status: newDocStatus },
       updatedBy: reviewerId,
     });
+
+    // Freeze a Drive copy of what was just approved (non-blocking). Same rationale as
+    // submit-review: a record-keeping artefact must not fail or slow a bulk approval.
+    if (review.decision === 'APPROVED') {
+      captureApprovedSnapshotIfConfigured({
+        orgId,
+        projectId,
+        opportunityId,
+        documentId: review.documentId,
+      }).catch((err: unknown) =>
+        console.warn(
+          `[bulk-review] Approved-snapshot capture failed for ${review.documentId}:`,
+          (err as Error)?.message,
+        ),
+      );
+    }
 
     // Reassign Linear ticket (non-blocking)
     if (approval.linearTicketId) {

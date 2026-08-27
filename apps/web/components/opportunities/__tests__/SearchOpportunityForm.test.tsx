@@ -26,16 +26,18 @@ import type { FormValues } from '../SearchOpportunityForm';
 
 const mockAuthFetcher = authFetcher as jest.MockedFunction<typeof authFetcher>;
 
-const renderForm = (initialValues: Partial<FormValues>) =>
+const renderForm = (initialValues: Partial<FormValues>, onSearch = jest.fn()) => {
   render(
     <SearchOpportunityForm
       orgId="org-1"
       projectId="proj-1"
-      onSearch={jest.fn()}
+      onSearch={onSearch}
       isLoading={false}
       initialValues={initialValues}
     />,
   );
+  return onSearch;
+};
 
 /** Open the save dialog and click "Save search", returning the POST body sent. */
 const saveAndReadBody = async () => {
@@ -82,21 +84,155 @@ describe('SearchOpportunityForm — daily auto-import is scoped to HigherGov', (
     expect(body.autoImport).toBe(false);
   });
 
-  it('saves a DIBBS search with autoImport disabled', async () => {
-    renderForm({ source: 'DIBBS' });
-
-    const body = await saveAndReadBody();
-
-    expect(body.source).toBe('DIBBS');
-    expect(body.autoImport).toBe(false);
-  });
-
-  it('saves an "all sources" search as SAM_GOV with autoImport disabled', async () => {
-    renderForm({ source: 'all' });
+  // DIBBS and the old "all sources" mode are no longer selectable: filters are now
+  // provider-aware, which requires exactly one provider, and DIBBS is not a provider
+  // this product can use. The form coerces anything else to SAM.gov so that stale
+  // URLs and previously-saved searches still open on a usable provider.
+  it.each([
+    ['a stored DIBBS search', 'DIBBS'],
+    ['a legacy "all sources" search', 'all'],
+  ])('saves %s as SAM_GOV with autoImport disabled', async (_label, source) => {
+    renderForm({ source: source as never });
 
     const body = await saveAndReadBody();
 
     expect(body.source).toBe('SAM_GOV');
     expect(body.autoImport).toBe(false);
+  });
+});
+
+/**
+ * The heart of the search/import UX fix. Filters used to be one flat set shown for
+ * every provider, so most of what the user typed was silently dropped or, for
+ * HigherGov, client-filtered against an arbitrary 100-row slice — which reads as
+ * "search filtering is broken". Only filters the chosen provider can honour are now
+ * rendered, and only those are sent.
+ */
+describe('SearchOpportunityForm — filters are provider-aware', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAuthFetcher.mockResolvedValue({ ok: true, json: async () => ({}) } as unknown as Response);
+  });
+
+  const submit = async (onSearch: jest.Mock) => {
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /^search$/i }));
+    await waitFor(() => expect(onSearch).toHaveBeenCalled());
+    return onSearch.mock.calls[0][0] as Record<string, unknown>;
+  };
+
+  it('DIBBS is not offered as a provider', async () => {
+    renderForm({ source: 'SAM_GOV' });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole('button', { name: /SAM\.gov/i }));
+
+    expect(await screen.findByRole('menuitemradio', { name: /HigherGov/i })).toBeTruthy();
+    expect(screen.queryByRole('menuitemradio', { name: /DIBBS/i })).toBeNull();
+    expect(screen.queryByRole('menuitemradio', { name: /All Sources/i })).toBeNull();
+  });
+
+  it('shows NAICS, set-aside and closing-date filters for SAM.gov', () => {
+    renderForm({ source: 'SAM_GOV' });
+
+    expect(screen.getByRole('button', { name: /NAICS/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Set-aside/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Closing date/i })).toBeTruthy();
+  });
+
+  it('hides NAICS, set-aside and closing date for HigherGov, whose API has no such filters', () => {
+    renderForm({ source: 'HIGHER_GOV' });
+
+    expect(screen.queryByRole('button', { name: /NAICS/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Set-aside/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Closing date/i })).toBeNull();
+  });
+
+  it('sends only SAM.gov-supported criteria when SAM.gov is selected', async () => {
+    // `higherGovSearchId` is seeded but must not be forwarded — SAM.gov ignores it.
+    const onSearch = renderForm({
+      source: 'SAM_GOV',
+      keywords: 'radar',
+      naics: ['541512'],
+      setAsideCode: 'SBA',
+      higherGovSearchId: 'BWr0PdG39B6mX8cG47AQ8',
+      higherGovSourceType: 'sbir',
+    });
+
+    const criteria = await submit(onSearch);
+
+    expect(criteria.sources).toEqual(['SAM_GOV']);
+    expect(criteria.keywords).toBe('radar');
+    expect(criteria.naics).toEqual(['541512']);
+    expect(criteria.setAsideCode).toBe('SBA');
+    expect(criteria.higherGovSearchId).toBeUndefined();
+    expect(criteria.higherGovSourceType).toBeUndefined();
+  });
+
+  it('drops keyword/NAICS/set-aside when HigherGov is selected, since its API cannot honour them', async () => {
+    const onSearch = renderForm({
+      source: 'HIGHER_GOV',
+      keywords: 'radar',
+      naics: ['541512'],
+      setAsideCode: 'SBA',
+      higherGovSearchId: 'BWr0PdG39B6mX8cG47AQ8',
+    });
+
+    const criteria = await submit(onSearch);
+
+    expect(criteria.sources).toEqual(['HIGHER_GOV']);
+    expect(criteria.higherGovSearchId).toBe('BWr0PdG39B6mX8cG47AQ8');
+    expect(criteria.keywords).toBeUndefined();
+    expect(criteria.naics).toBeUndefined();
+    expect(criteria.setAsideCode).toBeUndefined();
+    // HigherGov takes a single `posted_date`, so there is no range upper bound.
+    expect(criteria.closingFrom).toBeUndefined();
+    expect(criteria.closingTo).toBeUndefined();
+    expect(criteria.postedTo).toBeUndefined();
+  });
+
+  it('extracts a HigherGov search ID from a pasted URL', async () => {
+    const user = userEvent.setup();
+    const onSearch = renderForm({ source: 'HIGHER_GOV' });
+
+    await user.type(
+      screen.getByPlaceholderText(/HigherGov search URL or Search ID/i),
+      'https://www.highergov.com/contract-opportunity/?searchID=BWr0PdG39B6mX8cG47AQ8',
+    );
+
+    const criteria = await submit(onSearch);
+
+    expect(criteria.higherGovSearchId).toBe('BWr0PdG39B6mX8cG47AQ8');
+  });
+});
+
+describe('SearchOpportunityForm — restoring from a URL keeps the default date window', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAuthFetcher.mockResolvedValue({ ok: true, json: async () => ({}) } as unknown as Response);
+  });
+
+  it('does not let an absent URL date erase the 30-day default', async () => {
+    // `paramsToFormValues` returns a key for every field, so `postedFrom: undefined`
+    // used to overwrite the default — the chip then read as unfiltered while the
+    // hook still applied a 30-day window underneath.
+    const user = userEvent.setup();
+    const onSearch = jest.fn();
+    render(
+      <SearchOpportunityForm
+        orgId="org-1"
+        projectId="proj-1"
+        onSearch={onSearch}
+        isLoading={false}
+        initialValues={{ source: 'SAM_GOV', keywords: 'radar', postedFrom: undefined, postedTo: undefined }}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /^search$/i }));
+    await waitFor(() => expect(onSearch).toHaveBeenCalled());
+
+    const criteria = onSearch.mock.calls[0][0] as { postedFrom?: string; postedTo?: string };
+    expect(criteria.postedFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(criteria.postedTo).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });

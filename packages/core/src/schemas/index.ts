@@ -21,6 +21,7 @@ export * from './foia-component'
 export * from './foia-automation'
 export * from './foia-settings'
 export * from './foia-agency-contact'
+export * from './foia-dashboard'
 export * from './analytics'
 export * from './organization';
 export * from './org-contact';
@@ -59,3 +60,4 @@ export * from './solution-plan';
 export * from './service-pricing-cache';
 export * from './related-rfp';
 export * from './kb-coverage';
+export * from './notary';

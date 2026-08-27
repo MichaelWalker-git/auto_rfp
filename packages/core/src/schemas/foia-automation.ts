@@ -64,6 +64,21 @@ export const FoiaResponseOutcomeSchema = z.enum([
 export type FoiaResponseOutcome = z.infer<typeof FoiaResponseOutcomeSchema>;
 
 /**
+ * Human-readable labels for what an agency did.
+ *
+ * "No records held for us" rather than a bare "no records located": the agency did
+ * search, and the finding is about our participation specifically — one real reply read
+ * "no record of Horus Technology's participation in this solicitation was located".
+ * Shortening that to "no records" reads as a missing value rather than an answer.
+ */
+export const FOIA_RESPONSE_OUTCOME_LABELS: Record<FoiaResponseOutcome, string> = {
+  RECORDS_RECEIVED: 'Records received',
+  NO_RECORDS_LOCATED: 'No records held for us',
+  DENIED: 'Denied or withheld',
+  ACKNOWLEDGED: 'Acknowledged, awaiting records',
+};
+
+/**
  * Why an automation was suppressed.
  *
  * `SUPPRESSED` alone conflates causes that mean opposite things: a cancelled

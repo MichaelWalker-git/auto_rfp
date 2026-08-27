@@ -1,3 +1,11 @@
 export { FOIARequestCard } from './FOIARequestCard';
 export { CreateFOIARequestDialog } from './CreateFOIARequestDialog';
 export { FOIALetterPreview } from './FOIALetterPreview';
+export { FoiaAutomationBadge } from './FoiaAutomationBadge';
+export { FoiaAutomationCard } from './FoiaAutomationCard';
+export { FoiaAgencyContactsCard } from './FoiaAgencyContactsCard';
+export { FoiaCustomDocumentsEditor } from './FoiaCustomDocumentsEditor';
+export { FoiaDocumentsList } from './FoiaDocumentsList';
+export { FoiaResponseUpload } from './FoiaResponseUpload';
+export { FoiaSendControls } from './FoiaSendControls';
+export { FoiaStateSummary } from './FoiaStateSummary';

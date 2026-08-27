@@ -152,6 +152,10 @@ export async function searchSamOpportunities(
   if (body.naics?.length) addQueryParam(url, 'ncode', body.naics);
   if (body.psc?.length) addQueryParam(url, 'ccode', body.psc);
 
+  // `title` is the ONLY text-matching parameter /opportunities/v2/search accepts —
+  // there is no free-text/description search (`q`, `searchText` and friends do not
+  // exist in the API). A keyword here therefore matches notice TITLES only, which is
+  // why the UI labels this field "Title contains" rather than "Keywords".
   const titleQuery = body.title ?? body.keywords;
   if (titleQuery) addQueryParam(url, 'title', titleQuery);
 
@@ -167,6 +171,9 @@ export async function searchSamOpportunities(
   addQueryParam(url, 'limit', String(limit));
   addQueryParam(url, 'offset', String(offset));
   if (body.rdlfrom) addQueryParam(url, 'rdlfrom', body.rdlfrom);
+  // Response-deadline upper bound. Previously omitted, so the UI's "Closing date To"
+  // was collected and silently discarded.
+  if (body.rdlto) addQueryParam(url, 'rdlto', body.rdlto);
 
   const json = await httpsGetJson(url, cfg.httpsAgent);
 

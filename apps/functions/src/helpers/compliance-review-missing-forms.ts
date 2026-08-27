@@ -185,7 +185,7 @@ export const buildExpectedForms = async (args: {
  * match blocks "attachment 1" ⊂ "attachment 10" (next char is a digit) while
  * still allowing "sf33" ⊂ "sf33 solicitation offer and award" (next char space).
  */
-const containsAtWordBoundary = (haystack: string, needle: string): boolean => {
+export const containsAtWordBoundary = (haystack: string, needle: string): boolean => {
   if (!needle || needle.length > haystack.length) return false;
   for (let from = 0; ; ) {
     const idx = haystack.indexOf(needle, from);

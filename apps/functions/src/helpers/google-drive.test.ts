@@ -45,9 +45,9 @@ jest.mock('@/helpers/linear', () => ({
   createLinearComment: (...a: unknown[]) => mockCreateLinearComment(...a),
 }));
 
-const mockLoadRFPDocumentHtml = jest.fn();
-jest.mock('@/helpers/rfp-document', () => ({
-  loadRFPDocumentHtml: (...a: unknown[]) => mockLoadRFPDocumentHtml(...a),
+const mockPushDocumentToDrive = jest.fn();
+jest.mock('@/helpers/google-drive-document-sync', () => ({
+  pushDocumentToDrive: (...a: unknown[]) => mockPushDocumentToDrive(...a),
 }));
 
 const mockGetExecutiveBrief = jest.fn();
@@ -88,7 +88,11 @@ const baseArgs = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockUpdateLinearDescription.mockResolvedValue(true);
-  mockLoadRFPDocumentHtml.mockResolvedValue('<h1>Technical Proposal</h1><p>body</p>');
+  mockPushDocumentToDrive.mockResolvedValue({
+    googleDriveFileId: 'file-1',
+    googleDriveUrl: 'https://docs.google.com/document/d/file-1',
+    updatedExisting: false,
+  });
 });
 
 describe('syncProposalMaterials — deferred Documents link (HOR-2729)', () => {
@@ -108,10 +112,15 @@ describe('syncProposalMaterials — deferred Documents link (HOR-2729)', () => {
 
     expect(result.uploaded).toBe(1);
     expect(result.documentsLinked).toBe(true);
-    // Uploaded the HTML as a native Google Doc.
-    expect(drive.files.create).toHaveBeenCalledTimes(1);
-    expect(drive.created[0].requestBody.mimeType).toBe('application/vnd.google-apps.document');
-    expect(drive.created[0].media.mimeType).toBe('text/html');
+    // Routed through the idempotent push (records fileId, updates in place).
+    expect(mockPushDocumentToDrive).toHaveBeenCalledTimes(1);
+    expect(mockPushDocumentToDrive).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: 'doc-1',
+        folderId: baseArgs.proposalFolderId,
+        updatedBy: 'system',
+      }),
+    );
 
     // Linear offer note now carries BOTH the Analysis and Documents links.
     const [, , description] = mockUpdateLinearDescription.mock.calls[0];
@@ -134,7 +143,7 @@ describe('syncProposalMaterials — deferred Documents link (HOR-2729)', () => {
 
     expect(result.uploaded).toBe(0);
     expect(result.documentsLinked).toBe(false);
-    expect(drive.files.create).not.toHaveBeenCalled();
+    expect(mockPushDocumentToDrive).not.toHaveBeenCalled();
     expect(mockUpdateLinearDescription).not.toHaveBeenCalled();
   });
 
@@ -153,7 +162,7 @@ describe('syncProposalMaterials — deferred Documents link (HOR-2729)', () => {
 
     expect(result.uploaded).toBe(0);
     expect(result.skipped).toBe(1);
-    expect(drive.files.create).not.toHaveBeenCalled();
+    expect(mockPushDocumentToDrive).not.toHaveBeenCalled();
     // Documents link is still ensured (a doc already lives in the folder).
     expect(result.documentsLinked).toBe(true);
   });
@@ -172,7 +181,7 @@ describe('syncProposalMaterials — deferred Documents link (HOR-2729)', () => {
 
     expect(result.uploaded).toBe(0);
     expect(result.documentsLinked).toBe(false);
-    expect(drive.files.create).not.toHaveBeenCalled();
+    expect(mockPushDocumentToDrive).not.toHaveBeenCalled();
     expect(mockSend).not.toHaveBeenCalled(); // never even queried for docs
   });
 

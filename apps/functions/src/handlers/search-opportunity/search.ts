@@ -81,7 +81,7 @@ const SearchRequestSchema = z.object({
   postedTo:     MmDdYyyy.optional(),
   /** Response-deadline / closing date from (MM/dd/yyyy). SAM.gov: rdlfrom. DIBBS: closingFrom. */
   closingFrom:  MmDdYyyy.optional(),
-  /** Response-deadline / closing date to (MM/dd/yyyy). DIBBS: closingTo. */
+  /** Response-deadline / closing date to (MM/dd/yyyy). SAM.gov: rdlto. DIBBS: closingTo. */
   closingTo:    MmDdYyyy.optional(),
   limit:  z.number().int().positive().max(200).optional(),
   offset: z.number().int().min(0).optional(),
@@ -96,6 +96,18 @@ type SearchRequest = z.infer<typeof SearchRequestSchema>;
  * results (it would fetch a single day and client-filter a 100-row slice), so we
  * short-circuit with this message instead of a 15s-timeout empty response.
  */
+/** SAM.gov wants MM/dd/yyyy. */
+const toMmDdYyyy = (d: Date): string =>
+  `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
+
+const DEFAULT_POSTED_WINDOW_DAYS = 30;
+
+/** Fallback posted range for a request that omits one: the last 30 days. */
+const defaultPostedFrom = (): string =>
+  toMmDdYyyy(new Date(Date.now() - DEFAULT_POSTED_WINDOW_DAYS * 86_400_000));
+
+const defaultPostedTo = (): string => toMmDdYyyy(new Date());
+
 export const HIGHERGOV_KEYWORD_NEEDS_SEARCH_ID =
   'Keyword, NAICS, and set-aside search for HigherGov requires a saved search. ' +
   'Create the search on HigherGov, then paste its Search ID into the HigherGov ID field.';
@@ -140,9 +152,14 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
             searchSamOpportunities(
               { baseUrl: SAM_BASE_URL, apiKey, httpsAgent },
               {
-                postedFrom:   data.postedFrom ?? '01/01/2025',
-                postedTo:     data.postedTo   ?? '12/31/2025',
+                // SAM.gov requires a posted range. Default to the last 30 days
+                // rather than a hardcoded calendar year — the previous
+                // '01/01/2025'–'12/31/2025' literals silently excluded everything
+                // posted outside 2025, which looks exactly like broken filtering.
+                postedFrom:   data.postedFrom ?? defaultPostedFrom(),
+                postedTo:     data.postedTo   ?? defaultPostedTo(),
                 rdlfrom:      data.closingFrom,
+                rdlto:        data.closingTo,
                 keywords:     data.keywords,
                 naics:        data.naics,
                 setAsideCode: data.setAsideCode,

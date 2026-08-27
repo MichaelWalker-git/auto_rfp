@@ -205,6 +205,37 @@ export function addStepFunctionsSuppressions(stack: Stack, _isProduction = false
 }
 
 /**
+ * CloudFront suppressions (API-router distribution fronting the split HTTP APIs)
+ */
+export function addCloudFrontSuppressions(stack: Stack, isProduction = false): void {
+  const suppressions: NagPackSuppression[] = [
+    {
+      id: 'AwsSolutions-CFR1',
+      reason: 'The distribution fronts the REST API only (no content delivery); every non-public route requires a Cognito JWT. There is no geo-restriction requirement for this application.',
+    },
+    {
+      id: 'AwsSolutions-CFR4',
+      reason: 'The distribution uses the default *.cloudfront.net certificate, which CloudFront pins to a TLSv1 minimum regardless of MinimumProtocolVersion — a higher security policy requires a custom domain + ACM certificate. Modern clients negotiate TLS 1.2+; revisit when a custom API domain is attached.',
+    },
+  ];
+
+  if (!isProduction) {
+    suppressions.push(
+      {
+        id: 'AwsSolutions-CFR2',
+        reason: 'WAF will be configured for production. Dev environment omits for cost optimization.',
+      },
+      {
+        id: 'AwsSolutions-CFR3',
+        reason: 'Access logging will be enabled for production. Dev environment omits for cost optimization; origin API Gateway/Lambda logs cover request tracing.',
+      },
+    );
+  }
+
+  NagSuppressions.addStackSuppressions(stack, suppressions);
+}
+
+/**
  * CloudWatch Logs suppressions
  */
 export function addCloudWatchSuppressions(stack: Stack, isProduction = false): void {
@@ -234,5 +265,6 @@ export function addAllSuppressions(stack: Stack, isProduction = false): void {
   addSQSSuppressions(stack, isProduction);
   addSNSSuppressions(stack, isProduction);
   addStepFunctionsSuppressions(stack, isProduction);
+  addCloudFrontSuppressions(stack, isProduction);
   addCloudWatchSuppressions(stack, isProduction);
 }

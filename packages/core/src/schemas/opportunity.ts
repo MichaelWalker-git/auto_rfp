@@ -13,6 +13,7 @@ import { PK_NAME, SK_NAME } from '../constants';
 import { JurisdictionSchema } from './foia';
 import { FoiaAutomationStateSchema } from './foia-automation';
 import { WinDataSchema, LossDataSchema } from './outcome-detail';
+import { NotarySummarySchema, NotaryClassificationSourceSchema, NotaryRequirementSchema } from './notary';
 
 const flexibleDateSchema = z
   .string()
@@ -289,8 +290,35 @@ export const OpportunityItemSchema = z.object({
   jurisdiction: JurisdictionSchema.optional(),
   /** Full state name — required when jurisdiction === 'STATE'. */
   state: z.string().nullish(),
-  /** ISO datetime the terminal outcome was recorded. */
+  /**
+   * ISO datetime the terminal outcome was **recorded** — i.e. when someone moved
+   * the opportunity to a terminal status, not when the agency acted.
+   *
+   * `opportunity-status.ts` stamps this with `now` on every terminal transition
+   * (84 of the 85 populated values in dev are such stamps). It is therefore NOT
+   * evidence of an award date, and `resolveAwardDate` ranks it accordingly. For
+   * the date an agency actually stated, see `agencyStatedAwardDate`.
+   */
   outcomeDate: z.string().datetime().nullish(),
+  /**
+   * The award date an AGENCY stated, in its own words, as a date-only value.
+   *
+   * Separate from `outcomeDate` because the two answer different questions and
+   * conflating them produced a real 132-day error: the inbound-mail pipeline wrote
+   * an agency-stated 2026-01-29 to `outcomeDate`, where it was outranked on read by
+   * a `lossData.lossDate` click timestamp of 2026-06-10 — and the letter would have
+   * asserted the later date as verified. This field is the only one that may carry
+   * `RECORDED_AWARD` provenance from mail, so it must never be written from a
+   * receipt date or a UI interaction. See `awardDateFromMail`, which only returns
+   * `RECORDED_AWARD` when the message itself stated a date.
+   *
+   * Date-only (`YYYY-MM-DD`) on purpose: an agency states a day, not an instant,
+   * and inventing a time would imply precision we do not have.
+   */
+  agencyStatedAwardDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be a date-only YYYY-MM-DD value')
+    .nullish(),
   /** User who recorded the outcome. */
   outcomeSetBy: z.string().nullish(),
   // Audit fields
@@ -362,6 +390,36 @@ export const OpportunityItemSchema = z.object({
   deliveryConstraintSource: z.enum(['AI_DETECTED', 'USER_SET']).nullish(),
   /** Short rationale for the detected constraint (quote/keyword from solicitation). */
   deliveryConstraintRationale: z.string().max(500).nullish(),
+
+  // ── Notary detection rollup (u2-notary-backend-wiring) ──
+  /**
+   * Opportunity-level notary rollup, computed by mark-forms-ready once every
+   * required form reaches a terminal state. Absent/null until then. `.nullish()`
+   * (optional, like the sibling deliveryConstraintSource) so existing opportunity
+   * records and construction sites read cleanly with no migration.
+   */
+  notarySummary: NotarySummarySchema.nullish(),
+  /**
+   * Provenance of notarySummary. AI_DETECTED is recomputed by the rollup on every
+   * terminal event; a USER_SET summary is never overwritten (enforced by the
+   * rollup's atomic conditional write, BR10.2). Absent is treated as AI_DETECTED
+   * by the guard condition.
+   */
+  notarySummarySource: NotaryClassificationSourceSchema.nullish(),
+  /**
+   * Opportunity-level store of UNMAPPED solicitation-instruction notary triggers —
+   * generic body mentions ("all certifications must be notarized") that the body
+   * scan could not attribute to a specific form (BR10.3). Persisted here at scan
+   * time so a generic trigger survives the async gap on a MIXED opportunity (inline
+   * forms READY, PDF forms still pending): the FINAL rollup — whichever
+   * markFormsReadyIfAllDone call fires last, including the Textract callback with no
+   * passed-in triggers — reads this store and folds it into the summary counts, so
+   * the mention is never silently dropped (NFR1 zero-miss). AI-detected evidence,
+   * recomputed wholesale (merge/union, deduped by natural key) on every re-scan.
+   * `.nullish()` (like the sibling notarySummarySource) so legacy records and
+   * construction sites read cleanly with no migration.
+   */
+  notaryUnmappedTriggers: z.array(NotaryRequirementSchema).nullish(),
 
   // ── FOIA automation ──
   /**
@@ -471,6 +529,11 @@ export const OpportunityListItemSchema = z.object({
   assigneeName:         z.string().nullish(),
   /** Drives the FOIA badge in list/board views. */
   foiaAutomationState:  FoiaAutomationStateSchema.nullish(),
+  /**
+   * Mirrored from OpportunityItem so the list/card notary badge can read it — a
+   * field added only to the full item would never reach the card projection.
+   */
+  notarySummary:        NotarySummarySchema.nullable().default(null),
 });
 
 export type OpportunityListItem = z.infer<typeof OpportunityListItemSchema>;
