@@ -49,6 +49,11 @@ const PAGE_DESCRIPTION = /Search SAM\.gov(,| and)/i
 // before: placeholder="Keywords, solicitation number, technology area…"
 //  after: placeholder="Title contains… (SAM.gov matches notice titles only)"
 const KEYWORD_INPUT = 'input[placeholder*="Title contains" i], input[placeholder*="Keywords" i]'
+// The page now has a Radix "Search" TAB (a <button role="tab">) above the form,
+// so a bare cy.contains('button', 'Search') matches the tab first and clicking
+// it is a no-op — the search never fires. The form's real Search button is the
+// only type="submit" button, so scope to that.
+const SEARCH_BUTTON = 'button[type="submit"]'
 
 const stubSearch = () => {
   cy.intercept('POST', '**/search-opportunities/search*', {
@@ -76,7 +81,7 @@ describe('Search Opportunities', () => {
       cy.contains('Search Opportunities').should('be.visible')
       cy.contains(PAGE_DESCRIPTION).should('be.visible')
       cy.get(KEYWORD_INPUT).should('be.visible')
-      cy.contains('button', 'Search').should('be.visible')
+      cy.contains(SEARCH_BUTTON, 'Search').should('be.visible')
       cy.contains('Saved Searches').should('be.visible')
       cy.contains('NAICS').should('be.visible')
       cy.contains('Set-aside').should('be.visible')
@@ -116,7 +121,7 @@ describe('Search Opportunities', () => {
     it('runs a keyword search and shows results with details', () => {
       cy.get(KEYWORD_INPUT)
         .type('document')
-      cy.contains('button', 'Search').click()
+      cy.contains(SEARCH_BUTTON, 'Search').click()
       cy.wait('@searchOpportunities')
       cy.contains('results', { timeout: 15000 }).should('be.visible')
       cy.contains('SAM.gov').should('be.visible')
@@ -141,7 +146,7 @@ describe('Search Opportunities', () => {
 
       cy.get(KEYWORD_INPUT)
         .type('document')
-      cy.contains('button', 'Search').click()
+      cy.contains(SEARCH_BUTTON, 'Search').click()
       cy.wait('@searchOpportunities')
       cy.contains('results', { timeout: 15000 }).should('be.visible')
       cy.contains('button', 'Import').first().click()
