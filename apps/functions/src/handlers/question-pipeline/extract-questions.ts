@@ -281,7 +281,10 @@ const normalizeChoice = (
   const seen = new Set<string>();
 
   for (const opt of rawOptions) {
-    const label = String((opt as { label?: unknown })?.label ?? '').trim();
+    // Collapse interior whitespace (incl. newlines) so a label can never contain
+    // the MULTI_CHOICE delimiter ('\n') — otherwise a wrapped label serializes
+    // into two "options" and can never round-trip as selected on the frontend.
+    const label = String((opt as { label?: unknown })?.label ?? '').replace(/\s+/g, ' ').trim();
     if (!label) continue;
     const dedupeKey = label.toLowerCase();
     if (seen.has(dedupeKey)) continue;

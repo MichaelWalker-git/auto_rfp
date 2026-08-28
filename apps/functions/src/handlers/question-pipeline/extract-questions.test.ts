@@ -346,6 +346,46 @@ describe('extract-questions Lambda', () => {
       expect(items[0]!.options).toEqual([{ label: 'CISSP' }, { label: 'PMP' }]);
     });
 
+    it('collapses interior whitespace in option labels so they never contain the delimiter', async () => {
+      // A wrapped label ("Line one\nLine two") would otherwise serialize into
+      // two newline-joined "options" on the frontend and never round-trip as
+      // selected. Interior whitespace (incl. newlines) is collapsed to a space.
+      invokeModel.mockResolvedValueOnce(
+        new TextEncoder().encode(
+          JSON.stringify({
+            content: [
+              {
+                text: JSON.stringify({
+                  sections: [
+                    {
+                      title: 'Capabilities',
+                      questions: [
+                        {
+                          question: 'Pick one.',
+                          responseKind: 'SINGLE_CHOICE',
+                          options: [
+                            { label: 'Line one\nLine two' },
+                            { label: '  Yes  ' },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                }),
+              },
+            ],
+            stop_reason: 'end_turn',
+          })
+        )
+      );
+
+      const result = await baseHandler(validEvent, mockContext);
+
+      expect(result.count).toBe(1);
+      const items = capturedItems();
+      expect(items[0]!.options).toEqual([{ label: 'Line one Line two' }, { label: 'Yes' }]);
+    });
+
     it('degrades a choice question with no usable options to plain text', async () => {
       invokeModel.mockResolvedValueOnce(
         new TextEncoder().encode(

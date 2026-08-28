@@ -110,34 +110,55 @@ const ChoiceAnswer = ({
   onChange: (value: string) => void;
   disabled: boolean;
 }) => {
+  // Selections serialize into the answer text — anything that isn't an exact
+  // option label (e.g. AI-generated prose written before options were known)
+  // can't survive a single toggle, so we surface it as a replaceable warning
+  // rather than letting the first click silently overwrite invisible text.
+  const optionLabels = new Set(options.map((o) => o.label));
+  const selectedLabels = value
+    .split(MULTI_CHOICE_DELIMITER)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const hasUnmatchedText =
+    value.trim().length > 0 && !selectedLabels.every((s) => optionLabels.has(s));
+
+  const unmatchedNotice = hasUnmatchedText ? (
+    <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-sm">
+      <p className="font-medium text-amber-900">
+        This answer doesn&apos;t match the available options — selecting one will replace it.
+      </p>
+      <p className="mt-1 whitespace-pre-wrap text-slate-700">{value}</p>
+    </div>
+  ) : null;
+
   if (responseKind === 'SINGLE_CHOICE') {
     return (
-      <RadioGroup value={value} onValueChange={onChange} disabled={disabled} className="gap-2">
-        {options.map((opt, i) => {
-          const id = `choice-${i}`;
-          return (
-            <div key={id} className="flex items-center gap-2">
-              <RadioGroupItem value={opt.label} id={id} />
-              <Label htmlFor={id} className="font-normal cursor-pointer">
-                {opt.label}
-              </Label>
-            </div>
-          );
-        })}
-      </RadioGroup>
+      <>
+        {unmatchedNotice}
+        <RadioGroup value={value} onValueChange={onChange} disabled={disabled} className="gap-2">
+          {options.map((opt, i) => {
+            const id = `choice-${i}`;
+            return (
+              <div key={id} className="flex items-center gap-2">
+                <RadioGroupItem value={opt.label} id={id} />
+                <Label htmlFor={id} className="font-normal cursor-pointer">
+                  {opt.label}
+                </Label>
+              </div>
+            );
+          })}
+        </RadioGroup>
+      </>
     );
   }
 
   // MULTI_CHOICE — selected labels are the answer text split on the delimiter.
-  const selected = new Set(
-    value
-      .split(MULTI_CHOICE_DELIMITER)
-      .map((s) => s.trim())
-      .filter(Boolean),
-  );
+  const selected = new Set(selectedLabels);
 
   const handleToggle = (label: string, checked: boolean) => {
-    const next = new Set(selected);
+    // When the stored text is unmatched prose, the first toggle replaces it
+    // entirely (there are no prior valid selections to preserve).
+    const next = new Set(hasUnmatchedText ? [] : selected);
     if (checked) next.add(label);
     else next.delete(label);
     // Preserve the option order rather than Set insertion order.
@@ -146,24 +167,27 @@ const ChoiceAnswer = ({
   };
 
   return (
-    <div className="grid gap-2">
-      {options.map((opt, i) => {
-        const id = `choice-${i}`;
-        return (
-          <div key={id} className="flex items-center gap-2">
-            <Checkbox
-              id={id}
-              checked={selected.has(opt.label)}
-              onCheckedChange={(checked) => handleToggle(opt.label, checked === true)}
-              disabled={disabled}
-            />
-            <Label htmlFor={id} className="font-normal cursor-pointer">
-              {opt.label}
-            </Label>
-          </div>
-        );
-      })}
-    </div>
+    <>
+      {unmatchedNotice}
+      <div className="grid gap-2">
+        {options.map((opt, i) => {
+          const id = `choice-${i}`;
+          return (
+            <div key={id} className="flex items-center gap-2">
+              <Checkbox
+                id={id}
+                checked={!hasUnmatchedText && selected.has(opt.label)}
+                onCheckedChange={(checked) => handleToggle(opt.label, checked === true)}
+                disabled={disabled}
+              />
+              <Label htmlFor={id} className="font-normal cursor-pointer">
+                {opt.label}
+              </Label>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 };
 
