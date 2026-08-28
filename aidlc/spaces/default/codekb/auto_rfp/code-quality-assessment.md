@@ -1,43 +1,41 @@
-# Code Quality Assessment — AutoRFP
+# Code Quality Assessment — AutoRFP (Solution-Plan Blast Radius)
 
-## Test Coverage
+> Grounded in the focused scan (intent `260821-solution-plan-versioning`). Quality claims apply to the scanned area; repo-wide coverage numbers were not measured.
 
-| Package | Test files | Framework | Notes |
-|---|---|---|---|
-| `apps/functions` | 219 (co-located `*.test.ts`) | Jest | no coverage threshold found in config |
-| `apps/web` | 83 (`__tests__/` subdirs) | Jest + RTL; Playwright e2e; Cypress workflow | global threshold 50% branches/functions/lines/statements |
-| `packages/core` | 30 | Vitest | schema tests |
-| `packages/infra` | 2 | Jest | thin CDK coverage |
+## Testing
 
-Testing conventions: test the exported business function directly (not the middy-wrapped handler); mock middy and AWS SDK before imports; co-located tests. The solution-plan frontend feature is fully tested (every hook and component) — the quality high-water mark.
-
-## Linting & Static Gates
-
-- ESLint flat config exists **only in `apps/web`** (`eslint.config.mjs`). `apps/functions` has **no ESLint config** — `tsc` type-checking is the only static gate there, which is how 108 `as any` occurrences survive despite the repo-wide "no any" rule.
-- TypeScript strict mode in all packages.
+- **Tests are co-located and pervasive** in the scanned domain: 18 test files in `apps/functions/src/handlers/solution-plan/` alone (every handler has a `.test.ts` sibling); web feature has `__tests__/` under `hooks/`, `components/`, `lib/`.
+- **Frameworks**: Jest 30 (functions), Jest 29 + React Testing Library (web), Vitest (core schemas), Playwright + Cypress (e2e — not analyzed in this run).
+- **Convention**: tests mock middy and the AWS SDK before imports and exercise the exported business function directly, not the wrapped handler.
+- **No coverage threshold observed** in the scanned configs — the org default (80% for `feature` scope) is aspirational, not enforced by tooling.
+- **Gap**: no test asserts team preservation across re-init — relevant because re-init drops `planTeam` (see debt #1).
 
 ## CI/CD
 
-`.github/workflows/`: `unit-tests.yml` (PR/push to main/develop/production; shared core build then per-package tests), `deploy-infrastructure.yml`, `e2e-tests.yml`, `cypress.yml`, `lighthouse.yml`, `claude-review.yml`, `release.yml`.
-
-Branch model: feature → `develop` (dev deploy) → `main` (test) → `production` (release workflow). Note: this differs from the org-level trunk-based default; the repo's own convention docs are authoritative for day-to-day work here.
+Workflows found: `unit-tests.yml`, `deploy-infrastructure.yml`, `e2e-tests.yml`, `cypress.yml`, `claude-review.yml`, `lighthouse.yml`, `release.yml`. Linting: ESLint flat config in apps/web; **no root `.prettierrc`** observed (formatter defers to per-package/IDE defaults).
 
 ## Documentation Quality
 
-- Root `README.md` + an extensive `.claude/rules/` convention set (entity pattern, backend/frontend architecture, DynamoDB, testing).
-- 46 implementation docs in `docs/` (e.g. `PAST-PERFORMANCE-MATCHING.md`, `PLAN-COST-SCHEDULE-IMPLEMENTATION.md`); `docs/team defenition/task` is the current initiative's problem statement.
-- Helpers/schemas carry high-quality doc comments with inline ADR references (ADR-3…ADR-14) — unusually good decision traceability at code level.
+**Exceptional for this domain**: the solution-plan and plan-team code carries ADR-referenced inline documentation (ADR-2 … ADR-14) and BR/FR requirement ids at decision points (e.g., ADR-7 versioned S3 keys, ADR-11 monotonic version, ADR-002 embedded planTeam). This makes design intent auditable directly in the code — a practice worth preserving in new versioning code.
 
-## Technical Debt Signals
+## Technical Debt Signals (scanned area)
 
-1. **108 `as any` in `apps/functions/src` non-test code** (e.g. `getSignedUrl(s3Client as any, ...)` in `create-rfp-document.ts:129`) — direct violation of the "no any" rule; enabled by the missing functions ESLint config.
-2. **21 legacy DTO schema files** in `packages/core/src/schemas/` still export deprecated `*DTOSchema` names (`CreateRFPDocumentDTOSchema`, `UpdateKnowledgeBaseSchema`, kb/document schemas); `rfp-document.ts`, `document.ts`, `kb.ts` do not follow the 5-type entity pattern.
-3. **`create-rfp-document.ts` convention violations**: item built as `Record<string, any>`, SK constructed inline (`` `${projectId}#${opportunityId}#${documentId}` ``) instead of via an SK builder, and sets `status: 'NEW'` which is not a member of `RFPDocumentStatusSchema` (hypothesis: dead/incorrect branch — generation sets `GENERATING` elsewhere). Anti-exemplar for new code.
-4. **Stale compiled output committed under `packages/infra/lib/`** (`.js`/`.d.ts` shadowing the real `.ts` sources at `packages/infra/*.ts` and `packages/infra/api/`) — navigation hazard and drift-prone.
-5. **God-files in the generation path**: `document-prompts.ts` (1,407 lines) and the `generate-document-worker.ts` helper (1,527 lines) — concentrated in exactly the area the team-definition initiative must modify; change risk is elevated there.
-6. Older UI pattern: pricing components under `apps/web/components/pricing/` instead of `features/` (FSD) — do not replicate.
-7. Low marker debt otherwise: only 5 TODO/FIXME/HACK markers across scanned source.
+| # | Signal | Location | Impact on versioning work |
+|---|---|---|---|
+| 1 | **Re-init full-overwrite drops `planTeam`/`costSchedule`** (and `contentKey`) | `helpers/solution-plan-init.ts` lines 70–88 | Apparently contradicts BR1.2 (user-modified team survives regeneration); no team-preservation test exists. Versioning must treat re-init as a lossy write — strong argument for snapshotting BEFORE re-init |
+| 2 | **Version number ≠ content version** | `helpers/plan-team.ts` (`writePlanTeam`) | Team-only bumps produce no S3 object; a version record cannot assume one HTML artifact per version number |
+| 3 | **`getUserId` fallback reads JWT claims** | middleware/helpers | Fine for user id (the `orgId` rule is respected — `getOrgId` prefers header/query/body); just don't copy the pattern for orgId |
+| 4 | **Legacy DTO names in the versioning precedent** | `packages/core/src/schemas/rfp-document-version.ts` (`CreateVersionDTOSchema`, `RevertVersionDTOSchema`) | New version entities MUST use the 5-type `<Entity>CreateRequest` pattern, not these names |
+| 5 | **`queryBySkPrefix` does not paginate** | `helpers/db.ts` | Fine at ≤30 version records; copy the `KEEP_COUNT` pruning convention from the precedents |
+| 6 | **`any` in `db.ts` generic helpers** | `helpers/db.ts` | Violates the no-`any` rule; contained to the primitives layer but touched by any new version helper |
+
+## Attribution & Auditability Gaps
+
+- The synthesis write path (SQS) carries **no user identity** — `GrillingRoundMessage` has only routing/run fields; only `updatedAt` is stamped.
+- Team save/regenerate record **no user id** despite being authenticated REST calls.
+- The schema's `createdByName`/`updatedByName` fields exist but **no solution-plan write populates them** (the precedent pattern in `rfp-document/revert-version.ts` shows how: `event.auth?.claims?.name || claims?.email`).
+- Audit-log infrastructure exists (`auditMiddleware`/`setAuditContext`, `writeAuditLog`) but only `init` uses it in this domain.
 
 ## Overall Assessment
 
-Codebase health is **good-to-strong where conventions are enforced** (core schemas, solution-plan feature, middleware/db discipline, CI breadth) and **weakest in the oldest paths** (rfp-document creation, kb/document schemas, pricing UI) — which unfortunately overlap the team-definition initiative's blast radius (document generation, pricing/staffing, KB). New work should copy `features/solution-plan/` and the 5-type pattern, and treat the god-file helpers as refactor-or-extend-carefully zones. Assumption: functions-package runtime behavior is well-covered by its 219 test files, but with no coverage threshold configured this is unverified.
+The scanned domain is in **good health**: consistent thin-handler/fat-helper structure, disciplined single-table access, strong test co-location, and unusually good inline design documentation. The debt is concentrated exactly where the versioning feature will operate — write-path asymmetries (lossy re-init, unattributed writes, version/content divergence) — so the feature should fix or explicitly design around items 1, 2, and the attribution gaps rather than inherit them.

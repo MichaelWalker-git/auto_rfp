@@ -34,6 +34,8 @@ import { nowIso } from './date';
 import { invokeClaudeJson, truncateText } from './executive-opportunity-brief';
 import { GrillerAgent, MIN_GRILLING_ROUNDS, shouldHonorTerminationToken } from './griller-agent';
 import { TechLeadAgent } from './tech-lead-agent';
+import { PK_NAME } from '@/constants/common';
+import { isConditionalCheckFailed } from './db';
 import {
   appendGrillingMessage,
   getSolutionPlanByOpportunity,
@@ -41,6 +43,7 @@ import {
   updateSolutionPlanStatus,
   uploadSolutionPlanHtml,
 } from './solution-plan';
+import { captureSolutionPlanVersion } from './solution-plan-version';
 import { attachGeneratedTeam } from './plan-team';
 import { enqueueGrillingRound, type GrillingRoundMessage } from './solution-plan-queue';
 import {
@@ -383,16 +386,61 @@ export const processSynthesis = async (message: GrillingRoundMessage): Promise<v
     const html = /<h1[\s>]/i.test(htmlContent) ? htmlContent : `<h1>${title}</h1>\n${htmlContent}`;
     const contentKey = await uploadSolutionPlanHtml(key, version, html);
 
-    await updateSolutionPlanStatus(key, 'READY', {
-      contentKey,
-      version,
-      // A fresh synthesis is current by definition and carries no user edits
-      isStale: false,
-      staleReason: '',
-      isUserEdited: false,
-      error: '',
-      costSchedule: normalizedSchedule,
-    });
+    // The completion write is CONDITIONAL on the plan still being mid-synthesis
+    // (BR5.3): a redelivered completion racing past the read guard above finds
+    // the plan already READY, fails the condition, and skips the counter bump,
+    // the capture, and the team hook entirely — no duplicate-content version.
+    try {
+      await updateSolutionPlanStatus(
+        key,
+        'READY',
+        {
+          contentKey,
+          version,
+          // A fresh synthesis is current by definition and carries no user edits
+          isStale: false,
+          staleReason: '',
+          isUserEdited: false,
+          error: '',
+          costSchedule: normalizedSchedule,
+        },
+        {
+          condition: 'attribute_exists(#pk) AND #status = :generatingStatus',
+          conditionNames: { '#pk': PK_NAME, '#status': 'status' },
+          conditionValues: { ':generatingStatus': 'GENERATING_SOT' },
+        },
+      );
+    } catch (err) {
+      if (isConditionalCheckFailed(err)) {
+        console.log(
+          '[solution-plan-worker] completion write skipped — plan no longer GENERATING_SOT (already processed or superseded, BR5.3)',
+        );
+        return;
+      }
+      throw err;
+    }
+
+    // Version capture (BR1.1, W1): attribution comes from the plan's initiator
+    // stamp (BR6.2), read from the plan RECORD, never the queue message; a
+    // missing stamp degrades to the system sentinel inside capture (BR3.3).
+    // Capture is fail-open by contract (BR5.1) — the .catch only shields the
+    // synthesis from an unexpectedly rejecting mock or regression.
+    await captureSolutionPlanVersion({
+      key,
+      solutionPlanId: message.solutionPlanId,
+      versionNumber: version,
+      htmlContentKey: contentKey,
+      costScheduleSnapshot: normalizedSchedule,
+      origin: 'generation',
+      createdBy: plan.generationInitiatedBy,
+      createdByName: plan.generationInitiatedByName,
+    }).catch((captureErr) =>
+      console.error(
+        '[solution-plan-worker] version capture rejected unexpectedly (fail-open):',
+        errorMessageOf(captureErr),
+      ),
+    );
+
     await appendGrillingMessage({
       ...messageBase(message),
       role: 'SYSTEM',

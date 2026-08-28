@@ -1,6 +1,19 @@
 import type { ReactNode } from 'react';
 import { SWRConfig } from 'swr';
-import type { SolutionPlanHtmlContentResponse } from '@auto-rfp/core';
+import type { SolutionPlanHtmlContentResponse, SolutionPlanVersionListItem } from '@auto-rfp/core';
+
+/** Canonical version list item shared by the u4 hook and component tests. */
+export const makeVersion = (
+  over: Partial<SolutionPlanVersionListItem> = {},
+): SolutionPlanVersionListItem => ({
+  versionId: 'ver-1',
+  versionNumber: 1,
+  origin: 'generation',
+  createdBy: 'user-1',
+  createdByName: 'Jane Doe',
+  createdAt: '2026-08-27T10:00:00.000Z',
+  ...over,
+});
 
 export const mockApiFetcher = jest.fn();
 export const mockApiMutate = jest.fn();

@@ -1,61 +1,76 @@
-# Component Inventory — AutoRFP
+# Component Inventory — Solution-Plan Versioning Blast Radius
 
-Component names below are the canonical names for scope tracking (referenced verbatim by `reverse-engineering-timestamp.md`).
+> Components identified in the focused scan for intent `260821-solution-plan-versioning`. Components outside this radius (answer generation, KB pipelines, SAM.gov, pricing/staffing beyond `costSchedule`, auth internals) are not inventoried here.
 
-## Package-Level Components
+## Component Catalogue
 
-| Component | Package | Responsibility | Depends on |
-|---|---|---|---|
-| Web Frontend | `apps/web` (`@auto-rfp/web`) | Next.js App Router dashboard UI; 18 FSD features; SWR data layer; Amplify/Cognito auth | `@auto-rfp/core`, REST API, WebSocket API |
-| Lambda Backend | `apps/functions` (`@auto-rfp/functions`) | 55 handler domains + ~150 helpers; middy RBAC middleware; all business logic | `@auto-rfp/core`, DynamoDB, S3, SQS, Pinecone, Bedrock (HTTP) |
-| Core Schemas | `packages/core` (`@auto-rfp/core`) | ~80 Zod schema files, `z.infer` types, `PK_NAME`/`SK_NAME` constants; tsup ESM+CJS build — must build first | — |
-| Infrastructure | `packages/infra` (`@auto-rfp/infra`) | CDK app: API orchestrator + per-domain Lambda stacks, DynamoDB, Cognito, S3, Step Functions, SQS, WebSocket, Amplify hosting | `@auto-rfp/core`; bundles `apps/functions/src` via `lambdaEntry()` |
-| Evals | `evals` (`@auto-rfp/evals`) | AI evaluation suites: executive-brief, question_generation | Bedrock (HTTP) |
+### SolutionPlan Core
 
-## Initiative-Relevant Deep-Dive Components
+- **Responsibility**: owns the `SolutionPlanItem` (one per opportunity), its lifecycle (`GRILLING → GENERATING_SOT → READY | FAILED`), monotonic version counter (ADR-11), staleness flags, S3 HTML content pointer, and manual-edit optimistic concurrency.
+- **Code**: `packages/core/src/schemas/solution-plan.ts` (5-type schemas + grilling messages + response schemas), `apps/functions/src/constants/solution-plan.ts`, `apps/functions/src/helpers/solution-plan.ts` (SK builders, CRUD, S3 HTML via `buildSolutionPlanHtmlKey`, staleness `markSolutionPlanStale(Safe)`), `helpers/solution-plan-init.ts`, REST handlers `init/get/update/get-html-content/get-transcript`.
+- **Depends on**: DB primitives (`helpers/db.ts`), S3, SQS enqueue (init), middleware stack.
+- **Depended on by**: PlanTeam, SolutionPlan Worker, SolutionPlan Gate, Document Generation Plan Readers, Team Qualifications Context, Web Solution-Plan Feature.
+- **Note**: re-init (`initSolutionPlanRun`) is a lossy full overwrite — preserves only `id`, `version`, `createdAt`, `createdBy`; drops `contentKey`, `planTeam`, `costSchedule`.
 
-### Solution Plan
-- **Backend**: `packages/core/src/schemas/solution-plan.ts` (`SolutionPlanItemSchema`), `apps/functions/src/handlers/solution-plan/` (5 REST endpoints + `solution-plan-worker.ts`), `apps/functions/src/helpers/solution-plan-prompts.ts`.
-- One plan per opportunity, keyed `{orgId, projectId, opportunityId}`; DynamoDB holds metadata only, HTML body in S3 (`contentKey`); monotonic `version`; `isStale` orthogonal to status; statuses `GRILLING → GENERATING_SOT → READY | FAILED`.
-- **No structured "sections" model** — one synthesized HTML blob (~10k chars target); "sections" are only `<h2>` headings plus `SOLUTION_PLAN_BRIEF_SECTIONS` (exec-brief section names the grilling agents may see: summary, deadlines, requirements, contacts, risks, pricing, pastPerformance — `scoring` excluded).
-- Griller mandatory coverage area 4 is already "TEAM COMPOSITION — roles, headcount, allocation percentages, onshore/offshore mix" (`solution-plan-prompts.ts:93`) — team content exists **only as free prose** today.
-- `costSchedule` — structured, nullable `SolutionPlanCostScheduleSchema` field with server-recomputed totals: the precedent for structured data alongside the HTML.
-- **Frontend**: `apps/web/features/solution-plan/` — cleanest FSD exemplar; hooks `useSolutionPlan`, `useSolutionPlanHtmlContent`, `useUpdateSolutionPlan`, `useInitSolutionPlan`, `useSolutionPlanGate`, `useSolutionPlanActions`; `SolutionPlanPanel` embedded at `OpportunityView.tsx:305`; full-page TipTap editor at `.../opportunities/[oppId]/solution-plan/edit`; gated on org flag `enableSolutionPlan` (`organization.ts:87`); fully tested.
+### PlanTeam
 
-### Document Generation Pipeline
-- `apps/functions/src/handlers/rfp-document/` (`create-rfp-document.ts`, `generate-document.ts`, `generate-document-worker.ts`) + helpers `generate-document-worker.ts` (1,527 lines), `document-generation.ts` (`validateGeneratedContent` + retries), `document-context.ts` (per-type context budgets; TEAM_QUALIFICATIONS maximizes KB "personnel/certs" at 12,000 chars, `document-context.ts:93`), `document-prompts.ts` (1,407 lines; TEAM_QUALIFICATIONS prompts at `:209` and `:1028` demand "ACTUAL names and bios from the Knowledge Base — do not invent personnel"), `document-tools.ts` (tool inventory, `getDocumentToolsForType`, past-perf tool executor).
-- Flow: REST → placeholder `GENERATING` → SQS → context+prompts+tools → Bedrock (HTTP) → validation → 3 retries (30/60/120 s) → READY or FAILED + notification.
-- **TEAM_QUALIFICATIONS failure root cause**: no personnel entity anywhere (no schema, no handler domain, no Pinecone type for people); KB retrieval is generic semantic search. Hypothesis (unverified against production logs): model fabricates or emits thin/placeholder content that validation rejects, exhausting retries into FAILED.
+- **Responsibility**: the recommended/edited project team embedded in the plan item (ADR-002); member lines have exactly three shapes (FILLED / DELETED-employee / UNFILLED); user edits and regeneration.
+- **Code**: `apps/functions/src/helpers/plan-team.ts` (`writePlanTeam`, `saveUserEditedTeam`, `regenerateTeam`, `attachGeneratedTeam`), handlers `get-plan-team.ts`, `save-plan-team.ts`, `regenerate-plan-team.ts`.
+- **Depends on**: SolutionPlan Core (embedded storage), Bedrock HTTP client (regenerate matching).
+- **Note**: save/regenerate bump the plan version with NO new S3 object and NO user id; `attachGeneratedTeam` (synthesis path) writes `planTeam` WITHOUT a version bump.
 
-### Past-Performance Matching Engine
-- Schemas (`packages/core/src/schemas/past-performance.ts`): `PastProjectMatchSchema` `{project, relevanceScore 0–100, matchDetails, matchedRequirements[], narrative}`; `RequirementCoverageSchema` `{requirement, status COVERED|PARTIAL|GAP, matchedProjectId/Title, matchScore, recommendation}`; `GapAnalysisSchema` (coverage + overallCoverage + criticalGaps + recommendations).
-- Engine (`helpers/past-performance.ts:557` `matchProjectsToRequirements`): truncated requirements+solicitation query → Pinecone org-namespace search filtered `type: 'past_project'` (Titan embeddings, 0.4 floor) → entity load → deterministic `MatchDetails` scoring (technical/domain/scale similarity, recency, success metrics) → disclosure gate (`isUsableInMatching` / `redactForGeneration`) → sorted top-K; "return all projects" fallback when search is empty.
-- Orchestrated per exec-brief section by `helpers/past-performance-matching.ts` (input-hash caching, section status lifecycle). Requirements source: exec brief `sections.requirements.data`, fallback summary. **This is the pattern to re-point at people.**
+### SolutionPlan Worker
 
-### Pricing & Staffing (today's "team definition")
-- `LaborRateSchema` (`pricing.ts:30`) — org-scoped `position` string with onshore + optional offshore rate buildups (base/overhead/G&A/profit → server-computed fully-loaded rates).
-- `StaffingPlanSchema` (`pricing.ts:142–190`) — per-opportunity lines `{position, hours, rate, totalCost, phase, rateBasis}`; `position` must match `LaborRate.position`. **No person identity anywhere — roles only.**
-- UI: `app/organizations/[orgId]/pricing/` hosting `components/pricing/` — `LaborRateManager`, `StaffingPlanBuilder`, `PendingDraftsSection` (older non-FSD pattern).
+- **Responsibility**: asynchronous grilling loop + synthesis. Consumes `GrillingRoundMessage` from SQS (`auto-rfp-solution-plan-{stage}`, batchSize 1, DLQ maxReceiveCount 1), appends transcript items, re-enqueues rounds, and on the final phase runs `processSynthesis` (bump version, upload versioned S3 HTML, set READY, write `costSchedule`, clear staleness/user-edit flags).
+- **Code**: `apps/functions/src/helpers/solution-plan-worker.ts` (synthesis at lines 337–418), `handlers/solution-plan/solution-plan-worker.ts`; infra wiring in `api-orchestrator-stack.ts` lines 212–819.
+- **Depends on**: SolutionPlan Core, Bedrock HTTP client, SQS, S3, DynamoDB.
+- **Note**: message carries NO user identity — synthesis writes are unattributed beyond `updatedAt`.
 
-### Extraction Workers
-- `packages/core/src/schemas/extraction-job.ts` + `apps/functions/src/handlers/extraction/extraction-worker.ts` — SQS worker dispatching on `targetType ∈ {PAST_PERFORMANCE, LABOR_RATE, BOM_ITEM}`, producing DRAFT records with a draft-action approve flow; `LaborRateDraftSchema` exists.
-- Established "AI extracts structured records from an uploaded document" pattern. Affirmed rule: CV extraction will use **direct import** (no draft-review step); human validation moves to the solution-plan modify-team flow.
+### Document Generation Plan Readers
 
-### Knowledge Base / Org Documents
-- `KnowledgeBaseItemSchema` (`kb.ts`) — org-scoped KBs typed `DOCUMENTS | CONTENT_LIBRARY`; nav label "Org Documents" (`sidebar-layout.tsx:139`).
-- `DocumentItemSchema` (`document.ts`) — S3 file (`fileKey`), extracted text (`textFileKey`), `indexStatus` lifecycle `pending → TEXT_EXTRACTED → CHUNKED → INDEXED`, freshness tracking; indexed via `document-pipeline-step-function` into Pinecone; chunks reloaded from S3 (`document-context.ts` `loadAndCompressChunks`). This is where uploaded CVs would land today.
+- **Responsibility**: consume the READY plan as source-of-truth during document generation: `loadApprovedSolutionPlanContext` (`generate-document-worker.ts` lines 939–973) loads and strips the plan HTML; version stamping of generated documents (`solutionPlanId` + `solutionPlanVersion`, worker lines 1534–1536, `rfp-document.ts:348`); `costSchedule` feeds `buildPricingRulesBlock` / `renderCostScheduleBlock`.
+- **Code**: `apps/functions/src/helpers/generate-document-worker.ts` (plan-injection section scanned deeply; rest of the worker skimmed), `document-prompts.ts` / `document-tools.ts` (skimmed — entry points of `solutionPlanText`/`hasSolutionPlan`/`costSchedule`), `handlers/rfp-document/generate-document.ts` and `edit-section.ts` (grep-level).
+- **Depends on**: SolutionPlan Core (read), SolutionPlan Gate, S3, Version-History Precedents (`createVersion` at worker line 1556).
+- **Note**: `document-context.ts` does NOT read the plan.
 
-### Org Navigation & Team Page
-- Static nav array `apps/web/layouts/sidebar-layout/sidebar-layout.tsx:134–149`.
-- "Org Members" (`/organizations/[orgId]/team` → `TeamContent`) is platform **user management**, distinct from the planned employee pool page.
+### Team Qualifications Context
 
-## Shared Infrastructure Components
+- **Responsibility**: assembles TEAM_QUALIFICATIONS generation context from `plan.planTeam.members`, classifying lines in fixed order UNFILLED → DELETED → FILLED, with defensive degrade (a FILLED line whose Employee lookup misses becomes DELETED with a data-integrity warning — generation never fails on a stale reference).
+- **Code**: `apps/functions/src/helpers/team-qualifications-context.ts` (assembly section scanned).
+- **Depends on**: SolutionPlan Core / PlanTeam (read), employee lookups (outside this scan's deep coverage).
 
-| Component | Location | Responsibility |
-|---|---|---|
-| DB helper layer | `apps/functions/src/helpers/db.ts` | all DynamoDB access (`createItem`, `queryBySkPrefix`, `queryByIndex`, …) |
-| Bedrock HTTP client | `apps/functions/src/helpers/bedrock-http-client.ts` | only sanctioned Bedrock path; SSM API key |
-| RBAC middleware | `apps/functions/src/middleware/rbac-middleware.ts` | `AuthedEvent`, auth/org-membership/permission checks |
-| API orchestrator | `packages/infra/api/api-orchestrator-stack.ts` | index-aligned `allDomains[]`/`domainStackNames[]` registration (mismatch throws at synth) |
-| Autofill tools | `apps/functions/src/helpers/autofill-fields-with-tools.ts` | tool-driven field autofill (top skimmed) |
-| Collaboration WebSocket | `packages/infra/collaboration-websocket-stack.ts` | real-time collaboration API |
+### SolutionPlan Gate
+
+- **Responsibility**: read-only status gate — document generation and section editing require a READY plan.
+- **Code**: `apps/functions/src/helpers/solution-plan-gate.ts`; web counterpart `features/solution-plan/lib/gating.ts` + `useSolutionPlanGate.ts` (skimmed).
+- **Depends on**: SolutionPlan Core (read).
+
+### Version-History Precedents
+
+- **Responsibility**: existing user-facing version-history implementations to copy for plan versioning: `RFPDocumentVersion` (list/compare/revert/cherry-pick), `QuestionnaireVersion`, `RequiredFormVersion`; 6-pad `versionNumber` SK, `KEEP_COUNT = 30` pruning, `changeNote` ≤500, `createdBy`/`createdByName` attribution.
+- **Code**: `packages/core/src/schemas/rfp-document-version.ts`, `apps/functions/src/helpers/rfp-document-version.ts`, `handlers/rfp-document/` version handlers (revert head read; others grep-level), routes in `rfp-document.routes.ts`.
+- **Depends on**: DB primitives, S3 (`htmlContentKey`).
+- **Note**: carries legacy `CreateVersionDTOSchema`/`RevertVersionDTOSchema` names — do not replicate.
+
+### Web Solution-Plan Feature
+
+- **Responsibility**: the entire plan UX — polling status (`useSolutionPlan`, 3s while running), HTML fetch (`useSolutionPlanHtmlContent`), TipTap editing with `editorVersion` monotonic-forward guard (`SolutionPlanEditorPage.tsx`), plan panel with "Version {plan.version}" display + stale banner + `TeamDefinitionSection` (`SolutionPlanPanel.tsx`), team view/edit tables, init/regenerate actions.
+- **Code**: `apps/web/features/solution-plan/` — deep: `hooks/useSolutionPlan.ts`, `hooks/useUpdateSolutionPlan.ts`, `lib/swr.ts`, `components/SolutionPlanEditorPage.tsx` (top half + version tracking); skimmed: remaining hooks/components (`useSolutionPlanActions.ts`, `SolutionPlanPanel.tsx`, team hooks).
+- **Depends on**: Solution-plan REST API, SWR + `authenticatedFetcher`, Shadcn UI.
+
+## Dependency Overview
+
+```mermaid
+flowchart TD
+  WEB["Web Solution-Plan Feature"] --> CORE["SolutionPlan Core"]
+  WEB --> PT["PlanTeam"]
+  PT --> CORE
+  WK["SolutionPlan Worker"] --> CORE
+  WK --> PT
+  GATE["SolutionPlan Gate"] --> CORE
+  DGR["Document Generation Plan Readers"] --> GATE
+  DGR --> CORE
+  DGR --> VHP["Version-History Precedents"]
+  TQC["Team Qualifications Context"] --> PT
+```
+<!-- Text fallback: The Web Solution-Plan Feature depends on SolutionPlan Core and PlanTeam. PlanTeam is embedded in SolutionPlan Core. The SolutionPlan Worker writes to SolutionPlan Core and attaches the generated PlanTeam. SolutionPlan Gate reads SolutionPlan Core. Document Generation Plan Readers depend on the gate, read SolutionPlan Core, and write into the Version-History Precedents (rfp-document createVersion). Team Qualifications Context reads PlanTeam. -->

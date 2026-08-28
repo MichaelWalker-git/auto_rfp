@@ -18,6 +18,13 @@ export type RouteDef = {
    * the developer's host platform.
    */
   forceDockerBundling?: boolean;
+  /**
+   * Optional per-route Log Group retention override. `'mandated'` applies the
+   * team-mandated stage-aware policy (TWO_WEEKS non-prod / INFINITE prod)
+   * instead of the factory's uniform ONE_MONTH default. Additive opt-in:
+   * routes that don't set it keep the existing default untouched.
+   */
+  logRetention?: 'mandated';
 };
 
 export type DomainRoutes = {

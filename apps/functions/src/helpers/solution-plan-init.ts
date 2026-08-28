@@ -36,7 +36,7 @@ export type InitSolutionPlanRunResult =
  */
 export const initSolutionPlanRun = async (
   key: SolutionPlanKey,
-  opts: { restart?: boolean; userId?: string },
+  opts: { restart?: boolean; userId?: string; userName?: string },
 ): Promise<InitSolutionPlanRunResult> => {
   const { orgId, projectId, opportunityId } = key;
 
@@ -77,6 +77,11 @@ export const initSolutionPlanRun = async (
     runId,
     version: existing?.version ?? 0,
     isUserEdited: false,
+    // Initiator stamp (BR6.1, ADR-003): the newest run owns attribution — the
+    // synthesis capture reads it back to attribute the generated version
+    // (BR6.2); when absent, capture falls back to the system sentinel (BR3.3).
+    generationInitiatedBy: opts.userId,
+    generationInitiatedByName: opts.userName,
     grillingRounds: 0,
     createdAt: existing?.createdAt ?? now,
     createdBy: existing?.createdBy ?? opts.userId,
