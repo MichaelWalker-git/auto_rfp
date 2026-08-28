@@ -37,6 +37,12 @@ export class SolutionPlanVersionsPage {
     await expect(this.historyPanel).toBeVisible();
   }
 
+  /** Close the history sheet via its X button and wait for the overlay to go. */
+  async closeHistoryPanel(): Promise<void> {
+    await this.historyPanel.getByRole('button', { name: /close/i }).click();
+    await expect(this.historyPanel).not.toBeVisible();
+  }
+
   // ── History panel (W2) ──
 
   get historyPanel(): Locator {

@@ -169,7 +169,7 @@ test.describe('Solution Plan version history — capture, label, restore, delete
     await versionsPage.rowAction('rename', versionA.versionId).click();
     await versionsPage.saveLabel(label);
     await expect(versionsPage.rowLabel(versionA.versionId)).toContainText(label);
-    await page.keyboard.press('Escape'); // close the panel
+    await versionsPage.closeHistoryPanel();
 
     // ── 3. Second save makes version A non-current ──
     await appendAndSave(markerB);
@@ -185,7 +185,7 @@ test.describe('Solution Plan version history — capture, label, restore, delete
     await versionsPage.openRowActions(versionA.versionId);
     await versionsPage.rowAction('restore', versionA.versionId).click();
     await versionsPage.confirmRestore();
-    await page.keyboard.press('Escape');
+    await versionsPage.closeHistoryPanel();
 
     // The editor re-hydrates with the restored content: marker A, no marker B.
     await expect(editor.getByText(markerA)).toBeVisible({ timeout: 60_000 });
