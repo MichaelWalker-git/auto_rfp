@@ -243,4 +243,153 @@ describe('extract-questions Lambda', () => {
       expect(result.count).toBe(0);
     });
   });
+
+  /**
+   * Regression tests for Sentry AUTO-RFP-FT: "AI imported radio button
+   * multiple-choice questions separately, not as a whole." A radio/checkbox
+   * question must persist as ONE row carrying responseKind + options, not one
+   * row per option.
+   */
+  describe('Multiple-choice extraction (Sentry: AUTO-RFP-FT)', () => {
+    const { checkQuestionFileCancelled } = require('@/helpers/questionFile');
+    const { invokeModel } = require('@/helpers/bedrock-http-client');
+    const { docClient } = require('@/helpers/db');
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      checkQuestionFileCancelled.mockResolvedValue(false);
+    });
+
+    /** Collect the Items written by PutCommand across all docClient.send calls. */
+    const capturedItems = (): Array<Record<string, unknown>> =>
+      (docClient.send as jest.Mock).mock.calls
+        .map(([cmd]) => cmd?.input?.Item)
+        .filter(Boolean);
+
+    it('persists a single-choice question as ONE row with responseKind + options', async () => {
+      invokeModel.mockResolvedValueOnce(
+        new TextEncoder().encode(
+          JSON.stringify({
+            content: [
+              {
+                text: JSON.stringify({
+                  sections: [
+                    {
+                      title: 'Qualifications',
+                      questions: [
+                        {
+                          question: 'Which cloud provider do you primarily use?',
+                          responseKind: 'SINGLE_CHOICE',
+                          options: [
+                            { label: 'AWS', value: 'A' },
+                            { label: 'Azure', value: 'B' },
+                            { label: 'GCP', value: 'C' },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                }),
+              },
+            ],
+            stop_reason: 'end_turn',
+          })
+        )
+      );
+
+      const result = await baseHandler(validEvent, mockContext);
+
+      expect(result.count).toBe(1); // ONE question, not one-per-option
+      const items = capturedItems();
+      expect(items).toHaveLength(1);
+      expect(items[0]!.question).toBe('Which cloud provider do you primarily use?');
+      expect(items[0]!.responseKind).toBe('SINGLE_CHOICE');
+      expect(items[0]!.options).toEqual([
+        { label: 'AWS', value: 'A' },
+        { label: 'Azure', value: 'B' },
+        { label: 'GCP', value: 'C' },
+      ]);
+    });
+
+    it('persists a multi-choice question with its options', async () => {
+      invokeModel.mockResolvedValueOnce(
+        new TextEncoder().encode(
+          JSON.stringify({
+            content: [
+              {
+                text: JSON.stringify({
+                  sections: [
+                    {
+                      title: 'Capabilities',
+                      questions: [
+                        {
+                          question: 'Which certifications does your team hold?',
+                          responseKind: 'MULTI_CHOICE',
+                          options: [{ label: 'CISSP' }, { label: 'PMP' }],
+                        },
+                      ],
+                    },
+                  ],
+                }),
+              },
+            ],
+            stop_reason: 'end_turn',
+          })
+        )
+      );
+
+      const result = await baseHandler(validEvent, mockContext);
+
+      expect(result.count).toBe(1);
+      const items = capturedItems();
+      expect(items[0]!.responseKind).toBe('MULTI_CHOICE');
+      expect(items[0]!.options).toEqual([{ label: 'CISSP' }, { label: 'PMP' }]);
+    });
+
+    it('degrades a choice question with no usable options to plain text', async () => {
+      invokeModel.mockResolvedValueOnce(
+        new TextEncoder().encode(
+          JSON.stringify({
+            content: [
+              {
+                text: JSON.stringify({
+                  sections: [
+                    {
+                      title: 'Technical',
+                      questions: [
+                        {
+                          question: 'Describe your approach.',
+                          responseKind: 'SINGLE_CHOICE',
+                          options: [],
+                        },
+                      ],
+                    },
+                  ],
+                }),
+              },
+            ],
+            stop_reason: 'end_turn',
+          })
+        )
+      );
+
+      const result = await baseHandler(validEvent, mockContext);
+
+      expect(result.count).toBe(1);
+      const items = capturedItems();
+      // Neither field should be written for a degraded text question.
+      expect(items[0]!.responseKind).toBeUndefined();
+      expect(items[0]!.options).toBeUndefined();
+    });
+
+    it('leaves free-text questions with no responseKind/options', async () => {
+      // Uses the default mock (a single plain-text question).
+      const result = await baseHandler(validEvent, mockContext);
+
+      expect(result.count).toBe(1);
+      const items = capturedItems();
+      expect(items[0]!.responseKind).toBeUndefined();
+      expect(items[0]!.options).toBeUndefined();
+    });
+  });
 });
