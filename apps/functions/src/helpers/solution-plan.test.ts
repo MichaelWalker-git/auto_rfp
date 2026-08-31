@@ -28,6 +28,11 @@ jest.mock('@/helpers/s3', () => ({
   loadTextFromS3: (...a: unknown[]) => mockLoadTextFromS3(...a),
 }));
 
+const mockCaptureVersion = jest.fn();
+jest.mock('@/helpers/solution-plan-version', () => ({
+  captureSolutionPlanVersion: (...a: unknown[]) => mockCaptureVersion(...a),
+}));
+
 import {
   appendGrillingMessage,
   buildGrillingMessageSk,
@@ -42,6 +47,7 @@ import {
   markSolutionPlanStaleSafe,
   padGrillingRound,
   putSolutionPlan,
+  restoreSolutionPlanContent,
   solutionPlanStaleReasons,
   toGrillingMessageItem,
   toSolutionPlanItem,
@@ -74,6 +80,7 @@ beforeEach(() => {
   mockCreateItem.mockImplementation((_pk, _sk, item) => Promise.resolve(item));
   mockPutItem.mockImplementation((_pk, _sk, item) => Promise.resolve(item));
   mockUpdateItem.mockImplementation((_pk, _sk, updates) => Promise.resolve(updates));
+  mockCaptureVersion.mockResolvedValue(undefined);
 });
 
 // ─── SK builders ────────────────────────────────────────────────────────────────
@@ -135,18 +142,44 @@ describe('updateSolutionPlanStatus', () => {
       contentKey: 'some/key.html',
       version: 3,
     });
-    expect(mockUpdateItem).toHaveBeenCalledWith(SOLUTION_PLAN_PK, 'org-1#proj-1#opp-1', {
-      status: 'READY',
-      contentKey: 'some/key.html',
-      version: 3,
-    });
+    expect(mockUpdateItem).toHaveBeenCalledWith(
+      SOLUTION_PLAN_PK,
+      'org-1#proj-1#opp-1',
+      {
+        status: 'READY',
+        contentKey: 'some/key.html',
+        version: 3,
+      },
+      undefined,
+    );
   });
 
   it('works without a patch', async () => {
     await updateSolutionPlanStatus(planKey, 'GENERATING_SOT');
-    expect(mockUpdateItem).toHaveBeenCalledWith(SOLUTION_PLAN_PK, 'org-1#proj-1#opp-1', {
-      status: 'GENERATING_SOT',
+    expect(mockUpdateItem).toHaveBeenCalledWith(
+      SOLUTION_PLAN_PK,
+      'org-1#proj-1#opp-1',
+      {
+        status: 'GENERATING_SOT',
+      },
+      undefined,
+    );
+  });
+
+  it('passes a custom write condition through (BR5.3 conditional completion write)', async () => {
+    await updateSolutionPlanStatus(planKey, 'READY', undefined, {
+      condition: 'attribute_exists(#pk) AND #status = :generatingStatus',
+      conditionNames: { '#pk': PK_NAME, '#status': 'status' },
+      conditionValues: { ':generatingStatus': 'GENERATING_SOT' },
     });
+    expect(mockUpdateItem).toHaveBeenCalledWith(
+      SOLUTION_PLAN_PK,
+      'org-1#proj-1#opp-1',
+      { status: 'READY' },
+      expect.objectContaining({
+        condition: 'attribute_exists(#pk) AND #status = :generatingStatus',
+      }),
+    );
   });
 });
 
@@ -238,6 +271,149 @@ describe('updateSolutionPlanContent', () => {
   it('rethrows non-conditional errors', async () => {
     mockUpdateItem.mockRejectedValue(new Error('boom'));
     await expect(updateSolutionPlanContent(planKey, patch)).rejects.toThrow('boom');
+  });
+
+  it('captures a manual-save version attributed to the editing caller (BR1.2/BR3.1)', async () => {
+    const updated = { ...basePlan, status: 'READY', ...patch, isUserEdited: true };
+    mockUpdateItem.mockResolvedValue(updated);
+
+    await updateSolutionPlanContent(planKey, patch, 'Alice Example');
+
+    expect(mockCaptureVersion).toHaveBeenCalledTimes(1);
+    expect(mockCaptureVersion).toHaveBeenCalledWith({
+      key: planKey,
+      solutionPlanId: 'plan-1',
+      versionNumber: patch.version,
+      htmlContentKey: patch.contentKey,
+      origin: 'manual-save',
+      createdBy: 'user-9',
+      createdByName: 'Alice Example',
+    });
+    // The manual save cleared the schedule — the snapshot carries none (BR2.1)
+    expect(mockCaptureVersion.mock.calls[0][0].costScheduleSnapshot).toBeUndefined();
+  });
+
+  it('still succeeds when the capture rejects — fail-open at the call site (AC1.1.7)', async () => {
+    const updated = { ...basePlan, status: 'READY', ...patch, isUserEdited: true };
+    mockUpdateItem.mockResolvedValue(updated);
+    mockCaptureVersion.mockRejectedValue(new Error('capture broke'));
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await expect(updateSolutionPlanContent(planKey, patch, 'Alice Example')).resolves.toEqual(
+      updated,
+    );
+
+    errorSpy.mockRestore();
+  });
+
+  it('does not capture when the conditional write failed (no plan write, no version)', async () => {
+    const conditionError = new Error('The conditional request failed');
+    conditionError.name = 'ConditionalCheckFailedException';
+    mockUpdateItem.mockRejectedValue(conditionError);
+
+    await expect(updateSolutionPlanContent(planKey, patch)).resolves.toBeNull();
+    expect(mockCaptureVersion).not.toHaveBeenCalled();
+  });
+});
+
+// ─── restoreSolutionPlanContent (contract C4 primitive) ─────────────────────────
+
+describe('restoreSolutionPlanContent', () => {
+  const restoreArgs = {
+    key: planKey,
+    htmlContentKey: 'org-1/proj-1/opp-1/solution-plan/restore/fresh-copy.html',
+    costSchedule: {
+      currency: 'USD',
+      items: [
+        {
+          label: 'Hosting',
+          category: 'LABOR' as const,
+          amount: 400,
+          billing: 'MONTHLY' as const,
+          optional: false,
+        },
+      ],
+      oneTimeTotal: 0,
+      ongoingAnnualTotal: 4800,
+    },
+    restoredBy: 'user-9',
+  };
+
+  it('issues ONE conditional update: content + schedule + READY + user-edited, version bumped server-side', async () => {
+    const updated = { ...basePlan, status: 'READY', version: 4 };
+    mockUpdateItem.mockResolvedValue(updated);
+
+    const result = await restoreSolutionPlanContent(restoreArgs);
+
+    expect(mockUpdateItem).toHaveBeenCalledTimes(1);
+    expect(mockUpdateItem).toHaveBeenCalledWith(
+      SOLUTION_PLAN_PK,
+      'org-1#proj-1#opp-1',
+      {
+        contentKey: restoreArgs.htmlContentKey,
+        costSchedule: restoreArgs.costSchedule,
+        status: 'READY',
+        isUserEdited: true,
+        editedBy: 'user-9',
+      },
+      expect.objectContaining({
+        // Refused while a generation run is in flight; FAILED plans restorable
+        condition:
+          'attribute_exists(#pk) AND (#status = :readyStatus OR #status = :failedStatus)',
+        conditionValues: { ':readyStatus': 'READY', ':failedStatus': 'FAILED' },
+        increments: { version: 1 },
+      }),
+    );
+    expect(result).toEqual(updated);
+  });
+
+  it('preserves staleness and never touches planTeam (C4 guarantees)', async () => {
+    mockUpdateItem.mockResolvedValue({});
+
+    await restoreSolutionPlanContent(restoreArgs);
+
+    const updates = mockUpdateItem.mock.calls[0][2];
+    expect(updates).not.toHaveProperty('isStale');
+    expect(updates).not.toHaveProperty('staleReason');
+    expect(updates).not.toHaveProperty('planTeam');
+  });
+
+  it('restores a null cost schedule when the source version carried none', async () => {
+    mockUpdateItem.mockResolvedValue({});
+
+    await restoreSolutionPlanContent({ ...restoreArgs, costSchedule: null });
+
+    expect(mockUpdateItem.mock.calls[0][2].costSchedule).toBeNull();
+  });
+
+  it('surfaces a conditional failure unchanged to the caller (mid-generation guard)', async () => {
+    const conditionError = new Error('The conditional request failed');
+    conditionError.name = 'ConditionalCheckFailedException';
+    mockUpdateItem.mockRejectedValue(conditionError);
+
+    await expect(restoreSolutionPlanContent(restoreArgs)).rejects.toBe(conditionError);
+  });
+
+  it('never calls the manual-save capture hook (BR1.3 — u3 captures the restore itself)', async () => {
+    mockUpdateItem.mockResolvedValue({ ...basePlan, status: 'READY', version: 4 });
+
+    await restoreSolutionPlanContent(restoreArgs);
+
+    expect(mockCaptureVersion).not.toHaveBeenCalled();
+  });
+});
+
+// ─── Team-only / status writes never capture (BR1.4, W5) ────────────────────────
+
+describe('version capture exclusion on non-content writes', () => {
+  it('updateSolutionPlanStatus has no capture on its path', async () => {
+    await updateSolutionPlanStatus(planKey, 'GENERATING_SOT');
+    expect(mockCaptureVersion).not.toHaveBeenCalled();
+  });
+
+  it('putSolutionPlan (init/team-carrying full upsert) has no capture on its path', async () => {
+    await putSolutionPlan(basePlan);
+    expect(mockCaptureVersion).not.toHaveBeenCalled();
   });
 });
 

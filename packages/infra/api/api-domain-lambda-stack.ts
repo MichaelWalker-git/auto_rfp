@@ -26,6 +26,8 @@ export interface ApiDomainLambdaStackProps extends cdk.NestedStackProps {
   commonEnv: Record<string, string>;
   domain: DomainRoutes;
   authorizer: apigwv2Authorizers.HttpJwtAuthorizer;
+  /** Deployment stage (e.g. 'Dev', 'Prod') — used by the `logRetention: 'mandated'` per-route override. */
+  stage?: string;
 }
 
 /**
@@ -36,7 +38,12 @@ export class ApiDomainLambdaStack extends cdk.NestedStack {
   constructor(scope: Construct, id: string, props: ApiDomainLambdaStackProps) {
     super(scope, id, props);
 
-    const { httpApi, userPoolId, lambdaRole, commonEnv, domain, authorizer } = props;
+    const { httpApi, userPoolId, lambdaRole, commonEnv, domain, authorizer, stage } = props;
+
+    // Team-mandated stage-aware retention for routes that opt in via
+    // `logRetention: 'mandated'` (2 weeks non-prod / INFINITE prod).
+    const mandatedRetention =
+      stage?.toLowerCase() === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS;
 
     for (const route of domain.routes) {
       const functionId = `${route.method.toLowerCase()}-${domain.basePath}-${route.path}-handler`
@@ -44,7 +51,8 @@ export class ApiDomainLambdaStack extends cdk.NestedStack {
         .replace(/-+/g, '-');
 
       const logGroup = new logs.LogGroup(this, `${functionId}-logs`, {
-        retention: logs.RetentionDays.ONE_MONTH,
+        retention:
+          route.logRetention === 'mandated' ? mandatedRetention : logs.RetentionDays.ONE_MONTH,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
       });
 

@@ -5,6 +5,11 @@ import type { SolutionPlanItem } from '@auto-rfp/core';
 
 // ─── Hook / dependency mocks ──────────────────────────────────────────────────
 
+// The version history control (U4) has its own test suite — stub it here.
+jest.mock('../VersionHistoryControl', () => ({
+  VersionHistoryControl: () => <div data-testid="version-history-control-stub" />,
+}));
+
 const mockUseSolutionPlan = jest.fn();
 jest.mock('../../hooks/useSolutionPlan', () => ({
   useSolutionPlan: (...args: unknown[]) => mockUseSolutionPlan(...args),
@@ -232,7 +237,8 @@ describe('SolutionPlanEditorPage', () => {
 
     const editor = screen.getByTestId('rich-text-editor') as HTMLTextAreaElement;
     expect(editor.value).toBe('<h1>Solution Plan</h1>');
-    expect(screen.getByText(/version 2/i)).toBeTruthy();
+    // The static "Version {n}" text was replaced by the version dropdown (U4).
+    expect(screen.getByTestId('version-history-control-stub')).toBeTruthy();
     expect(mockUseSolutionPlanHtmlContent).toHaveBeenCalledWith(
       'org-1',
       'proj-1',

@@ -116,16 +116,42 @@ describe('update-solution-plan handler', () => {
     expect(statusOf(res)).toBe(200);
     // Monotonic bump from the current counter (ADR-11)
     expect(mockUploadHtml).toHaveBeenCalledWith(key, 4, '<h1>Edited plan</h1>');
-    expect(mockUpdateContent).toHaveBeenCalledWith(key, {
-      version: 4,
-      contentKey: 'org-1/proj-1/opp-1/solution-plan/v4/solution-plan.html',
-      editedBy: 'user-9',
-    });
+    expect(mockUpdateContent).toHaveBeenCalledWith(
+      key,
+      {
+        version: 4,
+        contentKey: 'org-1/proj-1/opp-1/solution-plan/v4/solution-plan.html',
+        editedBy: 'user-9',
+      },
+      undefined,
+    );
 
     const { plan } = bodyOf(res) as { plan: Record<string, unknown> };
     expect(plan).toMatchObject({ version: 4, isUserEdited: true, isStale: false });
     expect(plan).not.toHaveProperty(PK_NAME);
     expect(plan).not.toHaveProperty(SK_NAME);
+  });
+
+  it('passes the caller display name through for version-capture attribution (BR3.1)', async () => {
+    const event = {
+      body: JSON.stringify(body),
+      auth: { userId: 'user-9', claims: { name: 'Alice Example', email: 'alice@example.com' } },
+    } as never;
+
+    await updateSolutionPlan(event);
+
+    expect(mockUpdateContent).toHaveBeenCalledWith(key, expect.anything(), 'Alice Example');
+  });
+
+  it('falls back to the email claim when no name claim exists', async () => {
+    const event = {
+      body: JSON.stringify(body),
+      auth: { userId: 'user-9', claims: { email: 'alice@example.com' } },
+    } as never;
+
+    await updateSolutionPlan(event);
+
+    expect(mockUpdateContent).toHaveBeenCalledWith(key, expect.anything(), 'alice@example.com');
   });
 
   it('returns 409 when the conditional write fails mid-flight (regenerate or concurrent-edit race)', async () => {

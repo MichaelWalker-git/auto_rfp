@@ -30,6 +30,24 @@ const PLACEHOLDER = /^(?:N\/?A|NONE|TBD|UNKNOWN|PENDING|ABC-?123|TEST\w*|SOL-\d+
 const SYNTHETIC_PREFIX = /^BATCH-/i;
 
 /**
+ * Stored values that are calendar dates rather than identifiers.
+ *
+ * Two real opportunities hold "2026-08" and "2025-02" in `solicitationNumber`. A
+ * bare year-month is not an identifier, and it is actively dangerous as one: it
+ * appears inside every ISO date in that month, so it correlates arbitrary mail.
+ * "2026-08" matched a GSA helpdesk ticket ("If we do not receive a response
+ * 2026-08-20 ...") and would equally match an award notice's "Award Date
+ * 2026-08-04" — attaching it to whichever unrelated opportunity holds the value.
+ *
+ * Deliberately narrow: anchored, with a real month (and day) range, so genuine
+ * short numbers keep working. Verified against all 479 stored numbers — this
+ * rejects exactly the two date-shaped values and none of the legitimate
+ * fiscal-year forms like "26-43", "78-26", "RFP No. 26-22" or "RFP 07-26", whose
+ * second segment is a sequence number rather than a month.
+ */
+const DATE_SHAPED = /^(?:19|20)\d{2}[-/](?:0[1-9]|1[0-2])(?:[-/](?:0[1-9]|[12]\d|3[01]))?$/;
+
+/**
  * Below this many alphanumeric characters, a normalized substring search is
  * unsafe: "4713" occurs inside "44713", and "26.10" inside "26.104". Short
  * numbers fall back to boundary-anchored matching on their literal form.
@@ -61,7 +79,11 @@ export const isCorrelatableSolicitationNumber = (value: string | undefined | nul
   const trimmed = value.trim();
   if (SYNTHETIC_PREFIX.test(trimmed)) return false;
   if (PLACEHOLDER.test(trimmed)) return false;
-  return comparable(coreSolicitationNumber(trimmed)).length >= 4;
+
+  const core = coreSolicitationNumber(trimmed);
+  if (DATE_SHAPED.test(core)) return false;
+
+  return comparable(core).length >= 4;
 };
 
 /** An opportunity the correlator may consider. */

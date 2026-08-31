@@ -2,6 +2,7 @@ import type { SESEvent, SESMessage } from 'aws-lambda';
 import middy from '@middy/core';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
+import type { FoiaSettingsItem } from '@auto-rfp/core';
 import { computeFoiaScheduledSendAt } from '@auto-rfp/core';
 
 import { withSentryLambda } from '@/sentry-lambda';
@@ -20,6 +21,7 @@ import {
   toCorrelationCandidates,
   type MailIngestResult,
 } from '@/helpers/foia-mail-ingest';
+import { buildMailboxIdentity } from '@/helpers/foia-mail-identity';
 import { parseRawMail, readMailHeader } from '@/helpers/foia-mail-parse';
 import { buildNotification, sendNotification } from '@/helpers/send-notification';
 import { getOrgMembers } from '@/helpers/user';
@@ -95,8 +97,15 @@ const applyAwardNotice = async (args: {
   oppId: string;
   bodyText: string;
   receivedAt: string;
+  /**
+   * The tenant's settings, already read by the main loop to build the mailbox
+   * identity. Passed in rather than re-fetched: this used to issue its own
+   * `getFoiaSettings(orgId)` for `delayDays` alone, which is now a second read of a
+   * row the caller is holding.
+   */
+  settings: FoiaSettingsItem;
 }): Promise<void> => {
-  const { orgId, projectId, oppId, bodyText, receivedAt } = args;
+  const { orgId, projectId, oppId, bodyText, receivedAt, settings } = args;
 
   const { date, statedByAgency } = awardDateFromMail({ receivedAt, bodyText });
 
@@ -124,12 +133,21 @@ const applyAwardNotice = async (args: {
   // Gated on `statedByAgency`, not on the provenance value: `RECORDED_OUTCOME` passes
   // `isVerifiedAwardDateProvenance`, so a provenance-based check here would write the
   // receipt date as the agency's award date.
+  //
+  // `agencyStatedAwardDate` is declared on `OpportunityItemSchema` in
+  // `packages/core/src/schemas/opportunity.ts` (added in #357), and
+  // `OpportunityDBItemSchema` inherits it via `.extend({ [PK_NAME], [SK_NAME] })` —
+  // so it is NOT redeclared there, per the 5-type entity pattern. Noted here because
+  // the field is date-only (`YYYY-MM-DD`) while `outcomeDate` is
+  // `z.string().datetime()`: they are deliberately different types answering
+  // different questions, and `updateOpportunity` accepts `Partial<OpportunityItem>`,
+  // so a value absent from the schema would be dropped rather than rejected.
   if (statedByAgency) {
     await updateOpportunity({
       orgId,
       projectId,
       oppId,
-      patch: { outcomeDate: date },
+      patch: { agencyStatedAwardDate: date },
     });
   } else {
     console.info(
@@ -142,7 +160,6 @@ const applyAwardNotice = async (args: {
   const automation = await getFoiaAutomation(orgId, projectId, oppId);
   if (!automation || !['NOT_APPLICABLE', 'SCHEDULED'].includes(automation.state)) return;
 
-  const settings = await getFoiaSettings(orgId);
   const scheduledSendAt = computeFoiaScheduledSendAt({
     submittedAt: date,
     responseDeadlineIso: null,
@@ -347,10 +364,34 @@ export const processInboundMail = async (event: SESEvent): Promise<void> => {
       continue;
     }
 
+    /**
+     * Who "we" are, for this tenant.
+     *
+     * `findOrgByScrapeMailbox` above resolved the org by matching `settings.scrapeMailbox`
+     * against the recipients, so the address that identifies us is already known to the
+     * settings row — it was simply never plumbed down. Every authorship decision in
+     * `decideInboundMail` (which of these lines are OUR quoted letter, and which are the
+     * agency's own words) depends on it, and the hardcoded vendor-domain regex it
+     * replaces silently disabled all of them for any tenant on another domain.
+     *
+     * `getFoiaSettings` never throws: with no stored row it returns
+     * `buildDefaultFoiaSettings`, whose `scrapeMailbox` is nullish, and
+     * `buildMailboxIdentity` then falls back to the platform's own sending host. Do NOT
+     * "optimise" that fallback away — it is what makes this behaviour-preserving for an
+     * org that has not configured a mailbox.
+     *
+     * Read here rather than inside `applyAwardNotice`, which is where it used to live:
+     * that runs after this decision and only on the award path. One small GetItem per
+     * message is the cost, against the `listOpportunitiesByOrg` scan already done per
+     * message, and the award path now does one read fewer.
+     */
+    const settings = await getFoiaSettings(orgId);
+    const identity = buildMailboxIdentity({ scrapeMailbox: settings.scrapeMailbox });
+
     const { items: opportunities } = await listOpportunitiesByOrg({ orgId });
     const candidates = toCorrelationCandidates(opportunities);
 
-    const result = decideInboundMail({ from, subject, raw, candidates });
+    const result = decideInboundMail({ from, subject, raw, candidates, identity });
 
     // Claim before acting. SES retries on any error, and an at-least-once
     // delivery that re-recorded an award or re-attached a document would corrupt
@@ -380,6 +421,7 @@ export const processInboundMail = async (event: SESEvent): Promise<void> => {
           oppId: match.candidate.oppId,
           bodyText: `${subject}\n${text}`,
           receivedAt,
+          settings,
         });
       } else if (result.action === 'SUPPRESSED' && match) {
         await applyCancellation({

@@ -63,6 +63,44 @@ export const solutionPlanDomain = (): DomainRoutes => {
         timeoutSeconds: 120,
         memorySize: 512,
       },
+      // ── Version history (solution-plan-versioning u2, contract C1) ──
+      // List a plan's versions, newest first (≤30) + currentVersionId.
+      {
+        method: 'GET',
+        path: 'versions',
+        entry: lambdaEntry('solution-plan/list-solution-plan-versions.ts'),
+        logRetention: 'mandated',
+      },
+      // One version's HTML body at the record's own htmlContentKey.
+      {
+        method: 'GET',
+        path: 'version/content',
+        entry: lambdaEntry('solution-plan/get-solution-plan-version-content.ts'),
+        logRetention: 'mandated',
+      },
+      // Set / rename / clear a version's label (≤100 chars; empty clears).
+      {
+        method: 'PATCH',
+        path: 'version/label',
+        entry: lambdaEntry('solution-plan/set-solution-plan-version-label.ts'),
+        logRetention: 'mandated',
+      },
+      // Delete a non-current version (current → 409, vanished → 404).
+      {
+        method: 'DELETE',
+        path: 'version',
+        entry: lambdaEntry('solution-plan/delete-solution-plan-version.ts'),
+        logRetention: 'mandated',
+      },
+      // Restore-as-new (u3, contract C2): fresh S3 copy → conditional plan
+      // write → capture origin "restore" (current → 409, generating → 409,
+      // vanished → 404).
+      {
+        method: 'POST',
+        path: 'version/restore',
+        entry: lambdaEntry('solution-plan/restore-solution-plan-version.ts'),
+        logRetention: 'mandated',
+      },
     ],
   };
 };

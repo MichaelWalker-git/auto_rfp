@@ -70,19 +70,3 @@ apps/web/test-results/
 apps/web/e2e/.auth/
 !apps/web/e2e/.auth/.gitkeep
 
-# AI-DLC — only the shared method/memory (aidlc/spaces/*/memory/) and the code
-# knowledge base (aidlc/spaces/*/codekb/) are committed. Per-intent workflow
-# bookkeeping (questions, per-stage artifacts, audit shards, state) is
-# machine-local: it stays on disk so /aidlc --resume works, but is not tracked.
-# Each feature keeps a durable summary in docs/<FEATURE>-HANDOFF.md instead.
-aidlc/active-space
-aidlc/spaces/*/intents/
-aidlc/.aidlc-clone-id
-aidlc/.aidlc-active-space-*.tmp
-aidlc/.aidlc-sessions/
-aidlc/diagnostics/
-
-# Test coverage output
-/apps/functions/coverage/
-# TypeScript incremental build info (any location)
-*.tsbuildinfo

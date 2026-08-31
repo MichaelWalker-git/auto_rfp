@@ -47,6 +47,11 @@ jest.mock('../TeamDefinitionSection', () => ({
   TeamDefinitionSection: () => <div data-testid="team-definition-section-stub" />,
 }));
 
+// The version history control (U4) has its own test suite — stub it here.
+jest.mock('../VersionHistoryControl', () => ({
+  VersionHistoryControl: () => <div data-testid="version-history-control-stub" />,
+}));
+
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 const makePlan = (over: Partial<SolutionPlanItem> = {}): SolutionPlanItem => ({

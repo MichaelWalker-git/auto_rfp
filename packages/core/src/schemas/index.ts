@@ -57,6 +57,7 @@ export * from './company-profile';
 export * from './member-detection';
 export * from './rfp-digest';
 export * from './solution-plan';
+export * from './solution-plan-version';
 export * from './service-pricing-cache';
 export * from './related-rfp';
 export * from './kb-coverage';

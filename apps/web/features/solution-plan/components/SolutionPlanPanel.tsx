@@ -19,6 +19,7 @@ import { useSolutionPlanActions } from '../hooks/useSolutionPlanActions';
 import { GrillingTranscriptView } from './GrillingTranscriptView';
 import { SolutionPlanStatusBadge } from './SolutionPlanStatusBadge';
 import { TeamDefinitionSection } from './TeamDefinitionSection';
+import { VersionHistoryControl } from './VersionHistoryControl';
 
 interface SolutionPlanPanelProps {
   orgId: string;
@@ -130,11 +131,20 @@ export const SolutionPlanPanel = ({ orgId, projectId, opportunityId }: SolutionP
           </Alert>
         )}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            Version {plan.version}
-            {plan.isUserEdited ? ' · manually edited' : ''} — used as the source of truth for
-            generated documents.
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* The version dropdown replaces the static "Version {n}" text (U4). */}
+            <VersionHistoryControl
+              orgId={orgId}
+              projectId={projectId}
+              opportunityId={opportunityId}
+              isPlanRunning={isRunning}
+              onPlanRestored={refresh}
+            />
+            <p className="text-sm text-muted-foreground">
+              {plan.isUserEdited ? 'Manually edited — used' : 'Used'} as the source of truth for
+              generated documents.
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" asChild>
               <Link href={editHref}>

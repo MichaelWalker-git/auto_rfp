@@ -19,6 +19,7 @@ import { useSolutionPlanActions } from '../hooks/useSolutionPlanActions';
 import { useEditorImageUpload } from '../hooks/useEditorImageUpload';
 import { SolutionPlanEditorBlockedState } from './SolutionPlanEditorBlockedState';
 import { SolutionPlanEditorToolbar } from './SolutionPlanEditorToolbar';
+import { VersionHistoryControl } from './VersionHistoryControl';
 
 interface SolutionPlanEditorPageProps {
   orgId: string;
@@ -114,6 +115,12 @@ export const SolutionPlanEditorPage = ({
 
   const handleRegenerate = useCallback(() => void regenerate(), [regenerate]);
 
+  // A successful restore changed the plan's content/header — revalidate both.
+  // The bumped `content.version` remounts the editor with the restored HTML.
+  const handlePlanRestored = useCallback(async () => {
+    await Promise.all([refresh(), refreshHtml()]);
+  }, [refresh, refreshHtml]);
+
   // ── Render ──
 
   if (isOrgLoading || (isPlanLoading && !plan && !notFound)) {
@@ -146,6 +153,15 @@ export const SolutionPlanEditorPage = ({
         canSave={isEditorReady && !isImageUploading}
         onRegenerate={handleRegenerate}
         onSave={handleSave}
+        versionControl={
+          <VersionHistoryControl
+            orgId={orgId}
+            projectId={projectId}
+            opportunityId={opportunityId}
+            isPlanRunning={isRunning}
+            onPlanRestored={handlePlanRestored}
+          />
+        }
       />
 
       <div className="flex-1 min-h-0 overflow-hidden">

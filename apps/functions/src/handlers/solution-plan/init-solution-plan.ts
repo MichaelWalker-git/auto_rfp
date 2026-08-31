@@ -31,9 +31,14 @@ export const initSolutionPlan = async (event: AuthedEvent): Promise<APIGatewayPr
   }
 
   const { orgId, projectId, opportunityId, restart } = data;
+  // Display name for the generation-initiator stamp (BR6.1) — the synthesis
+  // capture attributes the generated version to this user (BR6.2).
+  const userName =
+    (event.auth?.claims?.name as string | undefined) ??
+    (event.auth?.claims?.email as string | undefined);
   const result = await initSolutionPlanRun(
     { orgId, projectId, opportunityId },
-    { restart, userId: getUserId(event) },
+    { restart, userId: getUserId(event), userName },
   );
 
   if (result.outcome === 'NO_PROCESSED_FILES') {

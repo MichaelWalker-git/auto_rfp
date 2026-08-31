@@ -147,6 +147,36 @@ describe('initSolutionPlanRun', () => {
     expect(mockEnqueue).toHaveBeenCalled();
   });
 
+  it('stamps the generation initiator id and display name on the plan (BR6.1)', async () => {
+    await initSolutionPlanRun(key, { userId: 'user-9', userName: 'Alice Example' });
+
+    const put = mockPutPlan.mock.calls[0][0];
+    expect(put.generationInitiatedBy).toBe('user-9');
+    expect(put.generationInitiatedByName).toBe('Alice Example');
+  });
+
+  it('overwrites a prior initiator stamp — the newest run owns attribution (BR6.1)', async () => {
+    mockGetPlan.mockResolvedValue({
+      ...readyPlan,
+      generationInitiatedBy: 'user-old',
+      generationInitiatedByName: 'Old Owner',
+    });
+
+    await initSolutionPlanRun(key, { userId: 'user-9', userName: 'Alice Example' });
+
+    const put = mockPutPlan.mock.calls[0][0];
+    expect(put.generationInitiatedBy).toBe('user-9');
+    expect(put.generationInitiatedByName).toBe('Alice Example');
+  });
+
+  it('leaves the stamp absent when the caller identity is unavailable (BR3.3 sentinel input)', async () => {
+    await initSolutionPlanRun(key, {});
+
+    const put = mockPutPlan.mock.calls[0][0];
+    expect(put.generationInitiatedBy).toBeUndefined();
+    expect(put.generationInitiatedByName).toBeUndefined();
+  });
+
   it('re-inits a FAILED plan without a restart flag (retry path)', async () => {
     mockGetPlan.mockResolvedValue({ ...readyPlan, status: 'FAILED', error: 'boom' });
 

@@ -60,6 +60,21 @@ describe('init-solution-plan handler', () => {
     expect(mockInitRun).toHaveBeenCalledWith(body, { restart: true, userId: 'user-9' });
   });
 
+  it('passes the caller display name for the generation-initiator stamp (BR6.1)', async () => {
+    const event = {
+      body: JSON.stringify(body),
+      auth: { userId: 'user-9', claims: { name: 'Alice Example', email: 'alice@example.com' } },
+    } as never;
+
+    await initSolutionPlan(event);
+
+    expect(mockInitRun).toHaveBeenCalledWith(body, {
+      restart: undefined,
+      userId: 'user-9',
+      userName: 'Alice Example',
+    });
+  });
+
   it('maps NO_PROCESSED_FILES to 400', async () => {
     mockInitRun.mockResolvedValue({ outcome: 'NO_PROCESSED_FILES' });
 

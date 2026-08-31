@@ -17,6 +17,12 @@ interface SolutionPlanEditorToolbarProps {
   canSave: boolean;
   onRegenerate: () => void;
   onSave: () => void;
+  /**
+   * The version-history control (VersionHistoryControl) — replaces the
+   * static "Version {n}" text when provided. Passed in as a node so this
+   * toolbar stays pure presentation.
+   */
+  versionControl?: React.ReactNode;
 }
 
 /** Icon-or-spinner button body shared by the Regenerate and Save actions. */
@@ -53,6 +59,7 @@ export const SolutionPlanEditorToolbar = ({
   canSave,
   onRegenerate,
   onSave,
+  versionControl,
 }: SolutionPlanEditorToolbarProps) => (
   <div className="flex items-center gap-2 px-4 py-2 border-b bg-background shrink-0">
     <Button
@@ -69,10 +76,14 @@ export const SolutionPlanEditorToolbar = ({
 
     <span className="text-sm font-medium shrink-0">Solution Plan</span>
     <SolutionPlanStatusBadge status={plan.status} />
-    <span className="text-xs text-muted-foreground whitespace-nowrap">
-      Version {plan.version}
-      {plan.isUserEdited ? ' · manually edited' : ''}
-    </span>
+    {versionControl ?? (
+      <span className="text-xs text-muted-foreground whitespace-nowrap">
+        Version {plan.version}
+      </span>
+    )}
+    {plan.isUserEdited && (
+      <span className="text-xs text-muted-foreground whitespace-nowrap">manually edited</span>
+    )}
 
     <div className="flex-1" />
 

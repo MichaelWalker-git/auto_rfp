@@ -12,7 +12,8 @@ import {
   classifyMailDeterministic,
   type ClassifiedMail,
 } from '@/helpers/foia-mail-classify';
-import { parseRawMail } from '@/helpers/foia-mail-parse';
+import type { MonitoredMailboxIdentity } from '@/helpers/foia-mail-identity';
+import { parseRawMail, stripQuotedReply } from '@/helpers/foia-mail-parse';
 import {
   correlateMailToOpportunities,
   type CorrelationCandidate,
@@ -80,14 +81,47 @@ export const readResponseOutcome = (args: {
   classification: ClassifiedMail;
   bodyText: string;
   attachmentNames: readonly string[];
+  /** Which addresses are ours, so the quoted-reply strip below can find our letter. */
+  identity: MonitoredMailboxIdentity;
 }): FoiaResponseOutcome => {
-  const { bodyText, attachmentNames } = args;
+  const { attachmentNames } = args;
 
-  // Both singular and plural: agencies write "no record ... was located" and "no
-  // records were located" interchangeably, and a singular-only pattern silently
-  // misses half of them.
+  /**
+   * Read only what the AGENCY wrote.
+   *
+   * Every pattern below is a claim about what the agency did, so our own quoted
+   * letter must not be able to satisfy one. The `withheld` case was fixed once by
+   * rewording the pattern; the `denied` case was not, and
+   * `/\b(?:your\s+)?request\s+(?:is|has\s+been)\s+denied\b/` still fires on our
+   * template's conditional "If any portion of this request is denied…". Measured on
+   * the live corpus it matched 8 of 110 bodies and was OUR OWN boilerplate every
+   * time. Stripping the quoted reply removes the whole class rather than one phrase.
+   */
+  const bodyText = stripQuotedReply(args.bodyText, args.identity);
+
+  /**
+   * Both singular and plural: agencies write "no record ... was located" and "no
+   * records were located" interchangeably, and a singular-only pattern silently
+   * misses half of them.
+   *
+   * The second and third forms come from real replies the first could not reach.
+   * South Carolina Procurement Services wrote "We do not have any evaluation/scoring
+   * or debriefing documents" (`615sciteu2kj`, `p1a3vs5829u7`) — a plain statement of
+   * holding nothing that never uses "located". Agencies also write "no responsive
+   * records exist" and "we have no records". This is the one fact observable nowhere
+   * else: it means either we never bid, or the solicitation ended before award.
+   */
   if (
     /\bno\s+(?:records?|documents?|responsive\s+records?)\b[^.]{0,80}\b(?:was|were)\s+(?:located|found|identified)\b/i.test(
+      bodyText,
+    ) ||
+    /\b(?:we|this\s+office|the\s+\w+)\s+(?:do|does)\s+not\s+have\s+any\b[^.]{0,80}\b(?:records?|documents?)\b/i.test(
+      bodyText,
+    ) ||
+    /\bno\s+(?:responsive\s+)?(?:records?|documents?)\b[^.]{0,40}\b(?:exist|are\s+available)\b/i.test(
+      bodyText,
+    ) ||
+    /\b(?:we|this\s+office)\s+have\s+no\s+(?:responsive\s+)?(?:records?|documents?)\b/i.test(
       bodyText,
     )
   ) {
@@ -107,23 +141,74 @@ export const readResponseOutcome = (args: {
    * quoted text, so they settle it first. Redaction is partial disclosure, not
    * denial: a `_Redacted` filename means records arrived.
    */
-  if (attachmentNames.length > 0 || /\battached\s+responsive\b/i.test(bodyText)) {
+  /**
+   * `attachmentNames` now excludes inline images (see `parseRawMail`), so a
+   * letterhead logo no longer counts as a produced record.
+   *
+   * The wording alternatives matter more than they used to as a result. Records are
+   * frequently delivered WITHOUT an attachment — Las Virgenes MWD wrote "District
+   * staff members have located records responsive to your request. We are providing
+   * the documents in electronic format through the link below" and shared a
+   * SharePoint folder (`vrl3d7c7m5q2`). Scoring that ACKNOWLEDGED would under-report
+   * a real production, so the agency's own statement of having located or provided
+   * records counts on its own.
+   */
+  if (
+    attachmentNames.length > 0 ||
+    /\battached\s+responsive\b/i.test(bodyText) ||
+    /\b(?:has|have)\s+located\b[^.]{0,40}\b(?:responsive|records?)\b/i.test(bodyText) ||
+    /\b(?:are|is)\s+providing\s+the\s+(?:documents|records)\b/i.test(bodyText) ||
+    /\brecords?\s+(?:are|is)\s+(?:available|enclosed)\b/i.test(bodyText)
+  ) {
     return 'RECORDS_RECEIVED';
   }
 
   /**
    * A denial, stated by the agency about what it is doing.
    *
-   * Every pattern requires the agency as the actor — "we are withholding", "the
-   * request is denied", "records are exempt". The passive and conditional forms
-   * that appear in our own letter ("if any portion is withheld") cannot match.
+   * Every pattern requires the agency as the actor — "we are withholding", "your
+   * request is denied", "records are exempt". The passive and conditional forms in
+   * our own letter ("if any portion is withheld") must not match.
+   *
+   * The `denied` pattern previously made "your" optional, which broke that
+   * guarantee: it fired on our template's "If any portion of this request is
+   * denied…". Two changes close it — a leading `if`/`should`/`unless`/`in the event`
+   * makes the sentence hypothetical rather than an act, and the possessive is now
+   * required, since an agency writes "your request is denied" while our letter
+   * writes "this request". Measured on the live corpus: 8 false DENIED before,
+   * 0 after, with genuine agency denials still matching.
+   *
+   * The conditional test is applied PER SENTENCE, not to the whole body. Testing the
+   * body made it a global veto, and appeal-rights boilerplate carries a conditional
+   * "denied" in nearly every real denial letter: "Your request is denied in part
+   * under Exemption 6. If a request is denied in whole or in part, the requester may
+   * appeal within 90 days." — a genuine denial that returned ACKNOWLEDGED because a
+   * later, unrelated sentence was hypothetical. A denial is now recognised when ANY
+   * single sentence asserts it non-conditionally.
    */
+  const DENIAL_PATTERNS: ReadonlyArray<RegExp> = [
+    /\b(?:we|the\s+\w+)\s+(?:are|is|has|have)\s+(?:withholding|withheld)\b/i,
+    /\byour\s+request\s+(?:is|has\s+been)\s+denied\b/i,
+    /\brecords?\s+(?:are|is)\s+exempt\s+from\s+disclosure\b/i,
+    /\bwe\s+(?:have\s+)?referred\b[^.]{0,60}\battorney general\b/i,
+    /\bdenying\s+(?:your\s+)?request\b/i,
+  ];
+
+  /** Hypothetical framing, scoped to the sentence that carries the assertion. */
+  const isConditionalSentence = (sentence: string): boolean =>
+    /\b(?:if|should|unless|in\s+the\s+event)\b[^.]{0,80}\b(?:denied|withheld|withholding|exempt)\b/i.test(
+      sentence,
+    );
+
+  // Split on sentence terminators. Newlines count: agencies format denials as
+  // fragments on their own lines, which carry no full stop.
+  const sentences = bodyText.split(/(?<=[.!?])\s+|\n+/);
+
   if (
-    /\b(?:we|the\s+\w+)\s+(?:are|is|has|have)\s+(?:withholding|withheld)\b/i.test(bodyText) ||
-    /\b(?:your\s+)?request\s+(?:is|has\s+been)\s+denied\b/i.test(bodyText) ||
-    /\brecords?\s+(?:are|is)\s+exempt\s+from\s+disclosure\b/i.test(bodyText) ||
-    /\bwe\s+(?:have\s+)?referred\b[^.]{0,60}\battorney general\b/i.test(bodyText) ||
-    /\bdenying\s+(?:your\s+)?request\b/i.test(bodyText)
+    sentences.some(
+      (sentence) =>
+        !isConditionalSentence(sentence) && DENIAL_PATTERNS.some((re) => re.test(sentence)),
+    )
   ) {
     return 'DENIED';
   }
@@ -212,17 +297,22 @@ export const buildMailScanSk = (messageId: string): string => {
  * Split from the acting so it can be exercised against real messages — the
  * acceptance gate replays actual correspondence through this and reads the table
  * of decisions before anything is allowed to mutate an opportunity.
+ *
+ * `identity` is threaded down from the resolved tenant's `scrapeMailbox` (see
+ * `process-inbound-mail.ts`) and is required, because every authorship decision below
+ * this point depends on knowing which addresses are ours.
  */
 export const decideInboundMail = (args: {
   from: string;
   subject: string;
   raw: string;
   candidates: readonly CorrelationCandidate[];
+  identity: MonitoredMailboxIdentity;
 }): MailIngestResult => {
-  const { from, subject, raw, candidates } = args;
+  const { from, subject, raw, candidates, identity } = args;
 
   const { text, attachmentNames } = parseRawMail(raw);
-  const classification = classifyMailDeterministic({ from, subject, body: text });
+  const classification = classifyMailDeterministic({ from, subject, body: text }, identity);
 
   // Correlate over subject and body together: agencies put the solicitation
   // number in either, and the terse replies ("PRA 26-528 - Response") have
@@ -258,6 +348,7 @@ export const decideInboundMail = (args: {
         classification,
         bodyText: text,
         attachmentNames,
+        identity,
       });
 
       return single

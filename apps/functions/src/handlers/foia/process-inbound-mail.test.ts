@@ -149,7 +149,13 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockFindOrgByScrapeMailbox.mockResolvedValue('org-horus');
   mockListOpportunitiesByOrg.mockResolvedValue({ items: [TX_OPPORTUNITY] });
-  mockGetFoiaSettings.mockResolvedValue({ orgId: 'org-horus', delayDays: 90 });
+  // `scrapeMailbox` is what the handler derives the mailbox identity from — the same
+  // value `findOrgByScrapeMailbox` matched the recipients against.
+  mockGetFoiaSettings.mockResolvedValue({
+    orgId: 'org-horus',
+    delayDays: 90,
+    scrapeMailbox: 'foia@inbox.horustech.dev',
+  });
   mockGetFoiaAutomation.mockResolvedValue({ state: 'SCHEDULED' });
   mockSetFoiaAutomationState.mockResolvedValue(undefined);
   mockSyncOpportunityFoiaMarker.mockResolvedValue(undefined);
@@ -194,13 +200,17 @@ describe('award notices', () => {
   it('records the agency-stated award date and re-anchors the timer', async () => {
     await processInboundMail(sesEvent({}));
 
-    // The award date the agency stated, not the receipt date.
+    // The award date the agency stated, not the receipt date — and written to
+    // `agencyStatedAwardDate` rather than `outcomeDate`. The latter is also stamped
+    // with `now` by every terminal status transition, and on read it was outranked
+    // by `lossData.lossDate` (a UI click timestamp), which silently replaced a real
+    // 2026-01-29 with 2026-06-10 on opportunity 06b56638 in dev.
     expect(mockUpdateOpportunity).toHaveBeenCalledWith(
       expect.objectContaining({
         orgId: 'org-horus',
         projectId: 'proj-1',
         oppId: 'opp-tx',
-        patch: { outcomeDate: '2026-01-29' },
+        patch: { agencyStatedAwardDate: '2026-01-29' },
       }),
     );
 
@@ -247,7 +257,7 @@ describe('award notices', () => {
     await processInboundMail(sesEvent({}));
 
     expect(mockUpdateOpportunity).toHaveBeenCalledWith(
-      expect.objectContaining({ patch: { outcomeDate: '2026-01-29' } }),
+      expect.objectContaining({ patch: { agencyStatedAwardDate: '2026-01-29' } }),
     );
   });
 
@@ -427,7 +437,7 @@ describe('locating the stored message', () => {
 
     expect(mockS3Send).toHaveBeenCalled();
     expect(mockUpdateOpportunity).toHaveBeenCalledWith(
-      expect.objectContaining({ patch: { outcomeDate: '2026-01-29' } }),
+      expect.objectContaining({ patch: { agencyStatedAwardDate: '2026-01-29' } }),
     );
   });
 
@@ -532,6 +542,100 @@ describe('tenant attribution on forwarded mail', () => {
     );
     // And it went on to act, rather than dropping the message.
     expect(mockClaimInboundMessage).toHaveBeenCalled();
+  });
+
+  it('reads the tenant’s settings once, before deciding, and reuses them on the award path', async () => {
+    /**
+     * The settings read used to live inside `applyAwardNotice` — i.e. AFTER the decision
+     * and only on the award path — so the tenant's own `scrapeMailbox` was never
+     * available to the classifier and every authorship decision fell back to a
+     * hardcoded vendor-domain regex. Hoisting it is what makes the identity available;
+     * `applyAwardNotice` now takes the settings rather than re-fetching them.
+     *
+     * Asserted as a count because nothing else would catch a revert: this is a real
+     * change in per-message call shape (one small GetItem for every message, including
+     * the ones that decide IGNORED, against one fewer on the award path).
+     */
+    await processInboundMail(sesEvent({}));
+
+    expect(mockGetFoiaSettings).toHaveBeenCalledTimes(1);
+    expect(mockGetFoiaSettings).toHaveBeenCalledWith('org-horus');
+    // And it was used: the schedule is 90 days past the stated award, which is the
+    // `delayDays` from those settings.
+    expect(mockSetFoiaAutomationState.mock.calls[0]?.[0].patch.scheduledSendAt.slice(0, 10)).toBe(
+      '2026-04-29',
+    );
+  });
+
+  it('still classifies when the tenant has configured no scrapeMailbox', async () => {
+    /**
+     * `getFoiaSettings` never throws — with no stored row it returns
+     * `buildDefaultFoiaSettings`, whose `scrapeMailbox` is nullish. The identity then
+     * falls back to the platform's own sending host, which reproduces today's behaviour
+     * exactly rather than failing the message.
+     */
+    mockGetFoiaSettings.mockResolvedValue({ orgId: 'org-horus', delayDays: 90 });
+
+    await processInboundMail(sesEvent({}));
+
+    expect(mockUpdateOpportunity).toHaveBeenCalledWith(
+      expect.objectContaining({ patch: { agencyStatedAwardDate: '2026-01-29' } }),
+    );
+  });
+
+  it('derives the mailbox identity from the tenant’s own scrapeMailbox, not a hardcoded domain', async () => {
+    /**
+     * The one test that fails if Fix 2's handler wiring is reverted.
+     *
+     * Every other assertion in this file passes with the identity hardcoded, because the
+     * live tenant IS on the vendor domain — mutating the wiring to
+     * `buildMailboxIdentity({ scrapeMailbox: null })` left all 693 tests green. So this
+     * pins it from the only angle that can distinguish the two: a tenant on ITS OWN
+     * domain, whose quoted letter is only recognisable via `scrapeMailbox`.
+     *
+     * An agency replies to `foia@records.acmecity.example`, quoting our letter beneath a
+     * `From:` line naming that tenant. If the identity comes from the tenant, the quoted
+     * letter is stripped and the agency's own "was cancelled" is what gets classified, so
+     * the automation is suppressed. If it comes from a hardcoded vendor domain, no cut
+     * point is found, our own `pursuant to` boilerplate stays in the authorship haystack,
+     * and the message books as OUR_OWN_REQUEST — no suppression, which is the live defect.
+     */
+    mockFindOrgByScrapeMailbox.mockResolvedValue('org-acme');
+    mockGetFoiaSettings.mockResolvedValue({
+      orgId: 'org-acme',
+      delayDays: 90,
+      scrapeMailbox: 'foia@records.acmecity.example',
+    });
+    mockListOpportunitiesByOrg.mockResolvedValue({
+      items: [{ ...TX_OPPORTUNITY, orgId: 'org-acme', solicitationNumber: 'IFB C25910004' }],
+    });
+    givenRawMessage(
+      rawMessage([
+        'Message-ID: <acme-reply-1@parks.ca.gov>',
+        'Content-Type: text/plain',
+        '',
+        'Unfortunately, C25910004 was cancelled and not awarded via IFB.',
+        '',
+        'From: foia@records.acmecity.example',
+        '> Pursuant to the California Public Records Act, we request the notice of award',
+        '> and the awarded contract value.',
+      ]),
+    );
+
+    await processInboundMail(
+      sesEvent({
+        from: 'bids@parks.ca.gov',
+        subject: 'Re: Public Records Act Request - IFB C25910004',
+        destination: ['foia@records.acmecity.example'],
+        messageId: 'ses-receipt-acme-1',
+      }),
+    );
+
+    expect(mockGetFoiaSettings).toHaveBeenCalledWith('org-acme');
+    // The agency's own words won: suppressed, not filed as our own outgoing request.
+    expect(mockSetFoiaAutomationState).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: 'org-acme', state: 'SUPPRESSED' }),
+    );
   });
 
   it('still consults headers, for wirings that do not populate the envelope', async () => {

@@ -16,6 +16,7 @@ import type {
   GrillingMessageItem,
   GrillingMessageRole,
   GrillingToolCallSummary,
+  SolutionPlanCostSchedule,
   SolutionPlanDBItem,
   SolutionPlanItem,
   SolutionPlanKey,
@@ -27,6 +28,7 @@ import { PK_NAME, SK_NAME } from '@/constants/common';
 import { GRILLING_MESSAGE_PK, SOLUTION_PLAN_PK } from '@/constants/solution-plan';
 import { Sentry } from '@/sentry-lambda';
 import { batchDeleteItems, getItem, putItem, queryAllBySkPrefix, updateItem } from './db';
+import { captureSolutionPlanVersion } from './solution-plan-version';
 import { loadTextFromS3, uploadToS3 } from './s3';
 import { requireEnv } from './env';
 import { nowIso } from './date';
@@ -82,16 +84,30 @@ export const putSolutionPlan = async (plan: SolutionPlanItem): Promise<SolutionP
  * Transition the plan's lifecycle status, optionally patching related fields
  * (e.g. `contentKey` + `version` on READY, `error` on FAILED).
  * Throws if the plan does not exist.
+ *
+ * `options` passes a custom ConditionExpression through to the write (e.g. the
+ * worker's completion write is conditional on the plan still GENERATING_SOT,
+ * BR5.3) — a failed condition surfaces as ConditionalCheckFailedException.
  */
 export const updateSolutionPlanStatus = async (
   key: SolutionPlanKey,
   status: SolutionPlanStatus,
   patch?: SolutionPlanStatusPatch,
+  options?: {
+    condition?: string;
+    conditionNames?: Record<string, string>;
+    conditionValues?: Record<string, unknown>;
+  },
 ): Promise<SolutionPlanDBItem> =>
-  updateItem<SolutionPlanDBItem>(SOLUTION_PLAN_PK, buildSolutionPlanSk(key), {
-    status,
-    ...patch,
-  });
+  updateItem<SolutionPlanDBItem>(
+    SOLUTION_PLAN_PK,
+    buildSolutionPlanSk(key),
+    {
+      status,
+      ...patch,
+    },
+    options,
+  );
 
 /** Strip the single-table keys off a DB record → the pure domain item. */
 const stripDbKeys = <TItem>(dbItem: TItem & Record<typeof PK_NAME | typeof SK_NAME, string>): TItem => {
@@ -118,6 +134,8 @@ export const toSolutionPlanItem = (dbItem: SolutionPlanDBItem): SolutionPlanItem
 export const updateSolutionPlanContent = async (
   key: SolutionPlanKey,
   patch: { version: number; contentKey: string; editedBy?: string },
+  /** Display name of the editing caller — attribution for the captured version (BR3.1). */
+  editorName?: string,
 ): Promise<SolutionPlanDBItem | null> => {
   try {
     const updated = await updateItem<SolutionPlanDBItem>(
@@ -137,6 +155,26 @@ export const updateSolutionPlanContent = async (
     console.log(
       `[updateSolutionPlanContent] cleared costSchedule on user edit (opportunityId=${key.opportunityId}) — pricing docs fall back to Fix A until the plan is regenerated`,
     );
+
+    // Version capture (BR1.2, W2): the manual save clears the cost schedule, so
+    // the snapshot carries none. Capture is fail-open by contract (BR5.1) — the
+    // extra .catch only shields the save from an unexpectedly rejecting mock or
+    // regression; a real failure is logged + Sentry-reported inside capture.
+    await captureSolutionPlanVersion({
+      key,
+      solutionPlanId: updated.id,
+      versionNumber: patch.version,
+      htmlContentKey: patch.contentKey,
+      origin: 'manual-save',
+      createdBy: patch.editedBy,
+      createdByName: editorName,
+    }).catch((captureErr) =>
+      console.error(
+        '[updateSolutionPlanContent] version capture rejected unexpectedly (fail-open):',
+        captureErr,
+      ),
+    );
+
     return updated;
   } catch (err) {
     if ((err as { name?: string })?.name === 'ConditionalCheckFailedException') {
@@ -147,6 +185,57 @@ export const updateSolutionPlanContent = async (
     }
     throw err;
   }
+};
+
+/**
+ * Restore write primitive (contract C4, solution-plan-versioning u1 — invoked
+ * by u3's restore flow, never by manual-save). ONE conditional update that:
+ *  - sets `contentKey` to the FRESH S3 copy u3 made (never a version's own key)
+ *    and `costSchedule` to the restored snapshot (null when the version had none)
+ *  - bumps the monotonic `version` counter server-side (no read-modify-write)
+ *  - sets status READY (a FAILED plan is restorable) and marks the plan
+ *    user-edited by the restoring caller
+ *  - PRESERVES `isStale`/`staleReason` exactly and NEVER touches `planTeam`
+ *  - REFUSES while a generation run is in flight (GRILLING/GENERATING_SOT)
+ *
+ * Deliberately NOT `updateSolutionPlanContent` (which clears staleness and
+ * nulls the schedule) and never calls the manual-save capture hook — u3
+ * captures the restore version itself (BR1.3, no double capture).
+ *
+ * A conditional-write failure (plan missing or mid-generation) propagates
+ * UNCHANGED to the caller, which maps it to its 409/404 responses.
+ */
+export const restoreSolutionPlanContent = async (args: {
+  key: SolutionPlanKey;
+  /** The FRESH S3 copy created by the restore flow — never the source version's key. */
+  htmlContentKey: string;
+  /** From the source version's snapshot; null when that version carried none. */
+  costSchedule: SolutionPlanCostSchedule | null;
+  /** User id of the restoring caller. */
+  restoredBy: string;
+}): Promise<SolutionPlanDBItem> => {
+  const { key, htmlContentKey, costSchedule, restoredBy } = args;
+  return updateItem<SolutionPlanDBItem>(
+    SOLUTION_PLAN_PK,
+    buildSolutionPlanSk(key),
+    {
+      contentKey: htmlContentKey,
+      costSchedule,
+      status: 'READY' satisfies SolutionPlanStatus,
+      isUserEdited: true,
+      editedBy: restoredBy,
+    },
+    {
+      condition:
+        'attribute_exists(#pk) AND (#status = :readyStatus OR #status = :failedStatus)',
+      conditionNames: { '#pk': PK_NAME, '#status': 'status' },
+      conditionValues: {
+        ':readyStatus': 'READY' satisfies SolutionPlanStatus,
+        ':failedStatus': 'FAILED' satisfies SolutionPlanStatus,
+      },
+      increments: { version: 1 },
+    },
+  );
 };
 
 /**

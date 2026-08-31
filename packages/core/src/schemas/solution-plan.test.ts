@@ -403,6 +403,24 @@ describe('SolutionPlanItemSchema', () => {
     expect(data?.grillingRounds).toBe(4);
   });
 
+  it('should accept the optional generation-initiator stamp fields (BR6.1)', () => {
+    const { success, data } = SolutionPlanItemSchema.safeParse({
+      ...validItem,
+      generationInitiatedBy: 'user-1',
+      generationInitiatedByName: 'Alice Example',
+    });
+    expect(success).toBe(true);
+    expect(data?.generationInitiatedBy).toBe('user-1');
+    expect(data?.generationInitiatedByName).toBe('Alice Example');
+  });
+
+  it('should parse pre-feature plans without the initiator stamp (BR3.3 fallback input)', () => {
+    const { success, data } = SolutionPlanItemSchema.safeParse(validItem);
+    expect(success).toBe(true);
+    expect(data?.generationInitiatedBy).toBeUndefined();
+    expect(data?.generationInitiatedByName).toBeUndefined();
+  });
+
   it('should reject an invalid status', () => {
     expect(
       SolutionPlanItemSchema.safeParse({ ...validItem, status: 'PENDING' }).success

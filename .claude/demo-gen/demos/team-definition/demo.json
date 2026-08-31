@@ -1,0 +1,80 @@
+{
+  "slug": "team-definition",
+  "type": "product",
+  "env": {
+    "base": "http://localhost:3000",
+    "login": {
+      "route": "/organizations",
+      "userSelector": "input[name=\"username\"]",
+      "passSelector": "input[name=\"password\"]",
+      "submitSelector": "button[type=\"submit\"]",
+      "userEnv": "DEMO_USER",
+      "passEnv": "DEMO_PASS",
+      "waitForSelector": "h1"
+    }
+  },
+  "voice": { "provider": "elevenlabs", "voiceId": "0MB07w7FwV7MIdlDUod6", "name": "Michael" },
+  "resources": {},
+  "segments": [
+    {
+      "id": "01-employee-pool",
+      "shots": [
+        { "cue": "This is AutoRFP's new Team Definition", "do": "navigate", "with": { "to": "/organizations/9c0a5757-e2da-4e71-9490-01c558f7ffc3/employees" } },
+        { "cue": "on the Employees page", "do": "hover", "with": { "selector": "h1", "hold": 1.2 } },
+        { "cue": "their certifications", "do": "hover", "with": { "selector": "[data-testid=\"employee-table-sort-certifications\"]", "hold": 1.2 } },
+        { "cue": "Type DevOps", "do": "type", "with": { "selector": "[data-testid=\"employees-search\"]", "text": "DevOps" } },
+        { "cue": "actually fill that role", "do": "highlight", "with": { "field": "Senior DevOps Engineer", "hold": 1.5 } }
+      ]
+    },
+    {
+      "id": "02-cv-import",
+      "shots": [
+        { "cue": "Building the pool is AI work", "do": "navigate", "with": { "to": "/organizations/9c0a5757-e2da-4e71-9490-01c558f7ffc3/employees" } },
+        { "cue": "One click on Generate from CVs", "do": "highlight", "with": { "field": "Generate from CVs", "hold": 1.2 } },
+        { "cue": "detects which ones are CVs", "do": "click", "with": { "selector": "[data-testid=\"employees-generate-from-cvs\"]" } },
+        { "cue": "this banner tracks", "do": "highlight", "with": { "field": "Generating employees from CVs", "hold": 1.5 } },
+        { "cue": "while you keep working", "do": "highlight", "with": { "field": "documents scanned", "hold": 1.5 } }
+      ]
+    },
+    {
+      "id": "03-team-definition",
+      "shots": [
+        { "cue": "The payoff shows up", "do": "navigate", "with": { "to": "/organizations/9c0a5757-e2da-4e71-9490-01c558f7ffc3/projects/ca6ef9e2-507d-4fe6-8f3d-6ee41264fe92/opportunities/dd0d0bd1-7512-410a-babf-bf8f43aff7c6" } },
+        { "cue": "DMS Modernization assessment", "do": "highlight", "with": { "field": "DMS Modernization", "hold": 1.2 } },
+        { "cue": "Solution Plan is ready", "do": "hover", "with": { "selector": "#solution-plan >> text=Solution Plan >> nth=0", "hold": 1.2 } },
+        { "cue": "carries a Team Definition", "do": "highlight", "with": { "field": "Team Definition", "hold": 1.5 } },
+        { "cue": "match rationale column", "do": "highlight", "with": { "field": "Match rationale", "hold": 1.5 } },
+        { "cue": "why each person fits", "do": "highlight", "with": { "field": "Pavlo Lysanets", "hold": 1.5 } }
+      ]
+    },
+    {
+      "id": "04-edit-team",
+      "shots": [
+        { "cue": "And change it we will", "do": "navigate", "with": { "to": "/organizations/9c0a5757-e2da-4e71-9490-01c558f7ffc3/projects/ca6ef9e2-507d-4fe6-8f3d-6ee41264fe92/opportunities/dd0d0bd1-7512-410a-babf-bf8f43aff7c6" } },
+        { "cue": "Edit team switches the section", "do": "click", "with": { "selector": "[data-testid=\"team-edit\"]" } },
+        { "cue": "add an open role", "do": "click", "with": { "selector": "[data-testid=\"team-add-member\"]" } },
+        { "cue": "Quality Assurance Lead", "do": "type", "with": { "selector": "[data-testid=\"team-role-input\"] >> nth=-1", "text": "Quality Assurance Lead" } },
+        { "cue": "Save, and this becomes", "do": "click", "with": { "selector": "[data-testid=\"team-save\"]" } },
+        { "cue": "the team was manually edited", "do": "highlight", "with": { "field": "Manually edited", "hold": 1.5 } }
+      ]
+    },
+    {
+      "id": "05-team-qualifications",
+      "shots": [
+        { "cue": "The last mile is the document", "do": "navigate", "with": { "to": "/organizations/9c0a5757-e2da-4e71-9490-01c558f7ffc3/projects/ca6ef9e2-507d-4fe6-8f3d-6ee41264fe92/opportunities/dd0d0bd1-7512-410a-babf-bf8f43aff7c6" } },
+        { "cue": "generates straight from the saved team", "do": "highlight", "with": { "field": "Generate Team Qualifications", "hold": 1.5 } },
+        { "cue": "one click queues it", "do": "click", "with": { "selector": "[data-testid=\"team-generate-qualifications\"]" } },
+        { "cue": "Here is the document", "do": "navigate", "with": { "to": "/organizations/9c0a5757-e2da-4e71-9490-01c558f7ffc3/projects/ca6ef9e2-507d-4fe6-8f3d-6ee41264fe92/opportunities/dd0d0bd1-7512-410a-babf-bf8f43aff7c6/rfp-documents/c0734d61-837e-4e33-b508-1531f5f99bed/edit" } },
+        { "cue": "pulled live from the employee records", "do": "highlight", "with": { "field": "Pavlo Lysanets", "hold": 1.8 } }
+      ]
+    },
+    {
+      "id": "06-wrap",
+      "shots": [
+        { "cue": "Back where we started", "do": "navigate", "with": { "to": "/organizations/9c0a5757-e2da-4e71-9490-01c558f7ffc3/employees" } },
+        { "cue": "has finished", "do": "highlight", "with": { "field": "Employee import finished", "hold": 1.5 } },
+        { "cue": "CVs detected", "do": "highlight", "with": { "field": "CVs detected", "hold": 1.5 } }
+      ]
+    }
+  ]
+}
