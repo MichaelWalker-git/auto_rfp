@@ -5,5 +5,12 @@
     "dirName": "260818-team-definition",
     "scope": "team-definition",
     "status": "complete"
+  },
+  {
+    "uuid": "01a02466-a641-72db-9800-90c0f5a4bc20",
+    "slug": "solution-plan-versioning",
+    "dirName": "260821-solution-plan-versioning",
+    "scope": "feature",
+    "status": "complete"
   }
 ]

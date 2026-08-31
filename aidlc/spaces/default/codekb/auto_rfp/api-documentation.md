@@ -1,62 +1,46 @@
-# API Documentation — AutoRFP
+# API Documentation — Solution-Plan Surface & Versioning Precedent
 
-## REST API (API Gateway HTTP API v2)
+> Grounded in `packages/infra/api/routes/solution-plan.routes.ts` and the solution-plan wiring in `api-orchestrator-stack.ts` (route registration at lines 752/1024; SQS queue/DLQ/worker at lines 212–819). Endpoints outside this domain were not catalogued in this run, except the rfp-document version precedent.
 
-- **Route definition pattern**: each domain has `packages/infra/api/routes/<domain>.routes.ts` returning a `DomainRoutes` object. **50 route files, ~308 route entries** total.
-- **Registration invariant**: every domain is registered in two index-aligned arrays in `packages/infra/api/api-orchestrator-stack.ts` — `allDomains[]` and `domainStackNames[]`. A length mismatch **throws at synth**. Adding a domain = new `<domain>.routes.ts` + one entry in each array.
-- **Handler wiring**: routes point at `apps/functions/src/handlers/...` via `lambdaEntry()` NodejsFunction bundling; default auth `COGNITO`.
-- **Auth/RBAC**: Cognito JWT → middy stack `authContextMiddleware → orgMembershipMiddleware → requirePermission('<domain>:<action>') → httpErrorMiddleware`. Permission strings are a Zod enum in `packages/core/src/schemas/user.ts` (e.g. `proposal:create`, `pricing:read`) with per-role grant lists. New domains need new permission enum members + role grants.
-- **Response contract**: `apiResponse(status, body)` from `@/helpers/api` on every REST handler; validation failures return 400 with Zod issues.
-- **Tenancy contract**: `orgId` travels in the request (body for POST/PUT/PATCH, query for GET/DELETE, or path) — never derived from the token.
+## Solution-Plan REST API (8 endpoints)
 
-### Solution Plan endpoints (`solution-plan.routes.ts`, read in full)
+All routes Cognito-authed via the middy stack; `orgId` comes from body/query/path, never the token. All responses via `apiResponse()`.
 
-| Method & path | Purpose |
-|---|---|
-| `POST /solution-plan/init` | Start grilling loop (enqueues SQS job, status `GRILLING`) |
-| `GET /solution-plan/get` | Fetch plan metadata item (status, version, `isStale`, `costSchedule`) |
-| `GET /solution-plan/transcript` | Fetch grilling Q&A transcript |
-| `PATCH /solution-plan/update` | Save edited plan (HTML to S3, version bump) |
-| `GET /solution-plan/html-content` | Fetch the S3-stored HTML body |
+| Method | Path | Handler | Permission | Notes |
+|---|---|---|---|---|
+| POST | `/solution-plan/init` | `init-solution-plan.ts` | `proposal:create` | Starts/restarts a grilling run; `auditMiddleware` (AI_GENERATION_STARTED); FULL putItem overwrite of the plan item (fresh `runId`, preserves only `id`, `version`, `createdAt`, `createdBy`; drops `contentKey`, `planTeam`, `costSchedule`); enqueues first `GrillingRoundMessage` |
+| GET | `/solution-plan/get` | `get-solution-plan.ts` | `proposal:read` | Full plan metadata: `status`, `version`, `isStale`/`staleReason`, `isUserEdited`, `contentKey`, `planTeam`, `costSchedule`, audit fields |
+| GET | `/solution-plan/transcript` | `get-transcript.ts` | `proposal:read` | Grilling transcript (`GRILLING_MESSAGE` items via `queryAllBySkPrefix`) |
+| PATCH | `/solution-plan/update` | `update-solution-plan.ts` | `proposal:create` | Manual HTML edit — **write hook**. Optimistic concurrency: conditional write `status=READY AND version=patch.version-1`; bumps version, new S3 key, sets `isUserEdited`/`editedBy`, clears staleness, nulls `costSchedule` |
+| GET | `/solution-plan/html-content` | `get-html-content.ts` | `proposal:read` | Serves S3 HTML for the current `contentKey` |
+| GET | `/solution-plan/team` | `get-plan-team.ts` | `proposal:read` | Derived-on-read team view |
+| PATCH | `/solution-plan/team/save` | `save-plan-team.ts` | `proposal:create` | User team edit — **write hook**; bumps plan version, no new S3 object, no user id recorded |
+| POST | `/solution-plan/team/regenerate` | `regenerate-plan-team.ts` | `proposal:create` | Synchronous Bedrock matching — **write hook**; bumps plan version, no new S3 object, no user id recorded |
 
-### RFP document generation
+## Async Contract — SQS Grilling/Synthesis Worker
 
-- `POST /rfp-document/generate` (`generate-document.ts`) — validates type, enforces the **solution-plan gate** (plan must be READY unless type ∈ `SOLUTION_PLAN_GATE_EXEMPT_DOCUMENT_TYPES`), creates placeholder doc `GENERATING`, enqueues SQS job. `TEAM_QUALIFICATIONS` is content-based, AI-generatable, and gated.
-- Create/other CRUD in `handlers/rfp-document/` (note: `create-rfp-document.ts` is the convention anti-exemplar — see code-structure.md).
+- **Queue**: `auto-rfp-solution-plan-{stage}`, `batchSize 1`, DLQ `maxReceiveCount 1` — a plain SQS-triggered Lambda (`handlers/solution-plan/solution-plan-worker.ts`), **NOT** a Step Function.
+- **Message** (`GrillingRoundMessage`): `orgId`, `projectId`, `opportunityId`, `solutionPlanId`, `runId`, `round`, `phase` — **no user identity**.
+- **Behavior**: each round calls Bedrock (HTTP client), appends transcript items, re-enqueues the next round; the final phase runs `processSynthesis` (`helpers/solution-plan-worker.ts` lines 337–418): `version=(plan.version??0)+1`, `uploadSolutionPlanHtml(key, version, html)`, `updateSolutionPlanStatus(key,'READY',{contentKey, version, isStale:false, isUserEdited:false, costSchedule})`. Only `updatedAt` is auto-stamped.
+- **Failure**: status `FAILED` with `error` on the plan item; DLQ after a single receive.
 
-## Async & Event-Driven Surfaces
+## Versioning Precedent — RFP-Document Version Endpoints
 
-### SQS workers (not API routes)
-| Worker | Trigger | Function |
+Defined in `rfp-document.routes.ts` (handlers in `handlers/rfp-document/`), backed by `helpers/rfp-document-version.ts`:
+
+| Method | Path (shape) | Purpose |
 |---|---|---|
-| `generate-document-worker` | doc-gen queue | context assembly → Bedrock → `validateGeneratedContent` → 3 retries (30/60/120 s) → READY or FAILED + notification |
-| `solution-plan-worker` | solution-plan queue | Griller/Synthesizer loop → S3 HTML + DynamoDB item |
-| `extraction-worker` | extraction queue | dispatches on `targetType ∈ {PAST_PERFORMANCE, LABOR_RATE, BOM_ITEM}` → DRAFT records + approve flow |
-| compliance-review worker | compliance queue | (skimmed only) |
-| exec-brief queue | brief queue | section-based brief generation (skimmed only) |
+| GET | versions | List version records for a document (newest-first by 6-pad `versionNumber` SK) |
+| GET | compare | Compare two versions (loads both `htmlContentKey` contents) |
+| POST | revert | Restore a prior version as a NEW version; records `createdBy` + `createdByName` (`event.auth?.claims?.name || claims?.email` — see `revert-version.ts`) |
+| POST | cherry-pick | Selectively apply content from a prior version |
 
-### Step Functions
-- `answer-generation-step-function` — RAG answer pipeline
-- `document-pipeline-step-function` — upload → text extraction → chunking → Pinecone indexing
-- `question-pipeline-step-function` — question extraction
+Version record (`RFPDocumentVersionSchema`): `versionId`, `versionNumber`, `htmlContentKey`, `title`, `wordCount`, `changeNote` (≤500 chars), `createdBy`, `createdByName`, `createdAt`. Storage: `RFP_DOCUMENT_VERSION_PK`, SK `{projectId}#{opportunityId}#{documentId}#{versionNumber:6pad}`. Same pattern exists for `QUESTIONNAIRE_VERSION_PK` and `REQUIRED_FORM_VERSION_PK`, with `KEEP_COUNT = 30` retention pruning. Note: the precedent's request schemas use legacy DTO names (`CreateVersionDTOSchema`, `RevertVersionDTOSchema`); new endpoints must use the 5-type `<Entity>CreateRequest` convention.
 
-### WebSocket API
-- `collaboration-websocket-stack.ts` — real-time collaboration. WebSocket handlers return plain `{ statusCode, body }` (not `apiResponse`).
+## Internal Read Contracts (non-HTTP consumers of the plan)
 
-## External Integrations
-
-| Integration | Mechanism | Notes |
-|---|---|---|
-| Bedrock | **HTTPS only** via `helpers/bedrock-http-client.ts`, API key from SSM | never `@aws-sdk/client-bedrock-runtime` |
-| Pinecone | `@pinecone-database/pinecone` ^6.1.4 | org-namespaced, metadata-filtered (e.g. `type: 'past_project'`); Titan embeddings |
-| Cognito | Amplify (web) + JWT authorizer (API) | user records dual-written to DynamoDB |
-| SAM.gov / HigherGov | HTTP integrations | opportunity sourcing |
-| Google Drive | HTTP integration | document import |
-| Linear | HTTP integration | ticketing |
-| Sentry | `@sentry/serverless` (Lambda), `@sentry/nextjs` (web) | `withSentryLambda` on all REST handlers |
-
-## Internal Contract Notes (for downstream design)
-
-- The solution plan item is the natural attachment point for structured, server-validated data: `costSchedule` (`SolutionPlanCostScheduleSchema`, nullable, server-recomputed totals) already rides alongside the S3 HTML body — the precedent a team-definition field would follow (observation, not design).
-- Past-performance matching consumes exec brief `sections.requirements.data` (fallback: summary) — the same input a person-matching flow would consume.
-- AI extraction jobs (`extraction-job.ts`) carry a `targetType` discriminator; extending extraction means a new target type + worker branch. Affirmed project rule: CV extraction will use **direct import**, skipping the existing draft-review step.
+- `helpers/generate-document-worker.ts` — `loadApprovedSolutionPlanContext` (lines 939–973): loads the READY plan's `contentKey` HTML from S3, strips to text, injects as source-of-truth; stamps generated documents with `solutionPlanId` + `solutionPlanVersion` (`rfp-document.ts:348`, stamping at worker lines 1534–1536; `createVersion` call at 1556).
+- `helpers/team-qualifications-context.ts` — reads `plan.planTeam.members`, classifying UNFILLED → DELETED → FILLED with a defensive degrade for stale employee references.
+- `helpers/solution-plan-gate.ts` — status gate consumed by `rfp-document/generate-document.ts` and `edit-section.ts`.
+- `document-context.ts` does **NOT** read the solution plan.
+- Staleness triggers (call `markSolutionPlanStale(Safe)`): `helpers/executive-brief-queue.ts`, `handlers/brief/init-executive-brief.ts`, `handlers/question-file/create-question-file.ts` (solicitation upload).

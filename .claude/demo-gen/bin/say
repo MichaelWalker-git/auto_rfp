@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Linux shim for macOS `say`, used only by demo-gen dry runs.
+# Usage (as the engine calls it): say -r <wpm> -o <out.aiff> <text>
+# Produces silence whose duration matches the text at the given rate, so cue
+# timing measurement works without a real speech engine.
+set -euo pipefail
+export LC_ALL=C
+rate=175
+out=""
+text=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -r) rate="$2"; shift 2 ;;
+    -o) out="$2"; shift 2 ;;
+    *) text="$1"; shift ;;
+  esac
+done
+words=$(wc -w <<<"$text")
+dur=$(awk -v w="$words" -v r="$rate" 'BEGIN { d = (w / r) * 60; if (d < 0.5) d = 0.5; printf "%.2f", d }')
+ffmpeg -v error -y -f lavfi -i anullsrc=r=22050:cl=mono -t "$dur" "$out"

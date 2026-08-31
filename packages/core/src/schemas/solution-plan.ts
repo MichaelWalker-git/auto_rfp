@@ -322,6 +322,15 @@ export const SolutionPlanItemSchema = SolutionPlanCreateRequestSchema.extend({
   isUserEdited: z.boolean().default(false),
   /** User who last manually edited the plan. */
   editedBy: z.string().optional(),
+  /**
+   * User id of whoever started the current generation run (BR6.1, ADR-003).
+   * Stamped by init, overwritten by each new run; read at synthesis capture
+   * to attribute the generated version (BR6.2). Absent on pre-feature runs —
+   * capture falls back to the system sentinel (BR3.3).
+   */
+  generationInitiatedBy: z.string().optional(),
+  /** Display name matching `generationInitiatedBy`. */
+  generationInitiatedByName: z.string().optional(),
   /** Number of grilling rounds completed for the current run. */
   grillingRounds: z.number().int().nonnegative().optional(),
   /** ISO datetime the grilling interview finished (synthesis started). */

@@ -78,8 +78,18 @@ apps/web/e2e/.auth/
 aidlc/active-space
 aidlc/spaces/*/intents/
 aidlc/.aidlc-clone-id
+aidlc/.aidlc-unit-scope.json
+aidlc/.aidlc-unit-parked
+aidlc/.aidlc-claim-generations.json
+aidlc/.aidlc-unit-participant
+aidlc/.aidlc-claim-registry.json
+aidlc/.aidlc-unit-releases/
+aidlc/.aidlc-unit-merges/
 aidlc/.aidlc-active-space-*.tmp
 aidlc/.aidlc-sessions/
+aidlc/spaces/*/intents/.aidlc-*
+aidlc/spaces/*/intents/*/runtime-graph.json
+aidlc/spaces/*/intents/*/.aidlc-*
 aidlc/diagnostics/
 
 # Test coverage output

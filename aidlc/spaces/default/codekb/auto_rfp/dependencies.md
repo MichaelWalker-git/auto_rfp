@@ -1,44 +1,43 @@
 # Dependencies — AutoRFP
 
+> From the focused scan (intent `260821-solution-plan-versioning`). Full dependency trees of unscanned packages were not audited.
+
 ## Internal Cross-Package Dependencies
 
+```mermaid
+flowchart TD
+  CORE["@auto-rfp/core\n(Zod schemas — built FIRST, tsup ESM+CJS)"]
+  FN["@auto-rfp/functions\n(Lambda handlers + helpers)"]
+  WEB["@auto-rfp/web\n(Next.js frontend)"]
+  INFRA["@auto-rfp/infra\n(CDK)"]
+  FN --> CORE
+  WEB --> CORE
+  INFRA -->|"bundles handlers via lambdaEntry() NodejsFunction"| FN
 ```
-@auto-rfp/core  ──►  @auto-rfp/web
-                ──►  @auto-rfp/functions
-                ──►  @auto-rfp/infra
-@auto-rfp/functions (sources)  ──bundled by──►  @auto-rfp/infra (lambdaEntry() NodejsFunction paths)
-```
+<!-- Text fallback: @auto-rfp/functions and @auto-rfp/web both import @auto-rfp/core, which must be built first (tsup, ESM+CJS). @auto-rfp/infra bundles the functions handlers at deploy time via lambdaEntry() NodejsFunction — a build-time dependency on apps/functions source. -->
 
-- **Build order is hard**: `packages/core` must be built (tsup, ESM+CJS) before `apps/web`, `apps/functions`, or `packages/infra` can type-check/build. After any core schema change, rebuild core first.
-- `packages/infra` does not depend on a built functions artifact — it **bundles `apps/functions/src` handler sources directly** via `lambdaEntry()` at synth/deploy time.
-- `apps/functions/src/constants/common.ts` re-exports `PK_NAME`/`SK_NAME` from `@auto-rfp/core` (`packages/core/src/constants.ts` is the single source of truth for the single-table key names).
-- Caution: `packages/infra/lib/` contains **stale committed compiled output** (`.js`/`.d.ts`) shadowing the real `.ts` stack sources one level up (`packages/infra/*.ts`, `packages/infra/api/`) — navigate to the `.ts` sources, not `lib/`.
+- **Build order**: `packages/core` first; rebuild it after any schema change before typechecking/testing dependents.
+- `apps/functions/src/constants/common.ts` re-exports `PK_NAME`/`SK_NAME` from `@auto-rfp/core` (`packages/core/src/constants.ts` is the single source of truth) so backend code imports them from `@/constants/common`.
+- Path alias `@/*` → `src/*` in apps/functions; `@/*` in apps/web.
 
-## External Service Dependencies
+## External Dependencies (scanned area)
 
-| Service | Access path | Coupling notes |
+| Dependency | Consumer | Role |
 |---|---|---|
-| AWS Bedrock | **HTTP only** via `apps/functions/src/helpers/bedrock-http-client.ts`; API key from SSM | Hard rule: never import `@aws-sdk/client-bedrock-runtime`. All AI generation (documents, solution plan, answers, extraction) depends on this client. |
-| Pinecone | `@pinecone-database/pinecone` ^6.1.4 | org-namespaced indexes, metadata-filtered queries (`type: 'past_project'` etc.); Titan embeddings. Semantic retrieval for RAG, past-performance matching, KB search. |
-| Amazon Cognito | Amplify (web) + JWT authorizer (API) + `@aws-sdk/client-cognito-identity-provider` | users dual-written to Cognito and DynamoDB |
-| SAM.gov | HTTP integration | opportunity sourcing |
-| HigherGov | HTTP integration | opportunity sourcing |
-| Google Drive | HTTP integration | document import |
-| Linear | HTTP integration | ticketing |
-| Sentry | `@sentry/serverless` (functions), `@sentry/nextjs` (web) | `withSentryLambda` on all REST handlers |
+| zod ^3.24/3.25 | core (re-exported types everywhere) | Schema validation + type inference |
+| @middy/core ^7 | functions | Handler middleware stack |
+| AWS SDK v3 (DynamoDB, S3, SQS clients) | functions `helpers/db.ts` and domain helpers only — never raw SDK in handlers | Persistence, queue |
+| Sentry Lambda SDK | functions | `withSentryLambda` on every REST handler |
+| ulid / uuid | functions | runId / entity ids |
+| next 16.0.10, react ^18.3, swr ^2.3.3 | web | Frontend framework + server state |
+| TipTap | web | Plan HTML editor |
+| aws-amplify | web | Cognito auth + `authenticatedFetcher` JWT attach |
+| aws-cdk-lib ^2.230–2.237 | infra | Stacks, routes, SQS queue/DLQ, Lambda bundling |
+| Bedrock (external service via HTTPS) | functions `bedrock-http-client.ts` | AI invocations — HTTP only, SSM-cached API key; `@aws-sdk/client-bedrock-runtime` is deliberately NOT a dependency of handler code |
 
-## AWS Managed-Service Dependencies
+## Dependency Rules Observed
 
-- **DynamoDB** — single shared table (`partition_key`/`sort_key`), GSIs; all access through `helpers/db.ts`.
-- **S3** — uploaded files, extracted text, chunk storage, solution-plan HTML bodies, generated documents.
-- **SQS** — document generation, solution-plan grilling, extraction, compliance-review, exec-brief queues (each with worker Lambdas).
-- **Step Functions** — answer-generation, document-pipeline, question-pipeline.
-- **API Gateway** — HTTP API v2 (REST) + WebSocket API (collaboration).
-- **SSM Parameter Store** — Bedrock API key.
-- **Amplify Hosting** — web frontend deployment.
-
-## Dependency Risks (observed)
-
-- Everything AI flows through one Bedrock HTTP client and one Pinecone client — single choke points (also single places to instrument).
-- Infra bundling of functions sources means handler-level type errors surface at CDK synth/deploy, not at an infra package build of its own sources.
-- Version skew: Zod ^3.24 vs ^3.25 and Vitest ^2 vs ^4 across packages (minor; assumption: benign, not verified).
+1. Handlers never import AWS SDK clients directly — all persistence flows through `helpers/db.ts` or domain helpers.
+2. Bedrock is reachable only through the HTTP client — an architectural firewall, not just a convention.
+3. Domain types are never redefined locally — web and functions import from `@auto-rfp/core` (legacy `apps/functions/src/types/` DBItem aliases are being migrated into core `<Entity>DBItemSchema`s).
+4. Infra references handler source paths via `lambdaEntry('domain/handler.ts')`, so renaming/moving a handler file is an infra-visible change.

@@ -1,73 +1,77 @@
 # Code Structure — AutoRFP
 
-## Monorepo Layout
+> Grounded in the focused solution-plan scan (intent `260821-solution-plan-versioning`). Directory layout outside the scanned area follows the repo conventions but was not verified deeply in this run.
 
-pnpm workspaces (pnpm 10.10.0, Node >= 20), ESM everywhere, TypeScript strict.
+## Monorepo Organization
 
 ```
-auto_rfp/
+auto_rfp/                          # pnpm workspaces
 ├── apps/
-│   ├── web/                 # @auto-rfp/web — Next.js App Router frontend
-│   │   ├── app/             # Pages/layouts; route groups (auth), (dashboard); org pages at app/organizations/[orgId]/
-│   │   ├── features/        # 18 FSD feature modules (incl. solution-plan)
-│   │   ├── components/      # Shadcn UI primitives (ui/) + older non-FSD domains (e.g. pricing/, opportunities/)
-│   │   ├── layouts/         # sidebar-layout (static org nav array, lines 134–149)
-│   │   ├── lib/hooks/       # shared SWR hooks (useApi, apiMutate, useAuth, useHealth)
-│   │   └── context/         # auth, organization providers
-│   ├── functions/           # @auto-rfp/functions — Lambda handlers (Node 20, ESM)
-│   │   └── src/
-│   │       ├── handlers/    # 55 domain dirs of thin handlers
-│   │       ├── helpers/     # ~150 files of business logic, db, AI integration
-│   │       ├── middleware/  # rbac-middleware.ts (AuthedEvent), audit-middleware.ts
-│   │       ├── constants/   # PK constants; common.ts re-exports PK_NAME/SK_NAME from core
-│   │       └── types/       # DynamoDB item types (legacy location; DBItem now belongs in core)
+│   ├── web/                       # @auto-rfp/web — Next.js App Router (Next 16.0.10)
+│   │   └── features/solution-plan/
+│   │       ├── components/        # SolutionPlanEditorPage, SolutionPlanPanel, TeamDefinitionSection, ...
+│   │       ├── hooks/             # useSolutionPlan, useUpdateSolutionPlan, usePlanTeam, ... (+__tests__)
+│   │       └── lib/               # swr.ts (keys/fetchers), gating.ts, save-errors.ts, status.ts
+│   └── functions/                 # @auto-rfp/functions — Lambda (Node 20, ESM)
+│       └── src/
+│           ├── handlers/solution-plan/   # 9 handlers + 18 co-located test files
+│           ├── handlers/rfp-document/    # incl. version endpoints (revert-version.ts etc.)
+│           ├── helpers/                  # ALL business logic (solution-plan.ts, plan-team.ts, db.ts, ...)
+│           ├── constants/                # PK constants (solution-plan.ts, common.ts re-exports PK_NAME/SK_NAME)
+│           ├── middleware/               # rbac-middleware.ts, audit-middleware.ts
+│           └── types/                    # DynamoDB item types (being migrated to core DBItem schemas)
 ├── packages/
-│   ├── core/                # @auto-rfp/core — ~80 Zod schema files + constants.ts; tsup → ESM+CJS
-│   └── infra/               # @auto-rfp/infra — CDK app; real sources at *.ts and api/; lib/ = STALE compiled output
-├── evals/                   # AI eval suites (executive-brief, question_generation)
-├── scripts/                 # utilities
-└── docs/                    # 46 implementation docs + "team defenition/task" (initiative problem statement)
+│   ├── core/                      # @auto-rfp/core — Zod schemas, tsup ESM+CJS, built FIRST
+│   │   └── src/schemas/           # solution-plan.ts, rfp-document-version.ts, ... (export * barrel)
+│   └── infra/                     # @auto-rfp/infra — CDK
+│       └── api/
+│           ├── routes/            # solution-plan.routes.ts, rfp-document.routes.ts, ...
+│           └── api-orchestrator-stack.ts  # route registration + SQS queue/DLQ/worker wiring
+├── evals/                         # AI evaluation suites (not scanned)
+└── scripts/                       # utilities (not scanned)
 ```
 
-## Code Patterns (verified in scanned code)
+## File Classification (scanned area)
 
-### Backend — thin handler + helpers
-- Handler: parse event → `const { success, data, error } = Schema.safeParse(raw)` → helper call → `apiResponse(status, body)`; wrapped `withSentryLambda(middy(...))` with stack `authContextMiddleware → orgMembershipMiddleware → requirePermission → httpErrorMiddleware`.
-- `orgId` sourced from body/query/path — never `event.auth`/JWT.
-- All DynamoDB via `helpers/db.ts` (`createItem`, `getItem`, `queryBySkPrefix`, `queryByIndex`, …); SK strings via builder functions, PK constants from `src/constants/`.
-- Bedrock only via `helpers/bedrock-http-client.ts` (HTTPS, API key from SSM).
-- Path alias `@/*` → `src/*`.
-
-### Frontend — Feature-Sliced Design
-- `features/<domain>/{components,hooks,lib,index.ts}` with barrel exports; pages import from `@/features/<domain>` only.
-- SWR + `authenticatedFetcher` for data; `nuqs` for URL state; react-hook-form + zodResolver with `z.input<>`; Skeleton loading (never spinners); Shadcn UI only.
-- **Exemplar**: `apps/web/features/solution-plan/` — hooks (`useSolutionPlan`, `useSolutionPlanHtmlContent`, `useUpdateSolutionPlan`, `useInitSolutionPlan`, `useSolutionPlanGate`, `useSolutionPlanActions`), `SolutionPlanPanel` (embedded in `OpportunityView.tsx:305`), full-page TipTap editor at `.../opportunities/[oppId]/solution-plan/edit`, every hook/component tested.
-- **Older, non-FSD pattern**: pricing UI lives under `apps/web/components/pricing/` (`LaborRateManager`, `StaffingPlanBuilder`, `PendingDraftsSection`), used by `app/organizations/[orgId]/pricing/` — do not copy this layout for new features.
-
-### Shared types — the 5-type entity pattern
-Every stored entity should expose `<Entity>CreateRequestSchema` / `UpdateRequestSchema` / `ItemSchema` / `DBItemSchema` (`[PK_NAME]`/`[SK_NAME]`) / `ListItemSchema` in `packages/core/src/schemas/<entity>.ts`, types via `z.infer<>`, barrel-exported.
-
-**Known violations** (from scan):
-- 21 core schema files still export legacy `*DTOSchema` names (e.g. `CreateRFPDocumentDTOSchema`, `UpdateKnowledgeBaseSchema`).
-- `rfp-document.ts`, `document.ts`, `kb.ts` do not follow the 5-type pattern.
-- `apps/functions/src/handlers/rfp-document/create-rfp-document.ts` builds its item as `Record<string, any>`, constructs the SK inline (`` `${projectId}#${opportunityId}#${documentId}` ``) instead of via an SK builder, and sets `status: 'NEW'` which is not in `RFPDocumentStatusSchema` (hypothesis: dead/incorrect branch — generation sets `GENERATING` elsewhere). This file is the anti-exemplar.
-
-## File Classification
-
-| Class | Location | Notes |
+| Class | Examples | Role |
 |---|---|---|
-| REST handlers | `apps/functions/src/handlers/<domain>/*.ts` | thin, middy-wrapped |
-| Async workers | same handler dirs (e.g. `rfp-document/generate-document-worker.ts`, `solution-plan/solution-plan-worker.ts`, `extraction/extraction-worker.ts`) | SQS-driven, no API route |
-| Business logic | `apps/functions/src/helpers/*.ts` | incl. god-files `document-prompts.ts` (1,407 lines), `generate-document-worker.ts` helper (1,527 lines) |
-| Domain schemas | `packages/core/src/schemas/*.ts` | ~80 files |
-| Route definitions | `packages/infra/api/routes/*.routes.ts` | 50 files, ~308 entries |
-| CDK stacks | `packages/infra/*.ts`, `packages/infra/api/` | `packages/infra/lib/` is stale compiled `.js`/`.d.ts` — ignore |
-| Tests | co-located `*.test.ts`; web tests in `__tests__/` subdirs | 219 functions / 83 web / 30 core / 2 infra |
-| Eval suites | `evals/` | executive-brief, question_generation |
+| Zod entity schemas | `packages/core/src/schemas/solution-plan.ts`, `rfp-document-version.ts` | Domain types via `z.infer<>`; 5-type pattern |
+| Constants | `apps/functions/src/constants/solution-plan.ts`, `packages/core/src/constants.ts` | PK strings, `PK_NAME`/`SK_NAME` |
+| DB primitives | `apps/functions/src/helpers/db.ts` | `createItem`, `putItem`, SET-only `updateItem` + conditions, `queryBySkPrefix`/`queryAllBySkPrefix`, `batchDeleteItems`, `deleteAllBySkPrefix`, retry/backoff |
+| Domain helpers | `helpers/solution-plan.ts` (SK builders, CRUD, S3 HTML, staleness), `solution-plan-init.ts`, `solution-plan-worker.ts`, `plan-team.ts`, `solution-plan-gate.ts`, `rfp-document-version.ts`, `team-qualifications-context.ts` | All business logic |
+| Thin handlers | `handlers/solution-plan/*.ts` | parse → `safeParse` (destructured) → helper → `apiResponse()` |
+| Async workers | `handlers/solution-plan/solution-plan-worker.ts` (SQS), `helpers/generate-document-worker.ts` | Event-driven flows |
+| CDK routes/stacks | `api/routes/solution-plan.routes.ts`, `api-orchestrator-stack.ts` | Route registration, queue/DLQ/Lambda wiring via `lambdaEntry()` |
+| Web hooks/components | `features/solution-plan/hooks/*`, `components/*` | Feature-Sliced Design; SWR + `authenticatedFetcher` |
+| Co-located tests | `*.test.ts` next to source (18 in `handlers/solution-plan/`), `__tests__/` in web feature | Jest 30 / Jest 29+RTL / Vitest |
 
-## Navigation & Feature Gating Structure
+## Code Patterns
 
-- Org-level navigation is a **static array** in `apps/web/layouts/sidebar-layout/sidebar-layout.tsx:134–149`; adding an org page (e.g. the planned employee pool) means adding an entry there.
-- Existing "Org Members" entry (`/organizations/[orgId]/team` → `TeamContent`) is **platform user management** — distinct from the planned employee pool page.
-- KB nav label is "Org Documents" (`sidebar-layout.tsx:139`).
-- Solution-plan feature gated on org flag `enableSolutionPlan` (`packages/core/src/schemas/organization.ts:87`).
+### Thin handler pattern (every REST handler)
+1. Parse event (body/query/path)
+2. `const { success, data, error } = Schema.safeParse(raw)` — always destructured
+3. `orgId` from body/query/path (never JWT); `getUserId(event)` for user id; display name via `event.auth?.claims?.name || claims?.email` (pattern in `rfp-document/revert-version.ts`)
+4. Call helper; return `apiResponse(status, body)`
+5. Middy stack `authContextMiddleware → orgMembershipMiddleware → requirePermission → httpErrorMiddleware` (+ `auditMiddleware` on init); wrapped in `withSentryLambda`
+
+### 5-type Zod entity pattern
+Every stored entity exposes `<Entity>CreateRequestSchema`, `<Entity>UpdateRequestSchema`, `<Entity>ItemSchema` (no DB keys), `<Entity>DBItemSchema` (`[PK_NAME]`/`[SK_NAME]`), `<Entity>ListItemSchema`. `SolutionPlanItemSchema` follows this; the versioning precedent (`rfp-document-version.ts`) still carries legacy `CreateVersionDTOSchema`/`RevertVersionDTOSchema` names — do not copy those names.
+
+### SK builders — never manual strings
+- Plan: `buildSolutionPlanSk` → `{orgId}#{projectId}#{opportunityId}` (one item per opportunity)
+- Transcript: `{solutionPlanId}#{round:3pad}#{ts}#{messageId}`
+- Version precedent: `{projectId}#{opportunityId}#{documentId}#{versionNumber:6pad}`
+- S3 HTML: `buildSolutionPlanHtmlKey` → `{orgId}/{projectId}/{opportunityId}/solution-plan/v{version}/solution-plan.html`
+
+### Frontend patterns
+- `'use client'` hooks with SWR (`useSolutionPlan` polls 3s while status is running); keys/fetchers centralized in `lib/swr.ts`
+- `SolutionPlanEditorPage.tsx` (TipTap) tracks `editorVersion` with a monotonic-forward guard
+- Components presentation-only; logic in hooks; barrel export `index.ts`
+
+### AI integration
+Bedrock ONLY via `helpers/bedrock-http-client.ts` (HTTP, SSM-cached API key); `invokeClaudeJson` in `executive-opportunity-brief.ts`. Never `@aws-sdk/client-bedrock-runtime`.
+
+## Identifier Conventions
+
+- `ulid` for run ids (`runId`), `uuid` for entity ids
+- `updateItem` auto-stamps `updatedAt`; `createdBy`/`updatedBy` set on REST writes that have identity (init, content edit) — team writes and the SQS synthesis write do not record a user

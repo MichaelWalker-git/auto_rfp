@@ -1090,6 +1090,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
         commonEnv: sharedInfraStack.commonEnv,
         domain: allDomains[i]!,
         authorizer: tier === 'secondary' ? jwtAuthorizerSecondary : jwtAuthorizer,
+        stage,
       });
     }
 

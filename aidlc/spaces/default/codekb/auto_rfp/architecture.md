@@ -1,151 +1,201 @@
-# Architecture — AutoRFP
+# Architecture — AutoRFP (Solution-Plan Versioning Blast Radius)
+
+> Scope: this document is grounded in the focused scan for intent `260821-solution-plan-versioning`. Areas outside the solution-plan blast radius are shown only as boundary boxes.
 
 ## System Overview
 
-AutoRFP is a **serverless, single-tenant-table, multi-tenant SaaS** on AWS, organized as a pnpm monorepo with four deployable/shared packages. The architectural style is **serverless microservice-per-domain behind one HTTP API**: ~50 route files each become a per-domain Lambda stack registered in a single API Gateway HTTP API (v2) orchestrator. Long-running AI work is pushed off the request path onto **SQS-driven workers** and **Step Functions pipelines**.
+AutoRFP is a serverless AWS system in a pnpm-workspaces monorepo:
+
+- **apps/web** — Next.js App Router frontend (SWR polling, TipTap editor for the plan)
+- **apps/functions** — AWS Lambda handlers (Node 20, ESM), thin handlers per domain + `helpers/` owning all business logic
+- **packages/core** — shared Zod schema library (built first; both web and functions import it)
+- **packages/infra** — AWS CDK; API Gateway routes per domain (`api/routes/*.routes.ts` registered in `api-orchestrator-stack.ts`), SQS queues, Lambda bundling via `lambdaEntry()` NodejsFunction
+
+Persistence is a **single DynamoDB table** (PK constants + SK builder functions) plus **S3** for large content (plan HTML is never in DynamoDB — only a `contentKey` pointer). AI calls go to **Bedrock exclusively via an HTTP client** (`bedrock-http-client.ts`, SSM-cached API key) — never the Bedrock SDK.
 
 ```mermaid
-graph TB
-    subgraph Client
-        WEB[apps/web — Next.js App Router<br/>SWR + Amplify Cognito auth]
-    end
-    subgraph AWS
-        APIGW[API Gateway HTTP API v2<br/>api-orchestrator-stack]
-        subgraph Lambdas["apps/functions — per-domain Lambdas (55 handler domains)"]
-            H[Thin middy handlers]
-            HELP[helpers/ — business logic]
-        end
-        DDB[(DynamoDB single table<br/>partition_key / sort_key)]
-        S3[(S3 — files, extracted text,<br/>solution-plan HTML, chunks)]
-        SQS[SQS queues + workers<br/>doc-gen, grilling, extraction,<br/>compliance, exec-brief]
-        SFN[Step Functions<br/>answer-gen / document-pipeline /<br/>question-pipeline]
-        WS[WebSocket API<br/>collaboration]
-        COG[Cognito]
-    end
-    subgraph External
-        BR[Bedrock via HTTPS client only]
-        PC[Pinecone vector DB<br/>org namespaces]
-        SAM[SAM.gov / HigherGov]
-        GD[Google Drive / Linear]
-        SEN[Sentry]
-    end
-    WEB -->|JWT| APIGW --> H --> HELP
-    WEB --> WS
-    WEB --> COG
-    HELP --> DDB & S3 & SQS & PC
-    SQS --> HELP
-    SFN --> HELP
-    HELP --> BR
-    HELP --> SAM & GD
-    H --> SEN
+flowchart LR
+  subgraph Web["apps/web (Next.js)"]
+    UI["solution-plan feature\n(SWR hooks, TipTap editor)"]
+  end
+  subgraph API["API Gateway + Lambda (apps/functions)"]
+    H["solution-plan handlers (8 REST)"]
+    W["solution-plan-worker (SQS consumer)"]
+    DG["generate-document-worker"]
+  end
+  subgraph Data["Data layer"]
+    DDB[("DynamoDB single table\nSOLUTION_PLAN / GRILLING_MESSAGE\n*_VERSION precedents")]
+    S3[("S3\n.../solution-plan/v{version}/solution-plan.html")]
+  end
+  Q[["SQS auto-rfp-solution-plan-{stage}\nbatchSize 1, DLQ maxReceiveCount 1"]]
+  BR["Bedrock (HTTP client only)"]
+
+  UI -->|REST| H
+  H -->|enqueue grilling rounds| Q
+  Q --> W
+  W --> BR
+  W --> DDB
+  W --> S3
+  H --> DDB
+  H --> S3
+  DG -->|reads READY plan HTML| S3
+  DG --> DDB
 ```
-<!-- Text fallback: Next.js web app authenticates via Cognito and calls API Gateway HTTP API v2 with JWT. The API fans out to per-domain thin middy Lambda handlers (apps/functions), which delegate to helpers/ for business logic. Helpers read/write a single DynamoDB table, S3, SQS queues, and Pinecone. SQS workers and three Step Functions pipelines run async AI work. All Bedrock calls go through an HTTPS client (never the SDK). External integrations: SAM.gov, HigherGov, Google Drive, Linear, Sentry. A separate WebSocket API handles real-time collaboration. -->
+<!-- Text fallback: Web solution-plan feature calls 8 REST handlers via API Gateway. Handlers read/write the DynamoDB single table and S3, and enqueue grilling rounds to the SQS queue auto-rfp-solution-plan-{stage} (batchSize 1, DLQ maxReceiveCount 1). The solution-plan-worker Lambda consumes the queue, calls Bedrock via the HTTP client, writes transcript messages and plan state to DynamoDB, and uploads versioned plan HTML to S3. generate-document-worker reads the READY plan's HTML from S3 and plan metadata from DynamoDB. -->
 
-## Key Patterns & Decisions
+## Key Architectural Patterns
 
-- **Thin handler pattern**: parse event → destructured `safeParse` (Zod) → call helper → `apiResponse()`. Middy stack `authContextMiddleware → orgMembershipMiddleware → requirePermission('<domain>:<action>') → httpErrorMiddleware`; all REST handlers wrapped `withSentryLambda`. `orgId` always from body/query/path, never JWT.
-- **Single-table DynamoDB**: `PK_NAME='partition_key'` / `SK_NAME='sort_key'` from `packages/core/src/constants.ts`; SK pattern `{orgId}#{projectId}#{entityId}`; all access via `helpers/db.ts` (`createItem`, `queryBySkPrefix`, `queryByIndex`, …).
-- **Contract-first types**: every domain type is a Zod schema in `packages/core` with `z.infer<>`; the 5-type entity pattern (CreateRequest/UpdateRequest/Item/DBItem/ListItem) is the target convention (older files still violate it — see code-quality-assessment.md).
-- **Bedrock only via HTTP** (`bedrock-http-client.ts`, API key from SSM) — never `@aws-sdk/client-bedrock-runtime`.
-- **Route registration invariant**: each `<domain>.routes.ts` is registered in two index-aligned arrays (`allDomains[]`, `domainStackNames[]`) in `api-orchestrator-stack.ts`; a length mismatch throws at synth.
-- **Big blobs off DynamoDB**: solution-plan HTML and document chunks live in S3; DynamoDB items store keys/metadata plus small structured fields (e.g. `costSchedule` on the solution plan — the precedent for attaching server-validated structured data alongside the HTML body).
-- **Feature gating**: solution-plan feature gated on org flag `enableSolutionPlan`; most AI document generation is solution-plan-gated (must be READY unless the type is in `SOLUTION_PLAN_GATE_EXEMPT_DOCUMENT_TYPES`).
+- **Thin handler / fat helper**: handlers parse event → destructured Zod `safeParse` → call helper → `apiResponse()`. All logic in `apps/functions/src/helpers/`.
+- **Middy stack**: `authContextMiddleware → orgMembershipMiddleware → requirePermission → httpErrorMiddleware`; `auditMiddleware` added on `init-solution-plan` (AI_GENERATION_STARTED); every REST handler wrapped in `withSentryLambda`.
+- **Single-table DynamoDB**: PK constants, SK builders (never manual strings), primitives in `helpers/db.ts` (`createItem`, `putItem`, SET-only `updateItem` with condition expressions, `queryBySkPrefix`/`queryAllBySkPrefix`, `batchDeleteItems`, `deleteAllBySkPrefix`, retry/backoff).
+- **Content-in-S3, pointer-in-DynamoDB**: plan HTML lives at `{orgId}/{projectId}/{opportunityId}/solution-plan/v{version}/solution-plan.html` (ADR-7); the plan item stores `contentKey` only. Old versions are **already retained** in S3.
+- **Async via plain SQS worker** (NOT a Step Function, unlike the answer/document/question pipelines): grilling rounds re-enqueue themselves; final phase runs synthesis.
+- **Optimistic concurrency** on manual edits: conditional write `status = READY AND version = patch.version - 1`.
+- **Monotonic plan version** (ADR-11): never reset, bumped by synthesis, manual edit, team save, team regenerate — but NOT by `attachGeneratedTeam`, and re-init preserves it while overwriting everything else.
+
+## Solution-Plan Data Model & Write Hooks
+
+```mermaid
+flowchart TD
+  P["SolutionPlanItem\nPK=SOLUTION_PLAN, SK={orgId}#{projectId}#{opportunityId}\nstatus, version, contentKey, isStale, isUserEdited,\nrunId, costSchedule?, planTeam?, audit fields"]
+  W1["(1) Synthesis completion\nprocessSynthesis: version+1, new S3 v{n}, READY,\nclears isStale/isUserEdited, sets costSchedule\nNO user identity (SQS)"]
+  W2["(2) Manual edit\nupdateSolutionPlanContent: conditional\n(READY AND version=patch.version-1), version+1,\nnew S3 key, isUserEdited, editedBy,\nclears staleness AND costSchedule→null"]
+  W3["(3) Re-init\ninitSolutionPlanRun: FULL putItem overwrite,\npreserves only id/version/createdAt/createdBy;\nDROPS contentKey, planTeam, costSchedule (debt #1)"]
+  W4["(4) Team writes\nsaveUserEditedTeam / regenerateTeam: version+1,\nNO new S3 object, NO user id recorded;\nattachGeneratedTeam: planTeam only, NO bump"]
+  W5["(5) markSolutionPlanStale(Safe)\nisStale + staleReason only"]
+  W1 --> P
+  W2 --> P
+  W3 --> P
+  W4 --> P
+  W5 --> P
+```
+<!-- Text fallback: The SolutionPlanItem (one per opportunity, PK SOLUTION_PLAN, SK orgId#projectId#opportunityId) has five write hook points: (1) synthesis completion bumps version, uploads new S3 v{n} HTML, sets READY, no user identity; (2) manual edit uses an optimistic-concurrency conditional write, bumps version, new S3 key, sets isUserEdited/editedBy, clears staleness and nulls costSchedule; (3) re-init does a full putItem overwrite preserving only id/version/createdAt/createdBy and drops contentKey, planTeam, and costSchedule; (4) team save/regenerate bump version with no new S3 object and no user id, while attachGeneratedTeam writes planTeam without a bump; (5) markSolutionPlanStale sets isStale/staleReason only. -->
+
+Transcript storage: `PK='GRILLING_MESSAGE'`, `SK={solutionPlanId}#{round:3pad}#{ts}#{messageId}`, read with `queryAllBySkPrefix`.
 
 ## Interaction Diagrams
 
-### RFP document generation pipeline (incl. TEAM_QUALIFICATIONS failure mode)
+### 1. Grilling → Synthesis (SQS worker)
 
 ```mermaid
 sequenceDiagram
-    participant U as User (web)
-    participant API as POST /rfp-document/generate
-    participant DDB as DynamoDB
-    participant Q as SQS
-    participant W as generate-document-worker
-    participant CTX as document-context / document-tools
-    participant BR as Bedrock (HTTP)
-    U->>API: generate(type=TEAM_QUALIFICATIONS)
-    API->>API: solution-plan gate check (must be READY)
-    API->>DDB: create placeholder doc, status=GENERATING
-    API->>Q: enqueue job
-    Q->>W: job
-    W->>CTX: gatherAllContext (budgeted; TEAM_QUALIFICATIONS maximizes KB personnel/certs @12k chars)
-    W->>BR: prompt (document-prompts.ts) + tools (document-tools.ts)
-    BR-->>W: HTML content
-    W->>W: validateGeneratedContent (rejects empty / placeholder / < min length)
-    alt valid
-        W->>DDB: status=READY, store content
-    else invalid — retry up to 3x (30/60/120s backoff)
-        W->>BR: retry
-        W->>DDB: status=FAILED + user notification when exhausted
-    end
-    Note over CTX,BR: No personnel entity exists → KB has no real bios unless résumés were uploaded.<br/>Hypothesis: model fabricates or emits thin content → validation rejects → FAILED.
-```
-<!-- Text fallback: User calls POST /rfp-document/generate. The handler enforces the solution-plan gate, writes a placeholder document with status GENERATING, and enqueues an SQS job. The worker gathers budgeted context (for TEAM_QUALIFICATIONS the KB budget is maximized at 12,000 chars for personnel/certs), builds prompts and tools, and calls Bedrock over HTTP. validateGeneratedContent rejects empty/placeholder/too-short HTML; up to 3 retries with 30/60/120s backoff, then FAILED plus user notification. Because no personnel entity exists, TEAM_QUALIFICATIONS has no grounded data — hypothesized cause of fabrication or validation-rejected thin output. -->
+  participant U as User (web)
+  participant I as init-solution-plan (REST)
+  participant Q as SQS auto-rfp-solution-plan
+  participant W as solution-plan-worker
+  participant B as Bedrock (HTTP)
+  participant D as DynamoDB
+  participant S as S3
 
-### Solution-plan grilling loop
+  U->>I: POST /solution-plan/init (proposal:create, audit AI_GENERATION_STARTED)
+  I->>D: initSolutionPlanRun — full putItem overwrite, fresh runId (ulid), status GRILLING
+  I->>Q: enqueue GrillingRoundMessage {orgId, projectId, opportunityId, solutionPlanId, runId, round, phase}
+  loop grilling rounds
+    Q->>W: message (batchSize 1)
+    W->>B: grilling prompt
+    W->>D: append GRILLING_MESSAGE items
+    W->>Q: re-enqueue next round
+  end
+  Q->>W: final phase (synthesis)
+  W->>B: synthesis prompt
+  W->>S: uploadSolutionPlanHtml(key, version+1, html) → v{n}/solution-plan.html
+  W->>D: updateSolutionPlanStatus(READY, {contentKey, version+1, isStale:false, isUserEdited:false, costSchedule})
+  Note over W,D: No user identity in SQS message — only updatedAt auto-stamped
+  U->>U: useSolutionPlan polls every 3s while running
+```
+<!-- Text fallback: The user POSTs /solution-plan/init; the handler overwrites the plan item with a fresh runId and status GRILLING, then enqueues a GrillingRoundMessage. The worker consumes rounds one at a time, calls Bedrock via HTTP, appends GRILLING_MESSAGE transcript items, and re-enqueues the next round. On the final phase it runs synthesis, uploads versioned HTML to S3, and updates the plan to READY with the new contentKey, incremented version, cleared staleness/user-edit flags, and costSchedule. The SQS message carries no user identity. The UI polls useSolutionPlan every 3 seconds while running. -->
+
+### 2. Manual Plan Edit (optimistic concurrency)
 
 ```mermaid
 sequenceDiagram
-    participant U as User (web)
-    participant API as POST /solution-plan/init
-    participant Q as SQS
-    participant W as solution-plan-worker
-    participant G as Griller (Tech Lead agent)
-    participant S as Synthesizer
-    participant S3 as S3
-    U->>API: init(orgId, projectId, oppId)
-    API->>Q: enqueue, status=GRILLING
-    Q->>W: job
-    loop grilling rounds
-        W->>G: exec-brief sections (SOLUTION_PLAN_BRIEF_SECTIONS; scoring excluded)
-        G-->>W: probing Q&A transcript (coverage incl. area 4: TEAM COMPOSITION — roles, headcount, allocation %, onshore/offshore)
-    end
-    W->>S: transcript → synthesize (status=GENERATING_SOT)
-    S-->>W: single HTML plan (~10k chars, h2 sections) + structured costSchedule (server-recomputed totals)
-    W->>S3: store HTML (contentKey)
-    W->>API: DynamoDB item: metadata, version++, status=READY (or FAILED); isStale orthogonal
-    U->>U: SolutionPlanPanel / TipTap editor (PATCH /update bumps version)
-```
-<!-- Text fallback: POST /solution-plan/init enqueues an SQS job (status GRILLING). The worker runs a two-agent loop: the Griller interrogates against executive-brief sections (summary, deadlines, requirements, contacts, risks, pricing, pastPerformance — scoring excluded), with mandatory coverage area 4 "TEAM COMPOSITION" (roles/headcount/allocation/onshore-offshore as free prose). The Synthesizer (status GENERATING_SOT) produces one HTML blob stored in S3 plus a structured, nullable costSchedule field with server-recomputed totals on the DynamoDB item; status becomes READY or FAILED, version is monotonic, isStale is orthogonal. Frontend renders via SolutionPlanPanel and a full-page TipTap editor. -->
+  participant U as SolutionPlanEditorPage (TipTap)
+  participant H as update-solution-plan (PATCH)
+  participant HL as helpers/solution-plan.ts
+  participant S as S3
+  participant D as DynamoDB
 
-### Past-performance matching engine
+  U->>H: PATCH /solution-plan/update {html, version} (proposal:create)
+  H->>HL: updateSolutionPlanContent(patch, getUserId(event))
+  HL->>S: upload HTML to new key v{version}/solution-plan.html
+  HL->>D: updateItem CONDITION status=READY AND version=patch.version-1
+  alt condition passes
+    D-->>HL: version bumped, isUserEdited=true, editedBy set,\nstaleness cleared, costSchedule→null
+    HL-->>U: 200 — editor tracks editorVersion (monotonic-forward guard)
+  else stale version
+    D-->>HL: ConditionalCheckFailed
+    HL-->>U: conflict — client must reload latest version
+  end
+```
+<!-- Text fallback: The TipTap editor PATCHes /solution-plan/update with the HTML and the version it edited. The helper uploads the HTML to a new S3 key, then performs a conditional DynamoDB update requiring status READY and version equal to patch.version minus 1. On success the version is bumped, isUserEdited and editedBy are set, staleness is cleared, and costSchedule is nulled; the editor tracks editorVersion with a monotonic-forward guard. On a stale version the conditional check fails and the client must reload. -->
+
+### 3. Team Save / Regenerate
 
 ```mermaid
-flowchart LR
-    A[Exec brief sections.requirements.data<br/>fallback: summary] --> B[Build truncated requirements+solicitation query]
-    B --> C[Pinecone semantic search<br/>org namespace, metadata type='past_project'<br/>Titan embeddings, 0.4 floor]
-    C -->|empty| F[Fallback: return all projects]
-    C --> D[Load entities → deterministic MatchDetails scoring<br/>technical/domain/scale similarity, recency, success metrics]
-    D --> E[Disclosure gate<br/>isUsableInMatching / redactForGeneration]
-    E --> G[Sorted top-K PastProjectMatch<br/>+ RequirementCoverage + GapAnalysis]
-    G --> H[past-performance-matching.ts orchestration<br/>per-brief-section, input-hash caching, status lifecycle]
-```
-<!-- Text fallback: Requirements come from the exec brief (sections.requirements.data, falling back to summary). A truncated query is embedded and searched in Pinecone within the org namespace filtered by metadata type 'past_project' (Titan embeddings, 0.4 score floor); if empty, all projects are returned as fallback. Each hit is loaded and scored deterministically (technical/domain/scale similarity, recency, success metrics), passed through a disclosure gate (isUsableInMatching/redactForGeneration), and returned as sorted top-K matches with coverage and gap analysis. past-performance-matching.ts orchestrates per exec-brief section with input-hash caching. This is the pattern the initiative intends to re-point at people. -->
+sequenceDiagram
+  participant U as TeamDefinitionSection (web)
+  participant SH as save-plan-team (PATCH)
+  participant RH as regenerate-plan-team (POST)
+  participant PT as helpers/plan-team.ts
+  participant B as Bedrock (HTTP)
+  participant D as DynamoDB
 
-### AI extraction worker (structured records from documents)
+  alt user edits team
+    U->>SH: PATCH /solution-plan/team/save
+    SH->>PT: saveUserEditedTeam
+  else regenerate
+    U->>RH: POST /solution-plan/team/regenerate
+    RH->>B: sync Bedrock matching call
+    RH->>PT: regenerateTeam
+  end
+  PT->>D: writePlanTeam — plan version+1, planTeam replaced
+  Note over PT,D: NO new S3 object (version ≠ content version, debt #2)<br/>NO user id recorded on team writes
+  Note over D: attachGeneratedTeam (during synthesis) writes planTeam WITHOUT a version bump
+```
+<!-- Text fallback: A user team edit goes through PATCH /solution-plan/team/save to saveUserEditedTeam; regenerate goes through POST /solution-plan/team/regenerate, which makes a synchronous Bedrock matching call, then regenerateTeam. Both funnel into writePlanTeam, which bumps the plan version and replaces planTeam — without creating a new S3 object and without recording a user id. attachGeneratedTeam, used during synthesis, writes planTeam without bumping the version. -->
+
+### 4. Document Generation Reading the Approved Plan
 
 ```mermaid
-flowchart LR
-    UP[Uploaded document] --> J[extraction-job created] --> Q2[SQS] --> XW[extraction-worker.ts]
-    XW -->|targetType dispatch| PP[PAST_PERFORMANCE]
-    XW --> LR[LABOR_RATE → LaborRateDraft]
-    XW --> BOM[BOM_ITEM]
-    PP & LR & BOM --> DR[DRAFT records + approve flow]
-    DR -.->|"NOTE: CV extraction will use DIRECT import (no draft-review), per affirmed project rule"| X[ ]
+sequenceDiagram
+  participant G as generate-document-worker
+  participant GT as solution-plan-gate
+  participant D as DynamoDB
+  participant S as S3
+  participant V as rfp-document-version helper
+
+  G->>GT: gate check — plan status must be READY
+  G->>D: load plan item (contentKey, version, costSchedule, planTeam)
+  G->>S: loadApprovedSolutionPlanContext — fetch contentKey HTML
+  G->>G: strip HTML→text, inject as SoT into prompts;\ncostSchedule → buildPricingRulesBlock / renderCostScheduleBlock;\nplanTeam.members → team-qualifications-context (UNFILLED→DELETED→FILLED)
+  G->>D: write generated document stamped solutionPlanId + solutionPlanVersion
+  G->>V: createVersion — RFP_DOCUMENT_VERSION item (6-pad versionNumber, KEEP_COUNT pruning)
 ```
-<!-- Text fallback: An extraction job for an uploaded document is enqueued to SQS; extraction-worker.ts dispatches on targetType (PAST_PERFORMANCE, LABOR_RATE, BOM_ITEM) and produces DRAFT records with a draft-action approve flow (LaborRateDraftSchema exists). This is the established "AI extracts structured records from a document" pattern; the affirmed project rule says the planned CV extraction will bypass the draft-review step and import directly. -->
+<!-- Text fallback: generate-document-worker checks the solution-plan gate (status READY), loads the plan item from DynamoDB, fetches the contentKey HTML from S3 via loadApprovedSolutionPlanContext, strips it to text and injects it as source-of-truth into document prompts; costSchedule feeds the pricing prompt blocks and planTeam.members feeds team-qualifications context assembly with UNFILLED→DELETED→FILLED classification. The generated document is stamped with solutionPlanId and solutionPlanVersion, and a version record is created via the rfp-document-version helper with a 6-padded versionNumber and KEEP_COUNT pruning. document-context.ts does NOT read the plan. -->
 
-## Data Flow Summary
+## Version-History Precedent (Copy Target)
 
-1. **Ingest**: files → S3 → document-pipeline Step Function → text extraction → chunking → Pinecone indexing (`indexStatus: pending → TEXT_EXTRACTED → CHUNKED → INDEXED`), chunks reloadable from S3.
-2. **Understand**: question-pipeline extracts questions; exec-brief queue builds section briefs; solution-plan worker synthesizes strategy.
-3. **Generate**: answer-generation Step Function and document-generation worker retrieve context (Pinecone + DynamoDB + S3 chunks) and call Bedrock over HTTP.
-4. **Deliver**: generated content in DynamoDB/S3, surfaced through SWR-driven Next.js UI; collaboration events over WebSocket.
+Three existing entities already implement user-facing version history with the same shape:
 
-## Improvement Opportunities (observed)
+- `RFP_DOCUMENT_VERSION_PK`, SK `={projectId}#{opportunityId}#{documentId}#{versionNumber:6pad}` (`helpers/rfp-document-version.ts`)
+- `QUESTIONNAIRE_VERSION_PK` and `REQUIRED_FORM_VERSION_PK`, same pattern, `KEEP_COUNT = 30` retention
+- Version record fields: `versionId`, `versionNumber`, `htmlContentKey`, `title`, `wordCount`, `changeNote` (≤500), `createdBy`, `createdByName`, `createdAt`
+- Endpoints: list versions, compare, revert, cherry-pick (in `rfp-document.routes.ts`)
+- Caveat: the precedent schemas use legacy `CreateVersionDTOSchema`/`RevertVersionDTOSchema` names — new entities must use the 5-type `<Entity>CreateRequest` pattern.
 
-- No personnel domain — the initiative's core gap (see business-overview.md).
-- God-files in the generation path (`document-prompts.ts` 1,407 lines; `generate-document-worker.ts` helper 1,527 lines) — the exact area the initiative touches.
-- Older UI (pricing under `components/`) and older handlers (`create-rfp-document.ts`) diverge from current conventions; `features/solution-plan/` is the exemplar to copy.
-- Stale compiled output committed in `packages/infra/lib/` shadows real sources.
+## Key Design Decisions (as found in code, ADR-referenced inline)
+
+| Decision | Evidence | Implication for versioning |
+|---|---|---|
+| Plan HTML in S3, versioned path, retained | `buildSolutionPlanHtmlKey`, ADR-7 | Historical content already exists for synthesis/edit versions — version records can point at existing keys |
+| Monotonic version, never reset | ADR-11, re-init preserves `version` | Safe as a version-record key component |
+| planTeam embedded in plan item | ADR-002 (team-definition intent) | Team state is only capturable via plan-item snapshots — team bumps have no S3 artifact |
+| Grilling via plain SQS worker, not Step Functions | `api-orchestrator-stack.ts` lines 212–819 | Synthesis write has no user identity; audit relies on init's auditMiddleware |
+| Optimistic concurrency on content edits only | `updateSolutionPlanContent` | Team writes and re-init bypass the version guard |
+
+## Improvement Opportunities (architecture-level)
+
+1. Re-init is a lossy full overwrite (drops `planTeam`, `costSchedule`, `contentKey`) — versioning should snapshot BEFORE re-init.
+2. `version` conflates content and metadata changes (team-only bumps have no S3 object) — a version-record entity must record what changed, not assume an HTML artifact per bump.
+3. Attribution gaps: synthesis (SQS, no identity) and team writes (no user id) cannot populate `createdBy`/`createdByName` on version records without plumbing identity through.
+4. `queryBySkPrefix` does not paginate — acceptable at ≤30 versions if the KEEP_COUNT pruning convention is copied.

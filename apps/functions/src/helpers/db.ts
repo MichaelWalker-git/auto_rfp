@@ -180,6 +180,12 @@ export const updateItem = async <T extends Record<string, any>>(
     conditionNames?: Record<string, string>;
     conditionValues?: Record<string, any>;
     returnValues?: 'ALL_NEW' | 'ALL_OLD' | 'UPDATED_NEW' | 'UPDATED_OLD';
+    /**
+     * Numeric attributes to increment server-side (`SET #attr = #attr + :n`),
+     * atomically alongside the plain SET updates — no read-modify-write race.
+     * An incremented attribute must not also appear in `updates`.
+     */
+    increments?: Record<string, number>;
   }
 ): Promise<T & DBItem> => {
   const now = nowIso();
@@ -207,6 +213,15 @@ export const updateItem = async <T extends Record<string, any>>(
       values[valueKey] = value;
       setParts.push(`${nameKey} = ${valueKey}`);
     }
+  });
+
+  // Server-side atomic counters (e.g. version bumps)
+  Object.entries(options?.increments ?? {}).forEach(([key, delta]) => {
+    const nameKey = `#${key}`;
+    const valueKey = `:${key}_inc`;
+    names[nameKey] = key;
+    values[valueKey] = delta;
+    setParts.push(`${nameKey} = ${nameKey} + ${valueKey}`);
   });
 
   const command: any = {
@@ -242,6 +257,50 @@ export const updateItem = async <T extends Record<string, any>>(
 
   const res = await withRetry(() => docClient.send(new UpdateCommand(command)), { label: 'updateItem' });
   return res.Attributes as T & DBItem;
+};
+
+/**
+ * Set or remove a SINGLE attribute on an existing item: a defined `value`
+ * issues `SET #attr = :value`, `undefined` issues `REMOVE #attr` — both also
+ * touch `updatedAt` and require the item to exist (`attribute_exists`).
+ * Returns the updated item (ALL_NEW), or null when the existence condition
+ * fails (item gone → 404 semantics at the caller). Other errors propagate.
+ */
+export const setOrRemoveAttribute = async <T extends Record<string, any>>(
+  pk: string,
+  sk: string,
+  attribute: string,
+  value: unknown,
+): Promise<(T & DBItem) | null> => {
+  const now = nowIso();
+
+  const isRemove = value === undefined;
+  const command = new UpdateCommand({
+    TableName: DB_TABLE_NAME,
+    Key: { [PK_NAME]: pk, [SK_NAME]: sk },
+    UpdateExpression: isRemove
+      ? 'REMOVE #attr SET #updatedAt = :updatedAt'
+      : 'SET #attr = :value, #updatedAt = :updatedAt',
+    ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
+    ExpressionAttributeNames: {
+      '#pk': PK_NAME,
+      '#sk': SK_NAME,
+      '#attr': attribute,
+      '#updatedAt': 'updatedAt',
+    },
+    ExpressionAttributeValues: isRemove
+      ? { ':updatedAt': now }
+      : { ':value': value, ':updatedAt': now },
+    ReturnValues: 'ALL_NEW',
+  });
+
+  try {
+    const res = await withRetry(() => docClient.send(command), { label: 'setOrRemoveAttribute' });
+    return res.Attributes as T & DBItem;
+  } catch (err) {
+    if (isConditionalCheckFailed(err)) return null;
+    throw err;
+  }
 };
 
 /**

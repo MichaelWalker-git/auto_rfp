@@ -1,55 +1,51 @@
 # Technology Stack — AutoRFP
 
+> Versions as observed in the focused scan (intent `260821-solution-plan-versioning`, 2026-08-27). Package manifests outside the scanned packages were not audited.
+
 ## Languages & Runtimes
 
-| Item | Version | Where |
+| Layer | Technology |
+|---|---|
+| Language | TypeScript (strict mode), ESM everywhere (`"type": "module"`) |
+| Backend runtime | Node.js 20 (Lambda) |
+| Frontend runtime | Next.js App Router / React |
+| Package manager | pnpm workspaces |
+
+## Frameworks & Libraries
+
+| Library | Version | Where / Purpose |
 |---|---|---|
-| TypeScript (strict, ESM) | per-package tsconfigs | all packages |
-| Node.js | >= 20 | Lambda runtime and tooling floor |
-| pnpm | 10.10.0 | workspace package manager |
+| zod | ^3.24 / 3.25 | packages/core — all domain schemas; types via `z.infer<>` |
+| Next.js | 16.0.10 | apps/web — App Router frontend |
+| React | ^18.3 | apps/web |
+| SWR | ^2.3.3 | apps/web — server state (`authenticatedFetcher`; plan status polled at 3s) |
+| Tailwind CSS | 4 | apps/web styling |
+| Shadcn UI | — | apps/web component primitives |
+| TipTap | — | Solution-plan HTML editor (`SolutionPlanEditorPage.tsx`) |
+| @middy/core | ^7 | apps/functions — middleware stack `authContextMiddleware → orgMembershipMiddleware → requirePermission → httpErrorMiddleware` (+ `auditMiddleware` on init) |
+| Sentry (Lambda) | — | `withSentryLambda` wraps every REST handler |
+| aws-cdk-lib | ^2.230–2.237 | packages/infra — stacks, `NodejsFunction` bundling via `lambdaEntry()` |
+| ulid | — | run ids (`runId`) |
+| uuid | — | entity ids |
+| tsup | — | packages/core build (ESM + CJS) |
 
-## Frontend (`apps/web`)
+## AI Integration
 
-| Library | Version | Purpose |
-|---|---|---|
-| Next.js | 16.0.10 (package.json pin; CLAUDE.md says "15+") | App Router frontend |
-| React / React DOM | ^18.3.1 | UI |
-| Tailwind CSS | ^4 | styling; Shadcn UI primitives in `components/ui/` |
-| SWR | ^2.3.3 | client data fetching (`authenticatedFetcher`) |
-| aws-amplify | ^6.15.8 | Cognito auth |
-| nuqs | ^2.8.8 | URL query state |
-| react-hook-form | ^7.56.1 | forms |
-| @hookform/resolvers | ^5.0.1 | Zod form validation |
-| TipTap | ^3.20.0 | rich-text editing (solution plan + documents) |
-| @sentry/nextjs | ^10.43.0 | error tracking |
-
-## Backend (`apps/functions`)
-
-| Library | Version | Purpose |
-|---|---|---|
-| @middy/core | ^7.0.2 | Lambda middleware stack |
-| @aws-sdk v3 | ^3.982.0 | AWS clients (DynamoDB, S3, SQS, Cognito, …) |
-| Zod | ^3.24/^3.25 | validation; all domain types via `z.infer` |
-| @pinecone-database/pinecone | ^6.1.4 | vector search (org-namespaced, metadata-filtered) |
-| @sentry/serverless | ^7.120.4 | error tracking (`withSentryLambda`) |
-| Bedrock | via HTTPS client only (`bedrock-http-client.ts`, SSM API key) | AI model invocation — SDK import forbidden |
-
-## Shared & Infrastructure
-
-| Item | Version | Purpose |
-|---|---|---|
-| tsup | ^8 | `packages/core` build (ESM + CJS) |
-| aws-cdk-lib | ^2.230–2.237 | infrastructure as code |
-| DynamoDB | single table, `partition_key`/`sort_key` | primary datastore |
-| API Gateway HTTP API | v2 | REST surface |
-| Step Functions, SQS, S3, Cognito, Amplify Hosting | — | pipelines, queues, storage, auth, web hosting |
+- **Amazon Bedrock — HTTP only**: all model invocations go through `apps/functions/src/helpers/bedrock-http-client.ts` (SSM-cached API key). The AWS SDK Bedrock client is never imported. `invokeClaudeJson` (in `executive-opportunity-brief.ts`) is the JSON-invocation utility observed.
+- Grilling/synthesis (SQS worker) and team-regenerate matching are the Bedrock call sites in the scanned area.
 
 ## Testing & Quality Tooling
 
 | Tool | Version | Scope |
 |---|---|---|
-| Jest | ^29/^30 | functions, web, infra unit tests |
-| Vitest | ^2 (core) / ^4 (web dep) | core schema tests |
-| Playwright | ^1.48 | web e2e |
-| Cypress | workflow present | e2e (CI workflow exists) |
-| ESLint (flat config) | `apps/web/eslint.config.mjs` | **web only** — no eslint config in `apps/functions` |
+| Jest | 30 | apps/functions unit tests (co-located `*.test.ts`) |
+| Jest + React Testing Library | 29 | apps/web unit/component tests (`__tests__/`) |
+| Vitest | — | packages/core schema tests |
+| Playwright | — | apps/web e2e (`e2e-tests.yml`) |
+| Cypress | — | e2e (`cypress.yml`) |
+| ESLint | flat config | apps/web (no root `.prettierrc` observed) |
+| Lighthouse CI | — | `lighthouse.yml` |
+
+## AWS Services (scanned area)
+
+DynamoDB (single table, PAY_PER_REQUEST convention), S3 (versioned plan-HTML keys, retained), SQS (`auto-rfp-solution-plan-{stage}` + DLQ), API Gateway + Lambda, Cognito (auth via Amplify on the web side), SSM (Bedrock API key cache), CloudWatch Logs. Step Functions exist elsewhere in the repo (answer/document/question pipelines) but the solution-plan flow is a plain SQS worker.
