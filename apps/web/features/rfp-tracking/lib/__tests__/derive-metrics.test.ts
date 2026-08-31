@@ -10,6 +10,7 @@ import {
   funnel,
   cycleTime,
   outcomeBreakdown,
+  foiaCoverage,
   aging,
   ownerOptions,
   lastNWeeksRange,
@@ -626,5 +627,65 @@ describe('ownerOptions', () => {
 
   it('handles empty input', () => {
     expect(ownerOptions([])).toEqual([]);
+  });
+});
+
+describe('foiaCoverage', () => {
+  it('returns zero-count slices in a stable order for empty input', () => {
+    const slices = foiaCoverage([]);
+    expect(slices.map((s) => s.key)).toEqual([
+      'sent',
+      'pending',
+      'blocked',
+      'suppressed',
+      'notStarted',
+    ]);
+    expect(slices.every((s) => s.count === 0)).toBe(true);
+  });
+
+  it('counts only WON/LOST items — active pipeline items are excluded even when they carry a FOIA state', () => {
+    const slices = foiaCoverage([
+      makeItem({ id: 'w', status: 'WON', foiaAutomationState: 'SENT' }),
+      makeItem({ id: 'l', status: 'LOST', foiaAutomationState: 'SENT' }),
+      // These MUST be excluded — FOIA automation only exists for WON/LOST.
+      makeItem({ id: 'p1', status: 'PURSUING', foiaAutomationState: 'SENT' }),
+      makeItem({ id: 'nb', status: 'NO_BID', foiaAutomationState: 'SENT' }),
+      makeItem({ id: 'wd', status: 'WITHDRAWN', foiaAutomationState: 'SENT' }),
+    ]);
+    const byKey = Object.fromEntries(slices.map((s) => [s.key, s.count]));
+    expect(byKey).toEqual({ sent: 2, pending: 0, blocked: 0, suppressed: 0, notStarted: 0 });
+  });
+
+  it('buckets each FoiaAutomationState into the correct coverage bucket', () => {
+    const slices = foiaCoverage([
+      makeItem({ id: 'sent',      status: 'WON',  foiaAutomationState: 'SENT' }),
+      makeItem({ id: 'manual',    status: 'LOST', foiaAutomationState: 'MANUAL_COMPLETED' }),
+      makeItem({ id: 'sched',     status: 'WON',  foiaAutomationState: 'SCHEDULED' }),
+      makeItem({ id: 'awaiting',  status: 'WON',  foiaAutomationState: 'AWAITING_APPROVAL' }),
+      makeItem({ id: 'sending',   status: 'LOST', foiaAutomationState: 'SENDING' }),
+      makeItem({ id: 'blocked',   status: 'WON',  foiaAutomationState: 'BLOCKED' }),
+      makeItem({ id: 'stalled',   status: 'LOST', foiaAutomationState: 'STALLED' }),
+      makeItem({ id: 'bounced',   status: 'WON',  foiaAutomationState: 'BOUNCED' }),
+      makeItem({ id: 'failed',    status: 'LOST', foiaAutomationState: 'FAILED' }),
+      makeItem({ id: 'suppr',     status: 'WON',  foiaAutomationState: 'SUPPRESSED' }),
+      makeItem({ id: 'na',        status: 'LOST', foiaAutomationState: 'NOT_APPLICABLE' }),
+      makeItem({ id: 'nullstate', status: 'WON',  foiaAutomationState: null }),
+      makeItem({ id: 'nostate',   status: 'LOST' }),
+    ]);
+    const byKey = Object.fromEntries(slices.map((s) => [s.key, s.count]));
+    expect(byKey).toEqual({
+      sent: 2,       // SENT + MANUAL_COMPLETED
+      pending: 3,    // SCHEDULED + AWAITING_APPROVAL + SENDING
+      blocked: 4,    // BLOCKED + STALLED + BOUNCED + FAILED
+      suppressed: 1, // SUPPRESSED
+      notStarted: 3, // NOT_APPLICABLE + null + undefined
+    });
+  });
+
+  it('every slice carries a hex color and non-empty label', () => {
+    for (const slice of foiaCoverage([makeItem({ status: 'WON', foiaAutomationState: 'SENT' })])) {
+      expect(slice.color).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(slice.label.length).toBeGreaterThan(0);
+    }
   });
 });

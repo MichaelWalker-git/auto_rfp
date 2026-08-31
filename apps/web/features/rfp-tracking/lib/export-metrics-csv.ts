@@ -3,6 +3,7 @@ import type {
   FunnelRow,
   CycleTimeSummary,
   OutcomeSlice,
+  FoiaCoverageSlice,
   AgingRow,
 } from './derive-metrics';
 import { csvCell, slug } from './csv';
@@ -79,6 +80,17 @@ export const exportOutcomeCsv = (slices: OutcomeSlice[], orgName: string): void 
     ...slices.map((s) => [s.label, String(s.count)]),
   ];
   downloadCsv(rows, `rfp-outcomes-${slug(orgName)}.csv`);
+};
+
+export const exportFoiaCoverageCsv = (
+  slices: FoiaCoverageSlice[],
+  orgName: string,
+): void => {
+  const rows: string[][] = [
+    ['FOIA Status', 'Count'],
+    ...slices.map((s) => [s.label, String(s.count)]),
+  ];
+  downloadCsv(rows, `rfp-foia-coverage-${slug(orgName)}.csv`);
 };
 
 export const exportAgingCsv = (agingRows: AgingRow[], orgName: string): void => {

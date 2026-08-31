@@ -3,6 +3,7 @@ import {
   exportFunnelCsv,
   exportCycleTimeCsv,
   exportOutcomeCsv,
+  exportFoiaCoverageCsv,
   exportAgingCsv,
 } from '../export-metrics-csv';
 import type {
@@ -10,6 +11,7 @@ import type {
   FunnelRow,
   CycleTimeSummary,
   OutcomeSlice,
+  FoiaCoverageSlice,
   AgingRow,
 } from '../derive-metrics';
 import { makeItem } from '../../__tests__/fixtures';
@@ -97,6 +99,21 @@ describe('exportOutcomeCsv', () => {
     exportOutcomeCsv(slices, 'Acme');
     expect(lastBlobText).toContain('Awarded');
     expect(lastBlobText).toContain('Pending');
+  });
+});
+
+describe('exportFoiaCoverageCsv', () => {
+  it('writes each FOIA bucket with its count and slugs the filename', () => {
+    const slices: FoiaCoverageSlice[] = [
+      { key: 'sent', label: 'Sent', count: 3, color: '#10b981' },
+      { key: 'blocked', label: 'Blocked / failed', count: 1, color: '#f59e0b' },
+    ];
+    exportFoiaCoverageCsv(slices, 'Acme Corp');
+    expect(lastBlobText).toContain('FOIA Status');
+    expect(lastBlobText).toContain('Sent');
+    expect(lastBlobText).toContain('Blocked / failed');
+    expect(lastBlobText).toContain('3');
+    expect(lastDownloadName).toBe('rfp-foia-coverage-acme-corp.csv');
   });
 });
 

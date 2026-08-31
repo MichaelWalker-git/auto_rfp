@@ -12,6 +12,7 @@ import {
   funnel,
   cycleTime,
   outcomeBreakdown,
+  foiaCoverage,
   aging,
 } from '../lib/derive-metrics';
 import {
@@ -19,6 +20,7 @@ import {
   exportFunnelCsv,
   exportCycleTimeCsv,
   exportOutcomeCsv,
+  exportFoiaCoverageCsv,
   exportAgingCsv,
 } from '../lib/export-metrics-csv';
 import { MetricsFilters } from './MetricsFilters';
@@ -26,6 +28,7 @@ import { ThroughputChart } from './ThroughputChart';
 import { FunnelTable } from './FunnelTable';
 import { CycleTimeTable } from './CycleTimeTable';
 import { OutcomeDonut } from './OutcomeDonut';
+import { FoiaCoverageDonut } from './FoiaCoverageDonut';
 import { AgingTable } from './AgingTable';
 
 interface MetricsViewProps {
@@ -80,6 +83,10 @@ export const MetricsView = ({
     () => outcomeBreakdown(scoped, range.startIso, range.endIso),
     [scoped, range],
   );
+  // FOIA coverage is a snapshot across the owner-filtered set — the date-range
+  // selector doesn't apply (the automation is created on award/loss, and users
+  // want a live view of "have we sent it?", not a windowed count).
+  const foia = useMemo(() => foiaCoverage(scoped), [scoped]);
   const agingRows = useMemo(
     () => aging(scoped, now, agingThresholdDays),
     [scoped, now, agingThresholdDays],
@@ -100,6 +107,7 @@ export const MetricsView = ({
         <OutcomeDonut slices={outcomes} onExport={() => exportOutcomeCsv(outcomes, orgName)} />
         <FunnelTable rows={funnelRows} onExport={() => exportFunnelCsv(funnelRows, orgName)} />
         <CycleTimeTable summary={cycle} onExport={() => exportCycleTimeCsv(cycle, orgName)} />
+        <FoiaCoverageDonut slices={foia} onExport={() => exportFoiaCoverageCsv(foia, orgName)} />
         <div className="lg:col-span-2">
           <AgingTable
             rows={agingRows}

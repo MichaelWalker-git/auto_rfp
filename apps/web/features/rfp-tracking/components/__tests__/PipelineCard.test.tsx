@@ -92,6 +92,19 @@ describe('PipelineCard', () => {
     expect(screen.queryByRole('button', { name: /mark submitted/i })).toBeNull();
   });
 
+  it('renders the FOIA badge when foiaAutomationState is set, and omits it when null', () => {
+    const withSent = makeItem({ id: 'opp-sent', foiaAutomationState: 'SENT' });
+    const { rerender } = render(
+      <PipelineCard card={toBoardCard(withSent, NOW)} orgId="org-1" canAdvance={false} />,
+    );
+    expect(screen.getByText(/foia sent/i)).toBeTruthy();
+
+    const noFoia = makeItem({ id: 'opp-nofoia', foiaAutomationState: null });
+    rerender(<PipelineCard card={toBoardCard(noFoia, NOW)} orgId="org-1" canAdvance={false} />);
+    // Badge component short-circuits to null on null / undefined / NOT_APPLICABLE.
+    expect(screen.queryByText(/foia sent|foia scheduled|foia needs input/i)).toBeNull();
+  });
+
   it('shows no advance action on a non-advanceable stage', () => {
     const item = makeItem({ approvalStatus: 'INITIAL_APPROVAL', projectId: 'proj-1' });
     render(<PipelineCard card={toBoardCard(item, NOW)} orgId="org-1" canAdvance />);
