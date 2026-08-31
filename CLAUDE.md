@@ -2,12 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-@.claude/rules/aidlc.md
-
-## AI-DLC (AI-Driven Development Life Cycle)
-
-This project uses AI-DLC v2 (awslabs/aidlc-workflows) for structured feature development. Run `/aidlc <feature description>` to start a workflow (scope auto-detects; `feature` is the default), `/aidlc --status` to check progress, `/aidlc --doctor` to validate the setup. Workflow artifacts live under `aidlc/spaces/<space>/intents/<record>/`; the method files are authored in `aidlc/spaces/default/memory/` (the `@`-line above pulls them into ambient context — edit them there, never in `.claude/rules/aidlc.md`). Requires `bun`.
-
 ## Project Overview
 
 **AutoRFP** is an AI-powered RFP response automation platform for government contractors. Core capabilities: RFP document processing, AI answer generation (RAG), executive briefs, proposal generation, SAM.gov integration, and knowledge base management.
