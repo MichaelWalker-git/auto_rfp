@@ -168,22 +168,16 @@ export const updateRFPDocumentMetadata = async (args: {
     ':updatedBy': args.updatedBy,
   };
 
+  // The loop is the only place an attribute may be assigned: adding a field to
+  // UPDATABLE_METADATA_FIELDS *and* assigning it explicitly would put the same
+  // path in the SET clause twice, which DynamoDB rejects outright
+  // ("Two document paths overlap with each other").
   for (const field of UPDATABLE_METADATA_FIELDS) {
     const value = args.updates[field];
     if (value === undefined) continue;
     setParts.push(`#${field} = :${field}`);
     names[`#${field}`] = field;
     values[`:${field}`] = value;
-  }
-  if (args.updates.templateId !== undefined) {
-    setParts.push('#templateId = :templateId');
-    names['#templateId'] = 'templateId';
-    values[':templateId'] = args.updates.templateId;
-  }
-  if (args.updates.furniture !== undefined) {
-    setParts.push('#furniture = :furniture');
-    names['#furniture'] = 'furniture';
-    values[':furniture'] = args.updates.furniture;
   }
 
   const res = await docClient.send(

@@ -102,3 +102,109 @@ describe('updateRFPDocumentMetadata — Solution Plan stamp (ADR-7)', () => {
     expect(ExpressionAttributeValues[':now']).toEqual(expect.any(String));
   });
 });
+
+/**
+ * A merge resolution once left explicit `templateId`/`furniture` blocks in place
+ * *alongside* the generic field loop, so a template-backed generation assigned each
+ * attribute twice in one SET clause. DynamoDB rejects that outright:
+ *
+ *   Invalid UpdateExpression: Two document paths overlap with each other;
+ *   path one: [templateId], path two: [templateId]
+ *
+ * The worker read that ValidationException as a generation failure and retried
+ * three times before recording "Generation failed after 3 attempts", so every
+ * document that resolved a template failed while plain documents succeeded.
+ */
+describe('updateRFPDocumentMetadata — no overlapping document paths', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSend.mockResolvedValue({ Attributes: {} });
+  });
+
+  /** Every `#name = :value` assignment in the SET clause, as attribute names. */
+  const assignedPaths = (updateExpression: string): string[] =>
+    [...updateExpression.matchAll(/#(\w+)\s*=/g)].map((match) => match[1]!);
+
+  it('assigns templateId and furniture exactly once each', async () => {
+    await updateRFPDocumentMetadata({
+      ...baseArgs,
+      updates: {
+        htmlContentKey: 'html-key',
+        templateId: 'tpl-1',
+        furniture: {
+          header: { html: '<p>header</p>', enabled: true },
+          footer: { html: '<p>footer</p>', enabled: true },
+        },
+      },
+    });
+
+    const { UpdateExpression } = sentUpdateParams();
+    const paths = assignedPaths(UpdateExpression);
+
+    expect(paths.filter((path) => path === 'templateId')).toHaveLength(1);
+    expect(paths.filter((path) => path === 'furniture')).toHaveLength(1);
+  });
+
+  it('never repeats any attribute path, whatever the caller passes', async () => {
+    await updateRFPDocumentMetadata({
+      ...baseArgs,
+      updates: {
+        name: 'Doc',
+        title: 'Doc',
+        content: { title: 'Doc' },
+        htmlContentKey: 'html-key',
+        generationError: '',
+        status: 'READY',
+        retryCount: 0,
+        solutionPlanId: 'plan-1',
+        solutionPlanVersion: 2,
+        templateId: 'tpl-1',
+        furniture: {
+          header: { html: '<p>header</p>', enabled: true },
+          footer: { html: '<p>footer</p>', enabled: true },
+        },
+      },
+    });
+
+    const { UpdateExpression } = sentUpdateParams();
+    const paths = assignedPaths(UpdateExpression);
+
+    expect(paths).toHaveLength(new Set(paths).size);
+  });
+
+  it('persists the template snapshot the export path reads back', async () => {
+    const furniture = {
+      header: { html: '<p>header</p>', enabled: true },
+      footer: { html: '<p>footer</p>', enabled: false },
+    };
+
+    await updateRFPDocumentMetadata({
+      ...baseArgs,
+      updates: { templateId: 'tpl-1', furniture },
+    });
+
+    const { UpdateExpression, ExpressionAttributeNames, ExpressionAttributeValues } =
+      sentUpdateParams();
+
+    expect(UpdateExpression).toContain('#templateId = :templateId');
+    expect(UpdateExpression).toContain('#furniture = :furniture');
+    expect(ExpressionAttributeNames['#templateId']).toBe('templateId');
+    expect(ExpressionAttributeNames['#furniture']).toBe('furniture');
+    expect(ExpressionAttributeValues[':templateId']).toBe('tpl-1');
+    expect(ExpressionAttributeValues[':furniture']).toEqual(furniture);
+  });
+
+  it('omits templateId and furniture when the generation resolves no template', async () => {
+    await updateRFPDocumentMetadata({
+      ...baseArgs,
+      updates: { htmlContentKey: 'html-key', status: 'READY' },
+    });
+
+    const { UpdateExpression, ExpressionAttributeValues } = sentUpdateParams();
+
+    expect(UpdateExpression).not.toContain('templateId');
+    expect(UpdateExpression).not.toContain('furniture');
+    expect(ExpressionAttributeValues).not.toHaveProperty(':templateId');
+    expect(ExpressionAttributeValues).not.toHaveProperty(':furniture');
+  });
+});

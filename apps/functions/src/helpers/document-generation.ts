@@ -443,6 +443,55 @@ export const calculateRetryDelay = (retryCount: number): number => {
  */
 export const RETRY_DELAY_SECONDS = 30;
 
+/**
+ * AWS error names that are permanent on the name alone — the request is wrong in
+ * a way no later attempt changes. Retrying one re-runs the whole generation (a
+ * fresh Bedrock invocation) only to be rejected identically, so it fails fast.
+ *
+ * `ValidationException` is deliberately NOT here: AWS reuses that name for
+ * recoverable conditions too, so it needs its message inspected — see
+ * {@link isTerminalGenerationError}.
+ */
+const TERMINAL_AWS_ERROR_NAMES = new Set([
+  'SerializationException',
+  'AccessDeniedException',
+  'ResourceNotFoundException',
+]);
+
+/**
+ * A `ValidationException` message that names a malformed expression, rather than
+ * one of the recoverable conditions AWS reports under the same error name.
+ * Covers `Invalid UpdateExpression` / `ConditionExpression` / `KeyConditionExpression`
+ * and the `ExpressionAttributeNames`/`-Values` complaints.
+ */
+const MALFORMED_EXPRESSION_MESSAGE = /Invalid \w*Expression|ExpressionAttribute/i;
+
+/**
+ * Whether an error is permanent, so the caller should skip its retry budget.
+ *
+ * Deliberately conservative: only errors AWS reports as client-side faults
+ * count. Throttling, timeouts and 5xx stay retryable, and an unrecognised
+ * error is treated as retryable so a transient fault is never turned into a
+ * hard failure by this check.
+ */
+export const isTerminalGenerationError = (err: unknown): boolean => {
+  if (!err || typeof err !== 'object') return false;
+  const { name, message } = err as { name?: unknown; message?: unknown };
+  if (typeof name !== 'string') return false;
+
+  // `ValidationException` is not permanent on its own — DynamoDB also raises it
+  // for an item that outgrew the 400 KB limit (see `required-form.ts`, where a
+  // large compliance matrix does exactly that) and for capacity rejections that
+  // `index-document.ts` deliberately counts as throttling. Both clear on their
+  // own, so failing them outright would strand a document that a retry would
+  // have saved. Only a malformed expression is genuinely unretryable.
+  if (name === 'ValidationException') {
+    return typeof message === 'string' && MALFORMED_EXPRESSION_MESSAGE.test(message);
+  }
+
+  return TERMINAL_AWS_ERROR_NAMES.has(name);
+};
+
 export interface DocumentGenerationMessage {
   orgId: string;
   projectId: string;
