@@ -15,7 +15,7 @@ export interface DetectedPortal {
 /**
  * Agency portal detection patterns
  */
-const PORTAL_PATTERNS: Record<PortalType, { domains: string[]; urlPatterns: string[] }> = {
+const PORTAL_PATTERNS: Record<Exclude<PortalType, 'Unknown'>, { domains: string[]; urlPatterns: string[] }> = {
   GovQA: {
     domains: ['.govqa.us', '.govqa.com'],
     urlPatterns: [

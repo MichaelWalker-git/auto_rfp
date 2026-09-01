@@ -356,6 +356,13 @@ export const FOIARequestItemSchema = z.object({
   portalRecordTypeField: z.string().optional(),
   portalRecordTypeValue: z.string().optional(),
 
+  // Portal submission tracking (all optional so existing records remain valid)
+  submissionStatus: z.enum(['PENDING', 'SUBMITTED', 'FAILED', 'MANUAL_REVIEW']).optional(),
+  submissionAttempts: z.number().int().nonnegative().optional(),
+  submissionError: z.string().optional(),
+  submissionConfirmationNumber: z.string().optional(),
+  lastSubmissionAttemptAt: z.string().datetime({ offset: true }).optional(),
+
   // ── Lifecycle (added for automatic FOIA; all optional) ──
   // NOTE: get-foia-requests returns raw DynamoDB items with no re-parse and the
   // frontend types straight off this schema, so every field added here MUST stay

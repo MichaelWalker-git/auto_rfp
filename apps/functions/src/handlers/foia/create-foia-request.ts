@@ -96,7 +96,7 @@ export const baseHandler = async (
     // Log audit event for portal detection
     setAuditContext(event, {
       action: portalInfo.detected ? 'PORTAL_DETECTED' : 'EMAIL_FALLBACK_INITIATED',
-      resource: 'foia-request',
+      resource: 'foia_request',
       resourceId: foiaRequest.foiaId,
       changes: {
         after: {
