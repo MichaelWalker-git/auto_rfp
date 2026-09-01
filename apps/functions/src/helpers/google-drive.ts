@@ -3,9 +3,17 @@ import { Readable } from 'stream';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
-import { getDriveClientForOrg } from './google-drive-client';
+import {
+  getDriveClientForOrg,
+  DRIVE_SHARED_DRIVE_PARAMS,
+  DRIVE_LIST_ALL_DRIVES_PARAMS,
+  DRIVE_ROOT_PARENT_FOLDER_ID,
+  OPPORTUNITY_SUBFOLDERS,
+  buildOpportunityFolderName,
+} from './google-drive-client';
 import { pushDocumentToDrive } from './google-drive-document-sync';
 import type { DriveSyncDocument } from './google-drive-document-sync';
+import { renderBriefDocxBuffer, BRIEF_DOCX_MIME } from './brief-docx';
 import { requireEnv } from './env';
 import { docClient } from './db';
 import { nowIso } from './date';
@@ -25,14 +33,9 @@ const REGION = requireEnv('REGION', 'us-east-1');
 
 const s3 = new S3Client({ region: REGION });
 
-// ─── Subfolder Names (per ticket spec) ───
-
-const SUBFOLDERS = {
-  originalDocuments: 'Original Documents',
-  executiveBrief: 'Executive Brief',
-  proposalMaterials: 'Proposal Materials',
-  finalDeliverables: 'Final Deliverables',
-} as const;
+// Subfolder names and the intake-parent id are the single-source-of-truth copies
+// in ./google-drive-client, so the per-document auto-push lands in the same tree.
+const SUBFOLDERS = OPPORTUNITY_SUBFOLDERS;
 
 // ─── Auth (Domain-Wide Delegation only) ───
 
@@ -70,6 +73,11 @@ async function findOrCreateFolder(
     q: query,
     fields: 'files(id, name)',
     spaces: 'drive',
+    // Shared-Drive visibility: list defaults to My Drive only, so a folder that
+    // lives on a Shared Drive is invisible without these — which would make
+    // findOrCreate create a duplicate on every call.
+    ...DRIVE_LIST_ALL_DRIVES_PARAMS,
+    corpora: 'allDrives',
   });
 
   if (existing.data.files?.length) {
@@ -83,6 +91,7 @@ async function findOrCreateFolder(
       ...(parentId ? { parents: [parentId] } : {}),
     },
     fields: 'id',
+    ...DRIVE_SHARED_DRIVE_PARAMS,
   });
 
   return folder.data.id!;
@@ -90,7 +99,11 @@ async function findOrCreateFolder(
 
 async function getFolderUrl(drive: drive_v3.Drive, folderId: string): Promise<string | undefined> {
   try {
-    const meta = await drive.files.get({ fileId: folderId, fields: 'webViewLink' });
+    const meta = await drive.files.get({
+      fileId: folderId,
+      fields: 'webViewLink',
+      ...DRIVE_SHARED_DRIVE_PARAMS,
+    });
     return meta.data.webViewLink || undefined;
   } catch {
     return undefined;
@@ -123,6 +136,7 @@ async function uploadFileFromS3(
     requestBody: { name: fileName, parents: [folderId] },
     media: { mimeType, body: stream },
     fields: 'id, webViewLink',
+    ...DRIVE_SHARED_DRIVE_PARAMS,
   });
 
   return { fileId: res.data.id!, webViewLink: res.data.webViewLink! };
@@ -140,6 +154,7 @@ async function uploadBuffer(
     requestBody: { name: fileName, parents: [folderId] },
     media: { mimeType, body: stream },
     fields: 'id, webViewLink',
+    ...DRIVE_SHARED_DRIVE_PARAMS,
   });
   return { fileId: res.data.id!, webViewLink: res.data.webViewLink! };
 }
@@ -158,6 +173,7 @@ async function shareWithEmails(
         fileId,
         requestBody: { type: 'user', role, emailAddress: email },
         sendNotificationEmail: false,
+        ...DRIVE_SHARED_DRIVE_PARAMS,
       });
     } catch (err) {
       console.warn(`Failed to share with ${email}:`, (err as Error)?.message);
@@ -275,58 +291,6 @@ async function updateBriefGoogleDrive(
   );
 }
 
-// ─── Executive Brief Text Export ───
-
-async function exportBriefAsBuffer(brief: any): Promise<Buffer | null> {
-  try {
-    const parts: string[] = [];
-    const sections = brief.sections as Record<string, any> | undefined;
-    if (!sections) return null;
-
-    parts.push(`Executive Opportunity Brief`);
-    parts.push(`Project: ${brief.projectId}`);
-    parts.push(`Decision: ${brief.decision || 'N/A'}`);
-    parts.push(`Score: ${brief.compositeScore || 'N/A'}/5`);
-    parts.push(`Confidence: ${brief.confidence || 'N/A'}%`);
-    parts.push('');
-
-    if (sections.summary?.data) {
-      const s = sections.summary.data;
-      parts.push('=== SUMMARY ===');
-      if (s.title) parts.push(`Title: ${s.title}`);
-      if (s.agency) parts.push(`Agency: ${s.agency}`);
-      if (s.summary) parts.push(`\n${s.summary}`);
-      parts.push('');
-    }
-
-    if (sections.requirements?.data?.overview) {
-      parts.push('=== REQUIREMENTS ===');
-      parts.push(sections.requirements.data.overview);
-      parts.push('');
-    }
-
-    if (sections.risks?.data) {
-      parts.push('=== RISKS ===');
-      (sections.risks.data.redFlags || []).forEach((f: any) => parts.push(`- [${f.severity}] ${f.flag}`));
-      parts.push('');
-    }
-
-    if (sections.scoring?.data) {
-      const sc = sections.scoring.data;
-      parts.push('=== SCORING ===');
-      parts.push(`Decision: ${sc.decision}`);
-      parts.push(`Justification: ${sc.summaryJustification || ''}`);
-      (sc.criteria || []).forEach((c: any) => parts.push(`- ${c.name}: ${c.score}/5 — ${c.rationale}`));
-      parts.push('');
-    }
-
-    return Buffer.from(parts.join('\n'), 'utf-8');
-  } catch (err) {
-    console.warn('Failed to export brief as buffer:', (err as Error)?.message);
-    return null;
-  }
-}
-
 // ─── Main Orchestrator ───
 
 export interface GoogleDriveUploadResult {
@@ -385,16 +349,25 @@ export async function syncToGoogleDrive(args: {
       return result;
     }
 
-    // 2. Build folder name: [Linear-ID] - [Agency] - [Title]
-    const idPart = linearTicketIdentifier || executiveBriefId.slice(0, 8);
-    const agencyPart = (agencyName || 'Unknown Agency').slice(0, 50);
-    const titlePart = (projectTitle || 'Opportunity').slice(0, 80);
-    const rootFolderName = `${idPart} - ${agencyPart} - ${titlePart}`;
+    // 2. Build folder name: [Linear-ID] - [Agency] - [Title] (shared builder, so
+    // the auto-push resolves the identical folder).
+    const rootFolderName = buildOpportunityFolderName({
+      linearTicketIdentifier,
+      executiveBriefId,
+      agencyName,
+      projectTitle,
+    });
 
-    console.log(`[GoogleDrive] Creating folder: "${rootFolderName}" in delegate user's Drive`);
+    console.log(
+      `[GoogleDrive] Creating folder: "${rootFolderName}"` +
+      (DRIVE_ROOT_PARENT_FOLDER_ID
+        ? ` under parent ${DRIVE_ROOT_PARENT_FOLDER_ID}`
+        : " in delegate user's Drive"),
+    );
 
-    // 3. Create root folder in the delegate user's Drive (duplicate prevention — findOrCreate)
-    const rootFolderId = await findOrCreateFolder(drive, rootFolderName);
+    // 3. Create root folder (duplicate prevention — findOrCreate). When a parent
+    // intake folder is configured, nest the opportunity folder inside it.
+    const rootFolderId = await findOrCreateFolder(drive, rootFolderName, DRIVE_ROOT_PARENT_FOLDER_ID);
     const rootFolderUrl = await getFolderUrl(drive, rootFolderId);
 
     result.folderId = rootFolderId;
@@ -454,14 +427,28 @@ export async function syncToGoogleDrive(args: {
     }
 
     // 7. Upload Executive Brief to /Executive Brief
+    //
+    // Renders the same polished .docx the "Export" button produces (shared
+    // buildBriefDocument), rather than a hand-rolled plain-text summary — the
+    // file dropped in Drive is now identical to what a user downloads.
     if (briefData) {
       try {
-        const briefBuffer = await exportBriefAsBuffer(briefData);
-        if (briefBuffer) {
-          await uploadBuffer(drive, briefBuffer, 'Executive_Opportunity_Brief.txt', 'text/plain', execBriefFolderId);
-          result.uploaded++;
-          console.log('[GoogleDrive] Uploaded executive brief');
-        }
+        const briefTitle =
+          briefData.sections?.summary?.data?.title || projectTitle || 'Opportunity';
+        const sanitizedTitle = String(briefTitle)
+          .replace(/[^\w\s-]/g, '')
+          .replace(/\s+/g, '_')
+          .slice(0, 80) || 'Opportunity';
+        const briefBuffer = await renderBriefDocxBuffer(String(briefTitle), briefData);
+        await uploadBuffer(
+          drive,
+          briefBuffer,
+          `${sanitizedTitle}_Executive_Brief.docx`,
+          BRIEF_DOCX_MIME,
+          execBriefFolderId,
+        );
+        result.uploaded++;
+        console.log('[GoogleDrive] Uploaded executive brief (.docx)');
       } catch (err) {
         result.errors.push(`Executive brief: ${(err as Error)?.message}`);
       }

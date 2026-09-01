@@ -25,6 +25,7 @@ import { requireEnv } from './env';
 import { nowIso } from './date';
 import { uploadToS3 } from './s3';
 import { RFP_DOCUMENT_PK } from '../constants/rfp-document';
+import { SK_NAME } from '../constants/common';
 import { loadDocumentHtmlForExport, sanitizeFileName } from './export';
 import { htmlToDocxBuffer } from './export-docx';
 import {
@@ -33,6 +34,8 @@ import {
   saveVersionHtml,
 } from './rfp-document-version';
 import { updateRFPDocumentMetadata, uploadRFPDocumentHtml } from './rfp-document';
+import { getExecutiveBriefByProjectId } from './executive-opportunity-brief';
+import { getProjectById } from './project';
 import { listOrgMemberAccess, type OrgMemberAccess } from './org';
 import { cancelPendingApprovals, listApprovalsByDocument } from './document-approval';
 import { buildNotification, sendNotification } from './send-notification';
@@ -42,6 +45,11 @@ import { getHmacSecret } from './secret';
 import {
   DOCX_MIME,
   GOOGLE_DOC_MIME,
+  DRIVE_SHARED_DRIVE_PARAMS,
+  DRIVE_LIST_ALL_DRIVES_PARAMS,
+  DRIVE_ROOT_PARENT_FOLDER_ID,
+  OPPORTUNITY_SUBFOLDERS,
+  buildOpportunityFolderName,
   getDriveClientForOrg,
   isDriveForbidden,
   isDriveNotFound,
@@ -296,7 +304,15 @@ export const findOrCreateFolder = async (
     .join(' and ');
 
   const existing = await withDriveRetry(() =>
-    drive.files.list({ q: query, fields: 'files(id,name)', spaces: 'drive' }),
+    drive.files.list({
+      q: query,
+      fields: 'files(id,name)',
+      spaces: 'drive',
+      // Shared-Drive visibility: without these a folder on a Shared Drive is
+      // invisible to list, and findOrCreate would create a duplicate each call.
+      ...DRIVE_LIST_ALL_DRIVES_PARAMS,
+      corpora: 'allDrives',
+    }),
   );
 
   const found = existing.data.files?.[0]?.id;
@@ -310,6 +326,7 @@ export const findOrCreateFolder = async (
         ...(parentId ? { parents: [parentId] } : {}),
       },
       fields: 'id',
+      ...DRIVE_SHARED_DRIVE_PARAMS,
     }),
   );
 
@@ -406,6 +423,7 @@ export const shareFolderWithOrgMembers = async (args: {
         fileId: folderId,
         fields: 'permissions(emailAddress)',
         pageSize: 100,
+        ...DRIVE_SHARED_DRIVE_PARAMS,
       }),
     );
     alreadyGranted = new Set(
@@ -445,6 +463,7 @@ export const shareFolderWithOrgMembers = async (args: {
           fileId: folderId,
           requestBody: { type: 'user', role, emailAddress: member.email },
           sendNotificationEmail,
+          ...DRIVE_SHARED_DRIVE_PARAMS,
         }),
       );
 
@@ -537,6 +556,65 @@ export const resolveDocumentFolder = async (args: {
   }
 
   return typeFolderId;
+};
+
+/**
+ * Resolve the `Proposal Materials` subfolder of an opportunity's Drive folder —
+ * the same folder the opportunity-level "Create Drive Folder" sync writes to:
+ *
+ *   [root parent] / [ID] - [Agency] - [Title] / Proposal Materials
+ *
+ * Returns null when the opportunity has no executive brief yet (so no folder name
+ * can be derived), letting the auto-push fall back to its per-type folder tree
+ * rather than skip the document. Uses findOrCreate throughout, so it converges on
+ * the folder the button already created instead of making a second one.
+ */
+export const resolveOpportunityProposalFolder = async (args: {
+  drive: drive_v3.Drive;
+  orgId: string;
+  projectId: string;
+  opportunityId: string;
+}): Promise<string | null> => {
+  const { drive, orgId, projectId, opportunityId } = args;
+
+  let brief: Awaited<ReturnType<typeof getExecutiveBriefByProjectId>>;
+  try {
+    brief = await getExecutiveBriefByProjectId(projectId, opportunityId);
+  } catch {
+    // No brief for this opportunity — cannot derive the [ID] - [Agency] - [Title]
+    // name. Signal the caller to use its default folder rather than guess.
+    return null;
+  }
+
+  const summaryData = (brief.sections as Record<string, { data?: Record<string, unknown> }> | undefined)
+    ?.summary?.data;
+
+  let projectTitle: string | undefined = summaryData?.title as string | undefined;
+  if (!projectTitle) {
+    const project = await getProjectById(projectId).catch(() => undefined);
+    projectTitle = (project as Record<string, unknown> | undefined)?.name as string | undefined;
+  }
+
+  const folderName = buildOpportunityFolderName({
+    linearTicketIdentifier: brief.linearTicketIdentifier as string | undefined,
+    executiveBriefId: brief[SK_NAME] as string,
+    agencyName: summaryData?.agency as string | undefined,
+    projectTitle,
+  });
+
+  const rootFolderId = await findOrCreateFolder(drive, folderName, DRIVE_ROOT_PARENT_FOLDER_ID);
+  const proposalFolderId = await findOrCreateFolder(
+    drive,
+    OPPORTUNITY_SUBFOLDERS.proposalMaterials,
+    rootFolderId,
+  );
+
+  // Share the opportunity root so members can open documents that land here. The
+  // button sync shares its own root; a document auto-pushed before the button was
+  // ever clicked would otherwise be openable only by the delegate.
+  await shareFolderWithOrgMembers({ drive, folderId: rootFolderId, orgId }).catch(() => undefined);
+
+  return proposalFolderId;
 };
 
 // ─── Body preparation ────────────────────────────────────────────────────────
@@ -673,6 +751,7 @@ export const pushDocumentToDrive = async (args: {
         },
         media: { mimeType: body.mediaMimeType, body: Readable.from(body.buffer) },
         fields: DRIVE_MUTATION_FIELDS,
+        ...DRIVE_SHARED_DRIVE_PARAMS,
       }),
     );
     return res.data;
@@ -691,6 +770,7 @@ export const pushDocumentToDrive = async (args: {
           requestBody: { name: body.name },
           media,
           fields: DRIVE_MUTATION_FIELDS,
+          ...DRIVE_SHARED_DRIVE_PARAMS,
         }),
       );
       file = res.data;
@@ -829,6 +909,7 @@ export const captureApprovedSnapshot = async (args: {
         },
         media: { mimeType: body.mediaMimeType, body: Readable.from(body.buffer) },
         fields: 'id,webViewLink',
+        ...DRIVE_SHARED_DRIVE_PARAMS,
       }),
     );
 
@@ -925,6 +1006,87 @@ export const captureApprovedSnapshotIfConfigured = async (args: {
   } catch (err) {
     console.warn(
       `[GoogleDrive] Approved-snapshot capture skipped for ${documentId}: ${(err as Error)?.message}`,
+    );
+  }
+};
+
+/**
+ * Fire-and-forget auto-push for the generation worker: when a document finishes
+ * generating, push it to Drive so the team can start editing the native Google Doc
+ * immediately, without anyone clicking "Sync to Drive".
+ *
+ * Everything is swallowed by design — this is called on the generation success
+ * path and must never turn a completed generation into a failed one. It skips
+ * silently when the org has no Drive configured, and takes the same exclusive
+ * claim the manual sync does so it cannot race a concurrent manual push.
+ *
+ * Only pushes when there is content to push and the document is not already linked
+ * — the first link is the valuable moment; subsequent edits sync through the normal
+ * manual/poller paths, and re-pushing every regeneration would fight a user who has
+ * since edited the Google Doc.
+ */
+export const autoPushDocumentToDriveIfConfigured = async (args: {
+  orgId: string;
+  projectId: string;
+  opportunityId: string;
+  documentId: string;
+}): Promise<void> => {
+  const { orgId, projectId, opportunityId, documentId } = args;
+
+  try {
+    const doc = await loadDriveSyncDocument({ projectId, opportunityId, documentId });
+    if (!doc) return;
+
+    // Nothing to push yet, or already linked — see the doc comment for why we do
+    // not re-push an existing link.
+    if (!doc.htmlContentKey && !doc.fileKey) return;
+    if (doc.googleDriveFileId) return;
+
+    const client = await getDriveClientForOrg(orgId);
+    if (!client) return;
+
+    const claimed = await claimDriveSync({ projectId, opportunityId, documentId });
+    if (!claimed) return;
+
+    try {
+      // Target the opportunity's Proposal Materials folder so an auto-pushed
+      // document lands in the same place the "Create Drive Folder" sync uses.
+      // Falls back to the per-type folder tree (folderId undefined) when the
+      // opportunity has no brief yet to derive the folder name from.
+      const proposalFolderId = await resolveOpportunityProposalFolder({
+        drive: client.drive,
+        orgId,
+        projectId,
+        opportunityId,
+      }).catch(() => null);
+
+      await pushDocumentToDrive({
+        drive: client.drive,
+        doc,
+        orgId,
+        projectId,
+        opportunityId,
+        documentId,
+        updatedBy: 'system',
+        ...(proposalFolderId ? { folderId: proposalFolderId } : {}),
+      });
+      console.log(
+        `[GoogleDrive] Auto-pushed newly generated document ${documentId} to Drive` +
+          (proposalFolderId ? ' (Proposal Materials)' : ' (per-type folder — no brief yet)'),
+      );
+    } catch (err) {
+      // Release the claim so the badge isn't stuck on SYNCING, then swallow.
+      await markDriveSyncFailed({
+        projectId,
+        opportunityId,
+        documentId,
+        message: (err as Error)?.message ?? 'Unknown auto-push failure',
+      }).catch(() => undefined);
+      throw err;
+    }
+  } catch (err) {
+    console.warn(
+      `[GoogleDrive] Auto-push skipped for ${documentId}: ${(err as Error)?.message}`,
     );
   }
 };
@@ -1142,7 +1304,11 @@ export const pullDocumentFromDriveIfChanged = async (args: {
   // 1. Gate read. `trashed` matters: a trashed file still resolves, and downloading
   //    it would replace live content with whatever was there when it was deleted.
   const meta = await withDriveRetry(() =>
-    drive.files.get({ fileId, fields: 'id,name,mimeType,modifiedTime,trashed,size' }),
+    drive.files.get({
+      fileId,
+      fields: 'id,name,mimeType,modifiedTime,trashed,size',
+      ...DRIVE_SHARED_DRIVE_PARAMS,
+    }),
   );
 
   if (meta.data.trashed) {
@@ -1275,13 +1441,18 @@ export const pullDocumentFromDriveIfChanged = async (args: {
 
     if (isNativeDoc) {
       const exported = await withDriveRetry(() =>
+        // files.export operates by fileId and needs no Shared-Drive flag (its
+        // params type does not accept one); it resolves Shared-Drive items fine.
         drive.files.export({ fileId, mimeType: DOCX_MIME }, { responseType: 'arraybuffer' }),
       );
       buffer = Buffer.from(exported.data as ArrayBuffer);
       effectiveMimeType = DOCX_MIME;
     } else {
       const downloaded = await withDriveRetry(() =>
-        drive.files.get({ fileId, alt: 'media' }, { responseType: 'arraybuffer' }),
+        drive.files.get(
+          { fileId, alt: 'media', ...DRIVE_SHARED_DRIVE_PARAMS },
+          { responseType: 'arraybuffer' },
+        ),
       );
       buffer = Buffer.from(downloaded.data as ArrayBuffer);
     }

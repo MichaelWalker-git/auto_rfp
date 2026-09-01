@@ -99,6 +99,17 @@ export type UpdateDecisionResponse = {
   error?: string;
 };
 
+export type SyncBriefToGoogleDriveRequest = {
+  executiveBriefId: string;
+};
+
+export type SyncBriefToGoogleDriveResponse = {
+  ok: boolean;
+  executiveBriefId?: string;
+  message?: string;
+  error?: string;
+};
+
 async function postJson<T>(url: string, body: unknown): Promise<T> {
   const res = await authFetcher(url, {
     method: 'POST',
@@ -134,6 +145,7 @@ const endpoints = {
   getByProject: (orgId?: string) => `${env.BASE_API_URL}/brief/get-executive-brief-by-project${orgId ? `?orgId=${orgId}` : ''}`,
   handleLinearTicket: (orgId?: string) => `${env.BASE_API_URL}/brief/handle-linear-ticket${orgId ? `?orgId=${orgId}` : ''}`,
   updateDecision: (orgId?: string) => `${env.BASE_API_URL}/brief/update-decision${orgId ? `?orgId=${orgId}` : ''}`,
+  syncToGoogleDrive: (orgId?: string) => `${env.BASE_API_URL}/brief/sync-to-google-drive${orgId ? `?orgId=${orgId}` : ''}`,
 } as const;
 
 // ---------- hooks ----------
@@ -244,5 +256,12 @@ export function useUpdateDecision(orgId?: string) {
   return useSWRMutation<UpdateDecisionResponse, Error, string, UpdateDecisionRequest>(
     endpoints.updateDecision(orgId),
     (url, { arg }) => postJson<UpdateDecisionResponse>(url, arg),
+  );
+}
+
+export function useSyncBriefToGoogleDrive(orgId?: string) {
+  return useSWRMutation<SyncBriefToGoogleDriveResponse, Error, string, SyncBriefToGoogleDriveRequest>(
+    endpoints.syncToGoogleDrive(orgId),
+    (url, { arg }) => postJson<SyncBriefToGoogleDriveResponse>(url, arg),
   );
 }

@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 
-import { AlertTriangle, Briefcase, CalendarClock, CheckCircle2, Clock, DollarSign, Download, ExternalLink, FileText, ListChecks, Loader2, RefreshCw, Shield, Target, Users, XCircle } from 'lucide-react';
+import { AlertTriangle, Briefcase, CalendarClock, CheckCircle2, Clock, DollarSign, Download, ExternalLink, FileText, FolderPlus, ListChecks, Loader2, RefreshCw, Shield, Target, Users, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -28,6 +28,7 @@ import {
   useGetExecutiveBriefByProject,
   useInitExecutiveBrief,
   useHandleLinearTicket,
+  useSyncBriefToGoogleDrive,
 } from '@/lib/hooks/use-executive-brief';
 import { useGenerateExecutiveBriefPricing } from '@/lib/hooks/use-pricing';
 
@@ -236,8 +237,11 @@ export function ExecutiveBriefView({
   const genScoring = useGenerateExecutiveBriefScoring(currentOrganization?.id);
   const getBriefByProject = useGetExecutiveBriefByProject(currentOrganization?.id);
   const handleLinearTicket = useHandleLinearTicket(currentOrganization?.id);
+  const syncBriefToDrive = useSyncBriefToGoogleDrive(currentOrganization?.id);
 
   const [regenError, setRegenError] = useState<string | null>(null);
+  const [isSyncingToDrive, setIsSyncingToDrive] = useState(false);
+  const [driveSyncStarted, setDriveSyncStarted] = useState(false);
   const [previousBrief, setPreviousBrief] = useState<any>(null);
   const [briefItem, setBriefItem] = useState<any>(null);
   const [localBusySections, setLocalBusySections] = useState<Set<SectionKey>>(() => new Set());
@@ -525,6 +529,56 @@ export function ExecutiveBriefView({
 
     return resp.executiveBriefId;
   }
+
+  const handleCreateDriveFolder = async () => {
+    const executiveBriefId = briefItem?.sort_key;
+    if (!executiveBriefId || isSyncingToDrive) return;
+    setIsSyncingToDrive(true);
+    setRegenError(null);
+    try {
+      await syncBriefToDrive.trigger({ executiveBriefId: String(executiveBriefId) });
+      setDriveSyncStarted(true);
+
+      // The endpoint returns 202 and creates the folder in a background worker,
+      // so the folder URL is not on the brief yet. Section-polling has already
+      // stopped (the brief is fully generated), so nothing else re-fetches the
+      // brief — poll here until googleDriveFolderUrl lands, then update the brief
+      // so the button flips to the "Drive Folder" link. Give up after ~90s and
+      // leave a hint to refresh; the worker may still be running.
+      const currentOppId = selectedOpportunityIdRef.current;
+      const deadline = Date.now() + 90_000;
+      let found = false;
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 3_000));
+        try {
+          const resp = await getBriefByProject.trigger({
+            projectId,
+            opportunityId: currentOppId || undefined,
+          });
+          if (resp?.ok && resp?.brief) {
+            setBriefItem(resp.brief);
+            if (resp.brief.googleDriveFolderUrl) {
+              found = true;
+              break;
+            }
+          }
+        } catch {
+          // transient — keep polling until the deadline
+        }
+      }
+      if (!found) {
+        setRegenError(
+          'Google Drive folder creation is taking longer than expected. Refresh the page in a moment to see the folder link.',
+        );
+      }
+    } catch (err) {
+      setRegenError(
+        err instanceof Error ? err.message : 'Failed to start Google Drive folder creation',
+      );
+    } finally {
+      setIsSyncingToDrive(false);
+    }
+  };
 
   async function enqueueSection(section: SectionKey, executiveBriefId: string, force?: boolean) {
     let resp: any;
@@ -984,6 +1038,30 @@ export function ExecutiveBriefView({
                     <Download className="h-4 w-4 mr-2" />
                     Export
                   </Button>
+                  {briefItem?.googleDriveFolderUrl ? (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={briefItem.googleDriveFolderUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Drive Folder
+                      </a>
+                    </Button>
+                  ) : (
+                    <PermissionButton
+                      requiredPermission="brief:edit"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCreateDriveFolder}
+                      disabled={isSyncingToDrive || driveSyncStarted || completedSections < totalSections}
+                      title={completedSections < totalSections ? 'Generate the full brief before creating a Drive folder' : 'Create the Google Drive folder for this opportunity'}
+                    >
+                      {isSyncingToDrive ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <FolderPlus className="h-4 w-4 mr-2" />
+                      )}
+                      {driveSyncStarted ? 'Creating folder…' : 'Create Drive Folder'}
+                    </PermissionButton>
+                  )}
                   {!fixedOpportunityId && selectedOpportunityId && currentOrganization?.id && (
                     <Button variant="outline" size="sm" asChild>
                       <Link href={`/organizations/${currentOrganization.id}/projects/${projectId}/opportunities/${selectedOpportunityId}`}>

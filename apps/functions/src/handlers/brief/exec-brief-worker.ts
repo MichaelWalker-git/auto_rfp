@@ -43,8 +43,6 @@ import {
 } from '@/helpers/executive-opportunity-brief';
 import { syncRequiredDocumentsToCustomTypes } from '@/helpers/custom-document-types';
 import type { RequiredOutputDocument } from '@auto-rfp/core';
-import { enqueueGoogleDriveSync } from '@/helpers/google-drive-queue';
-import { getProjectById } from '@/helpers/project';
 import { getOpportunity, updateOpportunity } from '@/helpers/opportunity';
 import { requireEnv } from '@/helpers/env';
 import { loadTextFromS3 } from '@/helpers/s3';
@@ -798,28 +796,9 @@ async function runScoring(job: Job): Promise<void> {
       compositeScore: normalized.compositeScore,
     });
 
-    // Google Drive Sync on GO Decision (async via SQS)
-    if (normalized.decision === 'GO') {
-      try {
-        console.log(`GO decision detected for brief ${executiveBriefId} — enqueuing Google Drive sync`);
-        const updatedBrief = await getExecutiveBrief(executiveBriefId);
-        const project = await getProjectById(brief.projectId);
-        const projectName = (project as Record<string, unknown>)?.name || brief.projectId;
-
-        await enqueueGoogleDriveSync({
-          orgId,
-          projectId: brief.projectId,
-          opportunityId,
-          executiveBriefId,
-          linearTicketId: updatedBrief.linearTicketId as string | undefined,
-          linearTicketIdentifier: updatedBrief.linearTicketIdentifier as string | undefined,
-          agencyName: summaryData?.agency as string | undefined,
-          projectTitle: (summaryData?.title as string | undefined) || String(projectName),
-        });
-      } catch (enqueueErr) {
-        console.error('Failed to enqueue Google Drive sync (non-blocking):', (enqueueErr as Error)?.message);
-      }
-    }
+    // Google Drive folder creation is now user-initiated only — triggered by the
+    // "Create Drive Folder" button on the brief (POST /brief/sync-to-google-drive),
+    // never automatically on a GO decision.
   } catch (err) {
     await markSectionFailed({ executiveBriefId, section: 'scoring', error: err });
     throw err;

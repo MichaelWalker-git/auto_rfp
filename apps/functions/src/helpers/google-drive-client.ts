@@ -35,6 +35,63 @@ export const DOCX_MIME =
 export const GOOGLE_DOC_MIME = 'application/vnd.google-apps.document';
 
 /**
+ * Flags every Drive **mutation/read of a single file** must carry when the file may
+ * live on a Shared Drive (a.k.a. Team Drive) rather than the delegate's My Drive.
+ *
+ * Without `supportsAllDrives`, `files.create`/`update`/`get`/`export` and
+ * `permissions.create`/`list` intermittently 404/403 on Shared-Drive items — the API
+ * pretends the item does not exist. Spread these into the params of every such call.
+ * Harmless on My-Drive items, so it is applied unconditionally.
+ */
+export const DRIVE_SHARED_DRIVE_PARAMS = { supportsAllDrives: true } as const;
+
+/**
+ * Flags a `files.list` must carry to see Shared-Drive items. `supportsAllDrives`
+ * alone is not enough for list — the results are filtered to My Drive unless
+ * `includeItemsFromAllDrives` is also set.
+ */
+export const DRIVE_LIST_ALL_DRIVES_PARAMS = {
+  supportsAllDrives: true,
+  includeItemsFromAllDrives: true,
+} as const;
+
+/**
+ * Optional Shared-Drive folder to root every opportunity folder under (e.g. the
+ * "00 To be approved" intake folder). Blank string is treated as unset so an
+ * empty CDK env value is a no-op. Read here — the single source of truth — so the
+ * opportunity-level sync and the per-document auto-push cannot disagree on where
+ * an opportunity's folder lives.
+ */
+export const DRIVE_ROOT_PARENT_FOLDER_ID =
+  (process.env.DRIVE_ROOT_PARENT_FOLDER_ID ?? '').trim() || undefined;
+
+/** Subfolder names inside an opportunity folder (per Drive sync spec). */
+export const OPPORTUNITY_SUBFOLDERS = {
+  originalDocuments: 'Original Documents',
+  executiveBrief: 'Executive Brief',
+  proposalMaterials: 'Proposal Materials',
+  finalDeliverables: 'Final Deliverables',
+} as const;
+
+/**
+ * Build the opportunity folder name `[ID] - [Agency] - [Title]`, identical for
+ * every code path that touches an opportunity's Drive folder. Kept here so the
+ * button sync and the auto-push resolve the *same* folder — a divergent name
+ * would scatter one opportunity's documents across two folders.
+ */
+export const buildOpportunityFolderName = (args: {
+  linearTicketIdentifier?: string | null;
+  executiveBriefId: string;
+  agencyName?: string | null;
+  projectTitle?: string | null;
+}): string => {
+  const idPart = args.linearTicketIdentifier || args.executiveBriefId.slice(0, 8);
+  const agencyPart = (args.agencyName || 'Unknown Agency').slice(0, 50);
+  const titlePart = (args.projectTitle || 'Opportunity').slice(0, 80);
+  return `${idPart} - ${agencyPart} - ${titlePart}`;
+};
+
+/**
  * Operator-facing setup guidance. One copy, so the API error bodies and the logs
  * can't drift apart.
  */

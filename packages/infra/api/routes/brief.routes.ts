@@ -77,6 +77,12 @@ export function briefDomain(args: {
       },
       {
         method: 'POST',
+        path: 'sync-to-google-drive',
+        entry: lambdaEntry('brief/sync-to-google-drive.ts'),
+        extraEnv: { GOOGLE_DRIVE_SYNC_QUEUE_URL: googleDriveSyncQueueUrl },
+      },
+      {
+        method: 'POST',
         path: 'export-brief-docx',
         entry: lambdaEntry('brief/export-brief-docx.ts'),
       },

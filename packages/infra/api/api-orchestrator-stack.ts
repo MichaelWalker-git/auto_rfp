@@ -342,6 +342,12 @@ export class ApiOrchestratorStack extends cdk.Stack {
       ...(auditLogQueueName ? {
         AUDIT_LOG_QUEUE_URL: `https://sqs.${cdk.Aws.REGION}.amazonaws.com/${cdk.Aws.ACCOUNT_ID}/${auditLogQueueName}`,
       } : {}),
+      // Google Drive intake folder — every opportunity's synced folder is nested
+      // under this Shared-Drive folder ("00 To be approved"). Overridable per stage
+      // via DRIVE_ROOT_PARENT_FOLDER_ID; the helper treats blank as "root at Drive
+      // top level" (legacy behaviour), so an unset value is safe.
+      DRIVE_ROOT_PARENT_FOLDER_ID:
+        process.env.DRIVE_ROOT_PARENT_FOLDER_ID || '1rxIWATfhgnMp2NXUy7jZHRQjDW74ei9-',
     };
 
     const sharedInfraStack = new ApiSharedInfraStack(this, 'SharedInfra', {
