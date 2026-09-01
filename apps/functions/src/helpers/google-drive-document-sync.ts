@@ -1118,6 +1118,50 @@ export const autoPushDocumentToDriveIfConfigured = async (args: {
   }
 };
 
+/**
+ * Trash the Drive file linked to a document, mirroring an in-app delete into
+ * Drive so the Proposal Materials folder stays in sync with the app. Best-effort
+ * and non-blocking: a missing link, unconfigured org, or Drive error is logged
+ * and swallowed so a Drive hiccup never blocks the DynamoDB/S3 delete.
+ *
+ * Trash rather than permanent delete — recoverable from Drive's trash for 30
+ * days, matching the app's own soft-delete semantics. A file already gone from
+ * Drive (404) is treated as success.
+ *
+ * Takes the fileId directly (not the documentId) because the caller has already
+ * soft-deleted the record by the time cleanup runs, so loadDriveSyncDocument
+ * would return null.
+ */
+export const deleteDocumentFromDriveIfConfigured = async (args: {
+  orgId: string;
+  googleDriveFileId?: string | null;
+}): Promise<void> => {
+  const { orgId, googleDriveFileId } = args;
+  if (!googleDriveFileId) return;
+
+  try {
+    const client = await getDriveClientForOrg(orgId);
+    if (!client) return;
+
+    await withDriveRetry(() =>
+      client.drive.files.update({
+        fileId: googleDriveFileId,
+        requestBody: { trashed: true },
+        supportsAllDrives: true,
+      }),
+    );
+    console.log(`[GoogleDrive] Trashed Drive file ${googleDriveFileId} for deleted document`);
+  } catch (err) {
+    if (isDriveNotFound(err)) {
+      console.log(`[GoogleDrive] Drive file ${googleDriveFileId} already gone — nothing to trash`);
+      return;
+    }
+    console.warn(
+      `[GoogleDrive] Failed to trash Drive file ${googleDriveFileId}: ${(err as Error)?.message}`,
+    );
+  }
+};
+
 // ─── Pull: Drive → AutoRFP ───────────────────────────────────────────────────
 
 /** Epoch ms, or `null` when absent/unparseable. RFC3339 must never be string-compared. */
