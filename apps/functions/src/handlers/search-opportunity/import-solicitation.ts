@@ -30,6 +30,7 @@ import { sendNotification, buildNotification } from '@/helpers/send-notification
 import { resolveUserNames } from '@/helpers/resolve-users';
 import { importAttachments, isSafeUrlAsync } from '@/helpers/attachment-importer';
 import { triggerRelatedRfpDiscovery } from '@/helpers/related-rfp';
+import { scanPhysicalSubmission } from '@/helpers/executive-opportunity-brief';
 import {
   httpsGetBuffer,
   fetchOpportunityViaSearch,
@@ -161,6 +162,22 @@ const resolveDescription = async (
   }
 };
 
+/**
+ * Deterministic physical-vs-electronic submission scan, run at import time so
+ * opportunities carry a detection result before any documents are uploaded or a
+ * brief is generated. Supplementary and lightweight — never blocks the import.
+ */
+const scanPhysicalSubmissionSafely = (
+  text: string,
+): ReturnType<typeof scanPhysicalSubmission> => {
+  try {
+    return scanPhysicalSubmission(text);
+  } catch (err) {
+    console.warn('[importSamGov] Physical submission scan failed:', (err as Error)?.message);
+    return null;
+  }
+};
+
 /** Map common MIME types to file extensions */
 const contentTypeToExt = (ct: string): string | null => {
   const map: Record<string, string> = {
@@ -220,6 +237,14 @@ const importSamGov = async (
 
   const rawDescription = ((oppRaw as Record<string, unknown>)?.description ?? null) as string | null;
   const description = await resolveDescription(rawDescription, apiKey);
+  const title = String((oppRaw as Record<string, unknown>)?.title ?? 'Untitled');
+
+  // Supplementary, lightweight scan so the opportunity carries a physical-submission
+  // detection result from the moment it enters the system. The brief worker remains
+  // the authoritative path for Linear label sync — this only seeds the fields.
+  const physicalScanResult = scanPhysicalSubmissionSafely(
+    [title, description].filter(Boolean).join('\n\n'),
+  );
 
   const { oppId, item } = await createOpportunity({
     orgId: data.orgId,
@@ -229,7 +254,7 @@ const importSamGov = async (
       projectId: data.projectId,
       source: 'SAM_GOV',
       id: data.noticeId,
-      title: String((oppRaw as Record<string, unknown>)?.title ?? 'Untitled'),
+      title,
       type: ((oppRaw as Record<string, unknown>)?.type ?? null) as string | null,
       postedDateIso: safeIsoOrNull((oppRaw as Record<string, unknown>)?.postedDate as string | undefined),
       responseDeadlineIso: safeIsoOrNull((oppRaw as Record<string, unknown>)?.responseDeadLine as string | undefined),
@@ -242,6 +267,11 @@ const importSamGov = async (
       description,
       active: toBoolActive((oppRaw as Record<string, unknown>)?.active),
       baseAndAllOptionsValue: ((oppRaw as Record<string, unknown>)?.baseAndAllOptionsValue ?? null) as number | null,
+      ...(physicalScanResult ? {
+        submissionMethod: physicalScanResult.submissionMethod,
+        submissionMailingAddress: physicalScanResult.submissionMailingAddress,
+        submissionMethodRationale: physicalScanResult.submissionMethodRationale,
+      } : {}),
     },
   });
 
@@ -285,7 +315,6 @@ const importSamGov = async (
   if (userId) {
     const nameMap = await resolveUserNames(data.orgId, [userId]).catch(() => ({} as Record<string, string>));
     const userName = nameMap[userId] ?? 'A user';
-    const title = String((oppRaw as Record<string, unknown>)?.title ?? data.noticeId);
     await sendNotification(buildNotification(
       'SOLICITATION_IMPORTED',
       'New solicitation imported',

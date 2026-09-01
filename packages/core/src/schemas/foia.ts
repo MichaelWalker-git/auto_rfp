@@ -183,6 +183,19 @@ export const FOIA_DOCUMENT_DESCRIPTIONS: Record<FOIADocumentType, string> = {
 };
 
 /**
+ * Types of public records request portals we support
+ */
+export const PortalTypeSchema = z.enum([
+  'GovQA',
+  'NextRequest',
+  'JustFOIA',
+  'GovOS',
+  'Unknown'
+]);
+
+export type PortalType = z.infer<typeof PortalTypeSchema>;
+
+/**
  * FOIA Requester Category
  */
 export const RequesterCategorySchema = z.enum([
@@ -336,6 +349,20 @@ export const FOIARequestItemSchema = z.object({
   updatedAt: z.string().datetime({ offset: true }),
   createdBy: z.string().min(1),
 
+  // Portal detection (all optional so existing records remain valid)
+  portalDetected: z.boolean().optional(),
+  portalType: PortalTypeSchema.optional(),
+  portalBaseUrl: z.string().optional(),
+  portalRecordTypeField: z.string().optional(),
+  portalRecordTypeValue: z.string().optional(),
+
+  // Portal submission tracking (all optional so existing records remain valid)
+  submissionStatus: z.enum(['PENDING', 'SUBMITTED', 'FAILED', 'MANUAL_REVIEW']).optional(),
+  submissionAttempts: z.number().int().nonnegative().optional(),
+  submissionError: z.string().optional(),
+  submissionConfirmationNumber: z.string().optional(),
+  lastSubmissionAttemptAt: z.string().datetime({ offset: true }).optional(),
+
   // ── Lifecycle (added for automatic FOIA; all optional) ──
   // NOTE: get-foia-requests returns raw DynamoDB items with no re-parse and the
   // frontend types straight off this schema, so every field added here MUST stay
@@ -380,6 +407,7 @@ export const CreateFOIARequestSchema = z.object({
   orgId: z.string().min(1, 'Organization ID is required'),
   opportunityId: z.string().min(1, 'Opportunity ID is required'),
   agencyName: z.string().min(1, 'Agency name is required'),
+  agencyDomain: z.string().optional(), // Optional domain hint for portal detection
   agencyFOIAEmail: z.string().email('Valid agency FOIA email is required'),
   agencyFOIAAddress: z.string().min(1, 'Agency FOIA address is required'),
   solicitationNumber: z.string().min(1, 'Solicitation number is required'),
@@ -401,6 +429,12 @@ export const CreateFOIARequestSchema = z.object({
     (val) => (typeof val === 'number' && isNaN(val) ? undefined : val),
     z.number().nonnegative().default(0),
   ),
+  // Portal detection fields (optional, populated by backend)
+  portalDetected: z.boolean().optional(),
+  portalType: PortalTypeSchema.optional(),
+  portalBaseUrl: z.string().optional(),
+  portalRecordTypeField: z.string().optional(),
+  portalRecordTypeValue: z.string().optional(),
 });
 
 export type CreateFOIARequest = z.infer<typeof CreateFOIARequestSchema>;

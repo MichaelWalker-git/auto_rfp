@@ -27,6 +27,8 @@ jest.mock('@/helpers/executive-opportunity-brief', () => ({
   markSectionInProgress: jest.fn(),
   queryCompanyKnowledgeBase: jest.fn(),
   sanitizeSummaryResponse: jest.fn(),
+  scanDeliveryLocationConstraint: jest.fn(),
+  scanPhysicalSubmission: jest.fn(),
   smartTruncate: jest.fn(),
   truncateText: jest.fn(),
 }));
@@ -35,7 +37,8 @@ jest.mock('@/helpers/custom-document-types', () => ({
 }));
 jest.mock('@/helpers/google-drive-queue', () => ({ enqueueGoogleDriveSync: jest.fn() }));
 jest.mock('@/helpers/project', () => ({ getProjectById: jest.fn() }));
-jest.mock('@/helpers/opportunity', () => ({ getOpportunity: jest.fn() }));
+jest.mock('@/helpers/opportunity', () => ({ getOpportunity: jest.fn(), updateOpportunity: jest.fn() }));
+jest.mock('@/helpers/linear', () => ({ syncPhysicalSubmissionLabel: jest.fn() }));
 jest.mock('@/helpers/s3', () => ({ loadTextFromS3: jest.fn() }));
 jest.mock('@/helpers/deadlines', () => ({ storeDeadlinesSeparately: jest.fn() }));
 jest.mock('@/helpers/bedrock-tool-loop', () => ({ invokeClaudeWithTools: jest.fn() }));
@@ -45,22 +48,32 @@ jest.mock('@/helpers/past-performance-matching', () => ({
   ensurePastPerformanceForScoring: jest.fn(),
 }));
 jest.mock('@/constants/prompt', () => ({
-  getSummarySystemPrompt: jest.fn().mockResolvedValue('system'),
-  useSummaryUserPrompt: jest.fn().mockResolvedValue('user'),
-  useContactsSystemPrompt: jest.fn().mockResolvedValue('system'),
-  useContactsUserPrompt: jest.fn().mockResolvedValue('user'),
-  useDeadlineSystemPrompt: jest.fn().mockResolvedValue('system'),
-  useDeadlineUserPrompt: jest.fn().mockResolvedValue('user'),
-  useRequirementsSystemPrompt: jest.fn().mockResolvedValue('system'),
-  useRequirementsUserPrompt: jest.fn().mockResolvedValue('user'),
-  useRiskSystemPrompt: jest.fn().mockResolvedValue('system'),
-  useRiskUserPrompt: jest.fn().mockResolvedValue('user'),
-  useScoringSystemPrompt: jest.fn().mockResolvedValue('system'),
-  useScoringUserPrompt: jest.fn().mockResolvedValue('user'),
+  getSummarySystemPrompt: jest.fn(),
+  useContactsSystemPrompt: jest.fn(),
+  useContactsUserPrompt: jest.fn(),
+  useDeadlineSystemPrompt: jest.fn(),
+  useDeadlineUserPrompt: jest.fn(),
+  useRequirementsSystemPrompt: jest.fn(),
+  useRequirementsUserPrompt: jest.fn(),
+  useRiskSystemPrompt: jest.fn(),
+  useRiskUserPrompt: jest.fn(),
+  useScoringSystemPrompt: jest.fn(),
+  useScoringUserPrompt: jest.fn(),
+  useSummaryUserPrompt: jest.fn(),
 }));
 
-import { applyExpiredDeadlineGuard, isExpiredDeadlineBlocker, handler } from './exec-brief-worker';
-import { getExecutiveBrief, invokeClaudeJson, loadSolicitationForBrief, smartTruncate } from '@/helpers/executive-opportunity-brief';
+import { applyExpiredDeadlineGuard, isExpiredDeadlineBlocker, runSummary } from './exec-brief-worker';
+import {
+  getExecutiveBrief,
+  invokeClaudeJson,
+  loadSolicitationForBrief,
+  markSectionFailed,
+  scanDeliveryLocationConstraint,
+  scanPhysicalSubmission,
+  smartTruncate,
+} from '@/helpers/executive-opportunity-brief';
+import { getOpportunity, updateOpportunity } from '@/helpers/opportunity';
+import { syncPhysicalSubmissionLabel } from '@/helpers/linear';
 
 describe('isExpiredDeadlineBlocker', () => {
   it.each([
@@ -137,6 +150,204 @@ describe('applyExpiredDeadlineGuard', () => {
     const result = applyExpiredDeadlineGuard({ ...baseScoring, decisionRationale: null });
     expect(result.decision).toBe('NO_GO');
     expect(result.decisionRationale).toMatch(/^Deadline override/);
+  });
+});
+
+describe('runSummary — physical submission detection', () => {
+  const RAW_TEXT = 'Proposals must be mailed to the address below. Certified mail preferred.';
+
+  const baseJob = {
+    orgId: 'org-1',
+    executiveBriefId: 'brief-1',
+    section: 'summary' as const,
+    inputHash: 'hash-1',
+    retryCount: 0,
+  };
+
+  const baseBrief = {
+    projectId: 'project-1',
+    opportunityId: 'opp-1',
+    allTextKeys: [],
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (getExecutiveBrief as jest.Mock).mockResolvedValue(baseBrief);
+    (loadSolicitationForBrief as jest.Mock).mockResolvedValue({
+      solicitationText: RAW_TEXT,
+      textKeys: ['key-1'],
+    });
+    (smartTruncate as jest.Mock).mockImplementation((text: string) => text);
+    (invokeClaudeJson as jest.Mock).mockResolvedValue({});
+    (scanDeliveryLocationConstraint as jest.Mock).mockReturnValue(null);
+    (scanPhysicalSubmission as jest.Mock).mockReturnValue(null);
+    (getOpportunity as jest.Mock).mockResolvedValue({ item: {} });
+    (updateOpportunity as jest.Mock).mockResolvedValue(undefined);
+    (syncPhysicalSubmissionLabel as jest.Mock).mockResolvedValue(undefined);
+  });
+
+  it('calls the scanner with the raw solicitation text', async () => {
+    await runSummary(baseJob);
+
+    expect(scanPhysicalSubmission).toHaveBeenCalledWith(RAW_TEXT);
+  });
+
+  it('persists the detection result on the opportunity', async () => {
+    (scanPhysicalSubmission as jest.Mock).mockReturnValue({
+      submissionMethod: 'PHYSICAL',
+      submissionMailingAddress: null,
+      submissionMethodRationale: 'mail proposals to the address below',
+    });
+
+    await runSummary(baseJob);
+
+    expect(updateOpportunity).toHaveBeenCalledWith({
+      orgId: 'org-1',
+      projectId: 'project-1',
+      oppId: 'opp-1',
+      patch: {
+        submissionMethod: 'PHYSICAL',
+        submissionMailingAddress: null,
+        submissionMethodRationale: 'mail proposals to the address below',
+      },
+    });
+  });
+
+  it('auto-fills the FOIA contact address when an address is present and the field is empty', async () => {
+    (getOpportunity as jest.Mock).mockResolvedValue({ item: { foiaContactAddress: null } });
+    (scanPhysicalSubmission as jest.Mock).mockReturnValue({
+      submissionMethod: 'PHYSICAL',
+      submissionMailingAddress: {
+        addressLine1: '123 Main St',
+        locality: 'Arlington',
+        administrativeArea: 'VA',
+        postalCode: '22201',
+      },
+      submissionMethodRationale: 'mail proposals to the address below',
+    });
+
+    await runSummary(baseJob);
+
+    expect(updateOpportunity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        patch: expect.objectContaining({
+          foiaContactAddress: '123 Main St, Arlington, VA 22201',
+        }),
+      }),
+    );
+  });
+
+  it('does not overwrite an existing FOIA contact address', async () => {
+    (getOpportunity as jest.Mock).mockResolvedValue({ item: { foiaContactAddress: '456 Existing Ave' } });
+    (scanPhysicalSubmission as jest.Mock).mockReturnValue({
+      submissionMethod: 'PHYSICAL',
+      submissionMailingAddress: {
+        addressLine1: '123 Main St',
+        locality: 'Arlington',
+        administrativeArea: 'VA',
+        postalCode: '22201',
+      },
+      submissionMethodRationale: 'mail proposals to the address below',
+    });
+
+    await runSummary(baseJob);
+
+    const patch = (updateOpportunity as jest.Mock).mock.calls[0][0].patch;
+    expect(patch).not.toHaveProperty('foiaContactAddress');
+  });
+
+  it('does not fail the brief when the scanner throws', async () => {
+    (scanPhysicalSubmission as jest.Mock).mockImplementation(() => {
+      throw new Error('scanner exploded');
+    });
+
+    await expect(runSummary(baseJob)).resolves.toBeUndefined();
+    expect(markSectionFailed).not.toHaveBeenCalled();
+    expect(updateOpportunity).not.toHaveBeenCalled();
+  });
+
+  it('syncs the Linear label with submissionMethod ELECTRONIC when detection is ELECTRONIC', async () => {
+    (getOpportunity as jest.Mock).mockResolvedValue({ item: { noticeId: 'HOR-42' } });
+    (scanPhysicalSubmission as jest.Mock).mockReturnValue({
+      submissionMethod: 'ELECTRONIC',
+      submissionMailingAddress: null,
+      submissionMethodRationale: 'submit electronically via the portal',
+    });
+
+    await runSummary(baseJob);
+
+    expect(syncPhysicalSubmissionLabel).toHaveBeenCalledWith('opp-1', 'HOR-42', 'ELECTRONIC');
+  });
+
+  it('syncs the Linear label with submissionMethod BOTH when detection is BOTH', async () => {
+    (getOpportunity as jest.Mock).mockResolvedValue({ item: { noticeId: 'HOR-42' } });
+    (scanPhysicalSubmission as jest.Mock).mockReturnValue({
+      submissionMethod: 'BOTH',
+      submissionMailingAddress: null,
+      submissionMethodRationale: 'mail or submit electronically',
+    });
+
+    await runSummary(baseJob);
+
+    expect(syncPhysicalSubmissionLabel).toHaveBeenCalledWith('opp-1', 'HOR-42', 'BOTH');
+  });
+
+  it('falls back to the LLM-extracted submissionMethod when the deterministic scan returns null', async () => {
+    (scanPhysicalSubmission as jest.Mock).mockReturnValue(null);
+    (invokeClaudeJson as jest.Mock).mockResolvedValue({
+      summary: 'x',
+      submissionMethod: 'PHYSICAL',
+      submissionMethodRationale: 'LLM found mailing instructions',
+    });
+
+    await runSummary(baseJob);
+
+    expect(updateOpportunity).toHaveBeenCalledWith({
+      orgId: 'org-1',
+      projectId: 'project-1',
+      oppId: 'opp-1',
+      patch: {
+        submissionMethod: 'PHYSICAL',
+        submissionMailingAddress: null,
+        submissionMethodRationale: 'LLM found mailing instructions',
+      },
+    });
+  });
+
+  it('prefers the deterministic scan over the LLM fallback when both are present', async () => {
+    (scanPhysicalSubmission as jest.Mock).mockReturnValue({
+      submissionMethod: 'ELECTRONIC',
+      submissionMailingAddress: null,
+      submissionMethodRationale: 'scan rationale',
+    });
+    (invokeClaudeJson as jest.Mock).mockResolvedValue({
+      summary: 'x',
+      submissionMethod: 'PHYSICAL',
+      submissionMethodRationale: 'llm rationale',
+    });
+
+    await runSummary(baseJob);
+
+    expect(updateOpportunity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        patch: expect.objectContaining({
+          submissionMethod: 'ELECTRONIC',
+          submissionMethodRationale: 'scan rationale',
+        }),
+      }),
+    );
+  });
+
+  it('ignores an invalid LLM submissionMethod value when the scan returns null', async () => {
+    (scanPhysicalSubmission as jest.Mock).mockReturnValue(null);
+    (invokeClaudeJson as jest.Mock).mockResolvedValue({
+      summary: 'x',
+      submissionMethod: 'NOT_A_REAL_VALUE',
+    });
+
+    await runSummary(baseJob);
+
+    expect(updateOpportunity).not.toHaveBeenCalled();
   });
 });
 

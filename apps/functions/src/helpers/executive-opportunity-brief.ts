@@ -5,7 +5,7 @@ import { PK_NAME, SK_NAME } from '@/constants/common';
 import { QUESTION_FILE_PK } from '@/constants/question-file';
 import { EXEC_BRIEF_PK } from '@/constants/exec-brief';
 
-import { type ExecutiveBriefItem, QuestionFileItem, SectionStatus, } from '@auto-rfp/core';
+import { type ExecutiveBriefItem, QuestionFileItem, SectionStatus, type SubmissionMethodDetected, type FoiaComponentAddress } from '@auto-rfp/core';
 import { requireEnv } from './env';
 import { docClient, getItem } from './db';
 import { nowIso } from './date';
@@ -87,6 +87,109 @@ export function scanDeliveryLocationConstraint(
 
   return null;
 }
+
+const PHYSICAL_PATTERNS: RegExp[] = [
+  /mail\s+proposals?\s+to\b/i,
+  /submit\s+hard\s+cop(?:y|ies)/i,
+  /deliver\s+to\s+the\s+following\s+address/i,
+  /\bhand[-\s]deliver\b/i,
+  /\bUSPS\b/i,
+  /\bFedEx\b/i,
+  /\bUPS\b/,
+  /\bcertified\s+mail\b/i,
+  /\bovernight\s+delivery\b/i,
+  /physical\s+cop(?:y|ies)\s+required/i,
+  /original\s+plus\s+\d+\s+cop(?:y|ies)/i,
+  /\bhard\s+cop(?:y|ies)\s+(?:must|shall|are)\s+be?\s+(?:submitted|delivered|mailed|sent)/i,
+];
+
+const ELECTRONIC_PATTERNS: RegExp[] = [
+  /submit\s+electronically/i,
+  /electronic\s+submission\s+only/i,
+  /no\s+hard\s+cop(?:y|ies)/i,
+  /no\s+physical\s+cop(?:y|ies)/i,
+  /submit\s+via\s+SAM\.gov/i,
+  /submit\s+via\s+email/i,
+  /submit\s+via\s+portal/i,
+  /electronic\s+submission\s+(?:is\s+)?required/i,
+  /submissions?\s+(?:must|shall)\s+be\s+(?:submitted\s+)?electronically/i,
+];
+
+const extractSnippet = (text: string, patterns: RegExp[]): { snippet: string; matchIndex: number } | null => {
+  for (const re of patterns) {
+    const m = re.exec(text);
+    if (m) {
+      const start = Math.max(0, m.index - 50);
+      const end = Math.min(text.length, m.index + 450);
+      return { snippet: text.slice(start, end).replace(/\s+/g, ' ').trim(), matchIndex: m.index };
+    }
+  }
+  return null;
+};
+
+const extractMailingAddress = (text: string, matchIndex: number): FoiaComponentAddress | null => {
+  const contextStart = Math.max(0, matchIndex - 100);
+  const contextEnd = Math.min(text.length, matchIndex + 500);
+  const context = text.slice(contextStart, contextEnd);
+
+  // Match a US mailing address: street line, optional suite, city ST ZIP
+  const addressRe = /(\d+\s+[A-Za-z0-9 .,'#-]{3,60})\n?\s*(?:((?:Suite|Ste|Floor|Fl|Room|Rm|Bldg|Building)[^\n,]{1,40})\n?\s*)?([A-Za-z .'-]{2,40}),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)/i;
+  const m = addressRe.exec(context);
+  if (!m) return null;
+
+  return {
+    addressLine1: m[1]?.trim() ?? null,
+    addressLine2: m[2]?.trim() ?? null,
+    addressLine3: null,
+    locality: m[3]?.trim() ?? null,
+    administrativeArea: m[4]?.trim() ?? null,
+    postalCode: m[5]?.trim() ?? null,
+    countryCode: 'US',
+  };
+};
+
+/**
+ * Deterministic scan for physical vs. electronic submission indicators in solicitation text.
+ * Returns null when no indicators are found (caller decides how to handle absence).
+ */
+export const scanPhysicalSubmission = (
+  text: string,
+): {
+  submissionMethod: SubmissionMethodDetected;
+  submissionMailingAddress: FoiaComponentAddress | null;
+  submissionMethodRationale: string | null;
+} | null => {
+  if (!text) return null;
+
+  const physMatch = extractSnippet(text, PHYSICAL_PATTERNS);
+  const elecMatch = extractSnippet(text, ELECTRONIC_PATTERNS);
+
+  if (!physMatch && !elecMatch) return null;
+
+  const isPhysical = physMatch !== null;
+  const isElectronic = elecMatch !== null;
+
+  let submissionMethod: SubmissionMethodDetected;
+  if (isPhysical && isElectronic) {
+    submissionMethod = 'BOTH';
+  } else if (isPhysical) {
+    submissionMethod = 'PHYSICAL';
+  } else {
+    submissionMethod = 'ELECTRONIC';
+  }
+
+  const rationaleSnippet = physMatch?.snippet ?? elecMatch?.snippet ?? null;
+  const submissionMethodRationale = rationaleSnippet
+    ? rationaleSnippet.slice(0, 500)
+    : null;
+
+  const submissionMailingAddress =
+    isPhysical && physMatch
+      ? extractMailingAddress(text, physMatch.matchIndex)
+      : null;
+
+  return { submissionMethod, submissionMailingAddress, submissionMethodRationale };
+};
 
 export function truncateText(text: string, maxChars: number) {
   if (!text) return '';

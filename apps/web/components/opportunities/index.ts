@@ -6,3 +6,5 @@ export { OpportunityRFPDocuments } from './opportunity-rfp-documents';
 export { AssigneeSelector } from './AssigneeSelector';
 export { OpportunityChatDialog } from './OpportunityChatDialog';
 export { formatDateTime, pickDisplayName, getStatusChip } from './opportunity-helpers';
+export { PhysicalSubmissionChip } from './PhysicalSubmissionChip';
+export { PhysicalSubmissionBanner } from './PhysicalSubmissionBanner';
