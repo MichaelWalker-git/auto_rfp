@@ -79,6 +79,48 @@ describe('parseMcpEnvelope', () => {
   it('rejects an unparseable body', () => {
     expect(() => parseMcpEnvelope('<html>gateway timeout</html>')).toThrow(/unparseable/i);
   });
+
+  it('finds the real result behind a progress notification event', () => {
+    // A streamable-HTTP reply can carry more than one SSE event — e.g. one or more
+    // notifications/progress events ahead of the final tool result. Naively
+    // concatenating the events and hunting for the last `{` breaks here: the
+    // result event's own `text` field is a JSON blob full of braces, so the "last
+    // brace" lands inside that nested text rather than at the start of the
+    // envelope, and a perfectly valid response was rejected as unparseable.
+    const progress = JSON.stringify({
+      jsonrpc: '2.0', method: 'notifications/progress',
+      params: { progressToken: 1, progress: 1, total: 2 },
+    });
+    const result = JSON.stringify({
+      jsonrpc: '2.0', id: 1,
+      result: { content: [{ type: 'text', text: 'Returned 1 records.\n\n```json\n{"results":[{"opp_key":"a"}]}\n```' }] },
+    });
+    const raw = `data: ${progress}\n\ndata: ${result}\n\n`;
+
+    const envelope = parseMcpEnvelope(raw);
+
+    expect(envelope.result?.content?.[0]?.text).toContain('opp_key');
+  });
+
+  it('finds the real result when the progress event arrives AFTER it', () => {
+    // Event ordering isn't guaranteed to put the terminal response last; the
+    // parser must pick the event that actually carries result/error, not
+    // whichever one is physically final.
+    const progress = JSON.stringify({ jsonrpc: '2.0', method: 'notifications/progress', params: { progress: 2, total: 2 } });
+    const result = JSON.stringify({ jsonrpc: '2.0', id: 1, result: { isError: false, content: [{ type: 'text', text: 'ok' }] } });
+    const raw = `data: ${result}\n\ndata: ${progress}\n\n`;
+
+    const envelope = parseMcpEnvelope(raw);
+
+    expect(envelope.result?.content?.[0]?.text).toBe('ok');
+  });
+
+  it('ignores a stream of only progress notifications rather than misreading one as the result', () => {
+    const progress = JSON.stringify({ jsonrpc: '2.0', method: 'notifications/progress', params: { progress: 1, total: 2 } });
+    const raw = `data: ${progress}\n\n`;
+
+    expect(() => parseMcpEnvelope(raw)).toThrow(/unparseable/i);
+  });
 });
 
 describe('extractFencedJson', () => {

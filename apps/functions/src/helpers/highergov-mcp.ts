@@ -128,25 +128,46 @@ type McpToolResult = {
  * Unwrap a JSON-RPC reply that may arrive SSE-framed.
  *
  * Streamable-HTTP servers are allowed to answer a POST with `text/event-stream`, in which
- * case each line is `data: {...}`. Stripping the prefix yields the same JSON object.
+ * case each line is `data: {...}`. A stream can carry MULTIPLE events — e.g. one or more
+ * `notifications/progress` events before the final tool result — so every `data:` line must
+ * be parsed as its OWN JSON document, not concatenated with the others and scanned for the
+ * last `{`. That naive approach breaks as soon as any earlier or later event's payload
+ * contains a `{` of its own (which the final event's `text` field always does, since it's a
+ * human summary line followed by a fenced JSON block): the "last brace" is then somewhere
+ * inside that nested text, not the start of the envelope, and parsing fails on a perfectly
+ * valid response. Parsing each event independently and keeping the last one that is a real
+ * JSON-RPC response (has `result` or `error`, unlike a notification) is correct regardless
+ * of how many events precede it.
  */
 export const parseMcpEnvelope = (raw: string): McpToolResult => {
-  const stripped = raw.replace(/^data: /gm, '').trim();
-  if (!stripped) throw new Error('Empty response from HigherGov MCP');
-  try {
-    return JSON.parse(stripped) as McpToolResult;
-  } catch {
-    // A multi-event stream concatenates several JSON objects; the last complete one wins.
-    const lastBrace = stripped.lastIndexOf('{');
-    if (lastBrace > 0) {
-      try {
-        return JSON.parse(stripped.slice(lastBrace)) as McpToolResult;
-      } catch {
-        /* fall through to the shared error below */
-      }
+  const trimmed = raw.trim();
+  if (!trimmed) throw new Error('Empty response from HigherGov MCP');
+
+  const dataLines = trimmed
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(line.indexOf(':') + 1).trim())
+    .filter(Boolean);
+
+  // Not SSE-framed at all: treat the whole body as one JSON document.
+  const candidates = dataLines.length ? dataLines : [trimmed];
+
+  let response: McpToolResult | undefined;
+  for (const candidate of candidates) {
+    let parsed: McpToolResult;
+    try {
+      parsed = JSON.parse(candidate) as McpToolResult;
+    } catch {
+      continue; // not a standalone JSON event — ignore and keep scanning
     }
-    throw new Error('Unparseable response from HigherGov MCP');
+    // JSON-RPC notifications (e.g. notifications/progress) have neither `result` nor
+    // `error`; skip them so the real response wins even when it isn't the final event.
+    if ('result' in parsed || 'error' in parsed) response = parsed;
   }
+
+  if (response) return response;
+  throw new Error('Unparseable response from HigherGov MCP');
 };
 
 /**
