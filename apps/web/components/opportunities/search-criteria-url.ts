@@ -60,6 +60,9 @@ export const criteriaToParams = (c: SearchOpportunityCriteria): URLSearchParams 
   if (c.closingTo)           p.set('closingTo', c.closingTo);
   if (c.higherGovSourceType) p.set('hgSource', c.higherGovSourceType);
   if (c.higherGovSearchId)   p.set('hgId', c.higherGovSearchId);
+  // Only serialize non-defaults, so a plain HigherGov search stays a readable URL.
+  if (c.higherGovMarket && c.higherGovMarket !== 'all') p.set('hgMarket', c.higherGovMarket);
+  if (c.higherGovActiveOnly === false) p.set('hgActive', '0');
   if (c.limit && c.limit !== DEFAULT_LIMIT) p.set('limit', String(c.limit));
   return p;
 };
@@ -121,6 +124,8 @@ export const paramsToFormValues = (p: URLSearchParams): Partial<FormValues> | nu
     closingTo: parseDate(p.get('closingTo')),
     higherGovSourceType: (p.get('hgSource') ?? '') as FormValues['higherGovSourceType'],
     higherGovSearchId: p.get('hgId') ?? '',
+    higherGovMarket: (p.get('hgMarket') ?? 'all') as FormValues['higherGovMarket'],
+    higherGovActiveOnly: p.get('hgActive') !== '0',
   };
 };
 
@@ -138,6 +143,16 @@ export const paramsToCriteria = (p: URLSearchParams): SearchOpportunityCriteria 
     closingTo:           p.get('closingTo') ?? undefined,
     higherGovSourceType: p.get('hgSource') ?? undefined,
     higherGovSearchId:   p.get('hgId') ?? undefined,
+    // Defaults to 'all', NOT undefined. `criteriaToParams` omits this param when it is
+    // 'all' to keep URLs readable, so an absent param means "all markets" — and sending
+    // undefined instead let HigherGov apply its own `federal_contract` default. That
+    // showed the UI reading "All sources" while returning the federal-only count (18
+    // instead of 310).
+    higherGovMarket:     (p.get('hgMarket') ?? 'all') as SearchOpportunityCriteria['higherGovMarket'],
+    // Explicit `true` rather than undefined: the results bar keys its "open
+    // opportunities only" note off this, so an omitted param must still read as on —
+    // which is also what the backend defaults to.
+    higherGovActiveOnly: p.get('hgActive') !== '0',
     limit:               parseLimit(p.get('limit')),
   };
 };

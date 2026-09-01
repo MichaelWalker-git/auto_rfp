@@ -42,6 +42,23 @@ interface Props {
   projectId: string;
 }
 
+/**
+ * Suffix for the HigherGov results badge, so a blended `all` count isn't opaque about
+ * which markets it drew from. Empty for `all` — "HigherGov: 310" already reads as
+ * everything.
+ */
+const HIGHERGOV_MARKET_LABELS: Record<string, string> = {
+  all: '',
+  federal_contract: ' (federal)',
+  state_local: ' (state & local)',
+  federal_and_state_local: ' (federal + SLED)',
+  federal_grant: ' (grants)',
+  sbir: ' (SBIR)',
+  dibbs: ' (DIBBS)',
+  federal_forecast: ' (federal forecasts)',
+  sled_forecast: ' (SLED forecasts)',
+};
+
 /** Convert MM/dd/yyyy to ISO date string (yyyy-MM-dd) */
 const isoFromMmdd = (s: string): string | undefined => {
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
@@ -320,6 +337,12 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
       // search_id. Dropping it re-ran the search as a plain keyword query, which
       // HigherGov's API cannot serve — so opening a saved search always errored.
       higherGovSearchId:   c.higherGovSearchId ?? undefined,
+      // Same reasoning as the search_id above: an omitted market means MCP applies
+      // its own `federal_contract` default, and an omitted active flag means all
+      // history. Fall back to the form's own defaults for searches saved before
+      // these fields existed, so an older row reopens the way it always ran.
+      higherGovMarket:     c.higherGovMarket ?? 'all',
+      higherGovActiveOnly: c.higherGovActiveOnly ?? true,
       limit:               pageSize,
     };
     syncToUrl(criteria);
@@ -453,6 +476,15 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
                     </>
                   )}
                 </span>
+                {/* A HigherGov count looks broken next to their own site — the same words
+                    report 70 here and 2,675 there — and the entire difference is this
+                    filter. Naming it costs nothing; fetching the second number would cost
+                    100 records of a 10,000/month allowance per search. */}
+                {lastCriteriaRef?.sources?.includes('HIGHER_GOV') && lastCriteriaRef?.higherGovActiveOnly && (
+                  <span className="text-xs text-muted-foreground">
+                    · open opportunities only — turn off <span className="font-medium">Active only</span> to include closed and historical
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2 ml-auto">
                 {result.totalSamGov > 0 && (
@@ -463,28 +495,36 @@ export default function ProjectSearchOpportunitiesPage({ orgId, projectId }: Pro
                 {/* HigherGov had no badge at all despite being a primary provider. */}
                 {result.totalHigherGov > 0 && (
                   <Badge className="text-xs bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-50">
-                    HigherGov: {result.totalHigherGov.toLocaleString()}
+                    {/* Name the market: an `all` search blends federal, SLED, grants and
+                        SBIR into one number, and the count alone doesn't say which. */}
+                    HigherGov{HIGHERGOV_MARKET_LABELS[lastCriteriaRef?.higherGovMarket ?? 'all']}
+                    : {result.totalHigherGov.toLocaleString()}
                   </Badge>
                 )}
-                <div className="flex items-center gap-1.5 border-l pl-3 ml-1">
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">Per page:</span>
-                  <Select
-                    value={String(pageSize)}
-                    onValueChange={handlePageSizeChange}
-                    disabled={isLoading}
-                  >
-                    <SelectTrigger className="h-7 w-16 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {PAGE_SIZE_OPTIONS.map((n) => (
-                        <SelectItem key={n} value={String(n)} className="text-xs">
-                          {n}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Hidden for HigherGov: their MCP tool fixes page size at 100 and
+                    ignores the requested value, so the control would read "25" while
+                    loading 100 — a setting that visibly does nothing. */}
+                {!lastCriteriaRef?.sources?.includes('HIGHER_GOV') && (
+                  <div className="flex items-center gap-1.5 border-l pl-3 ml-1">
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">Per page:</span>
+                    <Select
+                      value={String(pageSize)}
+                      onValueChange={handlePageSizeChange}
+                      disabled={isLoading}
+                    >
+                      <SelectTrigger className="h-7 w-16 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAGE_SIZE_OPTIONS.map((n) => (
+                          <SelectItem key={n} value={String(n)} className="text-xs">
+                            {n}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             </div>
           )}

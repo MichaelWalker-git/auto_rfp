@@ -121,6 +121,20 @@ export const LoadSearchOpportunitiesRequestSchema = z.object({
    * silently stripped the ID on save.
    */
   higherGovSearchId: z.string().min(1).optional(),
+  /**
+   * Which HigherGov market(s) to search — the `opportunity_type` enum of their MCP
+   * `search_opportunities` tool. Their default is `federal_contract`, so this must be sent
+   * explicitly to reach state & local, grants, SBIR, DIBBS or forecasts.
+   */
+  higherGovMarket: z.enum([
+    'federal_contract', 'state_local', 'federal_and_state_local', 'federal_grant',
+    'dibbs', 'sbir', 'federal_forecast', 'sled_forecast', 'all',
+  ]).optional(),
+  /**
+   * Restrict HigherGov results to currently open opportunities. High impact: the same
+   * `saas` query returns 18 active vs 2860 across all history.
+   */
+  higherGovActiveOnly: z.boolean().optional(),
 
   // ── Value range ───────────────────────────────────────────────────────────
   dollarRange: DollarRangeSchema,
