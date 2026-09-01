@@ -5,6 +5,8 @@ import {
   ContactsSectionSchema,
   DeadlinesSectionSchema,
   type ExecutiveBriefItem,
+  formatFoiaComponentAddress,
+  isPhysicalSubmission,
   PricingSectionSchema,
   QuickSummarySchema,
   RequirementsSectionSchema,
@@ -38,6 +40,7 @@ import {
   queryCompanyKnowledgeBase,
   sanitizeSummaryResponse,
   scanDeliveryLocationConstraint,
+  scanPhysicalSubmission,
   smartTruncate,
   truncateText,
 } from '@/helpers/executive-opportunity-brief';
@@ -46,6 +49,7 @@ import type { RequiredOutputDocument } from '@auto-rfp/core';
 import { enqueueGoogleDriveSync } from '@/helpers/google-drive-queue';
 import { getProjectById } from '@/helpers/project';
 import { getOpportunity, updateOpportunity } from '@/helpers/opportunity';
+import { syncPhysicalSubmissionLabel } from '@/helpers/linear';
 import { requireEnv } from '@/helpers/env';
 import { loadTextFromS3 } from '@/helpers/s3';
 import { storeDeadlinesSeparately } from '@/helpers/deadlines';
@@ -167,7 +171,7 @@ const MinimalSummarySchema = z.object({
 
 // ─── Section Handlers ─────────────────────────────────────────────────────────
 
-async function runSummary(job: Job): Promise<void> {
+export async function runSummary(job: Job): Promise<void> {
   const { orgId, executiveBriefId, inputHash: inputHashFromJob } = job;
 
   try {
@@ -309,6 +313,38 @@ async function runSummary(job: Job): Promise<void> {
       }
     } catch (constraintErr) {
       console.warn('[SUMMARY] Failed to persist delivery-location constraint:', (constraintErr as Error)?.message);
+    }
+
+    // Persist the detected physical-submission method onto the opportunity, auto-fill the
+    // FOIA contact address when it is still empty, and keep the Linear label in sync.
+    // Same fail-open contract as the delivery-location scan above — never blocks the brief.
+    try {
+      const physicalResult = scanPhysicalSubmission(rawText);
+      if (physicalResult) {
+        const opp = await getOpportunity({ orgId, projectId, oppId: opportunityId });
+        const formattedFoiaAddress = physicalResult.submissionMailingAddress
+          ? formatFoiaComponentAddress(physicalResult.submissionMailingAddress)
+          : undefined;
+        const shouldFillFoiaAddress = !!formattedFoiaAddress && !opp?.item?.foiaContactAddress?.trim();
+
+        await updateOpportunity({
+          orgId,
+          projectId,
+          oppId: opportunityId,
+          patch: {
+            submissionMethod: physicalResult.submissionMethod,
+            submissionMailingAddress: physicalResult.submissionMailingAddress,
+            submissionMethodRationale: physicalResult.submissionMethodRationale,
+            ...(shouldFillFoiaAddress ? { foiaContactAddress: formattedFoiaAddress } : {}),
+          },
+        });
+
+        syncPhysicalSubmissionLabel(orgId, opportunityId, isPhysicalSubmission(physicalResult.submissionMethod)).catch(
+          (syncErr) => console.warn('[SUMMARY] Failed to sync physical-submission Linear label:', (syncErr as Error)?.message),
+        );
+      }
+    } catch (physicalErr) {
+      console.warn('[SUMMARY] Failed to persist physical-submission detection:', (physicalErr as Error)?.message);
     }
   } catch (err) {
     await markSectionFailed({ executiveBriefId, section: 'summary', error: err });
