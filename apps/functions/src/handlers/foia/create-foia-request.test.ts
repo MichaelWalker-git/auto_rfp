@@ -447,7 +447,7 @@ describe('create-foia-request handler', () => {
         expect.anything(),
         {
           action: 'PORTAL_DETECTED',
-          resource: 'foia-request',
+          resource: 'foia_request',
           resourceId: 'mock-uuid',
           changes: {
             after: {
@@ -501,7 +501,7 @@ describe('create-foia-request handler', () => {
         expect.anything(),
         {
           action: 'EMAIL_FALLBACK_INITIATED',
-          resource: 'foia-request',
+          resource: 'foia_request',
           resourceId: 'mock-uuid',
           changes: {
             after: {

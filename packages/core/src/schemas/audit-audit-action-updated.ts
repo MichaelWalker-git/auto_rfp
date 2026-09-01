@@ -121,9 +121,11 @@ export const AuditActionSchema = z.enum([
   // Opportunity assignment
   'OPPORTUNITY_ASSIGNED',
   'OPPORTUNITY_UNASSIGNED',
-  // FOIA portal detection
+  // FOIA portal detection and submission
   'PORTAL_DETECTED',
   'EMAIL_FALLBACK_INITIATED',
+  'FOIA_REQUEST_SENT',
+  'FOIA_REQUEST_FAILED',
   // Custom report actions
   'REPORT_EXPORTED',
   'REPORT_SHARDED',
