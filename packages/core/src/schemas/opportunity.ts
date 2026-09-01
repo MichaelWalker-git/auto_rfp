@@ -14,6 +14,7 @@ import { JurisdictionSchema } from './foia';
 import { FoiaAutomationStateSchema } from './foia-automation';
 import { WinDataSchema, LossDataSchema } from './outcome-detail';
 import { NotarySummarySchema, NotaryClassificationSourceSchema, NotaryRequirementSchema } from './notary';
+import { FoiaComponentAddressSchema } from './foia-component';
 
 const flexibleDateSchema = z
   .string()
@@ -31,6 +32,16 @@ export type OpportunitySource = z.infer<typeof OpportunitySourceSchema>;
 /** Whether the solicitation permits offshore/non-US delivery. */
 export const DeliveryLocationConstraintSchema = z.enum(['US_ONLY', 'OFFSHORE_ALLOWED', 'UNKNOWN']);
 export type DeliveryLocationConstraint = z.infer<typeof DeliveryLocationConstraintSchema>;
+
+// ─── Physical submission detection ──────────────────────────────────────────────
+
+/**
+ * How the solicitation requires proposals to be submitted.
+ * "Detected" in the name distinguishes this from SubmissionMethodSchema in
+ * proposal-submission.ts, which records how a proposal *was* submitted.
+ */
+export const SubmissionMethodDetectedSchema = z.enum(['ELECTRONIC', 'PHYSICAL', 'BOTH', 'UNKNOWN']);
+export type SubmissionMethodDetected = z.infer<typeof SubmissionMethodDetectedSchema>;
 
 // ─── Pipeline Stage ───────────────────────────────────────────────────────────
 
@@ -391,6 +402,14 @@ export const OpportunityItemSchema = z.object({
   /** Short rationale for the detected constraint (quote/keyword from solicitation). */
   deliveryConstraintRationale: z.string().max(500).nullish(),
 
+  // ── Physical submission detection ──
+  /** How the solicitation requires proposals to be submitted. AI-detected; user-editable. */
+  submissionMethod: SubmissionMethodDetectedSchema.nullish(),
+  /** Mailing address for physical proposal submission. AI-detected from solicitation. */
+  submissionMailingAddress: FoiaComponentAddressSchema.nullish(),
+  /** Short rationale for the detected submission method (quote/keyword from solicitation). */
+  submissionMethodRationale: z.string().max(500).nullish(),
+
   // ── Notary detection rollup (u2-notary-backend-wiring) ──
   /**
    * Opportunity-level notary rollup, computed by mark-forms-ready once every
@@ -534,6 +553,8 @@ export const OpportunityListItemSchema = z.object({
    * field added only to the full item would never reach the card projection.
    */
   notarySummary:        NotarySummarySchema.nullable().default(null),
+  /** Mirrored so physical-submission badges can render on cards without fetching the full opportunity. */
+  submissionMethod:     SubmissionMethodDetectedSchema.nullish(),
 });
 
 export type OpportunityListItem = z.infer<typeof OpportunityListItemSchema>;
@@ -571,3 +592,46 @@ export const AssignOpportunityDTOSchema = z.object({
 });
 
 export type AssignOpportunityDTO = z.infer<typeof AssignOpportunityDTOSchema>;
+
+// ─── Physical submission helpers ─────────────────────────────────────────────
+
+/**
+ * Returns true when the solicitation requires physical (mailed) submission —
+ * i.e., PHYSICAL or BOTH. False for ELECTRONIC, UNKNOWN, null, or undefined.
+ */
+export const isPhysicalSubmission = (method: SubmissionMethodDetected | null | undefined): boolean =>
+  method === 'PHYSICAL' || method === 'BOTH';
+
+/** Number of business days subtracted from the response deadline to get the mail-by date. */
+export const DEFAULT_MAIL_TRANSIT_BUSINESS_DAYS = 5;
+
+/**
+ * Subtracts `transitDays` business days (Mon–Fri only) from `responseDeadlineIso`.
+ * Returns an ISO date string (YYYY-MM-DD) or null when the input is absent.
+ */
+export const computeMailDeadline = (
+  responseDeadlineIso: string | null | undefined,
+  transitDays: number = DEFAULT_MAIL_TRANSIT_BUSINESS_DAYS,
+): string | null => {
+  if (!responseDeadlineIso) return null;
+
+  const deadline = new Date(responseDeadlineIso);
+  if (isNaN(deadline.getTime())) return null;
+
+  const todayUtc = new Date();
+  todayUtc.setUTCHours(0, 0, 0, 0);
+  if (deadline <= todayUtc) return null;
+
+  let remaining = transitDays;
+  const current = new Date(deadline);
+
+  while (remaining > 0) {
+    current.setUTCDate(current.getUTCDate() - 1);
+    const day = current.getUTCDay();
+    if (day !== 0 && day !== 6) {
+      remaining--;
+    }
+  }
+
+  return current.toISOString().slice(0, 10);
+};

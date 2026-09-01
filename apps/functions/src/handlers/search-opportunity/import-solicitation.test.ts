@@ -68,6 +68,14 @@ jest.mock('@/middleware/audit-middleware', () => ({
   auditMiddleware: jest.fn(() => ({ before: jest.fn(), after: jest.fn() })),
 }));
 
+// Only fake the network-calling exports; keep everything else (safeIsoOrNull,
+// toBoolActive, sha1, httpsGetBuffer, DIBBS/HigherGov helpers) real.
+jest.mock('@/helpers/search-opportunity', () => ({
+  ...jest.requireActual('@/helpers/search-opportunity'),
+  fetchOpportunityViaSearch: jest.fn(),
+  extractAttachmentsFromOpportunity: jest.fn(),
+}));
+
 // Import after mocks
 import { baseHandler } from './import-solicitation';
 import type { AuthedEvent } from '@/middleware/rbac-middleware';
@@ -77,6 +85,9 @@ import { syncOpportunityToApn } from '@/helpers/apn-db';
 import { sendNotification } from '@/helpers/send-notification';
 import { resolveUserNames } from '@/helpers/resolve-users';
 import { setAuditContext } from '@/middleware/audit-middleware';
+import { getApiKey } from '@/helpers/api-key-storage';
+import { fetchOpportunityViaSearch, extractAttachmentsFromOpportunity } from '@/helpers/search-opportunity';
+import * as ExecutiveOpportunityBrief from '@/helpers/executive-opportunity-brief';
 
 const mockCreateOpportunity = createOpportunity as jest.MockedFunction<typeof createOpportunity>;
 const mockImportAttachments = importAttachments as jest.MockedFunction<typeof importAttachments>;
@@ -85,6 +96,9 @@ const mockSyncOpportunityToApn = syncOpportunityToApn as jest.MockedFunction<typ
 const mockSendNotification = sendNotification as jest.MockedFunction<typeof sendNotification>;
 const mockResolveUserNames = resolveUserNames as jest.MockedFunction<typeof resolveUserNames>;
 const mockSetAuditContext = setAuditContext as jest.MockedFunction<typeof setAuditContext>;
+const mockGetApiKey = getApiKey as jest.MockedFunction<typeof getApiKey>;
+const mockFetchOpportunityViaSearch = fetchOpportunityViaSearch as jest.MockedFunction<typeof fetchOpportunityViaSearch>;
+const mockExtractAttachmentsFromOpportunity = extractAttachmentsFromOpportunity as jest.MockedFunction<typeof extractAttachmentsFromOpportunity>;
 
 const buildMockEvent = (body: unknown): AuthedEvent => ({
   body: JSON.stringify(body),
@@ -309,5 +323,113 @@ describe('import-solicitation — MANUAL_UPLOAD', () => {
         sourceDocumentId: 'parent-doc-123',
       }),
     );
+  });
+});
+
+describe('import-solicitation — SAM_GOV physical submission scan', () => {
+  const buildSamGovEvent = (overrides: Record<string, unknown> = {}) =>
+    buildMockEvent({
+      source: 'SAM_GOV',
+      orgId: 'org-123',
+      projectId: 'proj-456',
+      noticeId: 'notice-1',
+      postedFrom: '01/01/2026',
+      postedTo: '01/31/2026',
+      force: true,
+      ...overrides,
+    });
+
+  const PHYSICAL_DESCRIPTION =
+    'Sealed proposals must be submitted in hard copy. Mail proposals to the following address:\n' +
+    '123 Main Street\nSuite 400\nWashington, DC 20001';
+  const NO_INDICATOR_DESCRIPTION =
+    'This is a standard IT services solicitation for software development support.';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSend.mockReset();
+    mockGetApiKey.mockResolvedValue('sam-api-key');
+    mockExtractAttachmentsFromOpportunity.mockReturnValue([]);
+    mockSyncOpportunityToApn.mockResolvedValue(undefined);
+    mockImportAttachments.mockResolvedValue([]);
+    mockResolveUserNames.mockResolvedValue({ 'user-123': 'Test User' });
+    mockSendNotification.mockResolvedValue(undefined);
+    mockCreateOpportunity.mockImplementation(async ({ opportunity }) => ({
+      oppId: 'opp-789',
+      item: { oppId: 'opp-789', ...opportunity } as any,
+    }));
+  });
+
+  it('calls scanPhysicalSubmission during import', async () => {
+    const scanSpy = jest.spyOn(ExecutiveOpportunityBrief, 'scanPhysicalSubmission');
+    mockFetchOpportunityViaSearch.mockResolvedValue({
+      title: 'IT Support Services',
+      description: PHYSICAL_DESCRIPTION,
+    });
+
+    await baseHandler(buildSamGovEvent());
+
+    expect(scanSpy).toHaveBeenCalledWith(expect.stringContaining('Mail proposals to'));
+  });
+
+  it('stores submissionMethod, submissionMailingAddress, and submissionMethodRationale when the description contains physical submission language', async () => {
+    mockFetchOpportunityViaSearch.mockResolvedValue({
+      title: 'IT Support Services',
+      description: PHYSICAL_DESCRIPTION,
+    });
+
+    await baseHandler(buildSamGovEvent());
+
+    expect(mockCreateOpportunity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        opportunity: expect.objectContaining({
+          submissionMethod: 'PHYSICAL',
+          submissionMailingAddress: expect.objectContaining({
+            locality: 'Washington',
+            administrativeArea: 'DC',
+            postalCode: '20001',
+          }),
+          submissionMethodRationale: expect.stringContaining('Mail proposals to'),
+        }),
+      }),
+    );
+  });
+
+  it('stores the opportunity without submission fields when the description has no indicators', async () => {
+    mockFetchOpportunityViaSearch.mockResolvedValue({
+      title: 'IT Support Services',
+      description: NO_INDICATOR_DESCRIPTION,
+    });
+
+    await baseHandler(buildSamGovEvent());
+
+    const call = mockCreateOpportunity.mock.calls[0][0];
+    expect(call.opportunity).not.toHaveProperty('submissionMethod');
+    expect(call.opportunity).not.toHaveProperty('submissionMailingAddress');
+    expect(call.opportunity).not.toHaveProperty('submissionMethodRationale');
+  });
+
+  it('does not fail the import when the scanner throws', async () => {
+    const scanSpy = jest
+      .spyOn(ExecutiveOpportunityBrief, 'scanPhysicalSubmission')
+      .mockImplementation(() => {
+        throw new Error('scanner exploded');
+      });
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    mockFetchOpportunityViaSearch.mockResolvedValue({
+      title: 'IT Support Services',
+      description: PHYSICAL_DESCRIPTION,
+    });
+
+    const result = await baseHandler(buildSamGovEvent());
+
+    expect(result.statusCode).toBe(202);
+    expect(mockCreateOpportunity).toHaveBeenCalled();
+    const call = mockCreateOpportunity.mock.calls[0][0];
+    expect(call.opportunity).not.toHaveProperty('submissionMethod');
+    expect(warnSpy).toHaveBeenCalled();
+
+    scanSpy.mockRestore();
+    warnSpy.mockRestore();
   });
 });

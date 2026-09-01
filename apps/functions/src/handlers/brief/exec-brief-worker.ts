@@ -41,6 +41,7 @@ import {
   smartTruncate,
   truncateText,
 } from '@/helpers/executive-opportunity-brief';
+import { detectAndPersistPhysicalSubmission } from '@/helpers/physical-submission-detection';
 import { syncRequiredDocumentsToCustomTypes } from '@/helpers/custom-document-types';
 import type { RequiredOutputDocument } from '@auto-rfp/core';
 import { enqueueGoogleDriveSync } from '@/helpers/google-drive-queue';
@@ -167,7 +168,7 @@ const MinimalSummarySchema = z.object({
 
 // ─── Section Handlers ─────────────────────────────────────────────────────────
 
-async function runSummary(job: Job): Promise<void> {
+export async function runSummary(job: Job): Promise<void> {
   const { orgId, executiveBriefId, inputHash: inputHashFromJob } = job;
 
   try {
@@ -310,6 +311,18 @@ async function runSummary(job: Job): Promise<void> {
     } catch (constraintErr) {
       console.warn('[SUMMARY] Failed to persist delivery-location constraint:', (constraintErr as Error)?.message);
     }
+
+    // Detect + persist the physical-submission method (regex scan, LLM fallback,
+    // FOIA auto-fill, Linear label sync). Self-contained fail-open contract —
+    // never blocks the brief. See `detectAndPersistPhysicalSubmission`.
+    await detectAndPersistPhysicalSubmission({
+      orgId,
+      projectId,
+      oppId: opportunityId,
+      rawText,
+      llmSubmissionMethod: (data as { submissionMethod?: unknown })?.submissionMethod,
+      llmSubmissionRationale: (data as { submissionMethodRationale?: unknown })?.submissionMethodRationale,
+    });
   } catch (err) {
     await markSectionFailed({ executiveBriefId, section: 'summary', error: err });
     throw err;

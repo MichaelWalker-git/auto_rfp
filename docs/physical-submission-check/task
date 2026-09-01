@@ -1,0 +1,22 @@
+Problem description
+
+We have run into situations where an RFP has been complete and is ready for submission close to the deadline and it appears to be a physical submission. This leads to us missing the submission all together because the mail time was unaccounted for.
+
+
+Goal
+
+The goal is to make it so physical submissions are marked and accounted for before too much work has been done on them.
+
+Requirements
+
+Find submission process in solicitation documents
+
+Differentiate between online/E-submission and physical submission
+
+Pull address from physical submission (should be used to populate FOIA address as well)
+
+Physical Submission mark for opportunity
+
+Sync opportunity mark with Linear Ticket Label (physical submission label is already made)
+
+any other Ideas to reach the goal and reduce wasted time

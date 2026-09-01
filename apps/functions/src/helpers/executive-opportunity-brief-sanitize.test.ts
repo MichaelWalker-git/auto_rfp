@@ -1,4 +1,4 @@
-import { sanitizeSummaryResponse, scanDeliveryLocationConstraint } from './executive-opportunity-brief';
+import { sanitizeSummaryResponse, scanDeliveryLocationConstraint, scanPhysicalSubmission } from './executive-opportunity-brief';
 import { QuickSummarySchema } from '@auto-rfp/core';
 
 // Mock environment variables required by the module
@@ -54,6 +54,98 @@ jest.mock('./env', () => ({
     return envMap[key] ?? fallback ?? `mock-${key}`;
   }),
 }));
+
+describe('scanPhysicalSubmission', () => {
+  it('returns null for empty string', () => {
+    expect(scanPhysicalSubmission('')).toBeNull();
+  });
+
+  it('returns null when no indicators are present', () => {
+    expect(scanPhysicalSubmission('Submit your proposal to the contracting officer.')).toBeNull();
+    expect(scanPhysicalSubmission('This solicitation is for cloud services.')).toBeNull();
+  });
+
+  it('detects PHYSICAL-only text', () => {
+    const r = scanPhysicalSubmission('Mail proposals to the address below. Send via certified mail.');
+    expect(r?.submissionMethod).toBe('PHYSICAL');
+    expect(r?.submissionMailingAddress).toBeNull();
+    expect(r?.submissionMethodRationale).toContain('Mail proposals');
+  });
+
+  it('detects ELECTRONIC-only text', () => {
+    const r = scanPhysicalSubmission('Offerors shall submit electronically via SAM.gov. Electronic submission only.');
+    expect(r?.submissionMethod).toBe('ELECTRONIC');
+    expect(r?.submissionMailingAddress).toBeNull();
+    expect(r?.submissionMethodRationale).toBeTruthy();
+  });
+
+  it('detects BOTH when physical and electronic indicators appear', () => {
+    const text = 'Submit hard copies to the contract office. Electronic submission only accepted via portal.';
+    const r = scanPhysicalSubmission(text);
+    expect(r?.submissionMethod).toBe('BOTH');
+  });
+
+  it('is case-insensitive for physical indicators', () => {
+    expect(scanPhysicalSubmission('SUBMIT HARD COPIES to the office.')?.submissionMethod).toBe('PHYSICAL');
+    expect(scanPhysicalSubmission('HAND-DELIVER to the contracting officer.')?.submissionMethod).toBe('PHYSICAL');
+    expect(scanPhysicalSubmission('OVERNIGHT DELIVERY required.')?.submissionMethod).toBe('PHYSICAL');
+  });
+
+  it('is case-insensitive for electronic indicators', () => {
+    expect(scanPhysicalSubmission('SUBMIT ELECTRONICALLY via the portal.')?.submissionMethod).toBe('ELECTRONIC');
+    expect(scanPhysicalSubmission('ELECTRONIC SUBMISSION ONLY.')?.submissionMethod).toBe('ELECTRONIC');
+    expect(scanPhysicalSubmission('NO HARD COPIES accepted.')?.submissionMethod).toBe('ELECTRONIC');
+  });
+
+  it('handles mixed-case carrier names', () => {
+    expect(scanPhysicalSubmission('Deliver via FedEx overnight.')?.submissionMethod).toBe('PHYSICAL');
+    expect(scanPhysicalSubmission('Send via fedex to the address.')?.submissionMethod).toBe('PHYSICAL');
+    expect(scanPhysicalSubmission('Mail via USPS certified mail.')?.submissionMethod).toBe('PHYSICAL');
+  });
+
+  it('detects "original plus N copies" pattern', () => {
+    const r = scanPhysicalSubmission('Offerors must provide the original plus 3 copies to the contracting officer.');
+    expect(r?.submissionMethod).toBe('PHYSICAL');
+  });
+
+  it('extracts mailing address from surrounding text when PHYSICAL detected', () => {
+    const text = [
+      'Submit hard copies to the address below.',
+      '123 Main Street',
+      'Suite 400',
+      'Washington, DC 20001',
+      'All proposals must arrive by the due date.',
+    ].join('\n');
+    const r = scanPhysicalSubmission(text);
+    expect(r?.submissionMethod).toBe('PHYSICAL');
+    expect(r?.submissionMailingAddress).not.toBeNull();
+    expect(r?.submissionMailingAddress?.addressLine1).toContain('123 Main Street');
+    expect(r?.submissionMailingAddress?.locality).toBe('Washington');
+    expect(r?.submissionMailingAddress?.administrativeArea).toBe('DC');
+    expect(r?.submissionMailingAddress?.postalCode).toBe('20001');
+    expect(r?.submissionMailingAddress?.countryCode).toBe('US');
+  });
+
+  it('returns null submissionMailingAddress when no address found near physical indicator', () => {
+    const r = scanPhysicalSubmission('Submit hard copies to the office. No address provided here.');
+    expect(r?.submissionMethod).toBe('PHYSICAL');
+    expect(r?.submissionMailingAddress).toBeNull();
+  });
+
+  it('does not extract address for ELECTRONIC-only detection', () => {
+    const text = 'Submit electronically via SAM.gov portal. 123 Agency Road, Washington, DC 20001';
+    const r = scanPhysicalSubmission(text);
+    expect(r?.submissionMethod).toBe('ELECTRONIC');
+    expect(r?.submissionMailingAddress).toBeNull();
+  });
+
+  it('caps submissionMethodRationale at 500 characters', () => {
+    const longText = 'Mail proposals to '.padEnd(600, 'x');
+    const r = scanPhysicalSubmission(longText);
+    expect(r?.submissionMethodRationale).not.toBeNull();
+    expect(r?.submissionMethodRationale!.length).toBeLessThanOrEqual(500);
+  });
+});
 
 describe('scanDeliveryLocationConstraint', () => {
   it('detects the real SC "OFFSHORE CONTRACTING PROHIBITED" clause as US_ONLY', () => {
