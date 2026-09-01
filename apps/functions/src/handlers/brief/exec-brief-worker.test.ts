@@ -62,7 +62,7 @@ jest.mock('@/constants/prompt', () => ({
   useSummaryUserPrompt: jest.fn(),
 }));
 
-import { applyExpiredDeadlineGuard, isExpiredDeadlineBlocker, runSummary } from './exec-brief-worker';
+import { applyExpiredDeadlineGuard, handler, isExpiredDeadlineBlocker, runSummary } from './exec-brief-worker';
 import {
   getExecutiveBrief,
   invokeClaudeJson,
