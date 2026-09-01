@@ -66,6 +66,8 @@ describe('computePastPerfValueFindings', () => {
     expect(findings[0].severity).toBe('major');
     expect(findings[0].description).toContain('$9,000,000');
     expect(findings[0].description).toContain('$5,000,000');
+    // orgId threads through to the Bedrock verify call as the 3rd arg.
+    expect(mockInvokeModel).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'o');
   });
 
   it('never surfaces a client name (records are pre-redacted)', async () => {

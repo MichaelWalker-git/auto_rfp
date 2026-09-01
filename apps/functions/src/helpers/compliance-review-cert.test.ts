@@ -71,6 +71,8 @@ describe('computeCertFindings', () => {
     expect(findings.length).toBeGreaterThanOrEqual(1);
     expect(findings.every((f) => f.issueType === 'UNVERIFIED_CLAIM')).toBe(true);
     expect(findings.every((f) => f.severity === 'minor')).toBe(true);
+    // orgId threads through to the Bedrock mapping call as the 3rd arg.
+    expect(mockInvokeModel).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'o');
   });
 
   it('flags a matched-but-EXPIRED cert as major', async () => {

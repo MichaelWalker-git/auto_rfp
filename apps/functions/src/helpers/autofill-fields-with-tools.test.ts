@@ -114,13 +114,15 @@ describe('autofillFieldsWithTools', () => {
       return { ok: true };
     });
 
-    const result = await autofillFieldsWithTools(fields, profile);
+    const result = await autofillFieldsWithTools(fields, profile, 'org-1');
     expect(result[0]).toMatchObject({
       value: 'Acme Corp',
       status: 'AUTO_FILLED',
       confidence: 0.92,
       profileFieldKey: 'companyName',
     });
+    // orgId threads through to the Bedrock tool loop when supplied.
+    expect(mockInvokeWithTools).toHaveBeenCalledWith(expect.objectContaining({ orgId: 'org-1' }));
   });
 
   it('downgrades to LOW_CONFIDENCE when confidence is between 0.5 and 0.7', async () => {

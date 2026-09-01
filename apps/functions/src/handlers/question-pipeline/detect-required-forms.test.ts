@@ -139,8 +139,8 @@ describe('detect-required-forms', () => {
     // The whole-document scan must run on DETECTION_MODEL_ID (set to a distinct value
     // in this suite), never the autofill BEDROCK_MODEL_ID — so the two model tiers
     // stay independently tunable.
-    expect(mockInvokeModel).toHaveBeenCalledWith('anthropic.claude-haiku-test', expect.any(String));
-    expect(mockInvokeModel).not.toHaveBeenCalledWith('anthropic.claude-test', expect.any(String));
+    expect(mockInvokeModel).toHaveBeenCalledWith('anthropic.claude-haiku-test', expect.any(String), 'org-1');
+    expect(mockInvokeModel).not.toHaveBeenCalledWith('anthropic.claude-test', expect.any(String), 'org-1');
   });
 
   it('runs detection when docType is missing', async () => {

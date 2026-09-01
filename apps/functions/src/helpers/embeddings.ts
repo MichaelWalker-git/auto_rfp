@@ -8,7 +8,7 @@ import { invokeModel } from './bedrock-http-client';
 // This matches the observed failure at 12,506 tokens from a ~15,000-char input.
 const TITAN_V2_SAFE_CHARS = 8_000;
 
-export async function getEmbedding(text: string): Promise<number[]> {
+export async function getEmbedding(text: string, orgId: string): Promise<number[]> {
   const body = {
     inputText: truncateForTitan(text),
   };
@@ -16,8 +16,7 @@ export async function getEmbedding(text: string): Promise<number[]> {
   const responseBody = await invokeModel(
     requireEnv('BEDROCK_EMBEDDING_MODEL_ID'),
     JSON.stringify(body),
-    'application/json',
-    'application/json'
+    orgId,
   );
 
   const responseString = new TextDecoder('utf-8').decode(responseBody);

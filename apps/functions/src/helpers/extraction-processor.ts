@@ -163,15 +163,15 @@ const parseJsonFromResponse = (textContent: string): unknown[] | null => {
 };
 
 /** Call Bedrock model and extract text response */
-const callBedrockForExtraction = async (systemPrompt: string, userPrompt: string): Promise<string | null> => {
+const callBedrockForExtraction = async (systemPrompt: string, userPrompt: string, orgId: string): Promise<string | null> => {
   const requestBody = {
     anthropic_version: 'bedrock-2023-05-31',
     max_tokens: 16384,
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }],
   };
-  
-  const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody));
+
+  const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody), orgId);
   const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as {
     content?: Array<{ type: string; text?: string }>;
   };
@@ -210,7 +210,8 @@ export const extractPastPerformanceFromDocument = async (
   // 2. Call Bedrock to extract past performance
   const textContent = await callBedrockForExtraction(
     PAST_PERF_EXTRACTION_SYSTEM_PROMPT,
-    createPastPerfExtractionUserPrompt(docText)
+    createPastPerfExtractionUserPrompt(docText),
+    orgId,
   );
   if (!textContent) {
     console.warn('No text content in Bedrock response');
@@ -352,7 +353,8 @@ export const extractLaborRatesFromDocument = async (
   // 2. Call Bedrock to extract labor rates
   const textContent = await callBedrockForExtraction(
     PRICING_EXTRACTION_SYSTEM_PROMPT,
-    createPricingExtractionUserPrompt(docText)
+    createPricingExtractionUserPrompt(docText),
+    orgId,
   );
   if (!textContent) {
     console.warn('No text content in Bedrock response');
@@ -472,7 +474,8 @@ export const extractBOMItemsFromDocument = async (
 
   const textContent = await callBedrockForExtraction(
     BOM_EXTRACTION_SYSTEM_PROMPT,
-    createBOMExtractionUserPrompt(docText)
+    createBOMExtractionUserPrompt(docText),
+    orgId,
   );
   if (!textContent) {
     console.warn('No text content in Bedrock response');

@@ -218,6 +218,7 @@ const extractQuestionsWithBedrock = async (
   chunkIndex: number,
   totalChunks: number,
   isQuestionnaire = false,
+  orgId: string,
 ): Promise<ExtractedQuestions> => {
   const body = {
     anthropic_version: 'bedrock-2023-05-31',
@@ -227,7 +228,7 @@ const extractQuestionsWithBedrock = async (
     temperature: 0.1,
   };
 
-  const responseBody = await invokeModel(getBedrockModelId(), JSON.stringify(body));
+  const responseBody = await invokeModel(getBedrockModelId(), JSON.stringify(body), orgId);
   const jsonTxt = new TextDecoder('utf-8').decode(responseBody);
 
   let outer: Record<string, unknown>;
@@ -440,6 +441,17 @@ export const baseHandler = async (
   const isQuestionnaire = event.docType === 'QUESTIONNAIRE';
   console.log(`Document type: ${event.docType ?? 'not set'} (isQuestionnaire: ${isQuestionnaire})`);
 
+  // Resolve orgId from the question file so it can be threaded into the Bedrock
+  // invoke (per-org API key routing). Required (ticket 09): without an orgId we
+  // cannot resolve the org's Bedrock key, so fail loudly rather than silently.
+  const qf = await getQuestionFileItem(projectId, opportunityId, questionFileId);
+  const orgId = qf?.orgId;
+  if (!orgId) {
+    throw new Error(
+      `Cannot extract questions for question file ${questionFileId}: no orgId on the item for Bedrock key routing`,
+    );
+  }
+
   const text = await loadTextFromS3(getDocumentsBucket(), textFileKey);
   console.log(`Loaded text: ${text.length} characters`);
 
@@ -450,7 +462,7 @@ export const baseHandler = async (
 
   for (let i = 0; i < chunks.length; i++) {
     try {
-      const extracted = await extractQuestionsWithBedrock(chunks[i]!, i, chunks.length, isQuestionnaire);
+      const extracted = await extractQuestionsWithBedrock(chunks[i]!, i, chunks.length, isQuestionnaire, orgId);
       allSections.push(...extracted.sections);
       console.log(`Chunk ${i + 1} extracted ${extracted.sections.length} sections`);
     } catch (err: unknown) {

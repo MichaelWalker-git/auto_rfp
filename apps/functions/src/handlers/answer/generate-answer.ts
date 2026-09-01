@@ -2,6 +2,7 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { v4 as uuidv4 } from 'uuid';
 
 import { invokeModel } from '@/helpers/bedrock-http-client';
+import { isAiNotConfiguredError } from '@/helpers/ai-config-error';
 import { apiResponse } from '@/helpers/api';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { getEmbedding } from '@/helpers/embeddings';
@@ -133,7 +134,7 @@ When in doubt, return {"match": false, "index": -1}. It is better to generate a 
   };
 
   try {
-    const response = await invokeModel(getModelId(), JSON.stringify(evalPayload), 'application/json', 'application/json');
+    const response = await invokeModel(getModelId(), JSON.stringify(evalPayload), orgId);
     const raw = new TextDecoder('utf-8').decode(response);
     const outer = JSON.parse(raw);
     const text = outer?.content?.[0]?.text || '';
@@ -247,7 +248,7 @@ const generateAnswerWithTools = async (
     // Wrap each LLM round in a Sentry span
     const responseBody = await Sentry.startSpan(
       { name: `llm-round-${toolRounds}`, op: 'ai.completion' },
-      () => invokeModel(getModelId(), JSON.stringify(requestBody)),
+      () => invokeModel(getModelId(), JSON.stringify(requestBody), orgId),
     );
     const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as {
       stop_reason?: string;
@@ -343,7 +344,7 @@ const generateAnswerWithTools = async (
         temperature: 0.2,
         // Must include tools when conversation has tool_use/tool_result blocks
         tools: ANSWER_TOOLS,
-      }));
+      }), orgId);
       const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResponse)) as { content?: Array<{ type: string; text?: string }> };
       rawText = (finalParsed.content ?? []).filter(c => c.type === 'text').map(c => c.text ?? '').join('\n').trim();
     }
@@ -428,7 +429,7 @@ const generateAnswerForQuestionInner = async (
   // Wrap embedding call in Sentry span for observability
   const questionEmbedding = await Sentry.startSpan(
     { name: 'question-embedding', op: 'ai.embeddings' },
-    () => getEmbedding(question),
+    () => getEmbedding(question, orgId),
   );
 
   // ── Step 1: Content library check ──────────────────────────────────────────
@@ -606,7 +607,12 @@ export const generateAnswerForQuestion = async (
   try {
     return await generateAnswerForQuestionInner(params);
   } catch (err) {
-    console.error(`[answer] Generation failed for question ${params.questionId}, recording GENERATION_FAILED:`, (err as Error)?.message);
+    // Distinguish "the org has no Bedrock key" from a genuine generation failure
+    // so the UI can point admins at settings instead of showing a generic error.
+    const resolution: AnswerResolution = isAiNotConfiguredError(err)
+      ? 'AI_NOT_CONFIGURED'
+      : 'GENERATION_FAILED';
+    console.error(`[answer] Generation failed for question ${params.questionId}, recording ${resolution}:`, (err as Error)?.message);
     try {
       await recordEmptyResolution(
         {
@@ -615,10 +621,10 @@ export const generateAnswerForQuestion = async (
           opportunityId: params.opportunityId,
           questionFileId: params.questionFileId,
         },
-        'GENERATION_FAILED',
+        resolution,
       );
     } catch (recordErr) {
-      console.error(`[answer] Failed to record GENERATION_FAILED for question ${params.questionId}:`, (recordErr as Error)?.message);
+      console.error(`[answer] Failed to record ${resolution} for question ${params.questionId}:`, (recordErr as Error)?.message);
     }
     throw err;
   }

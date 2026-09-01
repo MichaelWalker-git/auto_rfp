@@ -112,6 +112,7 @@ const parseContradictions = (modelOut: unknown): ParsedContradiction[] => {
 const checkDocument = async (
   candidates: SectionCandidate[],
   modelId: string,
+  orgId: string,
 ): Promise<RawFinding[]> => {
   if (candidates.length === 0) return [];
   const { documentId, documentTitle } = candidates[0];
@@ -123,7 +124,7 @@ const checkDocument = async (
   }));
 
   try {
-    const body = await invokeModel(modelId, JSON.stringify(buildContradictionPrompt(documentTitle, sections)));
+    const body = await invokeModel(modelId, JSON.stringify(buildContradictionPrompt(documentTitle, sections)), orgId);
     const json = JSON.parse(new TextDecoder('utf-8').decode(body)) as Record<string, unknown>;
     const blocks = (json?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
     const raw = blocks.find((c) => c?.type === 'text')?.text ?? null;
@@ -241,7 +242,7 @@ export const computeKbContradictionFindings = async (args: {
     const generated = rawSections.length;
     const findings: RawFinding[] = [];
     for (const docCandidates of candidatesByDoc.values()) {
-      findings.push(...(await checkDocument(docCandidates, modelId)));
+      findings.push(...(await checkDocument(docCandidates, modelId, orgId)));
     }
 
     console.log(

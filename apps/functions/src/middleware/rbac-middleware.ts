@@ -1,6 +1,7 @@
 import type { MiddlewareObj } from '@middy/core';
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { ALL_PERMISSIONS, Permission, ROLE_PERMISSIONS, UserRole, UserRoleSchema } from '@auto-rfp/core';
+import { AI_NOT_CONFIGURED_CODE, isAiNotConfiguredError } from '@/helpers/ai-config-error';
 
 class HttpError extends Error {
   constructor(public statusCode: number, message: string) {
@@ -121,7 +122,15 @@ export function httpErrorMiddleware(): MiddlewareObj<any, APIGatewayProxyResultV
         request.response = json(err.statusCode, { message: err.message });
         return;
       }
-      
+
+      // Per-org Bedrock key migration: an unconfigured org fails closed with a
+      // distinct, machine-readable 409 the frontend recognizes (ticket 10),
+      // never a generic 500.
+      if (isAiNotConfiguredError(err)) {
+        request.response = json(409, { code: AI_NOT_CONFIGURED_CODE, message: err.message });
+        return;
+      }
+
       // Return more details in non-production for debugging
       const errorMessage = err instanceof Error ? err.message : 'Internal Server Error';
       request.response = json(500, { message: 'Internal Server Error', error: errorMessage });

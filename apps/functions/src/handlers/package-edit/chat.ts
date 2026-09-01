@@ -195,6 +195,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
   try {
     output = await invokeClaudeWithTools<z.infer<typeof ReviewOutputSchema>>({
       modelId: CHAT_MODEL_ID,
+      orgId,
       system: SYSTEM_PROMPT,
       user: `${historyBlock}The user's CURRENT message: "${data.message}"`,
       tools: [...COMPLIANCE_REVIEW_TOOLS, PROPOSE_TOOL],

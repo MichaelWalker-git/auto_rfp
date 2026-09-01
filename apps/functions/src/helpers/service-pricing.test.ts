@@ -171,6 +171,25 @@ describe('searchServicePricing', () => {
     );
   });
 
+  it('threads orgId through the extraction pass to invokeModel', async () => {
+    mockInvokeModel.mockResolvedValue(
+      extractionResponse([
+        { serviceName: 'Datadog Pro', price: 23, currency: 'USD', sourceUrl: 'https://x', confidence: 'HIGH' },
+      ]),
+    );
+
+    await searchServicePricing({
+      services: [{ serviceName: 'Datadog Pro', billingPeriod: 'MONTHLY' }],
+      orgId: 'the-org-id',
+    });
+
+    expect(mockInvokeModel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'the-org-id',
+    );
+  });
+
   it('writes HIGH-confidence extractions with the 30-day ttl', async () => {
     mockInvokeModel.mockResolvedValue(
       extractionResponse([

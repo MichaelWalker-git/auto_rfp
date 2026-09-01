@@ -189,6 +189,7 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
       try {
         aiRecommendations = await invokeClaudeJson({
           modelId: BEDROCK_MODEL_ID,
+          orgId,
           system: GAP_ANALYSIS_SYSTEM_PROMPT,
           user: userPrompt,
           outputSchema: GapRecommendationsSchema,

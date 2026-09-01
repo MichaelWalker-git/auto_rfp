@@ -158,6 +158,7 @@ const buildExtractionUserPrompt = (searched: SearchedLookup[]): string => {
  */
 const extractPrices = async (
   searched: SearchedLookup[],
+  orgId: string,
 ): Promise<Map<string, ServicePricingExtraction> | null> => {
   try {
     const requestBody = {
@@ -167,7 +168,7 @@ const extractPrices = async (
       messages: [{ role: 'user', content: buildExtractionUserPrompt(searched) }],
     };
 
-    const responseBody = await invokeModel(resolveExtractionModelId(), JSON.stringify(requestBody));
+    const responseBody = await invokeModel(resolveExtractionModelId(), JSON.stringify(requestBody), orgId);
     const { success: envelopeOk, data: envelope } = BedrockResponseEnvelopeSchema.safeParse(
       JSON.parse(new TextDecoder('utf-8').decode(responseBody)),
     );
@@ -238,6 +239,7 @@ const notFound = (lookup: ResolvedLookup): ServicePricingResult =>
  */
 export const searchServicePricing = async (args: {
   services: ServicePricingLookup[];
+  orgId: string;
 }): Promise<ServicePricingResult[]> => {
   // `resolved` keeps one entry per valid input service (duplicates included);
   // only `lookups` (de-duplicated, capped) is actually looked up.
@@ -308,7 +310,7 @@ export const searchServicePricing = async (args: {
 
   // 3. One extraction pass over everything that searched successfully
   if (searched.length > 0) {
-    const extractions = await extractPrices(searched);
+    const extractions = await extractPrices(searched, args.orgId);
     const retrievedAt = nowIso();
 
     for (const { lookup } of searched) {

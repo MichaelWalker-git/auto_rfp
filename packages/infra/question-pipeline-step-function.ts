@@ -219,11 +219,12 @@ export class QuestionExtractionPipelineStack extends Stack {
       }),
     );
 
-    const bedrockApiKeyParamArn = `arn:aws:ssm:us-east-1:${this.account}:parameter/auto-rfp/bedrock/api-key`;
+    // Per-org Bedrock keys live in Secrets Manager as `bedrock-api-key-<orgId>`.
+    const bedrockApiKeySecretArn = `arn:aws:secretsmanager:${this.region}:${this.account}:secret:bedrock-api-key-*`;
     extractQuestionsLambda.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['ssm:GetParameter'],
-        resources: [bedrockApiKeyParamArn],
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [bedrockApiKeySecretArn],
       }),
     );
 
@@ -256,8 +257,8 @@ export class QuestionExtractionPipelineStack extends Stack {
 
     fulfillOpportunityFieldsLambda.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['ssm:GetParameter'],
-        resources: [bedrockApiKeyParamArn],
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [bedrockApiKeySecretArn],
       }),
     );
 
@@ -365,8 +366,8 @@ export class QuestionExtractionPipelineStack extends Stack {
 
     detectRequiredFormsLambda.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['ssm:GetParameter'],
-        resources: [bedrockApiKeyParamArn],
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [bedrockApiKeySecretArn],
       }),
     );
 
@@ -414,8 +415,8 @@ export class QuestionExtractionPipelineStack extends Stack {
 
     textractFormsCallbackLambda.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['ssm:GetParameter'],
-        resources: [bedrockApiKeyParamArn],
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [bedrockApiKeySecretArn],
       }),
     );
 
@@ -446,11 +447,11 @@ export class QuestionExtractionPipelineStack extends Stack {
       }),
     );
 
-    // Allow reading Bedrock API key from SSM Parameter Store
+    // Allow reading the per-org Bedrock API key from Secrets Manager
     indexSolicitationLambda.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['ssm:GetParameter'],
-        resources: [bedrockApiKeyParamArn],
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [bedrockApiKeySecretArn],
       }),
     );
 
@@ -512,8 +513,8 @@ export class QuestionExtractionPipelineStack extends Stack {
 
     classifyDocumentLambda.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['ssm:GetParameter'],
-        resources: [bedrockApiKeyParamArn],
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [bedrockApiKeySecretArn],
       }),
     );
 
@@ -595,6 +596,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
         mimeType: sfn.JsonPath.stringAt('$.mimeType'),
@@ -609,6 +611,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
         mimeType: sfn.JsonPath.stringAt('$.mimeType'),
@@ -623,6 +626,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
         mimeType: sfn.JsonPath.stringAt('$.mimeType'),

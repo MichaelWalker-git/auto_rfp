@@ -204,6 +204,16 @@ describe('edit-section handler — override wiring', () => {
     expect(body.ok).toBe(true);
     expect(body.updatedHtml).toBe('<h2>Approach</h2><p>Updated content</p>');
   });
+
+  it('threads the request orgId through to invokeModel as the third argument', async () => {
+    await baseHandler(makeEvent());
+
+    expect(mockInvokeModel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'org-1',
+    );
+  });
 });
 
 describe('edit-section handler — Solution Plan pricing-tool gating (Fix A)', () => {

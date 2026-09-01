@@ -47,6 +47,7 @@ const validEvent: ClassifyDocumentEvent = {
   textFileKey: 'questions/text.txt',
   sourceFileKey: 'uploads/questionnaire.xlsx',
   mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  orgId: 'org-abc',
 };
 
 const makeBedrockResponse = (data: Record<string, unknown>) =>
@@ -160,6 +161,31 @@ describe('classify-document', () => {
     expect(updateQuestionFile).toHaveBeenCalledWith(
       'proj-456', 'opp-789', 'qf-123',
       expect.objectContaining({ docType: 'OTHER' }),
+    );
+  });
+
+  it('should read orgId from the event and pass it as the 3rd arg to invokeModel', async () => {
+    mockInvokeModel.mockResolvedValueOnce(makeBedrockResponse({ docType: 'OTHER' }));
+
+    await baseHandler(validEvent, mockContext);
+
+    expect(mockInvokeModel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'org-abc',
+    );
+  });
+
+  it('should pass undefined orgId to invokeModel when the event omits it', async () => {
+    mockInvokeModel.mockResolvedValueOnce(makeBedrockResponse({ docType: 'OTHER' }));
+
+    const { orgId: _omit, ...eventWithoutOrg } = validEvent;
+    await baseHandler(eventWithoutOrg as ClassifyDocumentEvent, mockContext);
+
+    expect(mockInvokeModel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      undefined,
     );
   });
 

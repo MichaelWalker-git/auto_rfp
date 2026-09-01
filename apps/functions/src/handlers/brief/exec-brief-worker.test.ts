@@ -44,8 +44,23 @@ jest.mock('@/helpers/opportunity-status', () => ({ onBriefScoringComplete: jest.
 jest.mock('@/helpers/past-performance-matching', () => ({
   ensurePastPerformanceForScoring: jest.fn(),
 }));
+jest.mock('@/constants/prompt', () => ({
+  getSummarySystemPrompt: jest.fn().mockResolvedValue('system'),
+  useSummaryUserPrompt: jest.fn().mockResolvedValue('user'),
+  useContactsSystemPrompt: jest.fn().mockResolvedValue('system'),
+  useContactsUserPrompt: jest.fn().mockResolvedValue('user'),
+  useDeadlineSystemPrompt: jest.fn().mockResolvedValue('system'),
+  useDeadlineUserPrompt: jest.fn().mockResolvedValue('user'),
+  useRequirementsSystemPrompt: jest.fn().mockResolvedValue('system'),
+  useRequirementsUserPrompt: jest.fn().mockResolvedValue('user'),
+  useRiskSystemPrompt: jest.fn().mockResolvedValue('system'),
+  useRiskUserPrompt: jest.fn().mockResolvedValue('user'),
+  useScoringSystemPrompt: jest.fn().mockResolvedValue('system'),
+  useScoringUserPrompt: jest.fn().mockResolvedValue('user'),
+}));
 
-import { applyExpiredDeadlineGuard, isExpiredDeadlineBlocker } from './exec-brief-worker';
+import { applyExpiredDeadlineGuard, isExpiredDeadlineBlocker, handler } from './exec-brief-worker';
+import { getExecutiveBrief, invokeClaudeJson, loadSolicitationForBrief, smartTruncate } from '@/helpers/executive-opportunity-brief';
 
 describe('isExpiredDeadlineBlocker', () => {
   it.each([
@@ -122,5 +137,38 @@ describe('applyExpiredDeadlineGuard', () => {
     const result = applyExpiredDeadlineGuard({ ...baseScoring, decisionRationale: null });
     expect(result.decision).toBe('NO_GO');
     expect(result.decisionRationale).toMatch(/^Deadline override/);
+  });
+});
+
+describe('orgId propagation to Bedrock (summary section)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (getExecutiveBrief as jest.Mock).mockResolvedValue({
+      projectId: 'proj-1',
+      opportunityId: 'opp-1',
+      allTextKeys: [],
+      sections: {},
+    });
+    (loadSolicitationForBrief as jest.Mock).mockResolvedValue({
+      solicitationText: 'solicitation text',
+      textKeys: [],
+    });
+    (smartTruncate as jest.Mock).mockImplementation((t: string) => t);
+    (invokeClaudeJson as jest.Mock).mockResolvedValue({ summary: 'ok' });
+  });
+
+  it('threads the SQS job orgId into invokeClaudeJson', async () => {
+    const job = {
+      orgId: 'org-1',
+      executiveBriefId: 'brief-1',
+      section: 'summary',
+      inputHash: 'hash-1',
+    };
+
+    await handler({ Records: [{ body: JSON.stringify(job) }] } as never, {} as never, undefined as never);
+
+    expect(invokeClaudeJson).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: 'org-1' }),
+    );
   });
 });

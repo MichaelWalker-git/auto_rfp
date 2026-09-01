@@ -16,6 +16,8 @@ export interface ClassifyDocumentEvent {
   textFileKey: string;
   sourceFileKey: string;
   mimeType: string;
+  /** Org identity, threaded from the pipeline execution input for per-org Bedrock key routing. */
+  orgId: string;
 }
 
 export interface ClassifyDocumentResult {
@@ -107,7 +109,7 @@ export const baseHandler = async (
   event: ClassifyDocumentEvent,
   _ctx: Context,
 ): Promise<ClassifyDocumentResult> => {
-  const { questionFileId, projectId, opportunityId, textFileKey, sourceFileKey, mimeType } = event;
+  const { questionFileId, projectId, opportunityId, textFileKey, sourceFileKey, mimeType, orgId } = event;
 
   if (projectId && opportunityId && questionFileId) {
     const isCancelled = await checkQuestionFileCancelled(projectId, opportunityId, questionFileId);
@@ -135,7 +137,7 @@ export const baseHandler = async (
     console.log(`Loaded text for classification: ${text.length} characters`);
 
     const body = buildClassificationBody(text, mimeType, sourceFileKey);
-    const responseBody = await invokeModel(getBedrockModelId(), JSON.stringify(body));
+    const responseBody = await invokeModel(getBedrockModelId(), JSON.stringify(body), orgId);
     const jsonTxt = new TextDecoder('utf-8').decode(responseBody);
 
     const outer = JSON.parse(jsonTxt) as Record<string, unknown>;

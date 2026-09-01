@@ -148,7 +148,8 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
       const narrative = await generateProjectNarrative(
         redactForGeneration(project),
         requirements,
-        solicitationSummary
+        solicitationSummary,
+        orgId
       );
 
       return apiResponse(200, {
@@ -178,7 +179,8 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
         const narrative = await generateProjectNarrative(
           redactForGeneration(matchProject),
           requirements,
-          solicitationSummary
+          solicitationSummary,
+          orgId
         );
         narratives.push({
           projectId: match.project.projectId,
@@ -214,7 +216,8 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
 async function generateProjectNarrative(
   project: any,
   requirements: string,
-  solicitationSummary: string
+  solicitationSummary: string,
+  orgId: string
 ): Promise<z.infer<typeof NarrativeOutputSchema>> {
   // `project` is already redacted, but retains disclosure fields — so we can tell
   // the model NOT to reconstruct the withheld client name from context.
@@ -236,6 +239,7 @@ async function generateProjectNarrative(
 
   const result = await invokeClaudeJson({
     modelId: BEDROCK_MODEL_ID,
+    orgId,
     system: NARRATIVE_SYSTEM_PROMPT,
     user: userPrompt,
     outputSchema: NarrativeOutputSchema,

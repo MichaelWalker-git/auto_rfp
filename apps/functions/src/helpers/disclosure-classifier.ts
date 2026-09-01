@@ -68,14 +68,14 @@ const mapWithConcurrency = async <T, R>(
 };
 
 /** Call Bedrock and return the model's text content, or null. */
-const callBedrock = async (systemPrompt: string, userPrompt: string): Promise<string | null> => {
+const callBedrock = async (systemPrompt: string, userPrompt: string, orgId: string): Promise<string | null> => {
   const requestBody = {
     anthropic_version: 'bedrock-2023-05-31',
     max_tokens: 4096,
     system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }],
   };
-  const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody));
+  const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody), orgId);
   const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as {
     content?: Array<{ type: string; text?: string }>;
   };
@@ -163,6 +163,7 @@ const classifyBatch = async (
     const raw = await callBedrock(
       DISCLOSURE_CLASSIFY_SYSTEM_PROMPT,
       createDisclosureClassifyUserPrompt(payload),
+      orgId,
     );
     const parsedRows = raw ? parseJsonFromResponse(raw) : null;
     if (!parsedRows) {

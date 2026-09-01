@@ -13,7 +13,6 @@ jest.mock('./company-profile', () => ({
 }));
 
 process.env.BEDROCK_MODEL_ID = 'test-model';
-process.env.BEDROCK_API_KEY_SSM_PARAM = '/auto-rfp/bedrock/api-key';
 
 import { autofillMatrixComments } from './matrix-autofill';
 import type { DetectedFormField } from '@auto-rfp/core';
@@ -88,6 +87,12 @@ describe('autofillMatrixComments', () => {
     expect(updated.value).toBe('Horus enforces MFA via Cognito + WebAuthn.');
     expect(updated.status).toBe('AUTO_FILLED');
     expect(updated.confidence).toBe(0.9);
+    // orgId propagates to invokeModel as the third argument (per-org Bedrock key).
+    expect(mockInvokeModel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'org1',
+    );
   });
 
   it('leaves fields empty when Bedrock confidence is below threshold', async () => {

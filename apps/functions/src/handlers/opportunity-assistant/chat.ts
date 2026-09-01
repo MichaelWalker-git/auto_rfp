@@ -67,14 +67,14 @@ ${question}
 Provide a clear, concise answer with source citations.`;
 };
 
-const invokeClaudeChat = async (prompt: string): Promise<string> => {
+const invokeClaudeChat = async (prompt: string, orgId: string): Promise<string> => {
   const requestBody = {
     anthropic_version: 'bedrock-2023-05-31',
     max_tokens: 2048,
     messages: [{ role: 'user', content: prompt }],
   };
 
-  const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody));
+  const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody), orgId);
   const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as {
     content?: Array<{ type: string; text?: string }>;
   };
@@ -161,7 +161,7 @@ export const baseHandler = async (
 
   // Build prompt and call Claude
   const prompt = buildPrompt(data.message, contexts);
-  const answer = await invokeClaudeChat(prompt);
+  const answer = await invokeClaudeChat(prompt, orgId);
 
   // Parse which sources were actually cited in the answer
   // Look for [Source N] patterns in the answer

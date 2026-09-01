@@ -41,6 +41,7 @@ import { projectsDomain } from './routes/projects.routes';
 import { promptDomain } from './routes/prompt.routes';
 import { searchOpportunityDomain } from './routes/search-opportunity.routes';
 import { linearRoutes } from './routes/linear.routes';
+import { bedrockRoutes } from './routes/bedrock.routes';
 import { briefDomain } from './routes/brief.routes';
 import { pastperfDomain } from './routes/pastperf.routes';
 import { rfpDocumentDomain } from './routes/rfp-document.routes';
@@ -294,6 +295,12 @@ export class ApiOrchestratorStack extends cdk.Stack {
       BEDROCK_REGION: 'us-east-1',
       BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
       BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
+      // Canonical pinned text-model IDs (ADR-003). Haiku (chat) and Sonnet
+      // (worker) previously had only per-domain vars; these give the save-time
+      // probe (ticket 04) and per-org invoke resolution (ticket 09) one
+      // authoritative role→model map to probe/select against.
+      BEDROCK_CHAT_MODEL_ID: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+      BEDROCK_WORKER_MODEL_ID: 'us.anthropic.claude-sonnet-4-6',
       // Web-search provider for the search_service_pricing tool (T3/T15).
       // 'tavily' (default) or 'brave' — deploy with WEB_SEARCH_PROVIDER=brave on a
       // stage that should keep using an existing Brave key. API keys are created
@@ -794,6 +801,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       solutionPlanDomain(),
       relatedRfpDomain(),
       employeeDomain({ extractionQueueUrl }),
+      bedrockRoutes,
     ];
 
     // ─── Compliance Review worker ─────────────────────────────────────────
@@ -1066,6 +1074,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'SolutionPlanRoutes',
       'RelatedRfpRoutes',
       'EmployeeRoutes',
+      'BedrockRoutes',
     ];
 
     // allDomains and domainStackNames are mapped 1:1 by index. A mismatch silently

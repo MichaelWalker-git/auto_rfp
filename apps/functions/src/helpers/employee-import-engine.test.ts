@@ -165,6 +165,12 @@ describe('runEmployeeImport — detection & categorization (BR2.1/BR2.2)', () =>
     expect(run.cvsDetected).toBe(1);
     expect(run.employeesCreated).toBe(1);
     expect(run.failedDocuments).toEqual([]); // non-CV skip is NOT a failure
+    // orgId propagates to invokeModel as the third argument (per-org Bedrock key).
+    expect(mockInvokeModel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      ORG,
+    );
   });
 
   it('records UNREADABLE for documents without extracted text', async () => {

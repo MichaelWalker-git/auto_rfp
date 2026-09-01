@@ -53,6 +53,8 @@ describe('TechLeadAgent.answer', () => {
     expect(args.tools).toEqual([{ name: 'search_knowledge_base' }]);
     expect(args.maxTokens).toBe(4000);
     expect(args.maxToolRounds).toBe(4);
+    // orgId (from the tool context) threads through to the Bedrock call.
+    expect(args.orgId).toBe('org-1');
   });
 
   it('honors maxTokens and maxToolRounds overrides', async () => {
