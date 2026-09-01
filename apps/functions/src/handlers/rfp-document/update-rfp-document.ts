@@ -3,6 +3,7 @@ import middy from '@middy/core';
 import { UpdateRFPDocumentDTOSchema } from '@auto-rfp/core';
 import { withSentryLambda } from '@/sentry-lambda';
 import { getRFPDocument, updateRFPDocumentWithContent } from '@/helpers/rfp-document';
+import { autoPushDocumentToDriveIfConfigured } from '@/helpers/google-drive-document-sync';
 import { apiResponse, getOrgId, getUserId } from '@/helpers/api';
 import { authContextMiddleware, httpErrorMiddleware, orgMembershipMiddleware, requirePermission } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
@@ -54,6 +55,20 @@ export const baseHandler = async (
     dto,
     userId,
   });
+
+  // Content changed — keep the linked Google Doc in step without a manual
+  // re-sync. Only actual HTML saves trigger the push (metadata-only PATCHes do
+  // not), and the helper is a no-op when Drive is not configured for the org.
+  // It swallows its own errors so a Drive outage can never fail the save.
+  if (typeof dto.content?.content === 'string' && dto.content.content) {
+    await autoPushDocumentToDriveIfConfigured({
+      orgId,
+      projectId: dto.projectId,
+      opportunityId: dto.opportunityId,
+      documentId: dto.documentId,
+      rePushExisting: true,
+    });
+  }
 
   setAuditContext(event, {
     action: 'DOCUMENT_UPLOADED',

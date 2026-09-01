@@ -5,13 +5,11 @@ import type { RFPDocumentItem } from '@/lib/hooks/use-rfp-documents';
 
 // ─── Hook / dependency mocks ──────────────────────────────────────────────────
 
-const mockSyncTo = jest.fn();
 const mockSyncFrom = jest.fn();
 const mockToast = jest.fn();
 
 jest.mock('@/lib/hooks/use-rfp-documents', () => ({
   ApiError: class ApiError extends Error {},
-  useSyncRFPDocumentToGoogleDrive: () => ({ trigger: mockSyncTo }),
   useSyncRFPDocumentFromGoogleDrive: () => ({ trigger: mockSyncFrom }),
 }));
 
@@ -83,7 +81,6 @@ const renderAndOpen = async (
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockSyncTo.mockResolvedValue({ updatedExisting: true });
   mockSyncFrom.mockResolvedValue({ changed: true, versionNumber: 4, syncStatus: 'SYNCED' });
 });
 
@@ -93,9 +90,10 @@ describe('GoogleDriveSyncButton — pull', () => {
     render(<GoogleDriveSyncButton document={makeDoc()} orgId="org-1" />);
     await user.click(screen.getByRole('button'));
 
-    await waitFor(() => expect(screen.getByText('Push to Google Drive')).toBeInTheDocument());
-    // Without a fileId there is nothing to pull from.
+    // Without a fileId there is nothing to pull from — and no manual push action
+    // exists anymore (in-app saves auto-push from the update handler).
     expect(screen.queryByText('Pull from Google Drive')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Push to Google Drive|Update Google Doc/)).not.toBeInTheDocument();
   });
 
   it('imports and reports the new version number', async () => {
@@ -224,40 +222,5 @@ describe('GoogleDriveSyncButton — approved documents', () => {
     await user.click(screen.getByText('Cancel'));
 
     expect(mockSyncFrom).not.toHaveBeenCalled();
-  });
-});
-
-describe('GoogleDriveSyncButton — push conflict guard', () => {
-  it('warns before overwriting Drive edits newer than the last push', async () => {
-    const { user } = await renderAndOpen({
-      document: linkedDoc({
-        driveLastPushedAt: '2026-08-17T09:00:00.000Z',
-        driveModifiedTime: '2026-08-18T11:00:00.000Z',
-      }),
-    });
-
-    await user.click(screen.getByText('Update Google Doc'));
-
-    await waitFor(() =>
-      expect(screen.getByText('Overwrite newer Google Drive changes?')).toBeInTheDocument(),
-    );
-    expect(mockSyncTo).not.toHaveBeenCalled();
-
-    await user.click(screen.getByText('Push anyway'));
-    await waitFor(() => expect(mockSyncTo).toHaveBeenCalledTimes(1));
-  });
-
-  it('pushes straight through when Drive has not moved since the last push', async () => {
-    const { user } = await renderAndOpen({
-      document: linkedDoc({
-        driveLastPushedAt: '2026-08-18T11:00:00.000Z',
-        driveModifiedTime: '2026-08-18T11:00:00.000Z',
-      }),
-    });
-
-    await user.click(screen.getByText('Update Google Doc'));
-
-    await waitFor(() => expect(mockSyncTo).toHaveBeenCalledTimes(1));
-    expect(screen.queryByText('Overwrite newer Google Drive changes?')).not.toBeInTheDocument();
   });
 });

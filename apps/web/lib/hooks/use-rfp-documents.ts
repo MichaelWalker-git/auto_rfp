@@ -291,32 +291,6 @@ export function useConvertToContent(orgId?: string) {
   );
 }
 
-/** Response of a push to Google Drive. `updatedExisting` distinguishes "created the Doc" from "updated it in place". */
-export interface SyncToGoogleDriveResponse {
-  message: string;
-  documentId: string;
-  googleDriveFileId: string;
-  googleDriveUrl: string;
-  driveMimeType: string;
-  driveModifiedTime: string;
-  driveLastPushedAt: string;
-  updatedExisting: boolean;
-  syncStatus: string;
-}
-
-/** Sync an RFP document to Google Drive */
-export function useSyncRFPDocumentToGoogleDrive(orgId?: string) {
-  return useSWRMutation<
-    SyncToGoogleDriveResponse,
-    Error,
-    string,
-    { projectId: string; opportunityId: string; documentId: string }
-  >(
-    `${BASE}/sync-to-google-drive${orgId ? `?orgId=${orgId}` : ''}`,
-    (url, { arg }) => postJson(url, arg),
-  );
-}
-
 /**
  * Response of a pull from Google Drive.
  *

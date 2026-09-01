@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useState } from 'react';
-import { ExternalLink, Loader2, Upload, Download, ChevronDown, AlertTriangle, FileCheck } from 'lucide-react';
+import { ExternalLink, Loader2, Download, ChevronDown, AlertTriangle, FileCheck } from 'lucide-react';
 import Link from 'next/link';
 import { PermissionButton } from '@/components/ui/permission-button';
 import {
@@ -25,7 +25,6 @@ import { useToast } from '@/components/ui/use-toast';
 import type { RFPDocumentItem } from '@/lib/hooks/use-rfp-documents';
 import {
   ApiError,
-  useSyncRFPDocumentToGoogleDrive,
   useSyncRFPDocumentFromGoogleDrive,
 } from '@/lib/hooks/use-rfp-documents';
 import { useCurrentOrganization } from '@/context/organization-context';
@@ -126,20 +125,17 @@ export const GoogleDriveSyncButton = ({
   isPullDisabled = false,
   pullDisabledReason,
 }: GoogleDriveSyncButtonProps) => {
-  const { trigger: syncTo } = useSyncRFPDocumentToGoogleDrive(orgId);
   const { trigger: syncFrom } = useSyncRFPDocumentFromGoogleDrive(orgId);
   const { toast } = useToast();
   const { currentOrganization } = useCurrentOrganization();
-  const [isSyncingTo, setIsSyncingTo] = useState(false);
   const [isSyncingFrom, setIsSyncingFrom] = useState(false);
-  const [isOverwriteConfirmOpen, setIsOverwriteConfirmOpen] = useState(false);
   const [isOverrideConfirmOpen, setIsOverrideConfirmOpen] = useState(false);
 
   const hasContent = !!(doc.fileKey || doc.htmlContentKey);
   // The fileId is what makes an update-in-place possible, so it — not the URL —
   // decides whether the document is linked.
   const isSynced = !!doc.googleDriveFileId;
-  const isBusy = isSyncingTo || isSyncingFrom;
+  const isBusy = isSyncingFrom;
 
   const settingsUrl = currentOrganization?.id
     ? `/organizations/${currentOrganization.id}/settings`
@@ -148,18 +144,6 @@ export const GoogleDriveSyncButton = ({
   const lastPushed = formatTimestamp(doc.driveLastPushedAt);
   const lastPulled = formatTimestamp(doc.driveLastPulledAt);
   const isBlockedByApproval = doc.driveSyncStatus === 'BLOCKED_APPROVED';
-
-  /**
-   * Drive has moved on since our last push, so pushing would overwrite edits we
-   * never pulled. Last-write-wins is the policy, but it should not be silent.
-   */
-  const hasUnpulledDriveChanges = (() => {
-    if (!doc.driveModifiedTime || !doc.driveLastPushedAt) return false;
-    const modified = Date.parse(doc.driveModifiedTime);
-    const pushed = Date.parse(doc.driveLastPushedAt);
-    if (Number.isNaN(modified) || Number.isNaN(pushed)) return false;
-    return modified > pushed;
-  })();
 
   const showNotConfiguredToast = useCallback(() => {
     toast({
@@ -173,45 +157,6 @@ export const GoogleDriveSyncButton = ({
       ),
     });
   }, [toast, settingsUrl]);
-
-  const runSyncTo = useCallback(async () => {
-    if (isBusy || !hasContent) return;
-    try {
-      setIsSyncingTo(true);
-      const result = await syncTo({
-        projectId: doc.projectId,
-        opportunityId: doc.opportunityId,
-        documentId: doc.documentId,
-      });
-      toast({
-        title: result.updatedExisting ? 'Google Doc updated' : 'Synced to Google Drive',
-        description: result.updatedExisting
-          ? `"${doc.name}" was updated in place — no duplicate was created.`
-          : `"${doc.name}" is now an editable Google Doc.`,
-      });
-      onSyncComplete?.();
-    } catch (err) {
-      if (isDriveNotConfiguredError(err)) {
-        showNotConfiguredToast();
-      } else {
-        toast({
-          title: 'Sync to Drive failed',
-          description: readErrorMessage(err, 'Could not sync to Google Drive'),
-          variant: 'destructive',
-        });
-      }
-    } finally {
-      setIsSyncingTo(false);
-    }
-  }, [isBusy, hasContent, syncTo, doc, toast, onSyncComplete, showNotConfiguredToast]);
-
-  const handleSyncTo = useCallback(() => {
-    if (hasUnpulledDriveChanges) {
-      setIsOverwriteConfirmOpen(true);
-      return;
-    }
-    void runSyncTo();
-  }, [hasUnpulledDriveChanges, runSyncTo]);
 
   const runSyncFrom = useCallback(
     async (acceptApprovedOverride: boolean) => {
@@ -331,21 +276,11 @@ export const GoogleDriveSyncButton = ({
             </>
           )}
 
-          {/* Push to Drive */}
-          {hasContent && (
-            <DropdownMenuItem
-              onClick={handleSyncTo}
-              disabled={isBusy}
-              className="flex items-center gap-2 cursor-pointer"
-            >
-              {isSyncingTo ? (
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-              ) : (
-                <Upload className="h-4 w-4 text-muted-foreground" />
-              )}
-              <span>{isSynced ? 'Update Google Doc' : 'Push to Google Drive'}</span>
-            </DropdownMenuItem>
-          )}
+          {/* Push to Drive is gone as a manual action — in-app saves now
+              auto-push from the update handler (update-rfp-document /
+              package-edit-apply), and generation auto-pushes on completion.
+              Only the pull side remains manual, as an immediate alternative to
+              the 15-minute poller. */}
 
           {/* Pull from Drive. Every import writes a version snapshot first, so a bad
               Drive edit stays recoverable from the version history sidebar. */}
@@ -432,25 +367,6 @@ export const GoogleDriveSyncButton = ({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <AlertDialog open={isOverwriteConfirmOpen} onOpenChange={setIsOverwriteConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Overwrite newer Google Drive changes?</AlertDialogTitle>
-            <AlertDialogDescription>
-              The Google Doc has been edited since AutoRFP last pushed to it. Pushing now replaces
-              those Drive edits with the current AutoRFP content. They will remain in the Google Doc
-              version history, but will not be imported here.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void runSyncTo()}>
-              Push anyway
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={isOverrideConfirmOpen} onOpenChange={setIsOverrideConfirmOpen}>
         <AlertDialogContent>

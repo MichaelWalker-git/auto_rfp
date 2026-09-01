@@ -1030,17 +1030,23 @@ export const autoPushDocumentToDriveIfConfigured = async (args: {
   projectId: string;
   opportunityId: string;
   documentId: string;
+  /**
+   * Re-push even when the document is already linked to a Drive file. Set after
+   * an in-app content edit so the linked Google Doc is updated in place instead
+   * of waiting for a manual re-sync. A first-time push ignores this flag.
+   */
+  rePushExisting?: boolean;
 }): Promise<void> => {
-  const { orgId, projectId, opportunityId, documentId } = args;
+  const { orgId, projectId, opportunityId, documentId, rePushExisting } = args;
 
   try {
     const doc = await loadDriveSyncDocument({ projectId, opportunityId, documentId });
     if (!doc) return;
 
     // Nothing to push yet, or already linked — see the doc comment for why we do
-    // not re-push an existing link.
+    // not re-push an existing link (unless the caller just edited the content).
     if (!doc.htmlContentKey && !doc.fileKey) return;
-    if (doc.googleDriveFileId) return;
+    if (doc.googleDriveFileId && !rePushExisting) return;
 
     const client = await getDriveClientForOrg(orgId);
     if (!client) return;
@@ -1052,13 +1058,17 @@ export const autoPushDocumentToDriveIfConfigured = async (args: {
       // Target the opportunity's Proposal Materials folder so an auto-pushed
       // document lands in the same place the "Create Drive Folder" sync uses.
       // Falls back to the per-type folder tree (folderId undefined) when the
-      // opportunity has no brief yet to derive the folder name from.
-      const proposalFolderId = await resolveOpportunityProposalFolder({
-        drive: client.drive,
-        orgId,
-        projectId,
-        opportunityId,
-      }).catch(() => null);
+      // opportunity has no brief yet to derive the folder name from. An update
+      // in place keeps its current parent, so the folder is only resolved when
+      // creating the link for the first time.
+      const proposalFolderId = doc.googleDriveFileId
+        ? null
+        : await resolveOpportunityProposalFolder({
+            drive: client.drive,
+            orgId,
+            projectId,
+            opportunityId,
+          }).catch(() => null);
 
       await pushDocumentToDrive({
         drive: client.drive,
@@ -1071,8 +1081,10 @@ export const autoPushDocumentToDriveIfConfigured = async (args: {
         ...(proposalFolderId ? { folderId: proposalFolderId } : {}),
       });
       console.log(
-        `[GoogleDrive] Auto-pushed newly generated document ${documentId} to Drive` +
-          (proposalFolderId ? ' (Proposal Materials)' : ' (per-type folder — no brief yet)'),
+        doc.googleDriveFileId
+          ? `[GoogleDrive] Auto-re-pushed edited document ${documentId} to its linked Drive file`
+          : `[GoogleDrive] Auto-pushed newly generated document ${documentId} to Drive` +
+              (proposalFolderId ? ' (Proposal Materials)' : ' (per-type folder — no brief yet)'),
       );
     } catch (err) {
       // Release the claim so the badge isn't stuck on SYNCING, then swallow.
