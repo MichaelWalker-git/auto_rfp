@@ -207,9 +207,14 @@ export const baseHandler = async (
         },
       });
     }
-    return apiResponse(200, {
-      ok: true,
-      message: 'Linear ticket has not been create, set up api key',
+    // createLinearTicket returns null only when creation failed (missing org API
+    // key, unconfigured LINEAR_TEAM_ID, or a Linear API error — logged by the
+    // helper). A 200 here used to hide the failure: the UI treats 2xx as success
+    // and the button just stayed "Create Linear Ticket" with no explanation.
+    return apiResponse(502, {
+      ok: false,
+      error:
+        'Linear ticket was not created — check the Linear API key in organization settings and the LINEAR_TEAM_ID configuration',
     });
   } catch (err) {
     console.error('handle-linear-ticket error:', err);

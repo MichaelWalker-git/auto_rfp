@@ -318,6 +318,15 @@ export class ApiOrchestratorStack extends cdk.Stack {
       // Linear org id whose Secrets Manager entry (linear-api-key-<id>) holds the
       // key used to write RFP-tracking approval decisions back onto the Linear board.
       RFP_SYNC_LINEAR_ORG_ID: '6fbf749f-7173-489c-be0a-564f97ebf8b0',
+      // Where createLinearTicket (brief handle-linear-ticket) files new tickets:
+      // the Horustech team's "Government Contracting" project, assigned to its lead.
+      // These were previously only set by hand in the Lambda console, so every CDK
+      // redeploy silently wiped them and ticket creation failed with a 200. Keep
+      // them overridable per stage like DRIVE_ROOT_PARENT_FOLDER_ID below.
+      LINEAR_TEAM_ID: process.env.LINEAR_TEAM_ID || '014ad7fc-6875-4a34-973b-61d029c37116',
+      LINEAR_PROJECT_ID: process.env.LINEAR_PROJECT_ID || '823d8281-c41e-4e00-b541-f31a5c91af46',
+      LINEAR_DEFAULT_ASSIGNEE_ID:
+        process.env.LINEAR_DEFAULT_ASSIGNEE_ID || '74c2dcce-9583-4065-b86f-ff4cb98d3da9',
       // Server-side allowlist for the RFP-tracking dashboard (get-rfp-pipeline).
       // Mirrors the per-stage rfpTrackingOrgId used for the frontend feature gate,
       // but enforced in the Lambda so a caller cannot bypass the client check by

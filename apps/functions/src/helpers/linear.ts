@@ -196,6 +196,10 @@ export async function createLinearTicket(params: CreateLinearTicketParams): Prom
       url: createdIssue.url,
     };
   } catch (error) {
+    // Returning null is the contract (callers treat it as "not created"), but the
+    // cause must reach the logs — a swallowed 'Linear team ID not configured' here
+    // otherwise looks identical to a Linear API hiccup in production.
+    console.error('createLinearTicket failed:', error instanceof Error ? error.message : error);
     return null;
   }
 }
