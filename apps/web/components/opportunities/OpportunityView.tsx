@@ -23,6 +23,7 @@ import { AssigneeSelector } from './AssigneeSelector';
 import { OpportunitySolicitationDocuments } from './opportunity-attachments';
 import { OpportunityRFPDocuments } from './opportunity-rfp-documents';
 import { OpportunityChatDialog } from './OpportunityChatDialog';
+import { PhysicalSubmissionBanner } from './PhysicalSubmissionBanner';
 import { ExecutiveBriefView } from '@/components/brief/ExecutiveBriefView';
 import { QuestionsProvider } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components';
 import { OpportunityOutcomeSummary } from './opportunity-outcome-summary';
@@ -218,7 +219,7 @@ const useSmartPolling = (orgId: string, projectId: string, oppId: string) => {
 // ─── Main Content Component ──────────────────────────────────────────────
 
 const OpportunityContent = ({ className }: { className?: string }) => {
-  const { projectId, oppId, orgId, opportunity, refetch } = useOpportunityContext();
+  const { projectId, oppId, orgId, opportunity, isLoading, refetch } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id;
   // AI Compliance Review is a single-org (Horus Technology) feature, gated by the
@@ -349,6 +350,14 @@ const OpportunityContent = ({ className }: { className?: string }) => {
         <SectionDivider
           icon={<ShieldCheck className="h-4 w-4" />}
           title="Submission & Compliance"
+        />
+        <PhysicalSubmissionBanner
+          orgId={orgId}
+          projectId={projectId}
+          oppId={oppId}
+          opportunity={opportunity}
+          isLoading={isLoading}
+          refetch={refetch}
         />
         <ComplianceReport orgId={orgId} projectId={projectId} oppId={oppId} />
         <div className="flex justify-end">
