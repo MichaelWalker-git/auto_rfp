@@ -12,37 +12,28 @@ This directory contains configuration and rules for [Claude Code](https://claude
 ├── agents/                      # Custom agents for specialized workflows
 │   ├── feature-implementer.md   # End-to-end feature implementation
 │   ├── code-reviewer.md         # Convention compliance & security audit
+│   ├── feature-reviewer.md      # End-to-end feature / branch diff review
 │   └── test-generator.md        # Comprehensive test suite generation
-├── skills/                      # Reusable skills (10 skills)
-│   ├── audit-logging/SKILL.md   # Audit trail logging for handlers & services
-│   ├── backend-test/SKILL.md    # Jest tests with AWS SDK & middy mocking
-│   ├── cdk-route/SKILL.md       # API Gateway routes with Lambda integration
-│   ├── dynamodb-helper/SKILL.md # DynamoDB helpers with SK builders & CRUD
-│   ├── e2e-test/SKILL.md        # Playwright E2E tests with auth fixtures
-│   ├── frontend-feature/SKILL.md # Feature modules (hooks, components, pages)
-│   ├── frontend-form/SKILL.md   # Forms with react-hook-form & Zod validation
-│   ├── lambda/SKILL.md          # Lambda handlers with middy & Sentry
-│   ├── step-function/SKILL.md   # Step Functions pipelines with CDK
-│   └── zod-schema/SKILL.md      # Zod schemas with types & DTOs
-└── rules/                       # Project rules (tracked in git)
-    ├── 01-project-structure.md
-    ├── 02-typescript-best-practices.md
-    ├── 03-entity-definitions.md
-    ├── 04-backend-architecture.md
-    ├── 05-dynamodb-design.md
-    ├── 06-frontend-architecture.md
-    ├── 07-infrastructure.md
-    ├── 08-cicd.md
-    ├── 09-testing.md
-    ├── RULES.md
-    ├── README.md
-    ├── cost-optimization.md
-    ├── next-js.md
-    ├── web-development.md
-    └── workflows/
-        ├── architecture.md
-        └── implementation.md
+└── skills/                      # Reusable skills (15 skills)
+    ├── audit-logging/SKILL.md   # Audit trail logging for handlers & services
+    ├── backend-test/SKILL.md    # Jest tests with AWS SDK & middy mocking
+    ├── cdk-route/SKILL.md       # API Gateway routes with Lambda integration
+    ├── dynamodb-helper/SKILL.md # DynamoDB helpers with SK builders & CRUD
+    ├── e2e-test/SKILL.md        # Playwright E2E tests with auth fixtures
+    ├── frontend-feature/SKILL.md # Feature modules (hooks, components, pages)
+    ├── frontend-form/SKILL.md   # Forms with react-hook-form & Zod validation
+    ├── lambda/SKILL.md          # Lambda handlers with middy & Sentry
+    ├── review-conventions/SKILL.md # Convention compliance review
+    ├── review-correctness/SKILL.md # Correctness & logic review
+    ├── review-performance/SKILL.md # Performance review
+    ├── review-security/SKILL.md # Security review
+    ├── review-tests/SKILL.md    # Test coverage review
+    ├── step-function/SKILL.md   # Step Functions pipelines with CDK
+    └── zod-schema/SKILL.md      # Zod schemas with types & DTOs
 ```
+
+Convention rules live in `/.clinerules/` at the repo root, not here — see
+[Rules](#rules) below.
 
 ## 🤖 Agents
 
@@ -110,12 +101,18 @@ Skills are reusable instruction sets that Claude Code can activate for specific 
 | 8 | **`e2e-test`** | Playwright E2E tests with auth fixtures, page objects | `"Write E2E tests for the notifications feature"` |
 | 9 | **`audit-logging`** | Audit trail logging with proper actions and patterns | `"Add audit logging to the notification handlers"` |
 | 10 | **`step-function`** | Step Functions pipelines with CDK for async workflows | `"Create a notification delivery pipeline"` |
+| 11 | **`review-correctness`** | Correctness and logic audit of a change | `"Review the brief helpers for correctness"` |
+| 12 | **`review-conventions`** | Convention compliance audit against project rules | `"Check the new handlers against our conventions"` |
+| 13 | **`review-security`** | Security audit (auth, RBAC, `orgId` handling, input validation) | `"Security review the FOIA handlers"` |
+| 14 | **`review-performance`** | Performance audit (queries, re-renders, bundle cost) | `"Review the search page for performance"` |
+| 15 | **`review-tests`** | Test coverage and test quality audit | `"Are the answer-generation tests adequate?"` |
 
 ---
 
-## Rules Directory
+## Rules
 
-The `rules/` directory contains markdown files that Claude Code automatically reads when working on this project. These rules define:
+Convention rules live in `/.clinerules/` at the repo root — the single source of
+truth, shared across AI coding assistants. They cover:
 
 - **Project conventions** and coding standards
 - **Architecture patterns** for backend and frontend
@@ -123,20 +120,16 @@ The `rules/` directory contains markdown files that Claude Code automatically re
 - **Testing requirements**
 - **CI/CD workflows**
 
-These files are synced from `.clinerules/` to ensure consistency across different AI coding assistants.
+They are **reference material, read on demand** — not ambient context. There is
+deliberately no `.claude/rules/` copy: Claude Code auto-loads every `.md` under
+that path into every turn, which cost ~20k tokens (10% of the window) before it
+was removed. The critical subset is summarised in `/CLAUDE.md`; point Claude at a
+specific `.clinerules/` file when you need the full detail.
 
 ## Settings
 
 - `settings.json` - Team-wide Claude Code settings (tracked in git)
 - `settings.local.json` - Personal Claude Code settings (gitignored)
-
-## Syncing Rules
-
-To update Claude Code rules from clinerules:
-
-```bash
-cp -r .clinerules/* .claude/rules/
-```
 
 ## Learn More
 
