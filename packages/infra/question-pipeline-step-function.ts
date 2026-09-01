@@ -518,6 +518,21 @@ export class QuestionExtractionPipelineStack extends Stack {
       }),
     );
 
+    // Mark QuestionFile FAILED Lambda — shared catch target for the pipeline.
+    // When any processing stage throws (Bedrock outage, AI-not-configured for
+    // the org, malformed input, etc.), the state's `.addCatch(...)` routes the
+    // execution here so the file is marked FAILED with a readable errorMessage
+    // instead of being left stuck in an in-progress status.
+    const markFailedLambda = new lambdaNode.NodejsFunction(this, 'MarkQuestionFileFailedLambda', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      logGroup: mkFnLogGroup('MarkQuestionFileFailed'),
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/question-pipeline/mark-question-file-failed.ts'),
+      handler: 'handler',
+      timeout: Duration.seconds(30),
+      environment: commonLambdaEnv,
+    });
+    mainTable.grantReadWriteData(markFailedLambda);
+
     const startTextract = new tasks.LambdaInvoke(this, 'Start Textract', {
       lambdaFunction: startTextractLambda,
       integrationPattern: sfn.IntegrationPattern.WAIT_FOR_TASK_TOKEN,
@@ -882,6 +897,64 @@ export class QuestionExtractionPipelineStack extends Stack {
     });
 
     const done = new sfn.Succeed(this, 'Done');
+
+    // Shared failure path: mark the QuestionFile FAILED, then fail the execution.
+    // The Step Functions catcher writes the error to `$.error` (with `Error` and
+    // `Cause`), which the Lambda maps to a readable errorMessage on the file.
+    const markFailed = new tasks.LambdaInvoke(this, 'Mark Question File Failed', {
+      lambdaFunction: markFailedLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        errorName: sfn.JsonPath.stringAt('$.error.Error'),
+        errorCause: sfn.JsonPath.stringAt('$.error.Cause'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
+    const failPipeline = new sfn.Fail(this, 'Fail - Question pipeline error', {
+      error: 'QuestionPipelineError',
+      cause: 'A pipeline stage failed; the question file was marked FAILED.',
+    });
+
+    markFailed.next(failPipeline);
+
+    // Route every processing stage's failures to the shared markFailed target.
+    // A single state instance can be the catch target of many states in CDK.
+    // startTextract/processResult and the DOCX/XLSX text extractors also self-mark
+    // FAILED, but catching them here is harmless and closes any remaining gaps.
+    const stagesToGuard: tasks.LambdaInvoke[] = [
+      startTextract,
+      processResult,
+      extractXlsxText,
+      extractDocxText,
+      classifyAfterPdf,
+      classifyAfterXlsx,
+      classifyAfterDocx,
+      detectAttachmentsAfterPdf,
+      detectAttachmentsAfterXlsx,
+      detectAttachmentsAfterDocx,
+      detectFormsAfterPdf,
+      detectFormsAfterXlsx,
+      detectFormsAfterDocx,
+      fulfillOppAfterPdf,
+      fulfillOppAfterXlsx,
+      fulfillOppAfterDocx,
+      indexSolicitationAfterPdf,
+      indexSolicitationAfterXlsx,
+      indexSolicitationAfterDocx,
+      extractQuestionsAfterPdf,
+      extractQuestionsAfterXlsx,
+      extractQuestionsAfterDocx,
+      checkAndTriggerAfterPdf,
+      checkAndTriggerAfterXlsx,
+      checkAndTriggerAfterDocx,
+    ];
+    for (const stage of stagesToGuard) {
+      stage.addCatch(markFailed, { resultPath: '$.error' });
+    }
 
     const isXlsx = sfn.Condition.or(
       sfn.Condition.stringEquals(
