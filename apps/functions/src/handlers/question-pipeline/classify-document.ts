@@ -4,6 +4,7 @@ import { loadTextFromS3 } from '@/helpers/s3';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import { safeParseJsonFromModel } from '@/helpers/json';
 import { updateQuestionFile, checkQuestionFileCancelled } from '@/helpers/questionFile';
+import { isAiNotConfiguredError } from '@/helpers/ai-config-error';
 import { withSentryLambda } from '@/sentry-lambda';
 
 const getDocumentsBucket = () => requireEnv('DOCUMENTS_BUCKET');
@@ -162,6 +163,10 @@ export const baseHandler = async (
       result = { docType: 'REQUIRED_FORM' };
     }
   } catch (err: unknown) {
+    // Fail closed on an unconfigured org: surface the AI-not-configured error at
+    // this (the earliest AI) stage instead of silently classifying as OTHER and
+    // failing several steps later. Genuine best-effort errors still degrade to OTHER.
+    if (isAiNotConfiguredError(err)) throw err;
     console.error('Classification failed, defaulting to OTHER:', (err as Error)?.message);
   }
 

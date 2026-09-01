@@ -10,6 +10,7 @@ import { nowIso } from '@/helpers/date';
 import { loadTextFromS3 } from '@/helpers/s3';
 import { v4 as uuidv4 } from 'uuid';
 import { invokeModel } from '@/helpers/bedrock-http-client';
+import { isAiNotConfiguredError } from '@/helpers/ai-config-error';
 import { updateQuestionFile, checkQuestionFileCancelled, getQuestionFileItem } from '@/helpers/questionFile';
 import { GroupedSection, QuestionOption, QuestionResponseKind } from '@auto-rfp/core';
 import { buildQuestionSK, isConditionalCheckFailed, normalizeQuestionText, sha256Hex } from '@/helpers/question';
@@ -466,6 +467,11 @@ export const baseHandler = async (
       allSections.push(...extracted.sections);
       console.log(`Chunk ${i + 1} extracted ${extracted.sections.length} sections`);
     } catch (err: unknown) {
+      // Fail closed: an unconfigured org can't extract any chunk, so surface the
+      // AI-not-configured error rather than silently returning zero questions.
+      // Other per-chunk errors are still tolerated so one bad chunk doesn't sink
+      // the whole extraction.
+      if (isAiNotConfiguredError(err)) throw err;
       console.error(`Failed to extract from chunk ${i + 1}:`, err);
     }
   }

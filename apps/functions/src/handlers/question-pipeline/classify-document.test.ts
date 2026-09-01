@@ -32,6 +32,7 @@ process.env.BEDROCK_REGION = 'us-east-1';
 
 import { baseHandler, type ClassifyDocumentEvent, type ClassifyDocumentResult } from './classify-document';
 import { checkQuestionFileCancelled, updateQuestionFile } from '@/helpers/questionFile';
+import { AiNotConfiguredError } from '@/helpers/ai-config-error';
 
 const mockContext = {
   functionName: 'test',
@@ -162,6 +163,14 @@ describe('classify-document', () => {
       'proj-456', 'opp-789', 'qf-123',
       expect.objectContaining({ docType: 'OTHER' }),
     );
+  });
+
+  it('re-throws AiNotConfiguredError instead of defaulting to OTHER (fail closed)', async () => {
+    mockInvokeModel.mockRejectedValueOnce(new AiNotConfiguredError('org-abc'));
+
+    await expect(baseHandler(validEvent, mockContext)).rejects.toThrow(AiNotConfiguredError);
+    // Must NOT silently classify as OTHER — the pipeline should fail at this stage.
+    expect(updateQuestionFile).not.toHaveBeenCalled();
   });
 
   it('should read orgId from the event and pass it as the 3rd arg to invokeModel', async () => {

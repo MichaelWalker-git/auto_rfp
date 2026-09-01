@@ -11,6 +11,7 @@ jest.mock('uuid', () => ({
 }));
 
 import { baseHandler } from './extract-questions';
+import { AiNotConfiguredError } from '@/helpers/ai-config-error';
 
 // Mock dependencies
 jest.mock('@/helpers/db', () => ({
@@ -218,6 +219,14 @@ describe('extract-questions Lambda', () => {
         expect.any(String),
         'org-1',
       );
+    });
+
+    it('re-throws AiNotConfiguredError from a chunk instead of silently returning zero questions', async () => {
+      // A per-chunk failure is normally swallowed (see JSON-parsing tests), but an
+      // unconfigured org can't extract ANY chunk, so it must fail closed.
+      invokeModel.mockRejectedValueOnce(new AiNotConfiguredError('org-1'));
+
+      await expect(baseHandler(validEvent, mockContext)).rejects.toThrow(AiNotConfiguredError);
     });
 
     it('throws when the question file has no orgId (per-org Bedrock key is required)', async () => {
