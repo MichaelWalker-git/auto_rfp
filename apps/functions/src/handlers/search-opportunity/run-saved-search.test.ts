@@ -50,6 +50,10 @@ jest.mock('@/helpers/org', () => ({
 const mockSearchSam = jest.fn();
 const mockSearchDibbs = jest.fn();
 const mockSearchHigherGov = jest.fn();
+const mockSearchHigherGovViaMcp = jest.fn();
+jest.mock('@/helpers/highergov-mcp', () => ({
+  searchHigherGovViaMcp: (...a: unknown[]) => mockSearchHigherGovViaMcp(...a),
+}));
 const mockFetchDibbsSolicitation = jest.fn();
 const mockExtractDibbsAttachments = jest.fn();
 const mockFetchHigherGovDocuments = jest.fn();
@@ -308,5 +312,129 @@ describe('run-saved-search — auto-import per source', () => {
 
     expect(mockSearchHigherGov).not.toHaveBeenCalled();
     expect(mockCreateOpportunity).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * A keyword/NAICS/market/active HigherGov saved search must run through the same
+ * MCP transport as an interactive search — NOT the old REST client, which has no
+ * keyword or NAICS parameter and silently ignores both (a baseline query and the
+ * same query plus a nonsense keyword return identical row counts). Before this fix,
+ * every scheduled run of such a search queried something different from — and
+ * broader than — what the user configured and saved. `search_id` searches are
+ * unaffected: HigherGov saved-search IDs stay on the REST worker path, unchanged.
+ */
+describe('run-saved-search — HigherGov keyword searches use MCP, not REST', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockListAllOrgIds.mockResolvedValue([ORG]);
+    mockGetApiKey.mockResolvedValue('key-123');
+    mockCreateOpportunity.mockResolvedValue({ oppId: 'opp-new' });
+    mockFindOppBySourceId.mockResolvedValue(undefined);
+    mockFetchHigherGovDocuments.mockResolvedValue([]);
+    mockSearchHigherGovViaMcp.mockResolvedValue({ totalCount: 0, results: [], pages: 1 });
+  });
+
+  it('routes a keyword-based saved search through MCP, forwarding keyword/naics/market/active', async () => {
+    wireDynamo(
+      [makeSaved({
+        source: 'HIGHER_GOV',
+        projectId: SAVED_PROJECT,
+        criteria: {
+          keywords: 'zero trust -training',
+          naics: ['541512', '541519'],
+          higherGovMarket: 'state_local',
+          higherGovActiveOnly: false,
+        },
+      })],
+      [],
+    );
+
+    await baseHandler(runEvent);
+
+    expect(mockSearchHigherGov).not.toHaveBeenCalled();
+    expect(mockSearchHigherGovViaMcp).toHaveBeenCalledTimes(1);
+    const [, params] = mockSearchHigherGovViaMcp.mock.calls[0];
+    expect(params).toMatchObject({
+      keyword: 'zero trust -training',
+      // MCP takes a single NAICS code — same convention as the interactive handler.
+      naicsCode: '541512',
+      opportunityType: 'state_local',
+      activeOnly: false,
+    });
+  });
+
+  it('does NOT synthesize a posted date for a keyword search, even on a search that has run before', async () => {
+    // buildRuntimeCriteria used to always inject a rolling postedFrom (last-run date,
+    // or 30 days ago) for every source — the exact SAM.gov-style default the product
+    // requirement forbids for HigherGov, since posted_date is a single specific day
+    // and locking it to a computed date reliably returns zero results.
+    const lastRun = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+    wireDynamo(
+      [makeSaved({
+        source: 'HIGHER_GOV',
+        lastRunAt: lastRun,
+        projectId: SAVED_PROJECT,
+        criteria: { keywords: 'saas' },
+      })],
+      [],
+    );
+
+    await baseHandler(runEvent);
+
+    const [, params] = mockSearchHigherGovViaMcp.mock.calls[0];
+    expect(params.postedDate).toBeUndefined();
+  });
+
+  it('sends postedDate only when the saved search actually stored one', async () => {
+    wireDynamo(
+      [makeSaved({
+        source: 'HIGHER_GOV',
+        projectId: SAVED_PROJECT,
+        criteria: { keywords: 'saas', postedFrom: '07/06/2026' },
+      })],
+      [],
+    );
+
+    await baseHandler(runEvent);
+
+    const [, params] = mockSearchHigherGovViaMcp.mock.calls[0];
+    expect(params.postedDate).toBe('2026-07-06');
+  });
+
+  it('keeps a search_id saved search on the REST worker path, not MCP', async () => {
+    wireDynamo(
+      [makeSaved({
+        source: 'HIGHER_GOV',
+        projectId: SAVED_PROJECT,
+        criteria: { higherGovSearchId: 'hg-saved', keywords: 'ignored once a search_id is present' },
+      })],
+      [],
+    );
+    mockSearchHigherGov.mockResolvedValue({ totalCount: 0, results: [] });
+
+    await baseHandler(runEvent);
+
+    expect(mockSearchHigherGov).toHaveBeenCalledTimes(1);
+    expect(mockSearchHigherGovViaMcp).not.toHaveBeenCalled();
+  });
+
+  it('imports matches found via MCP into the saved project', async () => {
+    wireDynamo(
+      [makeSaved({ source: 'HIGHER_GOV', projectId: SAVED_PROJECT, autoImport: true, criteria: { keywords: 'saas' } })],
+      [],
+    );
+    mockSearchHigherGovViaMcp.mockResolvedValue({
+      totalCount: 1,
+      results: [{ opp_key: 'HG-MCP-1', source_id: null }],
+      pages: 1,
+    });
+
+    await baseHandler(runEvent);
+
+    expect(mockCreateOpportunity).toHaveBeenCalledTimes(1);
+    const arg = mockCreateOpportunity.mock.calls[0][0];
+    expect(arg.projectId).toBe(SAVED_PROJECT);
+    expect(arg.opportunity.source).toBe('HIGHER_GOV');
   });
 });
