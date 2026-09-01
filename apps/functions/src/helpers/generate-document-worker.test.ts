@@ -509,6 +509,11 @@ describe('processJobInner — document prompt override wiring', () => {
     for (const call of mockBuildSystem.mock.calls) {
       expect(call[2]).toBe('G-OVERRIDE');
     }
+    // The job's orgId must reach the single-shot Bedrock invoke as the 3rd arg
+    // (per-org Bedrock key routing).
+    for (const call of (invokeModel as jest.Mock).mock.calls) {
+      expect(call[2]).toBe('org-1');
+    }
     expect(mockBuildUser).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', {
       solicitation: 'solicitation text',
       qaText: '[]',

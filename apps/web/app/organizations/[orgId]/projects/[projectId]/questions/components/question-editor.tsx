@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +19,7 @@ import { SimilarQuestionsPanel } from './similar-questions-panel';
 import { getToolDisplayName } from './source-details-dialog';
 import { CollaborationPanel, FloatingPanel } from '@/features/collaboration';
 import { useComments } from '@/features/collaboration/hooks/useComments';
+import { AiNotConfiguredNotice } from '@/components/ai-not-configured-notice';
 
 interface AnswerData {
   text: string;
@@ -218,6 +220,8 @@ export function QuestionEditor({
   const [showComments, setShowComments] = useState(false);
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const [confidenceExpanded, setConfidenceExpanded] = useState(false);
+  const routeParams = useParams<{ orgId?: string }>();
+  const orgId = collaboration?.orgId ?? routeParams?.orgId ?? '';
 
   // Fetch unresolved comment count for the badge — only when collaboration is available
   const { unresolvedCount } = useComments(
@@ -245,6 +249,9 @@ export function QuestionEditor({
   // and found nothing": this one is retryable, so prompt a retry rather than
   // implying the knowledge base lacks the content.
   const showGenerationFailedNotice = answer?.resolution === 'GENERATION_FAILED' && !hasAnswerText;
+  // The org has no valid Bedrock key — generation could not run at all. Distinct
+  // from a generation failure: an admin must add a key, so point them there.
+  const showAiNotConfiguredNotice = answer?.resolution === 'AI_NOT_CONFIGURED' && !hasAnswerText;
 
   // Status derived from answer — someone else editing = "Editing"
   const isBeingEditedByOther = editors.length > 0;
@@ -336,6 +343,9 @@ export function QuestionEditor({
               </div>
             </div>
           )}
+
+          {/* AI-not-configured notice — the org has no valid Bedrock key */}
+          {showAiNotConfiguredNotice && <AiNotConfiguredNotice orgId={orgId} />}
 
           {/* Answer input — a radio group / checkbox list for multiple-choice
               questions, otherwise the free-text textarea. Choice questions must

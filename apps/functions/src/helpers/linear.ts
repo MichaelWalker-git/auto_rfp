@@ -1,5 +1,5 @@
 import { LinearClient } from '@linear/sdk';
-import type { RfpDigestIssue } from '@auto-rfp/core';
+import { isPhysicalSubmission, type RfpDigestIssue, type SubmissionMethodDetected } from '@auto-rfp/core';
 import { getApiKey } from './api-key-storage';
 import { LINEAR_SECRET_PREFIX } from '../constants/linear';
 
@@ -457,6 +457,127 @@ export async function setLinearIssueStage(
   );
   return true;
 }
+
+export const PHYSICAL_SUBMISSION_LABEL = 'physical submission';
+
+interface ResolvedIssueContext {
+  client: LinearClient;
+  issue: { id: string; identifier: string; labels: () => Promise<{ nodes: Array<{ id: string }> }> };
+  currentIds: string[];
+  labelIdByName: Map<string, string>;
+}
+
+const resolveIssueContext = async (
+  orgId: string,
+  identifier: string,
+  logPrefix: string,
+): Promise<ResolvedIssueContext | null> => {
+  const apiKey = await getLinearApiKey(orgId);
+  const client = new LinearClient({ apiKey });
+
+  const search = await client.issues({
+    filter: { number: { eq: Number(identifier.split('-')[1]) } },
+    first: 50,
+  });
+  const issue = search.nodes.find((n) => n.identifier === identifier);
+  if (!issue) {
+    console.warn(`[linear] ${logPrefix}: issue not found for identifier ${identifier}`);
+    return null;
+  }
+
+  const team = await issue.team;
+  const teamId = team?.id;
+  if (!teamId) {
+    console.warn(`[linear] ${logPrefix}: no team for issue ${identifier}`);
+    return null;
+  }
+
+  const teamObj = await client.team(teamId);
+  const allLabels = await teamObj.labels();
+  const labelIdByName = new Map(allLabels.nodes.map((l) => [l.name.toLowerCase(), l.id]));
+
+  const current = await issue.labels();
+  const currentIds = current.nodes.map((l) => l.id);
+
+  return { client, issue, currentIds, labelIdByName };
+};
+
+export const addLinearLabelByIdentifier = async (
+  orgId: string,
+  identifier: string,
+  labelName: string,
+): Promise<void> => {
+  try {
+    const ctx = await resolveIssueContext(orgId, identifier, 'addLabel');
+    if (!ctx) return;
+
+    const addLabelId = ctx.labelIdByName.get(labelName.toLowerCase());
+    if (!addLabelId) {
+      console.warn(`[linear] addLabel: label "${labelName}" not found for ${identifier}`);
+      return;
+    }
+
+    const nextIds = Array.from(new Set([...ctx.currentIds, addLabelId]));
+    await ctx.client.updateIssue(ctx.issue.id, { labelIds: nextIds });
+    console.log(`[linear] ${identifier}: +"${labelName}"`);
+  } catch (err) {
+    console.warn(`[linear] addLabel failed for ${identifier}:`, (err as Error).message);
+  }
+};
+
+export const removeLinearLabelByIdentifier = async (
+  orgId: string,
+  identifier: string,
+  labelName: string,
+): Promise<void> => {
+  try {
+    const ctx = await resolveIssueContext(orgId, identifier, 'removeLabel');
+    if (!ctx) return;
+
+    const removeLabelId = ctx.labelIdByName.get(labelName.toLowerCase());
+    if (!removeLabelId) {
+      console.warn(`[linear] removeLabel: label "${labelName}" not found for ${identifier}`);
+      return;
+    }
+
+    const nextIds = ctx.currentIds.filter((id) => id !== removeLabelId);
+    await ctx.client.updateIssue(ctx.issue.id, { labelIds: nextIds });
+    console.log(`[linear] ${identifier}: -"${labelName}"`);
+  } catch (err) {
+    console.warn(`[linear] removeLabel failed for ${identifier}:`, (err as Error).message);
+  }
+};
+
+/**
+ * Keep the "physical submission" Linear label in sync with a detected/toggled
+ * submission method. No-ops for opportunities that aren't Linear-synced or that
+ * don't carry a Linear identifier (`noticeId`).
+ *
+ * Like `writeBackApprovalToLinear`, the Linear API key lives in Secrets Manager
+ * under the *Linear* org id (`RFP_SYNC_LINEAR_ORG_ID`) — not the AutoRFP org id
+ * of the caller — so it is read here rather than accepted as a parameter.
+ */
+export const syncPhysicalSubmissionLabel = async (
+  oppId: string,
+  noticeId: string | null | undefined,
+  submissionMethod: SubmissionMethodDetected | null | undefined,
+): Promise<void> => {
+  if (!oppId.startsWith('linear-') || !noticeId) {
+    return;
+  }
+
+  const linearOrgId = process.env.RFP_SYNC_LINEAR_ORG_ID;
+  if (!linearOrgId) {
+    console.warn('[linear] Skipping physical-submission label sync: RFP_SYNC_LINEAR_ORG_ID not configured');
+    return;
+  }
+
+  if (isPhysicalSubmission(submissionMethod)) {
+    await addLinearLabelByIdentifier(linearOrgId, noticeId, PHYSICAL_SUBMISSION_LABEL);
+  } else {
+    await removeLinearLabelByIdentifier(linearOrgId, noticeId, PHYSICAL_SUBMISSION_LABEL);
+  }
+};
 
 export async function updateLinearTicket(
   orgId: string,

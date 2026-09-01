@@ -217,3 +217,44 @@ describe('paramsToFormValues', () => {
     expect(paramsToFormValues(new URLSearchParams())).toBeNull();
   });
 });
+
+/**
+ * The "omitted param means the default" trap. `criteriaToParams` deliberately drops
+ * HigherGov params at their default values to keep URLs readable, so `paramsToCriteria`
+ * MUST restore those defaults rather than returning undefined — the backend and
+ * HigherGov both apply their own, different defaults otherwise.
+ *
+ * This bit three times: an absent hgMarket became HigherGov's `federal_contract`
+ * (UI said "All sources" but returned 18 instead of 310), and an absent hgActive
+ * silently read as "off" in the results-bar copy.
+ */
+describe('HigherGov defaults survive a URL round-trip', () => {
+  it('restores market=all when the param was omitted', () => {
+    const params = criteriaToParams({
+      keywords: 'saas', sources: ['HIGHER_GOV'], higherGovMarket: 'all', higherGovActiveOnly: true,
+    });
+
+    expect(params.has('hgMarket')).toBe(false); // omitted for readability
+    expect(paramsToCriteria(params)?.higherGovMarket).toBe('all');
+    expect(paramsToFormValues(params)?.higherGovMarket).toBe('all');
+  });
+
+  it('restores activeOnly=true when the param was omitted', () => {
+    const params = criteriaToParams({
+      keywords: 'saas', sources: ['HIGHER_GOV'], higherGovActiveOnly: true,
+    });
+
+    expect(params.has('hgActive')).toBe(false);
+    expect(paramsToCriteria(params)?.higherGovActiveOnly).toBe(true);
+  });
+
+  it('round-trips a non-default market and an explicit activeOnly=false', () => {
+    const params = criteriaToParams({
+      keywords: 'saas', sources: ['HIGHER_GOV'],
+      higherGovMarket: 'state_local', higherGovActiveOnly: false,
+    });
+
+    expect(paramsToCriteria(params)?.higherGovMarket).toBe('state_local');
+    expect(paramsToCriteria(params)?.higherGovActiveOnly).toBe(false);
+  });
+});

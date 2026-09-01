@@ -2,10 +2,12 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 jest.mock('@/lib/env', () => ({ env: { BASE_API_URL: 'http://test-api.com' } }));
+// Reassigned per test to simulate landing on a URL that already describes a search.
+let mockSearchParams = new URLSearchParams();
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ replace: jest.fn() }),
   usePathname: () => '/organizations/org-1/projects/proj-1/search-opportunities',
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => mockSearchParams,
 }));
 const mockToast = jest.fn();
 jest.mock('@/components/ui/use-toast', () => ({ useToast: () => ({ toast: mockToast }) }));
@@ -31,7 +33,11 @@ jest.mock('@/lib/auth/auth-fetcher', () => ({ authFetcher: (...a: unknown[]) => 
 import ProjectSearchOpportunitiesPage from '../ProjectSearchOpportunitiesPage';
 
 describe('canonical Search Opportunities page', () => {
-  beforeEach(() => { jest.clearAllMocks(); hookResult = null; });
+  beforeEach(() => {
+    jest.clearAllMocks();
+    hookResult = null;
+    mockSearchParams = new URLSearchParams();
+  });
 
   it('describes only the two usable providers — no DIBBS', () => {
     render(<ProjectSearchOpportunitiesPage orgId="org-1" projectId="proj-1" />);
@@ -70,6 +76,36 @@ describe('canonical Search Opportunities page', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /^search$/i }));
     await waitFor(() => expect(screen.getByText(/Per page/i)).toBeTruthy());
+  });
+
+  /**
+   * The confusion this guards against: HigherGov's own site reports 2,675 for the same
+   * words this app shows 70 for, and the entire difference is the Active filter. Fetching
+   * the second number would cost 100 records of a 10,000/month allowance per search, so
+   * the filter is named in copy instead.
+   */
+  it('explains that a HigherGov count is limited to open opportunities', async () => {
+    // Land on a URL that already selects HigherGov, so the auto-search runs that provider.
+    mockSearchParams = new URLSearchParams({ source: 'HIGHER_GOV', q: 'saas' });
+    hookResult = {
+      opportunities: [], totalSamGov: 0, totalDibbs: 0, totalHigherGov: 70, total: 70,
+      samGovError: null, dibbsError: null, higherGovError: null, higherGovPending: false,
+    };
+    render(<ProjectSearchOpportunitiesPage orgId="org-1" projectId="proj-1" />);
+
+    await waitFor(() => expect(screen.getByText(/open opportunities only/i)).toBeTruthy());
+  });
+
+  it('names the market on the HigherGov badge so a blended count is not opaque', async () => {
+    mockSearchParams = new URLSearchParams({ source: 'HIGHER_GOV', q: 'saas', hgMarket: 'state_local' });
+    hookResult = {
+      opportunities: [], totalSamGov: 0, totalDibbs: 0, totalHigherGov: 70, total: 70,
+      samGovError: null, dibbsError: null, higherGovError: null, higherGovPending: false,
+    };
+    const { container } = render(<ProjectSearchOpportunitiesPage orgId="org-1" projectId="proj-1" />);
+
+    // The badge interpolates several nodes, so match on the rendered text as a whole.
+    await waitFor(() => expect(container.textContent).toMatch(/HigherGov \(state & local\)/i));
   });
 });
 

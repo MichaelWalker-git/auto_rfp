@@ -44,6 +44,12 @@ const S3_RETRY_BASE_DELAY_MS = 1000; // Exponential backoff: 1s, 2s, 4s
  * Removes sensitive info like stack traces, internal paths, and library versions.
  */
 const sanitizeErrorForUser = (rawError: string): string => {
+  // "AI not configured" is a distinct, actionable outcome — surface it verbatim
+  // instead of collapsing it into the generic "AI service unavailable" below
+  // (its message mentions "Bedrock", which would otherwise match that branch).
+  if (rawError.includes('AI is not configured for this organization')) {
+    return 'AI is not configured for this organization. An administrator must add a Bedrock API key in Organization Settings → Integrations.';
+  }
   // Generic user-friendly message for common error patterns
   if (rawError.includes('ECONNREFUSED') || rawError.includes('ETIMEDOUT') || rawError.includes('NetworkingError')) {
     return 'A temporary network error occurred. Please try again.';

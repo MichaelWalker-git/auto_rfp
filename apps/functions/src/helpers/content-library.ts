@@ -23,7 +23,7 @@ export const indexContentLibrary = async (
   const id = library.id;
 
   // Embed only the question for semantic search matching
-  const embedding = await getEmbedding(library.question);
+  const embedding = await getEmbedding(library.question, orgId);
 
   try {
     await index.namespace(orgId).upsert([

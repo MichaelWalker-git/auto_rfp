@@ -75,6 +75,12 @@ describe('classifyDisclosure', () => {
     expect(result.classified).toBe(1);
     expect(result.proposals[0]).toMatchObject({ projectId: 'p1', proposed: 'ANONYMIZED_ONLY', confidence: 80 });
     expect(result.failed).toEqual([]);
+    // orgId propagates to invokeModel as the third argument (per-org Bedrock key).
+    expect(mockInvokeModel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      ORG,
+    );
   });
 
   it('routes malformed rows (bad enum) with a projectId into failed', async () => {

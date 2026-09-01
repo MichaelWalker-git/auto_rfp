@@ -10,6 +10,7 @@ import { DocumentPromptsPage } from '../pages/document-prompts.page';
 import { SolutionPlanPage } from '../pages/solution-plan.page';
 import { SolutionPlanVersionsPage } from '../pages/solution-plan-versions.page';
 import { ComplianceReviewPage } from '../pages/compliance-review.page';
+import { PhysicalSubmissionPage } from '../pages/physical-submission.page';
 
 /**
  * Custom fixture types for authenticated tests.
@@ -37,6 +38,8 @@ interface AuthFixtures {
   versionsPage: SolutionPlanVersionsPage;
   /** AI Compliance Review panel page object */
   complianceReviewPage: ComplianceReviewPage;
+  /** Physical Submission Detection banner/chip page object */
+  physicalSubmissionPage: PhysicalSubmissionPage;
 }
 
 /**
@@ -108,6 +111,10 @@ export const test = base.extend<AuthFixtures>({
 
   complianceReviewPage: async ({ page }, use) => {
     await use(new ComplianceReviewPage(page));
+  },
+
+  physicalSubmissionPage: async ({ page }, use) => {
+    await use(new PhysicalSubmissionPage(page));
   },
 });
 

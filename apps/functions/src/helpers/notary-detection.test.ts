@@ -162,10 +162,16 @@ describe('verifyCandidates — batched classification by index', () => {
       }),
     );
 
-    const out = await verifyCandidates({ orgId: 'o', modelId: 'm', candidates });
+    const out = await verifyCandidates({ orgId: 'the-org-id', modelId: 'm', candidates });
     expect(mockInvokeModel).toHaveBeenCalledTimes(1);
     expect(out.map((r) => r.status)).toEqual(['REQUIRED', 'NOT_REQUIRED', 'NOT_REQUIRED']);
     expect(out[0].rationale).toBe('real acknowledgment block');
+    // orgId propagates to invokeModel as the third argument (per-org Bedrock key).
+    expect(mockInvokeModel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'the-org-id',
+    );
   });
 
   it('sends a classify-only, guardrail-bearing, data-delimited prompt with temperature 0', async () => {

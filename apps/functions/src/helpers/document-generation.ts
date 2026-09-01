@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryBySkPrefix } from '@/helpers/db';
+import { isAiNotConfiguredError } from '@/helpers/ai-config-error';
 import { updateRFPDocumentMetadata, uploadRFPDocumentHtml, getRFPDocument } from '@/helpers/rfp-document';
 import { loadAllSolicitationTexts } from '@/helpers/executive-opportunity-brief';
 import { getTemplate, findBestTemplate, loadTemplateHtml, replaceMacros } from '@/helpers/template';
@@ -476,6 +477,11 @@ const MALFORMED_EXPRESSION_MESSAGE = /Invalid \w*Expression|ExpressionAttribute/
  */
 export const isTerminalGenerationError = (err: unknown): boolean => {
   if (!err || typeof err !== 'object') return false;
+
+  // An org with no Bedrock key fails identically on every attempt — retrying
+  // only burns the budget and buries the real cause. An admin must add a key.
+  if (isAiNotConfiguredError(err)) return true;
+
   const { name, message } = err as { name?: unknown; message?: unknown };
   if (typeof name !== 'string') return false;
 

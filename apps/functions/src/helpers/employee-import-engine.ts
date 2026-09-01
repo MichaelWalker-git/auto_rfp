@@ -150,7 +150,7 @@ const parseExtractedCv = (textContent: string): ExtractedCv | null => {
  * handling, so a combined call keeps the failure semantics identical).
  * Throws on call failure or an unparseable response.
  */
-export const classifyAndExtractCv = async (documentText: string): Promise<ExtractedCv> => {
+export const classifyAndExtractCv = async (documentText: string, orgId: string): Promise<ExtractedCv> => {
   const requestBody = {
     anthropic_version: 'bedrock-2023-05-31',
     max_tokens: 2048,
@@ -158,7 +158,7 @@ export const classifyAndExtractCv = async (documentText: string): Promise<Extrac
     messages: [{ role: 'user', content: createCvExtractionUserPrompt(documentText) }],
   };
 
-  const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody));
+  const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody), orgId);
   const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as {
     content?: Array<{ type: string; text?: string }>;
   };
@@ -327,14 +327,14 @@ export const runEmployeeImport = async (
       // BR2.1/BR2.2 — classify + extract with one retry, then EXTRACTION_FAILED.
       let extracted: ExtractedCv | null = null;
       try {
-        extracted = await classifyAndExtractCv(documentText);
+        extracted = await classifyAndExtractCv(documentText, orgId);
       } catch (firstErr) {
         console.warn(
           `[employee-import] extraction attempt 1 failed for ${document.name}:`,
           firstErr instanceof Error ? firstErr.message : firstErr,
         );
         try {
-          extracted = await classifyAndExtractCv(documentText);
+          extracted = await classifyAndExtractCv(documentText, orgId);
         } catch (secondErr) {
           console.error(
             `[employee-import] extraction failed for ${document.name} after retry:`,

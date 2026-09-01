@@ -144,6 +144,7 @@ describe('AnswerResolutionSchema', () => {
     expect(AnswerResolutionSchema.parse('ANSWERED')).toBe('ANSWERED');
     expect(AnswerResolutionSchema.parse('NO_KB_MATCH')).toBe('NO_KB_MATCH');
     expect(AnswerResolutionSchema.parse('GENERATION_FAILED')).toBe('GENERATION_FAILED');
+    expect(AnswerResolutionSchema.parse('AI_NOT_CONFIGURED')).toBe('AI_NOT_CONFIGURED');
   });
 
   it('should reject unknown values', () => {

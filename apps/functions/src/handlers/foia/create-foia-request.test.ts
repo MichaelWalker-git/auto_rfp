@@ -32,15 +32,68 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.REGION = 'us-east-1';
 
-import { createFOIARequest, baseHandler } from './create-foia-request';
-import type { CreateFOIARequest } from '@auto-rfp/core';
-import type { APIGatewayProxyEventV2 } from 'aws-lambda';
+// Mock other modules
+jest.mock('@/helpers/api', () => ({
+  apiResponse: jest.fn((statusCode, body) => ({
+    statusCode,
+    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json' }
+  })),
+}));
+
+jest.mock('@/sentry-lambda', () => ({
+  withSentryLambda: (handler) => handler,
+}));
+
+jest.mock('@/middleware/rbac-middleware', () => ({
+  authContextMiddleware: jest.fn(),
+  httpErrorMiddleware: jest.fn(),
+  orgMembershipMiddleware: jest.fn(),
+  requirePermission: jest.fn(),
+}));
+
+jest.mock('@/middleware/audit-middleware', () => ({
+  auditMiddleware: jest.fn(),
+  setAuditContext: jest.fn(),
+}));
+
+jest.mock('@/helpers/env', () => ({
+  requireEnv: jest.fn().mockReturnValue('test-table'),
+}));
+
+jest.mock('@/helpers/db', () => ({
+  docClient: { send: mockSend },
+}));
+
+jest.mock('@/helpers/opportunity', () => ({
+  getOpportunity: jest.fn(),
+}));
+
+jest.mock('@/helpers/portal-detection', () => ({
+  detectAgencyPortal: jest.fn(),
+  getAgencyName: jest.fn((agencyInfo) => agencyInfo.trim()),
+}));
+
+jest.mock('@/helpers/agency-scraper', () => ({
+  findAgencyRecordsPage: jest.fn(),
+  scrapeAgencyContactInfo: jest.fn(),
+}));
+
+// Import the handlers after all mocks are set up
+import { baseHandler, createFOIARequest } from './create-foia-request';
+import { CreateFOIARequest } from '@auto-rfp/core';
+import { APIGatewayProxyEventV2 } from 'aws-lambda';
+import { detectAgencyPortal } from '@/helpers/portal-detection';
+import { findAgencyRecordsPage, scrapeAgencyContactInfo } from '@/helpers/agency-scraper';
+import { setAuditContext } from '@/middleware/audit-middleware';
+import { getOpportunity } from '@/helpers/opportunity';
 
 const validDto: CreateFOIARequest = {
   projectId: 'proj-123',
   orgId: 'org-456',
   opportunityId: 'opp-789',
   agencyName: 'Department of Defense',
+  agencyDomain: 'dod.govqa.us',
   agencyFOIAEmail: 'foia@dod.gov',
   agencyFOIAAddress: '1400 Defense Pentagon, Washington DC',
   solicitationNumber: 'W911NF-21-R-0001',
@@ -60,6 +113,18 @@ describe('create-foia-request handler', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSend.mockReset();
+
+    // Default mock implementations
+    (detectAgencyPortal as jest.Mock).mockResolvedValue({
+      detected: false,
+      type: 'Unknown',
+      baseUrl: '',
+    });
+    (findAgencyRecordsPage as jest.Mock).mockResolvedValue(null);
+    (scrapeAgencyContactInfo as jest.Mock).mockResolvedValue({});
+    (getOpportunity as jest.Mock).mockResolvedValue({
+      item: { status: 'WON' }
+    });
   });
 
   describe('createFOIARequest', () => {
@@ -154,6 +219,12 @@ describe('create-foia-request handler', () => {
     });
   });
 
+  const makeEvent = (body: Record<string, unknown>): APIGatewayProxyEventV2 & { authContext?: { userId?: string } } =>
+    ({
+      body: JSON.stringify(body),
+      authContext: { userId: 'user-789' },
+    }) as unknown as APIGatewayProxyEventV2 & { authContext?: { userId?: string } };
+
   describe('baseHandler — checkEligibleOutcome guard', () => {
     const validBody = {
       projectId: 'proj-123',
@@ -175,14 +246,8 @@ describe('create-foia-request handler', () => {
       awardDate: 'January 1, 2026',
     };
 
-    const makeEvent = (body: Record<string, unknown>): APIGatewayProxyEventV2 & { authContext?: { userId?: string } } =>
-      ({
-        body: JSON.stringify(body),
-        authContext: { userId: 'user-789' },
-      }) as unknown as APIGatewayProxyEventV2 & { authContext?: { userId?: string } };
-
     it('returns 400 when no outcome item exists', async () => {
-      mockSend.mockResolvedValueOnce({ Item: undefined });
+      (getOpportunity as jest.Mock).mockResolvedValueOnce({ item: undefined });
 
       const result = await baseHandler(makeEvent(validBody));
       const parsed = JSON.parse(result.body as string);
@@ -192,8 +257,8 @@ describe('create-foia-request handler', () => {
     });
 
     it('returns 400 when outcome exists but is SUBMITTED', async () => {
-      mockSend.mockResolvedValueOnce({
-        Item: { status: 'SUBMITTED' },
+      (getOpportunity as jest.Mock).mockResolvedValueOnce({
+        item: { status: 'SUBMITTED' },
       });
 
       const result = await baseHandler(makeEvent(validBody));
@@ -204,8 +269,8 @@ describe('create-foia-request handler', () => {
     });
 
     it('returns 400 when outcome exists but is NO_BID', async () => {
-      mockSend.mockResolvedValueOnce({
-        Item: { status: 'NO_BID' },
+      (getOpportunity as jest.Mock).mockResolvedValueOnce({
+        item: { status: 'NO_BID' },
       });
 
       const result = await baseHandler(makeEvent(validBody));
@@ -216,8 +281,8 @@ describe('create-foia-request handler', () => {
     });
 
     it('returns 400 when outcome exists but is WITHDRAWN', async () => {
-      mockSend.mockResolvedValueOnce({
-        Item: { status: 'WITHDRAWN' },
+      (getOpportunity as jest.Mock).mockResolvedValueOnce({
+        item: { status: 'WITHDRAWN' },
       });
 
       const result = await baseHandler(makeEvent(validBody));
@@ -253,16 +318,16 @@ describe('create-foia-request handler', () => {
       expect(result.statusCode).toBe(201);
     });
 
-    it('looks up the opportunity with the full 3-part SK', async () => {
-      mockSend.mockResolvedValueOnce({ Item: { status: 'WON' } });
+    it('looks up the opportunity with the full 3-part parameters', async () => {
       mockSend.mockResolvedValueOnce({});
 
       await baseHandler(makeEvent(validBody));
 
-      const getCall = mockSend.mock.calls[0][0];
-      expect(getCall.type).toBe('Get');
-      expect(getCall.params.Key.partition_key).toBe('OPPORTUNITY');
-      expect(getCall.params.Key.sort_key).toBe('org-456#proj-123#opp-789');
+      expect(getOpportunity).toHaveBeenCalledWith({
+        orgId: 'org-456',
+        projectId: 'proj-123',
+        oppId: 'opp-789'
+      });
     });
 
     it('returns 400 when body is missing', async () => {
@@ -308,6 +373,174 @@ describe('create-foia-request handler', () => {
       expect(result.statusCode).toBe(201);
       const parsed = JSON.parse(result.body as string);
       expect(parsed.foiaRequest.createdBy).toBe('unknown');
+    });
+  });
+
+  describe('Portal detection integration', () => {
+    it('adds portal detection fields when portal is detected', async () => {
+      mockSend.mockResolvedValue({});
+
+      // Pass a DTO that already has portal information (as baseHandler would populate it)
+      const dtoWithPortalInfo = {
+        ...validDto,
+        agencyDomain: 'dod.govqa.us',
+        portalDetected: true,
+        portalType: 'GovQA' as const,
+        portalBaseUrl: 'https://dod.govqa.us',
+        portalRecordTypeField: 'type_of_record_requested',
+        portalRecordTypeValue: 'Department of Defense'
+      };
+
+      const result = await createFOIARequest(dtoWithPortalInfo, 'user-789');
+
+      expect(result.portalDetected).toBe(true);
+      expect(result.portalType).toBe('GovQA');
+      expect(result.portalBaseUrl).toBe('https://dod.govqa.us');
+      expect(result.portalRecordTypeField).toBe('type_of_record_requested');
+      expect(result.portalRecordTypeValue).toBe('Department of Defense');
+    });
+
+    it('stores updated agencyFOIAEmail from DTO', async () => {
+      mockSend.mockResolvedValue({});
+
+      // Pass a DTO with updated email (as baseHandler would populate it after scraping)
+      const dtoWithUpdatedEmail = {
+        ...validDto,
+        agencyFOIAEmail: 'newrecords@dod.gov',
+        portalDetected: false,
+        portalType: 'Unknown' as const,
+        portalBaseUrl: ''
+      };
+
+      const result = await createFOIARequest(dtoWithUpdatedEmail, 'user-789');
+
+      expect(result.portalDetected).toBe(false);
+      expect(result.agencyFOIAEmail).toBe('newrecords@dod.gov');
+    });
+
+    it('detects portal and sets audit log with PORTAL_DETECTED action', async () => {
+      // First call: GetCommand for checkEligibleOutcome
+      mockSend.mockResolvedValueOnce({
+        Item: { status: 'WON' },
+      });
+      // Second call: PutCommand for createFOIARequest
+      mockSend.mockResolvedValueOnce({});
+      
+      // Mock portal detection for GovQA portal
+      (detectAgencyPortal as jest.Mock).mockResolvedValue({
+        detected: true,
+        type: 'GovQA',
+        baseUrl: 'https://dod.govqa.us',
+        recordTypeField: 'type_of_record_requested',
+        recordTypeValue: 'Department of Defense'
+      });
+      
+      // Mock audit context
+      const mockSetAuditContext = jest.fn();
+      (setAuditContext as jest.Mock).mockImplementation(mockSetAuditContext);
+
+      const result = await baseHandler(makeEvent(validDto));
+
+      expect(result.statusCode).toBe(201);
+      expect(detectAgencyPortal).toHaveBeenCalledWith('Department of Defense', 'dod.govqa.us');
+      expect(mockSetAuditContext).toHaveBeenCalledWith(
+        expect.anything(),
+        {
+          action: 'PORTAL_DETECTED',
+          resource: 'foia_request',
+          resourceId: 'mock-uuid',
+          changes: {
+            after: {
+              portalDetected: true,
+              portalType: 'GovQA',
+              portalBaseUrl: 'https://dod.govqa.us',
+              agencyName: 'Department of Defense',
+            },
+          },
+        }
+      );
+    });
+
+    it('falls back to email scraping and sets audit log with EMAIL_FALLBACK_INITIATED action', async () => {
+      // First call: GetCommand for checkEligibleOutcome
+      mockSend.mockResolvedValueOnce({
+        Item: { status: 'WON' },
+      });
+      // Second call: PutCommand for createFOIARequest
+      mockSend.mockResolvedValueOnce({});
+      
+      // Mock portal detection to find no portal
+      (detectAgencyPortal as jest.Mock).mockResolvedValue({
+        detected: false,
+        type: 'Unknown',
+        baseUrl: '',
+        recordTypeField: undefined,
+        recordTypeValue: undefined
+      });
+      
+      // Mock finding records page
+      (findAgencyRecordsPage as jest.Mock).mockResolvedValueOnce('https://www.dod.gov/records');
+      
+      // Mock scraping contact info
+      (scrapeAgencyContactInfo as jest.Mock).mockResolvedValueOnce({
+        coordinatorEmail: 'newrecords@dod.gov',
+        statutoryCitation: 'Department of Defense Public Records Act'
+      });
+      
+      // Mock audit context
+      const mockSetAuditContext = jest.fn();
+      (setAuditContext as jest.Mock).mockImplementation(mockSetAuditContext);
+
+      const result = await baseHandler(makeEvent(validDto));
+
+      expect(result.statusCode).toBe(201);
+      expect(detectAgencyPortal).toHaveBeenCalledWith('Department of Defense', 'dod.govqa.us');
+      expect(findAgencyRecordsPage).toHaveBeenCalledWith('Department of Defense');
+      expect(scrapeAgencyContactInfo).toHaveBeenCalledWith('Department of Defense', 'https://www.dod.gov/records');
+      expect(mockSetAuditContext).toHaveBeenCalledWith(
+        expect.anything(),
+        {
+          action: 'EMAIL_FALLBACK_INITIATED',
+          resource: 'foia_request',
+          resourceId: 'mock-uuid',
+          changes: {
+            after: {
+              portalDetected: false,
+              portalType: 'Unknown',
+              portalBaseUrl: '',
+              agencyName: 'Department of Defense',
+            },
+          },
+        }
+      );
+    });
+
+    it('updates agencyFOIAEmail with scraped contact info when portal is not detected', async () => {
+      mockSend.mockResolvedValueOnce({});
+
+      // Mock portal detection to find no portal
+      (detectAgencyPortal as jest.Mock).mockResolvedValue({
+        detected: false,
+        type: 'Unknown',
+        baseUrl: '',
+        recordTypeField: undefined,
+        recordTypeValue: undefined
+      });
+
+      // Mock finding records page
+      (findAgencyRecordsPage as jest.Mock).mockResolvedValueOnce('https://www.dod.gov/records');
+
+      // Mock scraping contact info with new email
+      (scrapeAgencyContactInfo as jest.Mock).mockResolvedValueOnce({
+        coordinatorEmail: 'newrecords@dod.gov',
+      });
+
+      const validBodyWithDifferentEmail = { ...validDto, agencyFOIAEmail: 'oldemail@dod.gov' };
+      const result = await baseHandler(makeEvent(validBodyWithDifferentEmail));
+
+      expect(result.statusCode).toBe(201);
+      const parsed = JSON.parse(result.body as string);
+      expect(parsed.foiaRequest.agencyFOIAEmail).toBe('newrecords@dod.gov');
     });
   });
 });

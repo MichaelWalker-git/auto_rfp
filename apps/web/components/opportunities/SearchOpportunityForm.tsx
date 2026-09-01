@@ -55,6 +55,23 @@ const SOURCE_LABELS = {
   HIGHER_GOV: 'HigherGov',
 } as const satisfies Record<string, string>;
 
+/**
+ * HigherGov markets, from the `opportunity_type` enum of their MCP `search_opportunities`
+ * tool. Their server default is `federal_contract`, which hides state & local entirely —
+ * so we default to `all` and let the user narrow.
+ */
+const HIGHERGOV_MARKETS = [
+  { value: 'all',                     label: 'All sources' },
+  { value: 'federal_contract',        label: 'Federal contracts' },
+  { value: 'state_local',             label: 'State & local' },
+  { value: 'federal_and_state_local', label: 'Federal + State & local' },
+  { value: 'federal_grant',           label: 'Federal grants' },
+  { value: 'sbir',                    label: 'SBIR/STTR' },
+  { value: 'dibbs',                   label: 'DIBBS' },
+  { value: 'federal_forecast',        label: 'Federal forecasts' },
+  { value: 'sled_forecast',           label: 'SLED forecasts' },
+] as const;
+
 const Schema = z.object({
   keywords:     z.string().optional(),
   source:       z.enum(['SAM_GOV', 'HIGHER_GOV']).default('SAM_GOV'),
@@ -67,6 +84,15 @@ const Schema = z.object({
   higherGovSourceType: z.enum(['', 'sam', 'dibbs', 'sbir', 'grant', 'sled']).default(''),
   /** HigherGov search_id — replay a saved search from HigherGov UI */
   higherGovSearchId: z.string().default(''),
+  higherGovMarket: z.enum(HIGHERGOV_MARKETS.map(m => m.value) as [string, ...string[]]).default('all'),
+  higherGovActiveOnly: z.boolean().default(true),
+  /**
+   * HigherGov's `posted_date` — a single day, kept separate from SAM.gov's
+   * postedFrom/postedTo range. Sharing them meant SAM.gov's "last 30 days" default
+   * was sent to HigherGov as "posted exactly 30 days ago", which returned nothing.
+   * Undefined by default: no date filter at all.
+   */
+  higherGovPostedOn: z.date().optional(),
 });
 export type FormValues = z.input<typeof Schema>;
 
@@ -76,6 +102,8 @@ const DEFAULTS: FormValues = {
   closingFrom: undefined, closingTo: undefined,
   higherGovSourceType: '',
   higherGovSearchId: '',
+  higherGovMarket: 'all',
+  higherGovActiveOnly: true,
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -337,16 +365,17 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
         !!(w.closingFrom || w.closingTo),
       ].filter(Boolean).length
     : [
-        !!w.higherGovSearchId?.trim(), !!w.higherGovSourceType,
+        !!w.keywords?.trim(), (w.naics?.length ?? 0) > 0,
+        !!w.higherGovSearchId?.trim(), w.higherGovMarket !== 'all',
+        !!w.higherGovPostedOn,
       ].filter(Boolean).length;
 
   /**
    * Emits only the criteria the chosen provider can honour.
    *
-   * Previously every field was sent for every provider, so HigherGov received
-   * keyword/NAICS/set-aside values its API has no parameters for — the backend then
-   * client-filtered a 100-row slice, which reads as "filtering is broken". SAM.gov
-   * likewise received HigherGov-only fields it ignores.
+   * HigherGov keyword/NAICS search now goes through their MCP server, which supports both
+   * — so unlike the REST-only era, they are real filters here. Set-aside and closing date
+   * are still omitted: MCP's `search_opportunities` exposes neither.
    */
   const buildCriteria = (v: FormValues): SearchOpportunityCriteria => {
     const base = {
@@ -357,10 +386,26 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
     if (v.source === 'HIGHER_GOV') {
       return {
         ...base,
+        // Sent verbatim — HigherGov's query language ("close match", -exclude, or,
+        // grouping) is theirs to parse, so trimming is the only transformation allowed.
+        keywords: v.keywords?.trim() || undefined,
+        // MCP takes a single NAICS code; the backend forwards naics[0].
+        naics: v.naics?.length ? v.naics : undefined,
         // A search_id encodes its own keywords, filters and date range.
         higherGovSearchId: v.higherGovSearchId?.trim() || undefined,
-        higherGovSourceType: v.higherGovSourceType || undefined,
-        postedFrom: toLocalIsoDate(v.postedFrom),
+        higherGovMarket: v.higherGovMarket as SearchOpportunityCriteria['higherGovMarket'],
+        higherGovActiveOnly: v.higherGovActiveOnly,
+        // Deliberately NOT forwarding the posted date by default.
+        //
+        // HigherGov's `posted_date` is a SINGLE DAY, while the shared form seeds
+        // postedFrom to "30 days ago" for SAM.gov's range. Sending it asked HigherGov
+        // for opportunities posted on exactly that one day, which reliably returned 0:
+        // `keyword=saas` alone gives 310, and the same query plus
+        // `posted_date=<30 days ago>` gives 0.
+        //
+        // Only send it when the user actually picked a day on the HigherGov single-day
+        // picker, which `higherGovPostedOn` records separately from the SAM.gov range.
+        postedFrom: toLocalIsoDate(v.higherGovPostedOn),
       };
     }
 
@@ -390,6 +435,12 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
       closingFrom: mmddToDate(c.closingFrom), closingTo: mmddToDate(c.closingTo),
       higherGovSourceType: (c.higherGovSourceType ?? '') as FormValues['higherGovSourceType'],
       higherGovSearchId: c.higherGovSearchId ?? '',
+      // Fall back to the form defaults, not undefined: `reset` replaces the whole
+      // form state, so an omitted key here would blank the market/active controls
+      // rather than leave them at 'all'/true. Rows saved before these fields
+      // existed therefore reopen the way they always ran.
+      higherGovMarket: c.higherGovMarket ?? 'all',
+      higherGovActiveOnly: c.higherGovActiveOnly ?? true,
     });
   };
 
@@ -409,7 +460,11 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
         body: JSON.stringify({
           source, orgId,
           name: saveName.trim() || 'My Search',
-          criteria: { postedFrom: fmt(c.postedFrom), postedTo: fmt(c.postedTo), keywords: c.keywords, naics: c.naics, setAsideCode: c.setAsideCode, closingFrom: c.closingFrom ? fmt(c.closingFrom) : undefined, closingTo: c.closingTo ? fmt(c.closingTo) : undefined, higherGovSourceType: c.higherGovSourceType, higherGovSearchId: c.higherGovSearchId },
+          // `higherGovMarket` / `higherGovActiveOnly` are persisted explicitly. MCP
+          // defaults `opportunity_type` to federal_contract, and an absent
+          // `active_opportunity` returns all history — so omitting them reopened a
+          // saved "State & Local, active only" search as federal-only, all-time.
+          criteria: { postedFrom: fmt(c.postedFrom), postedTo: fmt(c.postedTo), keywords: c.keywords, naics: c.naics, setAsideCode: c.setAsideCode, closingFrom: c.closingFrom ? fmt(c.closingFrom) : undefined, closingTo: c.closingTo ? fmt(c.closingTo) : undefined, higherGovSourceType: c.higherGovSourceType, higherGovSearchId: c.higherGovSearchId, higherGovMarket: c.higherGovMarket, higherGovActiveOnly: c.higherGovActiveOnly },
           projectId,
           frequency: 'DAILY', autoImport, notifyEmails: [], isEnabled: true,
         }),
@@ -431,33 +486,19 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
 
       {/* ── Row 1: primary input + actions ── */}
       <div className="flex gap-2">
-        {/* SAM.gov: title search. HigherGov: its Search ID, which is that provider's
-            only real filter — so it takes the primary slot rather than a chip. */}
+        {/* Both providers take a text query now. SAM.gov matches notice titles only;
+            HigherGov (via MCP) supports its full query language over document text. */}
         <div className="relative flex-1">
-          {isSamGov ? (
-            <>
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              <Controller name="keywords" control={control} render={({ field }) => (
-                <Input
-                  {...field}
-                  placeholder="Title contains… (SAM.gov matches notice titles only)"
-                  className="pl-10 h-10"
-                />
-              )} />
-            </>
-          ) : (
-            <>
-              <Bookmark className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-              <Controller name="higherGovSearchId" control={control} render={({ field }) => (
-                <Input
-                  {...field}
-                  onChange={e => field.onChange(extractSearchId(e.target.value))}
-                  placeholder="Paste a HigherGov search URL or Search ID…"
-                  className="pl-10 h-10"
-                />
-              )} />
-            </>
-          )}
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+          <Controller name="keywords" control={control} render={({ field }) => (
+            <Input
+              {...field}
+              placeholder={isSamGov
+                ? 'Title contains… (SAM.gov matches notice titles only)'
+                : 'Keywords — try "close match", -exclude, or grouping…'}
+              className="pl-10 h-10"
+            />
+          )} />
         </div>
         <Button type="submit" disabled={isLoading} className="h-10 px-5 shrink-0">
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
@@ -512,41 +553,69 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
           </DropdownMenu>
         )} />
 
-        {/* HigherGov source_type filter — only visible when HigherGov is selected */}
+        {/* Market — MCP `opportunity_type`. Defaults to All: HigherGov's own default is
+            federal_contract, which hides state & local entirely. */}
         {isHigherGov && (
-          <Controller name="higherGovSourceType" control={control} render={({ field }) => (
+          <Controller name="higherGovMarket" control={control} render={({ field }) => (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button type="button" variant="outline" size="sm"
-                  className={cn('h-8 gap-1.5 text-xs font-normal', !!field.value && 'border-primary bg-primary/5 text-primary font-medium')}>
-                  {field.value ? ({ sam: 'SAM.gov', dibbs: 'DIBBS', sbir: 'SBIR/STTR', grant: 'Grants', sled: 'State & Local' }[field.value] ?? field.value) : 'HGov Source'}
-                  {field.value
-                    ? <span onClick={e => { e.stopPropagation(); field.onChange(''); }} className="ml-0.5 hover:text-destructive"><X className="h-3 w-3" /></span>
-                    : <ChevronDown className="h-3 w-3 opacity-50" />}
+                  className={cn('h-8 gap-1.5 text-xs font-normal', field.value !== 'all' && 'border-primary bg-primary/5 text-primary font-medium')}>
+                  {HIGHERGOV_MARKETS.find(m => m.value === field.value)?.label ?? 'All sources'}
+                  <ChevronDown className="h-3 w-3 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-44">
-                <DropdownMenuLabel className="text-xs">HigherGov Source</DropdownMenuLabel>
+              <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuLabel className="text-xs">Market</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuRadioGroup value={field.value || 'any'} onValueChange={v => field.onChange(v === 'any' ? '' : v)}>
-                  <DropdownMenuRadioItem value="any" className="text-xs">All sources</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="sbir" className="text-xs">SBIR/STTR</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="grant" className="text-xs">Grants</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="sled" className="text-xs">State & Local</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="sam" className="text-xs">SAM.gov</DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="dibbs" className="text-xs">DIBBS</DropdownMenuRadioItem>
+                <DropdownMenuRadioGroup value={field.value} onValueChange={field.onChange}>
+                  {HIGHERGOV_MARKETS.map(m => (
+                    <DropdownMenuRadioItem key={m.value} value={m.value} className="text-xs">
+                      {m.label}
+                    </DropdownMenuRadioItem>
+                  ))}
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           )} />
         )}
 
-        {/* NAICS — SAM.gov `ncode`. HigherGov's API has no NAICS parameter. */}
-        {isSamGov && (
+        {/* Active only — the single highest-impact HigherGov filter: the same `saas`
+            query returns 18 open vs 2860 across all history. */}
+        {isHigherGov && (
+          <Controller name="higherGovActiveOnly" control={control} render={({ field }) => (
+            <Button
+              type="button" variant="outline" size="sm"
+              aria-pressed={!!field.value}
+              onClick={() => field.onChange(!field.value)}
+              className={cn('h-8 gap-1.5 text-xs font-normal', field.value && 'border-primary bg-primary/5 text-primary font-medium')}
+            >
+              {field.value && <Check className="h-3 w-3" />}
+              Active only
+            </Button>
+          )} />
+        )}
+
+        {/* Saved Search ID — still useful: a HigherGov saved search can carry filters
+            (agency, state, value range) that keyword alone cannot express. */}
+        {isHigherGov && (
+          <Controller name="higherGovSearchId" control={control} render={({ field }) => (
+            <div className="relative">
+              <Bookmark className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <Input
+                {...field}
+                onChange={e => field.onChange(extractSearchId(e.target.value))}
+                placeholder="Or paste a HigherGov Search ID…"
+                className={cn('h-8 pl-8 text-xs w-60', !!field.value && 'border-primary bg-primary/5')}
+              />
+            </div>
+          )} />
+        )}
+
+        {/* NAICS — SAM.gov `ncode`; HigherGov `naics_code` via MCP. Both real filters. */}
         <Controller name="naics" control={control} render={({ field }) => (
           <NaicsFilter selected={field.value ?? []} onChange={field.onChange} />
         )} />
-        )}
 
         {/* Set-aside — SAM.gov `setAsideCode`. Unsupported by HigherGov's API. */}
         {isSamGov && (
@@ -582,7 +651,9 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
             )} />
           )} />
         ) : (
-          <Controller name="postedFrom" control={control} render={({ field }) => (
+          // Bound to its own field, NOT postedFrom: that one is seeded to "30 days ago"
+          // for SAM.gov, and feeding it to HigherGov's single-day param matched nothing.
+          <Controller name="higherGovPostedOn" control={control} render={({ field }) => (
             <SingleDateFilter label="Posted on" value={field.value} onChange={field.onChange} />
           )} />
         )}
@@ -621,19 +692,29 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
         )}
       </div>
 
-      {/* ── Provider capability note ──
-          Replaces the old amber "this search is doomed" warning. That warning fired
-          after the user had already typed a keyword HigherGov cannot honour; the
-          filters above are now provider-aware, so the doomed combination is
-          unreachable and only an explanation of the remaining shape is needed. */}
+      {/* ── Query syntax hint ──
+          Deliberately uses HigherGov's own wording ("close match", exclude) so the syntax
+          reads the same here as in their UI. Their keyword field is the same parser, so
+          anything documented on that page works in this box. */}
       {isHigherGov && (
         <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
           <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 mt-0.5" />
           <span>
-            HigherGov's API filters by saved search only — build the search on{' '}
-            <a href="https://www.highergov.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">HigherGov</a>{' '}
-            (keywords, NAICS, set-asides and all), then paste its URL or Search ID above.
-            Leave it empty to browse the most recently captured opportunities.
+            Supports HigherGov search syntax:{' '}
+            <code className="text-foreground">&quot;close match&quot;</code>,{' '}
+            <code className="text-foreground">-exclude</code>,{' '}
+            <code className="text-foreground">or</code>, and{' '}
+            <code className="text-foreground">( )</code> grouping —{' '}
+            <a
+              href="https://docs.highergov.com/highergov-basics/search-basics"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-foreground"
+            >
+              full reference
+            </a>
+            . Quoting matters: <code className="text-foreground">&quot;document management&quot;</code>{' '}
+            is far narrower than the same words unquoted.
           </span>
         </p>
       )}

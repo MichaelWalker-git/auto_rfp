@@ -142,6 +142,10 @@ const ackResult = { parse: <T>(v: T) => v as T };
 export const autofillFieldsWithTools = async (
   fields: DetectedFormField[],
   profile: CompanyProfileItem,
+  // Org scope for the Bedrock call. Threaded from docx-form-parser and the
+  // textract-forms-callback worker (via form.orgId). Required (ticket 09) —
+  // there is no shared-key fallback.
+  orgId: string,
 ): Promise<DetectedFormField[]> => {
   if (fields.length === 0) return fields;
 
@@ -264,6 +268,7 @@ export const autofillFieldsWithTools = async (
   try {
     await invokeClaudeWithTools({
       modelId: getBedrockModelId(),
+      orgId,
       system: SYSTEM,
       user: userText,
       tools: TOOLS,

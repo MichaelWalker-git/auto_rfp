@@ -4,6 +4,7 @@ import { loadTextFromS3 } from '@/helpers/s3';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import { safeParseJsonFromModel } from '@/helpers/json';
 import { updateQuestionFile, checkQuestionFileCancelled } from '@/helpers/questionFile';
+import { isAiNotConfiguredError } from '@/helpers/ai-config-error';
 import { withSentryLambda } from '@/sentry-lambda';
 
 const getDocumentsBucket = () => requireEnv('DOCUMENTS_BUCKET');
@@ -16,6 +17,8 @@ export interface ClassifyDocumentEvent {
   textFileKey: string;
   sourceFileKey: string;
   mimeType: string;
+  /** Org identity, threaded from the pipeline execution input for per-org Bedrock key routing. */
+  orgId: string;
 }
 
 export interface ClassifyDocumentResult {
@@ -107,7 +110,7 @@ export const baseHandler = async (
   event: ClassifyDocumentEvent,
   _ctx: Context,
 ): Promise<ClassifyDocumentResult> => {
-  const { questionFileId, projectId, opportunityId, textFileKey, sourceFileKey, mimeType } = event;
+  const { questionFileId, projectId, opportunityId, textFileKey, sourceFileKey, mimeType, orgId } = event;
 
   if (projectId && opportunityId && questionFileId) {
     const isCancelled = await checkQuestionFileCancelled(projectId, opportunityId, questionFileId);
@@ -135,7 +138,7 @@ export const baseHandler = async (
     console.log(`Loaded text for classification: ${text.length} characters`);
 
     const body = buildClassificationBody(text, mimeType, sourceFileKey);
-    const responseBody = await invokeModel(getBedrockModelId(), JSON.stringify(body));
+    const responseBody = await invokeModel(getBedrockModelId(), JSON.stringify(body), orgId);
     const jsonTxt = new TextDecoder('utf-8').decode(responseBody);
 
     const outer = JSON.parse(jsonTxt) as Record<string, unknown>;
@@ -160,6 +163,10 @@ export const baseHandler = async (
       result = { docType: 'REQUIRED_FORM' };
     }
   } catch (err: unknown) {
+    // Fail closed on an unconfigured org: surface the AI-not-configured error at
+    // this (the earliest AI) stage instead of silently classifying as OTHER and
+    // failing several steps later. Genuine best-effort errors still degrade to OTHER.
+    if (isAiNotConfiguredError(err)) throw err;
     console.error('Classification failed, defaulting to OTHER:', (err as Error)?.message);
   }
 

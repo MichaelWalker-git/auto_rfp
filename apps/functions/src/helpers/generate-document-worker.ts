@@ -745,7 +745,7 @@ export const generateSingleShot = async (args: {
       requestBody.tools = getDocumentToolsForType(documentType, { hasSolutionPlan });
     }
 
-    const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody));
+    const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody), orgId);
     const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody));
 
     const stopReason: string = parsed.stop_reason ?? 'end_turn';
@@ -811,7 +811,7 @@ export const generateSingleShot = async (args: {
         max_tokens: effectiveMaxTokens,
         temperature: TEMPERATURE,
       };
-      const finalResponse = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(finalBody));
+      const finalResponse = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(finalBody), orgId);
       const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResponse));
       const finalContent: Array<{ type: string; text?: string }> = finalParsed.content ?? [];
       rawText = finalContent.filter(c => c.type === 'text').map(c => c.text ?? '').join('\n').trim()

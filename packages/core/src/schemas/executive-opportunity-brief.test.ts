@@ -187,6 +187,36 @@ describe('QuickSummarySchema', () => {
     const { success } = QuickSummarySchema.safeParse(input);
     expect(success).toBe(false);
   });
+
+  // ── submissionMethod (LLM fallback signal for physical-submission detection) ──
+
+  it('accepts a valid submissionMethod and rationale', () => {
+    const input = {
+      summary: 'A valid summary.',
+      submissionMethod: 'PHYSICAL',
+      submissionMethodRationale: 'mail proposals to the address below',
+    };
+
+    const { success, data } = QuickSummarySchema.safeParse(input);
+    expect(success).toBe(true);
+    expect(data?.submissionMethod).toBe('PHYSICAL');
+    expect(data?.submissionMethodRationale).toBe('mail proposals to the address below');
+  });
+
+  it('allows submissionMethod to be omitted', () => {
+    const input = { summary: 'A valid summary.' };
+
+    const { success, data } = QuickSummarySchema.safeParse(input);
+    expect(success).toBe(true);
+    expect(data?.submissionMethod).toBeUndefined();
+  });
+
+  it('rejects an invalid submissionMethod enum value', () => {
+    const input = { summary: 'A valid summary.', submissionMethod: 'NOT_A_REAL_VALUE' };
+
+    const { success } = QuickSummarySchema.safeParse(input);
+    expect(success).toBe(false);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════

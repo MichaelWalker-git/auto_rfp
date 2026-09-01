@@ -124,7 +124,7 @@ export const findSimilarInPinecone = async (
   const client = await initPineconeClient();
   const index = client.Index(getPineconeIndex());
 
-  const embedding = await getEmbedding(questionText);
+  const embedding = await getEmbedding(questionText, orgId);
 
   const results = await index.namespace(orgId).query({
     vector: embedding,

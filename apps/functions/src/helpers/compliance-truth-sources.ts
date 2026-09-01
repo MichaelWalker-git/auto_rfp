@@ -165,7 +165,7 @@ export const searchKnowledgeBase = async (
 ): Promise<KbHit[]> => {
   try {
     if (!query.trim()) return [];
-    const embedding = await getEmbedding(query);
+    const embedding = await getEmbedding(query, orgId);
     const hits = await semanticSearchContentLibrary(orgId, embedding, k, kbIds);
     const loaded = await Promise.all(
       hits.map(async (hit) => {

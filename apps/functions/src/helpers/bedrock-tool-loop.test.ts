@@ -191,3 +191,83 @@ describe('invokeClaudeWithTools', () => {
     expect(mockToolExecutor).toHaveBeenCalledWith('search_past_performance', { keywords: 'cloud' }, 'tool-2');
   });
 });
+
+describe('invokeClaudeWithTools — orgId propagation', () => {
+  const ORG_ID = 'org-xyz';
+
+  it('threads orgId to every invoke across tool-use rounds', async () => {
+    const toolUseResponse = {
+      stop_reason: 'tool_use',
+      content: [{ type: 'tool_use', id: 'tool-1', name: 'search_knowledge_base', input: {} }],
+    };
+    const finalResponse = { stop_reason: 'end_turn', content: [{ type: 'text', text: '{"title":"Done"}' }] };
+
+    mockInvokeModel
+      .mockResolvedValueOnce(encodeResponse(toolUseResponse))
+      .mockResolvedValueOnce(encodeResponse(finalResponse));
+
+    await invokeClaudeWithTools({
+      modelId: MODEL_ID,
+      orgId: ORG_ID,
+      system: 'System',
+      user: 'User',
+      tools: [{ name: 'search_knowledge_base', description: 'Search', input_schema: { type: 'object' as const, properties: {}, required: [] } }],
+      toolExecutor: mockToolExecutor,
+      outputSchema: SIMPLE_SCHEMA,
+    });
+
+    expect(mockInvokeModel).toHaveBeenCalledTimes(2);
+    // Every internal invoke — main round and the follow-up round — carries orgId as the 3rd arg.
+    for (const call of mockInvokeModel.mock.calls) {
+      expect(call[0]).toBe(MODEL_ID);
+      expect(call[2]).toBe(ORG_ID);
+    }
+  });
+
+  it('threads orgId through the truncation retry', async () => {
+    const truncated = { stop_reason: 'max_tokens', content: [{ type: 'text', text: '{"title":"partia' }] };
+    const completed = { stop_reason: 'end_turn', content: [{ type: 'text', text: '{"title":"Complete"}' }] };
+
+    mockInvokeModel
+      .mockResolvedValueOnce(encodeResponse(truncated))
+      .mockResolvedValueOnce(encodeResponse(completed));
+
+    await invokeClaudeWithTools({
+      modelId: MODEL_ID,
+      orgId: ORG_ID,
+      system: 'System',
+      user: 'User',
+      tools: [],
+      toolExecutor: mockToolExecutor,
+      outputSchema: SIMPLE_SCHEMA,
+    });
+
+    expect(mockInvokeModel).toHaveBeenCalledTimes(2);
+    // The truncation-retry invoke (2nd call) must carry orgId too.
+    expect(mockInvokeModel.mock.calls[1]?.[2]).toBe(ORG_ID);
+  });
+
+  it('threads orgId through the JSON-repair retry', async () => {
+    const nonJson = { stop_reason: 'end_turn', content: [{ type: 'text', text: 'this is not json' }] };
+    const repaired = { stop_reason: 'end_turn', content: [{ type: 'text', text: '{"title":"Repaired"}' }] };
+
+    mockInvokeModel
+      .mockResolvedValueOnce(encodeResponse(nonJson))
+      .mockResolvedValueOnce(encodeResponse(repaired));
+
+    const result = await invokeClaudeWithTools({
+      modelId: MODEL_ID,
+      orgId: ORG_ID,
+      system: 'System',
+      user: 'User',
+      tools: [],
+      toolExecutor: mockToolExecutor,
+      outputSchema: SIMPLE_SCHEMA,
+    });
+
+    expect(result).toEqual({ title: 'Repaired' });
+    expect(mockInvokeModel).toHaveBeenCalledTimes(2);
+    // The JSON-repair invoke (2nd call) must carry orgId too.
+    expect(mockInvokeModel.mock.calls[1]?.[2]).toBe(ORG_ID);
+  });
+});

@@ -182,7 +182,7 @@ async function searchPastPerformance(orgId: string, searchQuery: string): Promis
 
 async function searchContentLibrary(orgId: string, searchQuery: string): Promise<ContextItem[]> {
   try {
-    const embedding = await getEmbedding(searchQuery);
+    const embedding = await getEmbedding(searchQuery, orgId);
     const hits = await semanticSearchContentLibrary(orgId, embedding, CONTENT_LIB_TOP_K);
     if (!hits?.length) return [];
 

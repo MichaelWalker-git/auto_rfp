@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { PastPerformanceSectionSchema } from './past-performance';
 import { PricingSectionSchema } from './pricing';
 import { RFPDocumentTypeSchema } from './rfp-document';
+import { SubmissionMethodDetectedSchema } from './opportunity';
 
 /**
  * Lenient ISO datetime schema for LLM-generated dates.
@@ -177,6 +178,10 @@ export const QuickSummarySchema = z.object({
   periodOfPerformance: z.string().nullish(),
   deliveryLocationConstraint: z.enum(['US_ONLY', 'OFFSHORE_ALLOWED', 'UNKNOWN']).nullish().default('UNKNOWN'),
   offshoreEligibilityRationale: z.string().nullish(),
+  // LLM fallback signal for physical-submission detection — used only when the
+  // deterministic `scanPhysicalSubmission()` regex scan returns null (ADR-001 priority 2).
+  submissionMethod: SubmissionMethodDetectedSchema.nullish(),
+  submissionMethodRationale: z.string().nullish(),
   summary: z.preprocess(
     (v) => {
       if (v === null || v === undefined) return '';

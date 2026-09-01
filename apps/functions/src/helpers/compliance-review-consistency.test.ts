@@ -107,6 +107,8 @@ describe('computeConsistencyFindings', () => {
     expect(name).toHaveLength(1); // only d1 has the variants
     expect(name[0].documentId).toBe('d1');
     expect(name[0].description).toContain('HORUSTECH');
+    // orgId threads through to the name-grouping Bedrock call as the 3rd arg.
+    expect(mockInvokeModel).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'o');
   });
 
   it('only trusts variant strings that were actually in the candidate list (no hallucinations)', async () => {
@@ -590,6 +592,8 @@ describe('computeProfileFactFindings (C1 identity fields)', () => {
     });
     // A prose candidate was generated (the model was consulted) and the finding surfaced.
     expect(mockInvokeModel).toHaveBeenCalled();
+    // orgId threads through to the Bedrock fact-verify call as the 3rd arg.
+    expect(mockInvokeModel).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'o');
     const state = findings.find((f) => f.title?.includes('State'));
     expect(state).toBeTruthy();
     expect(state?.description).toContain('IN');

@@ -216,6 +216,7 @@ export const baseHandler = async (
     const responseBody = await invokeModel(
       getDetectionModelId(),
       JSON.stringify(buildDetectionPrompt(chunks[i], mimeType)),
+      orgId,
     );
     const responseJson = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as Record<string, unknown>;
     const contentBlocks = (responseJson?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];

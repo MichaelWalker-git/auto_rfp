@@ -21,6 +21,11 @@ import { authFetcher } from '@/lib/auth/auth-fetcher';
 import { env } from '@/lib/env';
 import { normalizeConfidence } from '@/components/confidence/confidence-score-display';
 import { useProjectContext } from '@/context/project-context';
+import {
+  isAiNotConfiguredError,
+  AI_NOT_CONFIGURED_TITLE,
+  AI_NOT_CONFIGURED_DESCRIPTION,
+} from '@/lib/ai-not-configured';
 
 // Interfaces
 interface AnswerData {
@@ -365,11 +370,19 @@ export function QuestionsProvider({ children, projectId, opportunityId }: Questi
 
     } catch (error) {
       console.error('Error generating answer:', error);
-      toast({
-        title: 'Generation Error',
-        description: 'Failed to generate answer. Please try again.',
-        variant: 'destructive',
-      });
+      if (isAiNotConfiguredError(error)) {
+        toast({
+          title: AI_NOT_CONFIGURED_TITLE,
+          description: AI_NOT_CONFIGURED_DESCRIPTION,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Generation Error',
+          description: 'Failed to generate answer. Please try again.',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setInteractiveGenerating((prev) => ({ ...prev, [questionId]: false }));
     }

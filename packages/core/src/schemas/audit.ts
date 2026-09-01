@@ -158,6 +158,14 @@ export const AuditActionSchema = z.enum([
   // Past-performance disclosure (NDA / permission) review
   'PAST_PERF_DISCLOSURE_CONFIRMED',
   /**
+   * Portal detected for a public records request agency.
+   */
+  'PORTAL_DETECTED',
+  /**
+   * No portal detected - falling back to email submission.
+   */
+  'EMAIL_FALLBACK_INITIATED',
+  /**
    * A public-records request was transmitted to a government agency.
    *
    * Its own action rather than the `CONFIG_CHANGED` the manual handler had settled for:
@@ -166,6 +174,10 @@ export const AuditActionSchema = z.enum([
    * is not a description an auditor can act on.
    */
   'FOIA_REQUEST_SENT',
+  /**
+   * A public-records request submission failed.
+   */
+  'FOIA_REQUEST_FAILED',
   // Employee pool (team definition)
   'EMPLOYEE_CREATED',
   'EMPLOYEE_UPDATED',

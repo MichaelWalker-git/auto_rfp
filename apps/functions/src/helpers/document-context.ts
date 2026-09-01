@@ -486,7 +486,7 @@ export async function loadContentLibraryContext(
     const searchQuery = buildSearchQuery(solicitation);
     if (!searchQuery) return '';
 
-    const embedding = await getEmbedding(searchQuery);
+    const embedding = await getEmbedding(searchQuery, orgId);
     const hits = await semanticSearchContentLibrary(orgId, embedding, LIMITS.contentLibTopK);
     if (!hits?.length) return '';
 
