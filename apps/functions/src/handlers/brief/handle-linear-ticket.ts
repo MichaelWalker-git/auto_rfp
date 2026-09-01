@@ -95,22 +95,18 @@ export const baseHandler = async (
     const deadlines = brief.sections?.deadlines?.data;
     const decision = brief.decision || brief.sections?.scoring?.data?.decision;
 
-    // Determine title prefix and labels based on decision
-    let titlePrefix = '[RFP]';
+    // Decision still drives the Linear labels — the title stays plain text.
     const labels = ['RFP', 'Auto-Generated'];
 
     if (decision === 'GO') {
-      titlePrefix = '[RFP] ✅';
       labels.push('go');
     } else if (decision === 'NO_GO') {
-      titlePrefix = '[RFP] ❌';
       labels.push('no-go');
     } else if (decision === 'CONDITIONAL_GO') {
-      titlePrefix = '[RFP] 🔍';
       labels.push('needs-review');
     }
 
-    const title = `${titlePrefix} ${summary?.title || project.name || 'RFP Opportunity'}`;
+    const title = `[RFP] ${summary?.title || project.name || 'RFP Opportunity'}`;
 
     if (brief.linearTicketId) {
       console.log(`Updating existing Linear ticket: ${brief.linearTicketId}`);
