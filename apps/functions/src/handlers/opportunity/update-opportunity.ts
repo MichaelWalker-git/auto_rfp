@@ -16,7 +16,8 @@ import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware'
 
 import { updateOpportunity, getOpportunity } from '@/helpers/opportunity';
 import { transitionOpportunityStatus } from '@/helpers/opportunity-status';
-import { OpportunityUpdateRequestSchema, TERMINAL_OPPORTUNITY_STATUSES } from '@auto-rfp/core';
+import { syncPhysicalSubmissionLabel } from '@/helpers/linear';
+import { OpportunityUpdateRequestSchema, TERMINAL_OPPORTUNITY_STATUSES, isPhysicalSubmission } from '@auto-rfp/core';
 import type { OpportunityStatus } from '@auto-rfp/core';
 import { resolveUserNames } from '@/helpers/resolve-users';
 import { getOrgMembers } from '@/helpers/user';
@@ -32,7 +33,7 @@ const UpdateOpportunityRequestSchema = z.object({
 /**
  * Update an existing opportunity
  */
-const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
+export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2> => {
   try {
     console.log('Update Opportunity Event:', JSON.stringify(event, null, 2));
 
@@ -140,6 +141,15 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     } else {
       // No status change → plain field update.
       ({ item } = await updateOpportunity({ orgId, projectId, oppId, patch, userContext: { userId, userName } }));
+    }
+
+    // Keep the Linear label in sync when the user manually toggles submission
+    // method. Fire-and-forget: a Linear API failure must never fail the PATCH,
+    // since the opportunity update above is already committed.
+    if ('submissionMethod' in patch) {
+      syncPhysicalSubmissionLabel(orgId, oppId, isPhysicalSubmission(patch.submissionMethod)).catch((syncErr) =>
+        console.warn('Failed to sync physical-submission Linear label:', (syncErr as Error)?.message),
+      );
     }
 
     setAuditContext(event, {
