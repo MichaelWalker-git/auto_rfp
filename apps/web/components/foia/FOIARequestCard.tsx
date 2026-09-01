@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { CreateFOIARequestDialog } from './CreateFOIARequestDialog';
+import { PortalSubmissionModal } from './PortalSubmissionModal';
 import {
   useFOIARequests,
   useGenerateFOIALetter,
@@ -38,6 +39,9 @@ import {
   MapPin,
   DollarSign,
   Trash2,
+  Globe,
+  ExternalLink,
+  Send,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -72,6 +76,7 @@ export const FOIARequestCard = ({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDrafting, setIsDrafting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isPortalModalOpen, setIsPortalModalOpen] = useState(false);
   const { foiaRequests, isLoading, refetch } = useFOIARequests(orgId, projectId, opportunityId);
   const { generateFOIALetter } = useGenerateFOIALetter();
   const { deleteFOIARequest } = useDeleteFOIARequest();
@@ -206,6 +211,83 @@ export const FOIARequestCard = ({
                   </div>
                 )}
               </div>
+
+              {/* Portal Information */}
+              {existingRequest.portalDetected && (
+                <div className="pt-3 border-t">
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 space-y-2">
+                    <div className="flex items-center gap-2 text-blue-900 font-medium text-sm">
+                      <Globe className="h-4 w-4" />
+                      <span>Portal Submission Required</span>
+                    </div>
+
+                    <div className="grid gap-1.5 text-xs">
+                      {existingRequest.portalType && (
+                        <div className="flex items-start gap-2 text-muted-foreground">
+                          <span className="font-medium text-foreground min-w-[80px]">Portal Type:</span>
+                          <span>{existingRequest.portalType}</span>
+                        </div>
+                      )}
+
+                      {existingRequest.portalBaseUrl && (
+                        <div className="flex items-start gap-2 text-muted-foreground">
+                          <span className="font-medium text-foreground min-w-[80px]">Portal URL:</span>
+                          <a
+                            href={existingRequest.portalBaseUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 underline flex items-center gap-1 break-all"
+                          >
+                            {existingRequest.portalBaseUrl}
+                            <ExternalLink className="h-3 w-3 shrink-0" />
+                          </a>
+                        </div>
+                      )}
+
+                      {existingRequest.portalRecordTypeField && (
+                        <div className="flex items-start gap-2 text-muted-foreground">
+                          <span className="font-medium text-foreground min-w-[80px]">Field Name:</span>
+                          <span className="font-mono text-xs bg-white px-1.5 py-0.5 rounded border">
+                            {existingRequest.portalRecordTypeField}
+                          </span>
+                        </div>
+                      )}
+
+                      {existingRequest.portalRecordTypeValue && (
+                        <div className="flex items-start gap-2 text-muted-foreground">
+                          <span className="font-medium text-foreground min-w-[80px]">Select Value:</span>
+                          <span className="font-semibold text-blue-900 bg-blue-100 px-2 py-0.5 rounded">
+                            {existingRequest.portalRecordTypeValue}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => setIsPortalModalOpen(true)}
+                        className="w-full text-xs bg-blue-600 hover:bg-blue-700"
+                      >
+                        <Send className="h-3.5 w-3.5 mr-1.5" />
+                        Submit to Portal
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {existingRequest.portalDetected === false && (
+                <div className="pt-3 border-t">
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <div className="flex items-center gap-2 text-gray-700 text-xs">
+                      <Mail className="h-3.5 w-3.5 shrink-0" />
+                      <span>No portal detected - email submission available</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Contract details */}
               <div className="grid gap-1.5 pt-2 border-t text-xs text-muted-foreground">
@@ -433,6 +515,14 @@ export const FOIARequestCard = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {existingRequest && existingRequest.portalDetected && (
+        <PortalSubmissionModal
+          isOpen={isPortalModalOpen}
+          onOpenChange={setIsPortalModalOpen}
+          foiaRequest={existingRequest}
+        />
+      )}
     </>
   );
 };
