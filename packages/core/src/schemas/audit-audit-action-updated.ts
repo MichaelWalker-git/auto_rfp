@@ -1,0 +1,342 @@
+import { z } from 'zod';
+
+// ─── Audit Action Categories ──────────────────────────────────────────────────
+
+export const AuditActionSchema = z.enum([
+  // User actions
+  'USER_LOGIN',
+  'USER_LOGOUT',
+  'USER_LOGIN_FAILED',
+  'USER_CREATED',
+  'USER_UPDATED',
+  'USER_DELETED',
+  'USER_ROLE_CHANGED',
+  'USER_INVITED',
+  'USER_TEMP_PASSWORD_RESENT',
+  // Knowledge Base actions
+  'KB_CREATED',
+  'KB_UPDATED',
+  'KB_DELETED',
+  'KB_ACCESS_GRANTED',
+  'KB_ACCESS_REVOKED',
+  // Document actions
+  'DOCUMENT_UPLOADED',
+  'DOCUMENT_DELETED',
+  'DOCUMENT_EXPORTED',
+  'DOCUMENTS_BULK_EXPORTED',
+  'DOCUMENT_VIEWED',
+  'DOCUMENT_UPDATED',
+  // Document version actions
+  'DOCUMENT_VERSION_CREATED',
+  'DOCUMENT_VERSION_REVERTED',
+  'DOCUMENT_VERSION_CHERRYPICKED',
+  // Answer actions
+  'ANSWER_CREATED',
+  'ANSWER_EDITED',
+  'ANSWER_DELETED',
+  'ANSWER_GENERATED',
+  // Clarifying question actions
+  'CLARIFYING_QUESTION_GENERATED',
+  'CLARIFYING_QUESTION_UPDATED',
+  // Engagement log actions
+  'ENGAGEMENT_LOG_CREATED',
+  'ENGAGEMENT_LOG_UPDATED',
+  // Proposal actions
+  'PROPOSAL_SUBMITTED',
+  'PROPOSAL_EXPORTED',
+  // Project actions
+  'PROJECT_CREATED',
+  'PROJECT_UPDATED',
+  'PROJECT_DELETED',
+  'PROJECT_ACCESS_GRANTED',
+  'PROJECT_ACCESS_REVOKED',
+  'PROJECT_ACCESS_GRANTED_TO_ADMINS',
+  // Organization actions
+  'ORG_SETTINGS_CHANGED',
+  'ORG_MEMBER_ADDED',
+  'ORG_MEMBER_REMOVED',
+  // Permission / security actions
+  'PERMISSION_DENIED',
+  'UNAUTHORIZED_ACCESS',
+  'API_KEY_CREATED',
+  'API_KEY_DELETED',
+  'PERMISSION_CHANGED',
+  // System / pipeline events
+  'PIPELINE_STARTED',
+  'PIPELINE_COMPLETED',
+  'PIPELINE_FAILED',
+  // Question extraction pipeline events
+  'QUESTION_PIPELINE_STARTED',
+  'QUESTION_PIPELINE_COMPLETED',
+  'QUESTION_PIPELINE_FAILED',
+  // Answer generation pipeline events
+  'ANSWER_PIPELINE_STARTED',
+  'ANSWER_PIPELINE_COMPLETED',
+  'ANSWER_PIPELINE_FAILED',
+  'AI_GENERATION_STARTED',
+  'AI_GENERATION_COMPLETED',
+  'AI_GENERATION_FAILED',
+  // AI tool invocation events
+  'AI_TOOL_CALLED',
+  'AI_TOOL_FAILED',
+  'INTEGRATION_SYNC_STARTED',
+  'INTEGRATION_SYNC_COMPLETED',
+  'INTEGRATION_SYNC_FAILED',
+  // Export / data operations
+  'DATA_EXPORTED',
+  'REPORT_GENERATED',
+  // Configuration
+  'CONFIG_CHANGED',
+  // APN (AWS Partner Network) registration events
+  'APN_REGISTRATION_STARTED',
+  'APN_REGISTRATION_COMPLETED',
+  'APN_REGISTRATION_FAILED',
+  'APN_REGISTRATION_RETRIED',
+  // Document approval events
+  'DOCUMENT_APPROVAL_REQUESTED',
+  'DOCUMENT_APPROVED',
+  'DOCUMENT_REJECTED',
+  'DOCUMENT_APPROVAL_CANCELLED',
+  'DOCUMENT_REVISION_RESUBMITTED',
+  'DOCUMENT_BULK_REVIEWED',
+  // Question actions
+  'QUESTION_CREATED',
+  'QUESTION_DELETED',
+  // Clustering actions
+  'CLUSTERS_VIEWED',
+  'SIMILAR_QUESTIONS_SEARCHED',
+  'CLUSTER_ANSWER_APPLIED',
+  // Question file actions
+  'QUESTION_FILE_CREATED',
+  'QUESTION_FILE_DELETED',
+  'QUESTION_FILE_REEXTRACT_ALL',
+  // Solicitation import
+  'SOLICITATION_IMPORTED',
+  // Attachment auto-import (link detection)
+  'ATTACHMENTS_AUTO_IMPORTED',
+  // AI section editing (chat-based)
+  'DOCUMENT_SECTION_EDIT_STARTED',
+  'DOCUMENT_SECTION_EDIT_COMPLETED',
+  'DOCUMENT_SECTION_EDIT_FAILED',
+  // Opportunity assignment
+  'OPPORTUNITY_ASSIGNED',
+  'OPPORTUNITY_UNASSIGNED',
+  // FOIA portal detection
+  'PORTAL_DETECTED',
+  'EMAIL_FALLBACK_INITIATED',
+  // Custom report actions
+  'REPORT_EXPORTED',
+  'REPORT_SHARDED',
+  // User preferences
+  'PREFERENCES_CHANGED',
+  // Content library
+  'CONTENT_LIBRARY_CREATED',
+  'CONTENT_LIBRARY_UPDATED',
+  'CONTENT_LIBRARY_DELETED',
+  'CONTENT_LIBRARY_INDEXED',
+  'CONTENT_LIBRARY_REINDEXED',
+  // Template management
+  'TEMPLATE_CREATED',
+  'TEMPLATE_UPDATED',
+  'TEMPLATE_DELETED',
+  'TEMPLATE_CLONED',
+  'TEMPLATE_PUBLISHED',
+  'TEMPLATE_UNPUBLISHED',
+  // Past performance
+  'PAST_PERFORMANCE_CREATED',
+  'PAST_PERFORMANCE_UPDATED',
+  'PAST_PERFORMANCE_DELETED',
+  // Compliance review
+  'COMPLIANCE_REVIEWED',
+  'COMPLIANCE_FAILED',
+  'COMPLIANCE_PASSED',
+  'COMPLIANCE_REQUESTED',
+  // Pricing
+  'PRICING_ESTIMATE_CREATED',
+  'PRICING_ESTIMATE_UPDATED',
+  'PRICING_ESTIMATE_DELETED',
+  // Opportunity
+  'OPPORTUNITY_CREATED',
+  'OPPORTUNITY_UPDATED',
+  'OPPORTUNITY_DELETED',
+  'OPPORTUNITY_STATUS_CHANGED',
+  'OPPORTUNITY_BID_STATUS_CHANGED',
+  'OPPORTUNITY_BIDDER_ADDED',
+  'OPPORTUNITY_BIDDER_REMOVED',
+  // RFP
+  'RFP_CREATED',
+  'RFP_UPDATED',
+  'RFP_DELETED',
+  'RFP_SENT',
+  'RFP_RECEIVED',
+  // Document approval
+  'DOCUMENT_APPROVAL_REVIEWED',
+  'DOCUMENT_APPROVAL_APPROVED',
+  'DOCUMENT_APPROVAL_REJECTED',
+  'DOCUMENT_APPROVAL_CANCELLED',
+  'DOCUMENT_APPROVAL_REVISION_SUBMITTED',
+  // KB coverage
+  'KB_COVERAGE_ANALYZED',
+  'KB_COVERAGE_UPDATED',
+  // Questionnaire
+  'QUESTIONNAIRE_CREATED',
+  'QUESTIONNAIRE_UPDATED',
+  'QUESTIONNAIRE_DELETED',
+  'QUESTIONNAIRE_COMPLETED',
+  // Proposal
+  'PROPOSAL_CREATED',
+  'PROPOSAL_UPDATED',
+  'PROPOSAL_DELETED',
+  'PROPOSAL_SUBMITTED',
+  'PROPOSAL_APPROVED',
+  'PROPOSAL_REJECTED',
+  // Proposal version
+  'PROPOSAL_VERSION_CREATED',
+  'PROPOSAL_VERSION_REVERTED',
+  'PROPOSAL_VERSION_EXPORTED',
+  // Proposal history
+  'PROPOSAL_HISTORY_VIEWED',
+  'PROPOSAL_HISTORY_EXPORTED',
+]);
+
+export type AuditAction = z.infer<typeof AuditActionSchema>;
+
+// ─── Audit Resource Types ──────────────────────────────────────────────────────
+
+export const AuditResourceSchema = z.enum([
+  'user',
+  'kb',
+  'document',
+  'document_version',
+  'answer',
+  'clarifying_question',
+  'engagement_log',
+  'proposal',
+  'project',
+  'organization',
+  'api_key',
+  'pipeline',
+  'question_extraction_pipeline',
+  'answer_generation_pipeline',
+  'integration',
+  'data_export',
+  'report',
+  'config',
+  'apn_registration',
+  'document_approval',
+  'question',
+  'cluster',
+  'question_file',
+  'solicitation',
+  'attachment',
+  'document_section',
+  'opportunity',
+  'report_export',
+  'preference',
+  'content_library',
+  'template',
+  'past_performance',
+  'compliance_review',
+  'pricing_estimate',
+  'rfp',
+  'proposal_version',
+  'proposal_history',
+  'kb_coverage',
+  'questionnaire',
+  // FOIA specific resources
+  'foia-request',
+]);
+
+export type AuditResource = z.infer<typeof AuditResourceSchema>;
+
+// ─── Audit Log Entry (stored in DynamoDB) ─────────────────────────────────────
+
+export const AuditLogEntrySchema = z.object({
+  logId: z.string().uuid(),
+  timestamp: z.string().datetime(),
+  userId: z.string().min(1),           // 'system' for automated events
+  userName: z.string().min(1),         // display name or 'system'
+  organizationId: z.string().min(1),   // 'global' for cross-org system events
+  action: AuditActionSchema,
+  resource: AuditResourceSchema,
+  resourceId: z.string().min(1),       // ID of the affected entity
+  changes: z.object({
+    before: z.unknown().optional(),
+    after: z.unknown().optional(),
+  }).optional(),
+  ipAddress: z.string().min(1),        // '0.0.0.0' for system events
+  userAgent: z.string().min(1),        // 'system' for automated events
+  result: z.enum(['success', 'failure']),
+  errorMessage: z.string().optional(),
+  /** SHA-256 HMAC of the log entry for tamper detection */
+  integrityHash: z.string().min(1),
+  /** DynamoDB TTL — Unix epoch seconds, 90 days from creation */
+  ttl: z.number().int().positive(),
+});
+export type AuditLogEntry = z.infer<typeof AuditLogEntrySchema>;
+
+// ─── SQS Payload (what gets enqueued by the middleware) ───────────────────────
+
+export const AuditLogPayloadSchema = AuditLogEntrySchema.omit({
+  integrityHash: true,
+  ttl: true,
+});
+export type AuditLogPayload = z.infer<typeof AuditLogPayloadSchema>;
+
+// ─── Query DTOs ───────────────────────────────────────────────────────────────
+
+export const QueryAuditLogsSchema = z.object({
+  orgId: z.string().min(1),
+  userId: z.string().optional(),
+  action: AuditActionSchema.optional(),
+  resource: AuditResourceSchema.optional(),
+  resourceId: z.string().optional(),
+  result: z.enum(['success', 'failure']).optional(),
+  fromDate: z.string().datetime().optional(),
+  toDate: z.string().datetime().optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  nextToken: z.string().optional(),
+});
+export type QueryAuditLogs = z.infer<typeof QueryAuditLogsSchema>;
+
+// ─── Report DTOs ──────────────────────────────────────────────────────────────
+
+export const ReportTypeSchema = z.enum([
+  'user_activity_summary',
+  'access_report',
+  'change_history',
+  'security_events',
+  'export_log',
+]);
+export type ReportType = z.infer<typeof ReportTypeSchema>;
+
+export const GenerateReportSchema = z.object({
+  orgId: z.string().min(1),
+  reportType: ReportTypeSchema,
+  fromDate: z.string().datetime(),
+  toDate: z.string().datetime(),
+  userId: z.string().optional(),       // scope report to a specific user
+  format: z.enum(['json', 'csv']).default('json'),
+});
+export type GenerateReport = z.infer<typeof GenerateReportSchema>;
+
+// ─── API Response Types ───────────────────────────────────────────────────────
+
+export const AuditLogsResponseSchema = z.object({
+  items: z.array(AuditLogEntrySchema),
+  count: z.number(),
+  nextToken: z.string().optional(),
+});
+export type AuditLogsResponse = z.infer<typeof AuditLogsResponseSchema>;
+
+export const GenerateReportResponseSchema = z.object({
+  reportType: ReportTypeSchema,
+  orgId: z.string(),
+  fromDate: z.string(),
+  toDate: z.string(),
+  generatedAt: z.string(),
+  format: z.enum(['json', 'csv']),
+  data: z.unknown(),                   // typed per report in the handler
+  rowCount: z.number(),
+});
+export type GenerateReportResponse = z.infer<typeof GenerateReportResponseSchema>;
