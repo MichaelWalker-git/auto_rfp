@@ -275,18 +275,27 @@ async function updateQuestionFileGoogleDrive(
 
 async function updateBriefGoogleDrive(
   executiveBriefId: string, folderId: string, folderUrl: string,
+  briefDocUrl?: string,
 ): Promise<void> {
   const now = nowIso();
   await docClient.send(
     new UpdateCommand({
       TableName: DB_TABLE_NAME,
       Key: { [PK_NAME]: EXEC_BRIEF_PK, [SK_NAME]: executiveBriefId },
-      UpdateExpression: 'SET #gdFolderId = :folderId, #gdFolderUrl = :folderUrl, #gdSyncedAt = :now, #updatedAt = :now',
+      // briefDocUrl (the uploaded .docx's webViewLink) is only SET on the sync
+      // that uploaded it; later syncs must not blank it.
+      UpdateExpression:
+        'SET #gdFolderId = :folderId, #gdFolderUrl = :folderUrl, #gdSyncedAt = :now, #updatedAt = :now' +
+        (briefDocUrl ? ', #gdDocUrl = :docUrl' : ''),
       ExpressionAttributeNames: {
         '#gdFolderId': 'googleDriveFolderId', '#gdFolderUrl': 'googleDriveFolderUrl',
         '#gdSyncedAt': 'googleDriveSyncedAt', '#updatedAt': 'updatedAt',
+        ...(briefDocUrl ? { '#gdDocUrl': 'googleDriveBriefDocUrl' } : {}),
       },
-      ExpressionAttributeValues: { ':folderId': folderId, ':folderUrl': folderUrl, ':now': now },
+      ExpressionAttributeValues: {
+        ':folderId': folderId, ':folderUrl': folderUrl, ':now': now,
+        ...(briefDocUrl ? { ':docUrl': briefDocUrl } : {}),
+      },
     }),
   );
 }
@@ -428,6 +437,9 @@ export async function syncToGoogleDrive(args: {
     // Renders the same polished .docx the "Export" button produces (shared
     // buildBriefDocument), rather than a hand-rolled plain-text summary — the
     // file dropped in Drive is now identical to what a user downloads.
+    // The webViewLink is captured so the Linear ticket's "Analysis:" link can
+    // point straight at the brief document.
+    let briefDocUrl: string | undefined;
     if (briefData) {
       try {
         const briefTitle =
@@ -437,13 +449,14 @@ export async function syncToGoogleDrive(args: {
           .replace(/\s+/g, '_')
           .slice(0, 80) || 'Opportunity';
         const briefBuffer = await renderBriefDocxBuffer(String(briefTitle), briefData);
-        await uploadBuffer(
+        const uploaded = await uploadBuffer(
           drive,
           briefBuffer,
           `${sanitizedTitle}_Executive_Brief.docx`,
           BRIEF_DOCX_MIME,
           execBriefFolderId,
         );
+        briefDocUrl = uploaded.webViewLink;
         result.uploaded++;
         console.log('[GoogleDrive] Uploaded executive brief (.docx)');
       } catch (err) {
@@ -486,7 +499,7 @@ export async function syncToGoogleDrive(args: {
     // 9. Update executive brief with Google Drive folder metadata
     if (rootFolderUrl) {
       try {
-        await updateBriefGoogleDrive(executiveBriefId, rootFolderId, rootFolderUrl);
+        await updateBriefGoogleDrive(executiveBriefId, rootFolderId, rootFolderUrl, briefDocUrl);
       } catch (err) {
         console.warn('[GoogleDrive] Failed to update brief with Drive metadata:', (err as Error)?.message);
       }

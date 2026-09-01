@@ -73,6 +73,12 @@ export type GetExecutiveBriefByProjectResponse = {
 };
 export type HandleLinearTicketRequest = {
   executiveBriefId: string;
+  /**
+   * Absolute URL of the opportunity in this app — becomes the ticket's AutoRFP
+   * link. Required to create a ticket; the update-existing-ticket path (decision
+   * change in DecisionCard) omits it.
+   */
+  appUrl?: string;
 };
 
 export type HandleLinearTicketResponse = {

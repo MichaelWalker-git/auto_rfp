@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 
-import { AlertTriangle, Briefcase, CalendarClock, CheckCircle2, Clock, DollarSign, Download, ExternalLink, FileText, FolderPlus, ListChecks, Loader2, RefreshCw, Shield, Target, Users, XCircle } from 'lucide-react';
+import { AlertTriangle, Briefcase, CalendarClock, CheckCircle2, Clock, DollarSign, Download, ExternalLink, FileText, FolderPlus, ListChecks, Loader2, RefreshCw, Shield, Target, TicketPlus, Users, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -242,6 +242,7 @@ export function ExecutiveBriefView({
   const [regenError, setRegenError] = useState<string | null>(null);
   const [isSyncingToDrive, setIsSyncingToDrive] = useState(false);
   const [driveSyncStarted, setDriveSyncStarted] = useState(false);
+  const [isCreatingLinearTicket, setIsCreatingLinearTicket] = useState(false);
   const [previousBrief, setPreviousBrief] = useState<any>(null);
   const [briefItem, setBriefItem] = useState<any>(null);
   const [localBusySections, setLocalBusySections] = useState<Set<SectionKey>>(() => new Set());
@@ -252,7 +253,6 @@ export function ExecutiveBriefView({
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(fixedOpportunityId ?? initialOpportunityId ?? null);
   const [selectedOpportunity, setSelectedOpportunity] = useState<OpportunityItem | null>(null);
   const localBusySectionsRef = useRef<Set<SectionKey>>(new Set());
-  const linearTicketAttemptedRef = useRef(false);
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const autoGenerateTriggeredRef = useRef(false);
@@ -397,32 +397,11 @@ export function ExecutiveBriefView({
 
           const locallyBusy = localBusySectionsRef.current.size > 0;
 
-          const scoringComplete = resp.brief.sections?.scoring?.status === 'COMPLETE';
-          const decision = resp.brief.decision || resp.brief.sections?.scoring?.data?.decision;
-          const executiveBriefId = resp.brief.sort_key;
-          
-          if (
-            scoringComplete && 
-            decision && 
-            !resp.brief.linearTicketId && 
-            !linearTicketAttemptedRef.current &&
-            executiveBriefId
-          ) {
-            linearTicketAttemptedRef.current = true;
-            try {
-              await handleLinearTicket.trigger({ executiveBriefId: String(executiveBriefId) });
-
-              const withTicket = await getBriefByProject.trigger({ 
-                projectId, 
-                opportunityId: currentOppId || undefined 
-              });
-              if (withTicket?.ok && withTicket?.brief) {
-                setBriefItem(withTicket.brief);
-              }
-            } catch (err) {
-              console.error('Failed to auto-create Linear ticket:', err);
-            }
-          }
+          // Linear tickets are no longer auto-created when the scoring decision
+          // lands — the ticket's message is the three links (brief doc, Drive
+          // folder, app URL), which only exist after the "Create Drive Folder"
+          // button has run. Creation is exclusively the "Create Linear Ticket"
+          // button next to it.
 
           if (!locallyBusy && (st === 'COMPLETE' || st === 'FAILED' || allTerminal)) {
             stopPollingBrief();
@@ -580,6 +559,40 @@ export function ExecutiveBriefView({
     }
   };
 
+  const handleCreateLinearTicket = async () => {
+    const executiveBriefId = briefItem?.sort_key;
+    if (!executiveBriefId || isCreatingLinearTicket) return;
+    setIsCreatingLinearTicket(true);
+    setRegenError(null);
+    try {
+      // The ticket's message is the three links, so it is only creatable once
+      // the Drive folder (and the brief .docx inside it) exists.
+      const currentOppId = selectedOpportunityIdRef.current;
+      const opportunityPath = currentOppId
+        ? `/organizations/${currentOrganization?.id}/projects/${projectId}/opportunities/${currentOppId}`
+        : `/organizations/${currentOrganization?.id}/projects/${projectId}`;
+      await handleLinearTicket.trigger({
+        executiveBriefId: String(executiveBriefId),
+        appUrl: `${window.location.origin}${opportunityPath}`,
+      });
+
+      // Re-fetch so the button flips to the ticket link.
+      const resp = await getBriefByProject.trigger({
+        projectId,
+        opportunityId: currentOppId || undefined,
+      });
+      if (resp?.ok && resp?.brief) {
+        setBriefItem(resp.brief);
+      }
+    } catch (err) {
+      setRegenError(
+        err instanceof Error ? err.message : 'Failed to create Linear ticket',
+      );
+    } finally {
+      setIsCreatingLinearTicket(false);
+    }
+  };
+
   async function enqueueSection(section: SectionKey, executiveBriefId: string, force?: boolean) {
     let resp: any;
     switch (section) {
@@ -633,7 +646,6 @@ export function ExecutiveBriefView({
 
     setIsGeneratingBrief(true);
     setRegenError(null);
-    linearTicketAttemptedRef.current = false;
     if (!project) { setIsGeneratingBrief(false); return; }
     if (briefItem) setPreviousBrief(briefItem);
 
@@ -1060,6 +1072,30 @@ export function ExecutiveBriefView({
                         <FolderPlus className="h-4 w-4 mr-2" />
                       )}
                       {driveSyncStarted ? 'Creating folder…' : 'Create Drive Folder'}
+                    </PermissionButton>
+                  )}
+                  {briefItem?.linearTicketUrl ? (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={briefItem.linearTicketUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Linear Ticket
+                      </a>
+                    </Button>
+                  ) : (
+                    <PermissionButton
+                      requiredPermission="brief:edit"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCreateLinearTicket}
+                      disabled={isCreatingLinearTicket || !briefItem?.googleDriveFolderUrl}
+                      title={briefItem?.googleDriveFolderUrl ? 'Create the Linear ticket for this opportunity' : 'Create the Google Drive folder first — the ticket links to it'}
+                    >
+                      {isCreatingLinearTicket ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <TicketPlus className="h-4 w-4 mr-2" />
+                      )}
+                      Create Linear Ticket
                     </PermissionButton>
                   )}
                   {!fixedOpportunityId && selectedOpportunityId && currentOrganization?.id && (

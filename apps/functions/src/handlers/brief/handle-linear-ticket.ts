@@ -16,130 +16,40 @@ const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
 const RequestSchema = z.object({
   executiveBriefId: z.string().min(1),
+  /**
+   * Absolute URL of the opportunity in the web app, e.g.
+   * https://rfp.horustech.dev/organizations/<orgId>/projects/<projectId>/opportunities/<oppId>.
+   * Sent by the client (it knows its own origin) so no FRONTEND_URL plumbing is
+   * needed in the API stack. Required to CREATE a ticket (it is the AutoRFP
+   * link in the message); the update-an-existing-ticket path ignores it.
+   */
+  appUrl: z.string().url().optional(),
 });
 
-function formatDate(isoString: string): string {
-  const date = new Date(isoString);
-  return date.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZoneName: 'short',
-  });
-}
+/**
+ * The fixed client-facing message every ticket carries, verbatim. The three
+ * links are the only variable parts:
+ *   - Analysis:  the brief's uploaded .docx in Drive (falls back to the folder
+ *                for briefs synced before the doc URL was recorded)
+ *   - Documents: the opportunity's Drive folder
+ *   - AutoRFP:   the opportunity in the web app (client-supplied appUrl)
+ */
+function buildTicketDescription(brief: any, appUrl: string): string {
+  const analysisUrl = brief.googleDriveBriefDocUrl || brief.googleDriveFolderUrl;
+  const documentsUrl = brief.googleDriveFolderUrl;
 
-function buildTicketDescription(brief: any, _project: any): string {
-  const summary = brief.sections?.summary?.data;
-  const deadlines = brief.sections?.deadlines?.data;
-  const scoring = brief.sections?.scoring?.data;
-  const risks = brief.sections?.risks?.data;
-
-  const parts: string[] = [];
-
-  parts.push('# RFP Opportunity');
-  parts.push('');
-
-  if (summary?.agency) parts.push(`**Agency:** ${summary.agency}`);
-  if (summary?.naics) parts.push(`**NAICS:** ${summary.naics}`);
-  if (summary?.contractType) parts.push(`**Contract Type:** ${summary.contractType}`);
-  if (summary?.estimatedValueUsd) {
-    parts.push(`**Estimated Value:** ${summary.estimatedValueUsd} USD`);
-  }
-  if (summary?.placeOfPerformance) {
-    parts.push(`**Place of Performance:** ${summary.placeOfPerformance}`);
-  }
-  parts.push('');
-
-  if (summary?.summary) {
-    parts.push('## Summary');
-    parts.push(summary.summary);
-    parts.push('');
-  }
-
-  const hasDeadlines = deadlines?.submissionDeadlineIso || (deadlines?.deadlines && deadlines.deadlines.length > 0);
-
-  if (hasDeadlines) {
-    parts.push('## Deadlines');
-
-    const allDeadlines: Array<{
-      label: string;
-      dateTimeIso?: string;
-      rawText?: string;
-      timezone?: string;
-      type?: string;
-      isPrimary?: boolean;
-    }> = [];
-
-    if (deadlines.submissionDeadlineIso) {
-      allDeadlines.push({
-        label: 'Proposal Submission Deadline',
-        dateTimeIso: deadlines.submissionDeadlineIso,
-        type: 'PROPOSAL_DUE',
-        isPrimary: true,
-      });
-    }
-
-    if (deadlines.deadlines && deadlines.deadlines.length > 0) {
-      deadlines.deadlines.forEach((d: any) => {
-        if (d.type === 'PROPOSAL_DUE') return;
-
-        allDeadlines.push({
-          label: `${d.label || d.type}`,
-          dateTimeIso: d.dateTimeIso,
-          rawText: d.rawText,
-          timezone: d.timezone,
-          type: d.type,
-        });
-      });
-    }
-
-    allDeadlines.sort((a, b) => {
-      if (!a.dateTimeIso) return 1;
-      if (!b.dateTimeIso) return -1;
-      return new Date(a.dateTimeIso).getTime() - new Date(b.dateTimeIso).getTime();
-    });
-
-    allDeadlines.forEach(d => {
-      if (d.dateTimeIso) {
-        parts.push(`- **${d.label}:** ${formatDate(d.dateTimeIso)}${d.timezone ? ` (${d.timezone})` : ''}`);
-
-        if (d.isPrimary) {
-          const recommendedDate = new Date(new Date(d.dateTimeIso).getTime() - 24 * 60 * 60 * 1000);
-          parts.push(`  - ⚠️ *Recommended: Submit 24 hours early by ${formatDate(recommendedDate.toISOString())}*`);
-        }
-      } else if (d.rawText) {
-        parts.push(`- **${d.label}:** ${d.rawText}`);
-      }
-    });
-
-    parts.push('');
-  }
-
-  // Score
-  if (brief.compositeScore || scoring?.compositeScore) {
-    parts.push('## Scoring');
-    parts.push(`**Composite Score:** ${brief.compositeScore || scoring.compositeScore}/5`);
-    if (brief.confidence || scoring?.confidence) {
-      parts.push(`**Confidence:** ${brief.confidence || scoring.confidence}%`);
-    }
-    parts.push('');
-  }
-
-  // Top Risks
-  if (risks?.redFlags && risks.redFlags.length > 0) {
-    parts.push('## Key Risks');
-    risks.redFlags.slice(0, 3).forEach((risk: any) => {
-      parts.push(`- **[${risk.severity}]** ${risk.flag}`);
-      if (risk.whyItMatters) {
-        parts.push(`  - ${risk.whyItMatters}`);
-      }
-    });
-    parts.push('');
-  }
-
-  return parts.join('\n');
+  return [
+    'Hi Brennen,',
+    '',
+    'I’ve prepared a preliminary offer for your review so we can continue moving forward.',
+    'The first link contains the offer analysis, and the second includes the documents corresponding to the offer.',
+    '',
+    `Analysis:${analysisUrl}`,
+    '',
+    `Documents:${documentsUrl}`,
+    '',
+    `AutoRFP:${appUrl}`,
+  ].join('\n');
 }
 
 export const baseHandler = async (
@@ -151,7 +61,7 @@ export const baseHandler = async (
       return apiResponse(400, { message: 'Org Id is required' });
     }
     const bodyJson = event.body ? JSON.parse(event.body) : {};
-    const { executiveBriefId } = RequestSchema.parse(bodyJson);
+    const { executiveBriefId, appUrl } = RequestSchema.parse(bodyJson);
 
     const brief = await getExecutiveBrief(executiveBriefId);
 
@@ -159,6 +69,16 @@ export const baseHandler = async (
       return apiResponse(404, {
         ok: false,
         error: 'Executive brief not found',
+      });
+    }
+
+    // The ticket's message is nothing but the three links, so it is only
+    // meaningful once the Drive folder exists. The UI gates the button on this
+    // too — the guard is for direct API calls.
+    if (!brief.googleDriveFolderUrl) {
+      return apiResponse(400, {
+        ok: false,
+        error: 'Create the Google Drive folder before creating the Linear ticket',
       });
     }
 
@@ -221,8 +141,14 @@ export const baseHandler = async (
       }
     }
 
-    // Create new ticket
-    const description = buildTicketDescription(brief, project);
+    // Create new ticket — the message's AutoRFP link comes from the caller.
+    if (!appUrl) {
+      return apiResponse(400, {
+        ok: false,
+        error: 'appUrl is required to create a Linear ticket',
+      });
+    }
+    const description = buildTicketDescription(brief, appUrl);
     const dueDate = deadlines?.submissionDeadlineIso ?? undefined;
 
     const ticket = await createLinearTicket({

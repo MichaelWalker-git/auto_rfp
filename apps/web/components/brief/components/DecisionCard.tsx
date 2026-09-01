@@ -108,13 +108,18 @@ export function DecisionCard({
 
     let linearFailed = false;
 
-    try {
-      await handleLinearTicket.trigger({
-        executiveBriefId: briefItem.sort_key,
-      });
-    } catch (err) {
-      linearFailed = true;
-      console.error(`Failed to update Linear ticket:`, err);
+    // Only refresh the ticket when one exists — tickets are created by the
+    // "Create Linear Ticket" button (which supplies the message's links), never
+    // as a side effect of a decision change.
+    if (briefItem.linearTicketId) {
+      try {
+        await handleLinearTicket.trigger({
+          executiveBriefId: briefItem.sort_key,
+        });
+      } catch (err) {
+        linearFailed = true;
+        console.error(`Failed to update Linear ticket:`, err);
+      }
     }
 
     try {
