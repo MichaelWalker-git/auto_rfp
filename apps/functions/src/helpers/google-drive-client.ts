@@ -70,7 +70,6 @@ export const OPPORTUNITY_SUBFOLDERS = {
   originalDocuments: 'Original Documents',
   executiveBrief: 'Executive Brief',
   proposalMaterials: 'Proposal Materials',
-  finalDeliverables: 'Final Deliverables',
 } as const;
 
 /**

@@ -311,7 +311,6 @@ export interface GoogleDriveUploadResult {
  *     /Original Documents
  *     /Executive Brief
  *     /Proposal Materials
- *     /Final Deliverables
  *
  * Uploads original solicitation files, executive brief, and RFP documents.
  * Shares folder with all org team members.
@@ -373,19 +372,17 @@ export async function syncToGoogleDrive(args: {
     result.folderId = rootFolderId;
     result.folderUrl = rootFolderUrl;
 
-    // 4. Create 4 subfolders
-    const [originalDocsFolderId, execBriefFolderId, proposalFolderId, finalFolderId] = await Promise.all([
+    // 4. Create 3 subfolders
+    const [originalDocsFolderId, execBriefFolderId, proposalFolderId] = await Promise.all([
       findOrCreateFolder(drive, SUBFOLDERS.originalDocuments, rootFolderId),
       findOrCreateFolder(drive, SUBFOLDERS.executiveBrief, rootFolderId),
       findOrCreateFolder(drive, SUBFOLDERS.proposalMaterials, rootFolderId),
-      findOrCreateFolder(drive, SUBFOLDERS.finalDeliverables, rootFolderId),
     ]);
 
     result.subfolders = {
       originalDocuments: originalDocsFolderId,
       executiveBrief: execBriefFolderId,
       proposalMaterials: proposalFolderId,
-      finalDeliverables: finalFolderId,
     };
 
     // 5. Share root folder with team members
@@ -507,7 +504,6 @@ export async function syncToGoogleDrive(args: {
           `- 📄 Original Documents (${questionFiles.length} files)`,
           `- 📋 Executive Brief`,
           `- 📝 Proposal Materials (${rfpDocs.length} files)`,
-          `- ✅ Final Deliverables`,
           '',
           `Shared with ${emails.length} team member(s).`,
         ].join('\n');
