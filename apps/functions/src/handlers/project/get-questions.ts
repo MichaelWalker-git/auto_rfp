@@ -218,6 +218,8 @@ const groupQuestions = (
       answer: answerItem?.text ?? null,
       opportunityId: item.opportunityId ?? undefined,
       questionFileId: item.questionFileId ?? undefined,
+      responseKind: item.responseKind,
+      options: item.options,
       clusterId: item.clusterId,
       isClusterMaster: item.isClusterMaster,
       similarityToMaster: item.similarityToMaster,

@@ -13,6 +13,11 @@
  * attached by reference, so a malformed part cannot break ingestion.
  */
 
+import {
+  mentionsOurAddress,
+  type MonitoredMailboxIdentity,
+} from '@/helpers/foia-mail-identity';
+
 /** A single MIME part we care about. */
 interface ParsedPart {
   contentType: string;
@@ -296,14 +301,13 @@ export const readMailHeader = (raw: string, name: string): string | undefined =>
  * (`i3o2h82ak04i`, `615sciteu2kj`) have a separator at offset 0 for exactly this
  * reason, and one nests three authors deep.
  */
-const OUR_DOMAIN_PATTERN = /(?:horustech\.dev|@horustech\b)/i;
 const FROM_LINE_PATTERN = /^[ \t>]*\*?From:\*?[ \t]*(.{0,160})$/gim;
 /**
  * `On <anything, possibly wrapped> wrote:` — the Gmail/Outlook attribution line.
  *
  * Anchored to the start of a line, and `On` is matched case-sensitively. Both matter:
  * the unanchored, case-insensitive `\bOn\b` matched the lowercase "on" inside an
- * agency's own sentence, and since `isOurs` is tested against the whole 200-char span,
+ * agency's own sentence, and since ownership is tested against the whole 200-char span,
  * one of our addresses further along the line made that "on" the cut point. "Based on a
  * search of our files, no records were located…" was truncated to "Based " — losing the
  * agency's answer, and the NO_RECORDS_LOCATED outcome with it.
@@ -321,14 +325,21 @@ const WROTE_ATTRIBUTION_PATTERN = /^[ \t>]*On\b[\s\S]{5,200}?\bwrote:/gm;
  * for both a genuine outbound letter (all of it is ours, and the outbound rules are
  * meant to match) and a plain agency message with nothing quoted.
  *
- * `isOurs` is injected rather than hardcoded so the caller decides what "ours"
- * means — in practice the monitored mailbox's own domain.
+ * `identity` is REQUIRED, and that is the point. It used to be an injectable
+ * `isOurs` predicate defaulting to a hardcoded `horustech` regex — a default so
+ * correct-looking that all three production call sites accepted it and no caller ever
+ * passed one, so for any tenant whose mailbox is not a horustech domain no cut point
+ * was found and this function returned the whole body. Nothing failed loudly; the
+ * authorship fix simply did nothing. A required parameter is what makes the type
+ * system, rather than a default value, guarantee the next call site is threaded. See
+ * `foia-mail-identity.ts` for why behaviour is nonetheless preserved.
  */
 export const stripQuotedReply = (
   body: string,
-  isOurs: (text: string) => boolean = (text) => OUR_DOMAIN_PATTERN.test(text),
+  identity: MonitoredMailboxIdentity,
 ): string => {
   const cuts: number[] = [];
+  const isOurs = (text: string): boolean => mentionsOurAddress(text, identity);
 
   for (const match of body.matchAll(FROM_LINE_PATTERN)) {
     if (isOurs(match[1] ?? '')) cuts.push(match.index ?? 0);

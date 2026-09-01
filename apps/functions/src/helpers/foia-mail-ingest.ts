@@ -12,6 +12,7 @@ import {
   classifyMailDeterministic,
   type ClassifiedMail,
 } from '@/helpers/foia-mail-classify';
+import type { MonitoredMailboxIdentity } from '@/helpers/foia-mail-identity';
 import { parseRawMail, stripQuotedReply } from '@/helpers/foia-mail-parse';
 import {
   correlateMailToOpportunities,
@@ -80,6 +81,8 @@ export const readResponseOutcome = (args: {
   classification: ClassifiedMail;
   bodyText: string;
   attachmentNames: readonly string[];
+  /** Which addresses are ours, so the quoted-reply strip below can find our letter. */
+  identity: MonitoredMailboxIdentity;
 }): FoiaResponseOutcome => {
   const { attachmentNames } = args;
 
@@ -94,7 +97,7 @@ export const readResponseOutcome = (args: {
    * the live corpus it matched 8 of 110 bodies and was OUR OWN boilerplate every
    * time. Stripping the quoted reply removes the whole class rather than one phrase.
    */
-  const bodyText = stripQuotedReply(args.bodyText);
+  const bodyText = stripQuotedReply(args.bodyText, args.identity);
 
   /**
    * Both singular and plural: agencies write "no record ... was located" and "no
@@ -294,17 +297,22 @@ export const buildMailScanSk = (messageId: string): string => {
  * Split from the acting so it can be exercised against real messages — the
  * acceptance gate replays actual correspondence through this and reads the table
  * of decisions before anything is allowed to mutate an opportunity.
+ *
+ * `identity` is threaded down from the resolved tenant's `scrapeMailbox` (see
+ * `process-inbound-mail.ts`) and is required, because every authorship decision below
+ * this point depends on knowing which addresses are ours.
  */
 export const decideInboundMail = (args: {
   from: string;
   subject: string;
   raw: string;
   candidates: readonly CorrelationCandidate[];
+  identity: MonitoredMailboxIdentity;
 }): MailIngestResult => {
-  const { from, subject, raw, candidates } = args;
+  const { from, subject, raw, candidates, identity } = args;
 
   const { text, attachmentNames } = parseRawMail(raw);
-  const classification = classifyMailDeterministic({ from, subject, body: text });
+  const classification = classifyMailDeterministic({ from, subject, body: text }, identity);
 
   // Correlate over subject and body together: agencies put the solicitation
   // number in either, and the terse replies ("PRA 26-528 - Response") have
@@ -340,6 +348,7 @@ export const decideInboundMail = (args: {
         classification,
         bodyText: text,
         attachmentNames,
+        identity,
       });
 
       return single

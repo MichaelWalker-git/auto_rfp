@@ -1,7 +1,19 @@
+import { buildMailboxIdentity } from './foia-mail-identity';
 import { parseRawMail, readMailHeader, stripQuotedReply } from './foia-mail-parse';
 
 /** Builds a raw message with CRLF line endings, as SES delivers them. */
 const raw = (lines: string[]): string => lines.join('\r\n');
+
+/**
+ * The live tenant: org 9c0a5757, the only one with `mailScrapeEnabled: true`.
+ *
+ * Note the mailbox is a SUBDOMAIN (`inbox.horustech.dev`) while the addresses in the
+ * bodies below are on the parent (`brennen@horustech.dev`). They still count as ours
+ * because the platform's own sending host is in the owned set — see
+ * `foia-mail-identity.ts`. Matching on the mailbox host alone loses 22 of the 335 real
+ * messages' cut points.
+ */
+const LIVE = buildMailboxIdentity({ scrapeMailbox: 'foia@inbox.horustech.dev' });
 
 describe('readMailHeader', () => {
   it('reads a header value', () => {
@@ -254,7 +266,7 @@ describe('stripQuotedReply', () => {
       '> following public records related to RFP No. 26-22.',
     ].join('\n');
 
-    const stripped = stripQuotedReply(body);
+    const stripped = stripQuotedReply(body, LIVE);
 
     expect(stripped).toContain('I am forwarding you the request for records I received.');
     expect(stripped).not.toContain('Pursuant to the California Public Records Act');
@@ -271,7 +283,7 @@ describe('stripQuotedReply', () => {
       'This is a request under the California Public Records Act.',
     ].join('\n');
 
-    expect(stripQuotedReply(body)).not.toContain('This is a request under');
+    expect(stripQuotedReply(body, LIVE)).not.toContain('This is a request under');
   });
 
   it('returns the whole body when nothing is quoted from us', () => {
@@ -281,7 +293,7 @@ describe('stripQuotedReply', () => {
       'Pursuant to the California Public Records Act, I am requesting copies of the ' +
       'following public records. The undersigned will pay statutory fees.';
 
-    expect(stripQuotedReply(ourLetter)).toBe(ourLetter);
+    expect(stripQuotedReply(ourLetter, LIVE)).toBe(ourLetter);
   });
 
   it('does not cut at a marker naming the agency', () => {
@@ -298,7 +310,7 @@ describe('stripQuotedReply', () => {
       'Unfortunately, C25910004 was cancelled and not awarded via IFB.',
     ].join('\n');
 
-    expect(stripQuotedReply(body)).toContain('was cancelled and not awarded');
+    expect(stripQuotedReply(body, LIVE)).toContain('was cancelled and not awarded');
   });
 
   /**
@@ -318,7 +330,7 @@ describe('stripQuotedReply', () => {
       '> Pursuant to the California Public Records Act, I am requesting records.',
     ].join('\n');
 
-    const kept = stripQuotedReply(body);
+    const kept = stripQuotedReply(body, LIVE);
 
     expect(kept).toContain('no records were located');
     expect(kept).not.toContain('Pursuant to the California Public Records Act');
@@ -339,7 +351,7 @@ describe('stripQuotedReply', () => {
       'Pursuant to the CPRA, I am requesting the notice of award.',
     ].join('\n');
 
-    const kept = stripQuotedReply(body);
+    const kept = stripQuotedReply(body, LIVE);
 
     expect(kept).not.toContain('Pursuant to the CPRA');
     expect(kept).toContain('we located no records');
@@ -352,6 +364,84 @@ describe('stripQuotedReply', () => {
       'Pursuant to the California Public Records Act, I am requesting copies of the ' +
       'notice of award. Contact brennen@horustech.dev with questions.';
 
-    expect(stripQuotedReply(ours)).toBe(ours);
+    expect(stripQuotedReply(ours, LIVE)).toBe(ours);
+  });
+});
+
+describe('stripQuotedReply — a tenant on its own domain', () => {
+  /**
+   * The bug this fix closes, stated as a test.
+   *
+   * `stripQuotedReply` took an injectable `isOurs` predicate whose DEFAULT was a
+   * hardcoded `/horustech\.dev|@horustech\b/`, and no caller ever passed one. So for
+   * any org whose monitored mailbox is not a horustech domain, no cut point was found,
+   * the whole body was returned, and the entire authorship fix was inert — silently,
+   * because the default looked correct and self-documenting.
+   */
+  const ACME = buildMailboxIdentity({ scrapeMailbox: 'foia@acme.com' });
+
+  const AGENCY_REPLY = [
+    'Unfortunately, C25910004 was cancelled and not awarded via IFB.',
+    '',
+    'From: Brennen Stones <brennen@acme.com>',
+    'Sent: Monday, August 17, 2026',
+    '',
+    'Pursuant to the California Public Records Act, the undersigned requests',
+    'copies of the following public records.',
+  ].join('\n');
+
+  it('cuts at a quoted From: line on the tenant’s OWN domain', () => {
+    const kept = stripQuotedReply(AGENCY_REPLY, ACME);
+
+    expect(kept).toContain('was cancelled and not awarded');
+    expect(kept).not.toContain('Pursuant to the California Public Records Act');
+    expect(kept).not.toContain('the undersigned');
+  });
+
+  it('is the case the old hardcoded default got wrong', () => {
+    // Under the live tenant's identity this same body finds no cut point, because
+    // `acme.com` is not one of its hosts — which is exactly what the deleted regex did
+    // to every non-horustech tenant. Pinned so the asymmetry is visible rather than
+    // assumed.
+    expect(stripQuotedReply(AGENCY_REPLY, LIVE)).toBe(AGENCY_REPLY);
+  });
+
+  it('still recognises OUR OWN letter, franked by the platform sending domain', () => {
+    /**
+     * The trap a scrapeMailbox-only identity falls into, and the reason
+     * `VENDOR_OWNED_HOSTS` exists. `foia-send.ts` builds every tenant's outbound letter
+     * as `From: ... via AutoRFP <${SES_FROM_EMAIL}>`, and SES_FROM_EMAIL is one vendor
+     * address for ALL tenants. So the quoted `From:` line an agency sends back names the
+     * VENDOR host, not `acme.com` — an identity built from the mailbox alone would fail
+     * to recognise our own letter and keep the whole body, which is strictly worse than
+     * the regex it replaced.
+     */
+    const machineSent = [
+      'Unfortunately, C25910004 was cancelled and not awarded via IFB.',
+      '',
+      'From: Brennen Stones (Acme Corp) via AutoRFP <noreply@horustech.dev>',
+      '',
+      'Pursuant to the California Public Records Act, the undersigned requests records.',
+    ].join('\n');
+
+    const kept = stripQuotedReply(machineSent, ACME);
+
+    expect(kept).toContain('was cancelled and not awarded');
+    expect(kept).not.toContain('the undersigned');
+  });
+
+  it('does not treat an agency on a lookalike domain as ours', () => {
+    // Ownership is anchored to a full host, matched downward only: owning `acme.com`
+    // must not own `notacme.com`, and must not own the agency's `.gov` either.
+    const agencyOnly = [
+      'Your request has been received.',
+      '',
+      'From: Clerk <clerk@notacme.com>',
+      'From: Records <records@acme.gov>',
+      '',
+      'Pursuant to the California Public Records Act, the undersigned requests records.',
+    ].join('\n');
+
+    expect(stripQuotedReply(agencyOnly, ACME)).toBe(agencyOnly);
   });
 });

@@ -15,6 +15,10 @@
  * agency, for a contract that was never awarded.
  */
 
+import {
+  mentionsOurAddress,
+  type MonitoredMailboxIdentity,
+} from '@/helpers/foia-mail-identity';
 import { stripQuotedReply } from '@/helpers/foia-mail-parse';
 
 /** What a message appears to be about. */
@@ -42,12 +46,45 @@ export const MAIL_CLASSIFICATIONS = [
 
 export type MailClassification = (typeof MAIL_CLASSIFICATIONS)[number];
 
+/**
+ * Facts that make a message permanently ineligible to act unattended, whatever its
+ * classification, confidence or correlation says.
+ *
+ * A union rather than a boolean per reason: the next award-negating shape (an award
+ * rescinded, a protest sustained, an award stayed pending appeal) extends this list
+ * instead of adding a second flag and a second branch to `canActAutomatically`.
+ *
+ * `AWARD_RETRACTED` is fed only by `AWARD_RETRACTION_PATTERNS`. That coupling is the
+ * known weakness: a future award-negating shape expressed as a NEW pattern list would
+ * classify AWARD_NOTICE and act, so a new veto reason must be wired in at the same
+ * place the flag is set (see `classifyMailDeterministic`).
+ */
+export const NON_ACTIONABLE_REASONS = [
+  /**
+   * An award POSTING was withdrawn. Award-side news for a human, never a trigger:
+   * the retracted award is not a fact about a real award date, and the solicitation
+   * is still live.
+   */
+  'AWARD_RETRACTED',
+] as const;
+
+export type NonActionableReason = (typeof NON_ACTIONABLE_REASONS)[number];
+
 export interface ClassifiedMail {
   classification: MailClassification;
   /** HIGH only when a deterministic rule matched; nothing else may auto-act. */
   confidence: 'HIGH' | 'MEDIUM' | 'LOW';
   /** Which rule produced the verdict, for the activity log. */
   matchedOn: string[];
+  /**
+   * Set when the message carries a fact that vetoes unattended action.
+   *
+   * Read by `canActAutomatically`, which refuses before it looks at confidence or
+   * identifiers. Absent on every ordinary message, so a caller that ignores it
+   * behaves exactly as before — but the two callers that decide whether to act do
+   * not ignore it.
+   */
+  nonActionableReason?: NonActionableReason;
   /** Identifiers for correlating to an opportunity. */
   noticeId?: string;
   solicitationNumber?: string;
@@ -394,13 +431,22 @@ export const isGovernmentSender = (from: string): boolean =>
  * Verified against the corpus: recovers the two CA Parks messages whose agency
  * identity is only in the body, and misfires on none of the 11 genuine outbound
  * letters.
+ *
+ * Takes the SAME required identity as `stripQuotedReply`, because "is this line ours"
+ * is the same question one function over — it was a separate bare `/horustech/i` test,
+ * with the same tenant-blindness, and it is reached from the same `recordsHits` branch
+ * that calls `stripQuotedReply`. Consistency here is a correctness requirement, not
+ * polish: the two could otherwise disagree about who wrote the message.
  */
 const QUOTED_FROM_PATTERN = /^[ \t>]*\*?From:\*?[ \t]*(.{0,180})$/gim;
 
-export const hasGovernmentAuthorInThread = (body: string): boolean => {
+export const hasGovernmentAuthorInThread = (
+  body: string,
+  identity: MonitoredMailboxIdentity,
+): boolean => {
   for (const match of body.matchAll(QUOTED_FROM_PATTERN)) {
     const value = match[1] ?? '';
-    if (/horustech/i.test(value)) return false;
+    if (mentionsOurAddress(value, identity)) return false;
     if (isGovernmentSender(value)) return true;
   }
   return false;
@@ -411,8 +457,15 @@ export const hasGovernmentAuthorInThread = (body: string): boolean => {
  *
  * Returns LOW confidence with `UNRELATED` when nothing matches, which is the
  * signal to escalate to the model — never to act.
+ *
+ * `identity` says which addresses are OURS, and it is required rather than defaulted
+ * so the answer always comes from the resolved tenant's own monitored mailbox. Every
+ * authorship decision below depends on it.
  */
-export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMail => {
+export const classifyMailDeterministic = (
+  mail: InboundMailFields,
+  identity: MonitoredMailboxIdentity,
+): ClassifiedMail => {
   const haystack = `${mail.subject}\n${mail.body}`;
 
   /**
@@ -429,7 +482,7 @@ export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMa
    * thread is equally true wherever it appears, and the terse replies have almost no
    * body of their own.
    */
-  const ownWordsHaystack = `${mail.subject}\n${stripQuotedReply(mail.body)}`;
+  const ownWordsHaystack = `${mail.subject}\n${stripQuotedReply(mail.body, identity)}`;
   const matchedOn: string[] = [];
 
   if (isKnownSolicitationSender(mail.from)) matchedOn.push('known-sender');
@@ -480,15 +533,40 @@ export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMa
 
   const cancelledHits =
     isRequestContext || isAwardRetraction ? [] : hitOwnWords(CANCELLED_PATTERNS);
+
+  /**
+   * The veto, carried on the classification itself.
+   *
+   * Spread into EVERY return below, not only the award branch. It is provably dead on
+   * the other five today — a retraction reaches the award branch because
+   * `isAwardRetraction` force-empties `cancelledHits` just above — and that is exactly
+   * why it is spread anyway: remove that coupling and a retraction would arrive at
+   * SOLICITATION_CANCELLED carrying no veto, which is `SUPPRESSED` on a live
+   * solicitation. Five dead spreads are cheap insurance against a branch reordering.
+   */
+  const nonActionable: { nonActionableReason?: NonActionableReason } = isAwardRetraction
+    ? { nonActionableReason: 'AWARD_RETRACTED' }
+    : {};
+
   /**
    * A retraction is award-side news, so it is recorded as an AWARD_NOTICE rather than
    * discarded. Without this it falls through to UNRELATED — the one class that leaves
    * nothing behind — even though it says something real about a live procurement.
    *
-   * It cannot act on its own: no award date is stated, so `awardDateFromMail` returns
-   * the receipt-date fallback, whose `RECORDED_OUTCOME` provenance is refused by the
-   * `RECORDED_AWARD` guard in `applyAwardNotice`. The outcome is a flag for review,
-   * which is the right answer for "the award you were told about was withdrawn".
+   * The `'award-retracted'` label is CONTROL FLOW, not just an audit note: on the real
+   * 4142 message (`57k9ipvt8le8`) no AWARD_PATTERN fires at all, so this synthetic
+   * label is the sole member of `awardHits` and is what selects the award branch
+   * below. Deleting it in favour of the typed field would send the only retraction in
+   * the corpus to UNRELATED / IGNORED — removing it from human review entirely. The
+   * typed field is strictly ADDITIVE to it.
+   *
+   * It cannot act on its own because `canActAutomatically` refuses any classification
+   * carrying `nonActionableReason`, above every confidence and identifier test. That
+   * guard is the whole of the guarantee — do NOT restate the old provenance argument
+   * here, which was false: a retraction stating "Award Date: 06/12/2026" yields
+   * `statedByAgency: true` and `RECORDED_AWARD` from `awardDateFromMail`, so the
+   * provenance chain never refused anything. The outcome is FLAGGED_FOR_REVIEW, which
+   * is the right answer for "the award you were told about was withdrawn".
    */
   const awardHits = isRequestContext
     ? []
@@ -527,6 +605,7 @@ export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMa
       classification: 'OUR_OWN_REQUEST',
       confidence: 'HIGH',
       matchedOn: [...matchedOn, ...outboundHits, ...recordsHits],
+      ...nonActionable,
       ...(noticeId ? { noticeId } : {}),
       ...(solicitationNumber ? { solicitationNumber } : {}),
       ...(trackingNumber ? { trackingNumber } : {}),
@@ -543,6 +622,7 @@ export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMa
       // agencies quote only that ("Response: RFP No. 26-16, ...").
       confidence: trackingNumber || solicitationNumber ? 'HIGH' : 'MEDIUM',
       matchedOn: [...matchedOn, ...foiaHits, ...recordsHits],
+      ...nonActionable,
       ...(noticeId ? { noticeId } : {}),
       ...(solicitationNumber ? { solicitationNumber } : {}),
       ...(trackingNumber ? { trackingNumber } : {}),
@@ -556,6 +636,7 @@ export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMa
       classification: 'SOLICITATION_CANCELLED',
       confidence: confidenceFor(cancelledHits),
       matchedOn: [...matchedOn, ...cancelledHits],
+      ...nonActionable,
       ...(noticeId ? { noticeId } : {}),
       ...(solicitationNumber ? { solicitationNumber } : {}),
     };
@@ -566,6 +647,7 @@ export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMa
       classification: 'AWARD_NOTICE',
       confidence: confidenceFor(awardHits),
       matchedOn: [...matchedOn, ...awardHits],
+      ...nonActionable,
       ...(noticeId ? { noticeId } : {}),
       ...(solicitationNumber ? { solicitationNumber } : {}),
     };
@@ -599,13 +681,14 @@ export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMa
    */
   if (recordsHits.length > 0) {
     const isPublicBodySender =
-      isGovernmentSender(mail.from) || hasGovernmentAuthorInThread(mail.body);
-    const wroteOwnProse = stripQuotedReply(mail.body).trim().length > 0;
+      isGovernmentSender(mail.from) || hasGovernmentAuthorInThread(mail.body, identity);
+    const wroteOwnProse = stripQuotedReply(mail.body, identity).trim().length > 0;
 
     return {
       classification: isPublicBodySender && wroteOwnProse ? 'FOIA_RESPONSE' : 'OUR_OWN_REQUEST',
       confidence: 'MEDIUM',
       matchedOn: [...matchedOn, ...recordsHits],
+      ...nonActionable,
       ...(noticeId ? { noticeId } : {}),
       ...(solicitationNumber ? { solicitationNumber } : {}),
       ...(trackingNumber ? { trackingNumber } : {}),
@@ -618,12 +701,13 @@ export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMa
       classification: 'OTHER_SOLICITATION',
       confidence: 'LOW',
       matchedOn,
+      ...nonActionable,
       ...(noticeId ? { noticeId } : {}),
       ...(solicitationNumber ? { solicitationNumber } : {}),
     };
   }
 
-  return { classification: 'UNRELATED', confidence: 'LOW', matchedOn };
+  return { classification: 'UNRELATED', confidence: 'LOW', matchedOn, ...nonActionable };
 };
 
 /**
@@ -641,11 +725,27 @@ export const classifyMailDeterministic = (mail: InboundMailFields): ClassifiedMa
  * correlation against a solicitation number we already hold is *stronger*
  * evidence than parsing one out of the text, because it can only ever point at an
  * opportunity that exists. The caller passes true once it has exactly one match.
+ *
+ * `nonActionableReason` is checked FIRST, above everything, because the two ways a
+ * retraction reached AWARD_RECORDED are independent and no single later test closes
+ * both. Route 1: the retraction text happens to contain a FAR-shaped number, the
+ * classifier parses `solicitationNumber` itself, and `confidence === 'HIGH'` alone
+ * authorises the action with no external identifier involved. Route 2: nothing
+ * parseable, so MEDIUM — but correlation finds exactly one opportunity and
+ * `hasExternalIdentifier` authorises it. Both were reproduced against a stored
+ * opportunity. This is also why a confidence DOWNGRADE is not a fix (MEDIUM plus an
+ * external identifier still returns true) and why deleting the `hasExternalIdentifier`
+ * substitution would not have been one either — it closes route 2 only, and would
+ * refuse all six genuine award notices in the live corpus, every one of which is
+ * MEDIUM with no parsed identifier at all. Vetoing on the retraction FACT, above the
+ * identifier logic, closes both routes and leaves that substitution untouched.
  */
 export const canActAutomatically = (
   classified: ClassifiedMail,
   options: { hasExternalIdentifier?: boolean } = {},
 ): boolean => {
+  if (classified.nonActionableReason) return false;
+
   const isTrigger =
     classified.classification === 'AWARD_NOTICE' ||
     classified.classification === 'SOLICITATION_CANCELLED';
