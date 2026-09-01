@@ -2,6 +2,12 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda
 import { z } from 'zod';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
+import {
+  RFP_SELECTABLE_STAGES,
+  linearStageWrite,
+  type RfpSelectableStage,
+} from '@auto-rfp/core';
+
 import { apiResponse, getOrgId } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import { createLinearTicket, updateLinearTicket } from '@/helpers/linear';
@@ -26,8 +32,8 @@ const RequestSchema = z.object({
   appUrl: z.string().url().optional(),
   /** Linear user id to assign the new ticket to (chosen in the create dialog). */
   assigneeId: z.string().min(1).optional(),
-  /** Linear workflow state id (status/column) the new ticket starts in. */
-  stateId: z.string().min(1).optional(),
+  /** RFP board stage the new ticket starts in (drives Linear status + gate label). */
+  stage: z.enum(RFP_SELECTABLE_STAGES as unknown as [string, ...string[]]).optional(),
   /** Due date for the RFP, ISO calendar date (YYYY-MM-DD), set in the dialog. */
   dueDate: z.string().min(1).optional(),
 });
@@ -67,7 +73,7 @@ export const baseHandler = async (
       return apiResponse(400, { message: 'Org Id is required' });
     }
     const bodyJson = event.body ? JSON.parse(event.body) : {};
-    const { executiveBriefId, appUrl, assigneeId, stateId, dueDate: requestedDueDate } =
+    const { executiveBriefId, appUrl, assigneeId, stage, dueDate: requestedDueDate } =
       RequestSchema.parse(bodyJson);
 
     const brief = await getExecutiveBrief(executiveBriefId);
@@ -156,6 +162,19 @@ export const baseHandler = async (
     // submission deadline only when a direct API caller omits it.
     const dueDate = requestedDueDate ?? deadlines?.submissionDeadlineIso ?? undefined;
 
+    // A chosen RFP stage sets the ticket's Linear status + adds its gate label
+    // (so the RFP board reads the intended stage back). Merge the gate label into
+    // the decision-driven labels; default to the team's first column otherwise.
+    let statusName: string | undefined;
+    const ticketLabels = [...labels];
+    if (stage) {
+      const write = linearStageWrite(stage as RfpSelectableStage);
+      statusName = write.status;
+      for (const l of write.addLabels) {
+        if (!ticketLabels.includes(l)) ticketLabels.push(l);
+      }
+    }
+
     const ticket = await createLinearTicket({
       orgId,
       title,
@@ -163,8 +182,8 @@ export const baseHandler = async (
       priority: 3,
       dueDate,
       assigneeId,
-      stateId,
-      labels,
+      statusName,
+      labels: ticketLabels,
     });
 
     if (ticket) {

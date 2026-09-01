@@ -72,27 +72,30 @@ beforeEach(() => {
 });
 
 describe('handle-linear-ticket — create', () => {
-  it('threads assigneeId, stateId, and dueDate into createLinearTicket', async () => {
+  it('maps the chosen stage to a Linear status + gate label and threads assignee/dueDate', async () => {
     const res = await baseHandler(
       makeEvent({
         executiveBriefId: 'brief-1',
         appUrl: 'https://rfp.example.com/opp',
         assigneeId: 'user-9',
-        stateId: 'state-3',
+        stage: 'firstApproved',
         dueDate: '2026-12-15',
       }),
     );
 
     expect(res.statusCode).toBe(200);
     expect(mockCreateLinearTicket).toHaveBeenCalledTimes(1);
-    expect(mockCreateLinearTicket).toHaveBeenCalledWith(
+    const arg = mockCreateLinearTicket.mock.calls[0][0];
+    expect(arg).toEqual(
       expect.objectContaining({
         orgId: ORG,
         assigneeId: 'user-9',
-        stateId: 'state-3',
+        // firstApproved → Linear status "Reviewed - Approved" + gate label "I Approved".
+        statusName: 'Reviewed - Approved',
         dueDate: '2026-12-15',
       }),
     );
+    expect(arg.labels).toContain('I Approved');
   });
 
   it('falls back to the brief submission deadline when dueDate is omitted', async () => {
@@ -101,7 +104,7 @@ describe('handle-linear-ticket — create', () => {
         executiveBriefId: 'brief-1',
         appUrl: 'https://rfp.example.com/opp',
         assigneeId: 'user-9',
-        stateId: 'state-3',
+        stage: 'firstApproved',
       }),
     );
 
@@ -129,7 +132,7 @@ describe('handle-linear-ticket — create', () => {
         executiveBriefId: 'brief-1',
         appUrl: 'https://rfp.example.com/opp',
         assigneeId: 'user-9',
-        stateId: 'state-3',
+        stage: 'firstApproved',
         dueDate: '2026-12-15',
       }),
     );

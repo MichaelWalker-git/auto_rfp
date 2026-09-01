@@ -47,8 +47,8 @@ import {
   useGetExecutiveBriefByProject,
   useInitExecutiveBrief,
   useHandleLinearTicket,
+  useUpdateLinearTicketStatus,
   useLinearUsers,
-  useLinearStates,
   useSyncBriefToGoogleDrive,
 } from '@/lib/hooks/use-executive-brief';
 import { useGenerateExecutiveBriefPricing } from '@/lib/hooks/use-pricing';
@@ -73,6 +73,7 @@ import { PermissionButton } from '@/components/ui/permission-button';
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { isExtractedQuestionFile } from '@/lib/utils/question-file-status';
 import type { OpportunityItem } from '@auto-rfp/core';
+import { RFP_STAGE_OPTIONS } from '@auto-rfp/core';
 
 function sectionIcon(section: SectionKey) {
   switch (section) {
@@ -262,6 +263,7 @@ export function ExecutiveBriefView({
   const genScoring = useGenerateExecutiveBriefScoring(currentOrganization?.id);
   const getBriefByProject = useGetExecutiveBriefByProject(currentOrganization?.id);
   const handleLinearTicket = useHandleLinearTicket(currentOrganization?.id);
+  const updateLinearTicketStatus = useUpdateLinearTicketStatus(currentOrganization?.id);
   const syncBriefToDrive = useSyncBriefToGoogleDrive(currentOrganization?.id);
 
   const [regenError, setRegenError] = useState<string | null>(null);
@@ -271,11 +273,15 @@ export function ExecutiveBriefView({
   // Create-Linear-Ticket dialog: required assignee, status, and due date.
   const [linearDialogOpen, setLinearDialogOpen] = useState(false);
   const [linearAssigneeId, setLinearAssigneeId] = useState<string>('');
-  const [linearStateId, setLinearStateId] = useState<string>('');
+  const [linearStage, setLinearStage] = useState<string>('');
   const [linearDueDate, setLinearDueDate] = useState<Date | undefined>(undefined);
-  // Only fetch the Linear members/states once the dialog is open.
+  // Change-status dialog: move an existing ticket to a chosen RFP board stage.
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [newStage, setNewStage] = useState<string>('');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  // The assignee list is fetched live from Linear once the create dialog opens;
+  // the status options are the fixed RFP board stages (RFP_STAGE_OPTIONS).
   const linearUsers = useLinearUsers(currentOrganization?.id, linearDialogOpen);
-  const linearStates = useLinearStates(currentOrganization?.id, linearDialogOpen);
   const [previousBrief, setPreviousBrief] = useState<any>(null);
   const [briefItem, setBriefItem] = useState<any>(null);
   const [localBusySections, setLocalBusySections] = useState<Set<SectionKey>>(() => new Set());
@@ -600,7 +606,7 @@ export function ExecutiveBriefView({
     const parsed = deadlineIso ? new Date(deadlineIso) : undefined;
     setLinearDueDate(parsed && !isNaN(parsed.getTime()) ? parsed : undefined);
     setLinearAssigneeId('');
-    setLinearStateId('');
+    setLinearStage('');
     setLinearDialogOpen(true);
   };
 
@@ -611,7 +617,7 @@ export function ExecutiveBriefView({
       !executiveBriefId ||
       isCreatingLinearTicket ||
       !linearAssigneeId ||
-      !linearStateId ||
+      !linearStage ||
       !linearDueDate
     ) {
       return;
@@ -629,7 +635,7 @@ export function ExecutiveBriefView({
         executiveBriefId: String(executiveBriefId),
         appUrl: `${window.location.origin}${opportunityPath}`,
         assigneeId: linearAssigneeId,
-        stateId: linearStateId,
+        stage: linearStage,
         dueDate: format(linearDueDate, 'yyyy-MM-dd'),
       });
 
@@ -649,6 +655,45 @@ export function ExecutiveBriefView({
       );
     } finally {
       setIsCreatingLinearTicket(false);
+    }
+  };
+
+  // Opens the change-status dialog for an existing ticket (resets the selection).
+  const handleOpenStatusDialog = () => {
+    setRegenError(null);
+    setNewStage('');
+    setStatusDialogOpen(true);
+  };
+
+  const handleUpdateLinearStatus = async () => {
+    const executiveBriefId = briefItem?.sort_key;
+    if (!executiveBriefId || isUpdatingStatus || !newStage) {
+      return;
+    }
+    setIsUpdatingStatus(true);
+    setRegenError(null);
+    try {
+      await updateLinearTicketStatus.trigger({
+        executiveBriefId: String(executiveBriefId),
+        stage: newStage,
+      });
+      setStatusDialogOpen(false);
+
+      // Re-fetch so any status-derived UI stays in sync.
+      const currentOppId = selectedOpportunityIdRef.current;
+      const resp = await getBriefByProject.trigger({
+        projectId,
+        opportunityId: currentOppId || undefined,
+      });
+      if (resp?.ok && resp?.brief) {
+        setBriefItem(resp.brief);
+      }
+    } catch (err) {
+      setRegenError(
+        err instanceof Error ? err.message : 'Failed to update Linear ticket status',
+      );
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
 
@@ -1134,12 +1179,31 @@ export function ExecutiveBriefView({
                     </PermissionButton>
                   ) : null}
                   {briefItem?.linearTicketUrl ? (
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={briefItem.linearTicketUrl} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4 mr-2" />
-                        Linear Ticket
-                      </a>
-                    </Button>
+                    <>
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={briefItem.linearTicketUrl} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Linear Ticket
+                        </a>
+                      </Button>
+                      {isHorusTechOrg ? (
+                        <PermissionButton
+                          requiredPermission="brief:edit"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleOpenStatusDialog}
+                          disabled={isUpdatingStatus}
+                          title="Change the Linear ticket's status"
+                        >
+                          {isUpdatingStatus ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                          )}
+                          Change Status
+                        </PermissionButton>
+                      ) : null}
+                    </>
                   ) : isHorusTechOrg ? (
                     <PermissionButton
                       requiredPermission="brief:edit"
@@ -1195,26 +1259,18 @@ export function ExecutiveBriefView({
                         {/* Status */}
                         <div className="space-y-1.5">
                           <Label>Status</Label>
-                          {linearStates.isLoading ? (
-                            <Skeleton className="h-9 w-full" />
-                          ) : linearStates.error ? (
-                            <p className="text-sm text-destructive">
-                              Couldn’t load Linear statuses. Check the Linear API key in organization settings.
-                            </p>
-                          ) : (
-                            <Select value={linearStateId} onValueChange={setLinearStateId}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a status" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {linearStates.data?.states.map((state) => (
-                                  <SelectItem key={state.id} value={state.id}>
-                                    {state.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
+                          <Select value={linearStage} onValueChange={setLinearStage}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {RFP_STAGE_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.stage} value={opt.stage}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
 
                         {/* Due date */}
@@ -1259,7 +1315,7 @@ export function ExecutiveBriefView({
                           disabled={
                             isCreatingLinearTicket ||
                             !linearAssigneeId ||
-                            !linearStateId ||
+                            !linearStage ||
                             !linearDueDate
                           }
                         >
@@ -1269,6 +1325,57 @@ export function ExecutiveBriefView({
                             <TicketPlus className="h-4 w-4 mr-2" />
                           )}
                           Create Ticket
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Change the status of an existing Linear ticket. */}
+                  <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Change Linear Status</DialogTitle>
+                        <DialogDescription>
+                          Move ticket {briefItem?.linearTicketIdentifier || ''} to a new status.
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <div className="space-y-4 py-2">
+                        <div className="space-y-1.5">
+                          <Label>Status</Label>
+                          <Select value={newStage} onValueChange={setNewStage}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {RFP_STAGE_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.stage} value={opt.stage}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setStatusDialogOpen(false)}
+                          disabled={isUpdatingStatus}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleUpdateLinearStatus}
+                          disabled={isUpdatingStatus || !newStage}
+                        >
+                          {isUpdatingStatus ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                          )}
+                          Update Status
                         </Button>
                       </DialogFooter>
                     </DialogContent>

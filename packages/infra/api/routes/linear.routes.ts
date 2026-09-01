@@ -20,10 +20,5 @@ export const linearRoutes: DomainRoutes = {
       method: 'GET',
       entry: lambdaEntry('linear/list-users.ts'),
     },
-    {
-      path: 'list-states',
-      method: 'GET',
-      entry: lambdaEntry('linear/list-states.ts'),
-    },
   ],
 };

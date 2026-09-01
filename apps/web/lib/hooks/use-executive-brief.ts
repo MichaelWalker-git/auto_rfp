@@ -82,8 +82,8 @@ export type HandleLinearTicketRequest = {
   appUrl?: string;
   /** Linear user id to assign the ticket to (chosen in the create dialog). */
   assigneeId?: string;
-  /** Linear workflow state id (status/column) the ticket starts in. */
-  stateId?: string;
+  /** RFP board stage the ticket starts in (drives Linear status + gate label). */
+  stage?: string;
   /** RFP due date, ISO calendar date (YYYY-MM-DD), chosen in the create dialog. */
   dueDate?: string;
 };
@@ -94,21 +94,28 @@ export type LinearUser = {
   email: string;
 };
 
-export type LinearState = {
-  id: string;
-  name: string;
-  type: string;
-};
-
 export type ListLinearUsersResponse = {
   users: LinearUser[];
 };
 
-export type ListLinearStatesResponse = {
-  states: LinearState[];
+export type HandleLinearTicketResponse = {
+  ok: boolean;
+  ticket?: {
+    id: string;
+    identifier: string;
+    url: string;
+  };
+  message?: string;
+  error?: string;
 };
 
-export type HandleLinearTicketResponse = {
+export type UpdateLinearTicketStatusRequest = {
+  executiveBriefId: string;
+  /** RFP board stage to move the ticket to (drives Linear status + gate label). */
+  stage: string;
+};
+
+export type UpdateLinearTicketStatusResponse = {
   ok: boolean;
   ticket?: {
     id: string;
@@ -190,8 +197,8 @@ const endpoints = {
   scoring: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-scoring${orgId ? `?orgId=${orgId}` : ''}`,
   getByProject: (orgId?: string) => `${env.BASE_API_URL}/brief/get-executive-brief-by-project${orgId ? `?orgId=${orgId}` : ''}`,
   handleLinearTicket: (orgId?: string) => `${env.BASE_API_URL}/brief/handle-linear-ticket${orgId ? `?orgId=${orgId}` : ''}`,
+  updateLinearTicketStatus: (orgId?: string) => `${env.BASE_API_URL}/brief/update-linear-ticket-status${orgId ? `?orgId=${orgId}` : ''}`,
   linearUsers: (orgId?: string) => `${env.BASE_API_URL}/linear/list-users${orgId ? `?orgId=${orgId}` : ''}`,
-  linearStates: (orgId?: string) => `${env.BASE_API_URL}/linear/list-states${orgId ? `?orgId=${orgId}` : ''}`,
   updateDecision: (orgId?: string) => `${env.BASE_API_URL}/brief/update-decision${orgId ? `?orgId=${orgId}` : ''}`,
   syncToGoogleDrive: (orgId?: string) => `${env.BASE_API_URL}/brief/sync-to-google-drive${orgId ? `?orgId=${orgId}` : ''}`,
 } as const;
@@ -311,14 +318,15 @@ export function useLinearUsers(orgId?: string, enabled = true) {
   );
 }
 
-/**
- * Lists the org's Linear workflow states (statuses) for the create-ticket status
- * picker. Pass `enabled: false` to defer the fetch until the dialog opens.
- */
-export function useLinearStates(orgId?: string, enabled = true) {
-  return useSWR<ListLinearStatesResponse, Error>(
-    enabled ? endpoints.linearStates(orgId) : null,
-    (url: string) => getJson<ListLinearStatesResponse>(url),
+export function useUpdateLinearTicketStatus(orgId?: string) {
+  return useSWRMutation<
+    UpdateLinearTicketStatusResponse,
+    Error,
+    string,
+    UpdateLinearTicketStatusRequest
+  >(
+    endpoints.updateLinearTicketStatus(orgId),
+    (url, { arg }) => postJson<UpdateLinearTicketStatusResponse>(url, arg),
   );
 }
 
