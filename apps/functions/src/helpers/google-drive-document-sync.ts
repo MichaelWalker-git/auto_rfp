@@ -586,23 +586,38 @@ export const resolveOpportunityProposalFolder = async (args: {
     return null;
   }
 
-  const summaryData = (brief.sections as Record<string, { data?: Record<string, unknown> }> | undefined)
-    ?.summary?.data;
+  // Prefer the folder the "Create Drive Folder" button already created and stored
+  // on the brief. Re-deriving the name here is fragile: buildOpportunityFolderName
+  // prefixes with the Linear ticket identifier when one exists, so a ticket created
+  // *after* the folder changes the derived name from "<briefId> - ..." to
+  // "HOR-#### - ...". findOrCreateFolder then misses the existing folder and spawns
+  // a duplicate, stranding auto-pushed documents in a second "Proposal Materials"
+  // the brief never links to. Anchoring on the stored id keeps every push in the
+  // one folder the user actually opens.
+  const storedFolderId = (brief as Record<string, unknown>).googleDriveFolderId as string | undefined;
 
-  let projectTitle: string | undefined = summaryData?.title as string | undefined;
-  if (!projectTitle) {
-    const project = await getProjectById(projectId).catch(() => undefined);
-    projectTitle = (project as Record<string, unknown> | undefined)?.name as string | undefined;
+  let rootFolderId: string;
+  if (storedFolderId) {
+    rootFolderId = storedFolderId;
+  } else {
+    const summaryData = (brief.sections as Record<string, { data?: Record<string, unknown> }> | undefined)
+      ?.summary?.data;
+
+    let projectTitle: string | undefined = summaryData?.title as string | undefined;
+    if (!projectTitle) {
+      const project = await getProjectById(projectId).catch(() => undefined);
+      projectTitle = (project as Record<string, unknown> | undefined)?.name as string | undefined;
+    }
+
+    const folderName = buildOpportunityFolderName({
+      linearTicketIdentifier: brief.linearTicketIdentifier as string | undefined,
+      executiveBriefId: brief[SK_NAME] as string,
+      agencyName: summaryData?.agency as string | undefined,
+      projectTitle,
+    });
+
+    rootFolderId = await findOrCreateFolder(drive, folderName, DRIVE_ROOT_PARENT_FOLDER_ID);
   }
-
-  const folderName = buildOpportunityFolderName({
-    linearTicketIdentifier: brief.linearTicketIdentifier as string | undefined,
-    executiveBriefId: brief[SK_NAME] as string,
-    agencyName: summaryData?.agency as string | undefined,
-    projectTitle,
-  });
-
-  const rootFolderId = await findOrCreateFolder(drive, folderName, DRIVE_ROOT_PARENT_FOLDER_ID);
   const proposalFolderId = await findOrCreateFolder(
     drive,
     OPPORTUNITY_SUBFOLDERS.proposalMaterials,
