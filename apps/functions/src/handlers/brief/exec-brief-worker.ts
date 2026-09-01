@@ -199,6 +199,7 @@ export async function runSummary(job: Job): Promise<void> {
       // Summary is pure extraction from solicitation — no KB or tools needed
       data = await invokeClaudeJson({
         modelId: BEDROCK_MODEL_ID,
+      orgId,
         system: await getSummarySystemPrompt(orgId),
         user: await useSummaryUserPrompt(
           orgId,
@@ -234,6 +235,7 @@ export async function runSummary(job: Job): Promise<void> {
       try {
         const fallbackData = await invokeClaudeJson({
           modelId: BEDROCK_MODEL_ID,
+      orgId,
           system: await getSummarySystemPrompt(orgId),
           user: await useSummaryUserPrompt(
             orgId,
@@ -353,6 +355,7 @@ async function runDeadlines(job: Job): Promise<void> {
     // Deadlines: pure extraction from solicitation — no tools needed
     const data = await invokeClaudeJson({
       modelId: BEDROCK_MODEL_ID,
+      orgId,
       system: await useDeadlineSystemPrompt(orgId),
       user: await useDeadlineUserPrompt(orgId, solicitationText),
       outputSchema: DeadlinesSectionSchema,
@@ -407,6 +410,7 @@ async function runRequirements(job: Job): Promise<void> {
 
     const data = await invokeClaudeJson({
       modelId: BEDROCK_MODEL_ID,
+      orgId,
       system: await useRequirementsSystemPrompt(orgId),
       user: await useRequirementsUserPrompt(orgId, solicitationText),
       outputSchema: RequirementsSectionSchema,
@@ -461,6 +465,7 @@ async function runContacts(job: Job): Promise<void> {
     // Contacts: pure extraction from solicitation — no tools needed
     const data = await invokeClaudeJson({
       modelId: BEDROCK_MODEL_ID,
+      orgId,
       system: await useContactsSystemPrompt(orgId),
       user: await useContactsUserPrompt(orgId, solicitationText),
       outputSchema: ContactsSectionSchema,
@@ -515,6 +520,7 @@ async function runRisks(job: Job): Promise<void> {
 
     const data = await invokeClaudeWithTools({
       modelId: BEDROCK_MODEL_ID,
+      orgId,
       system: await useRiskSystemPrompt(orgId),
       user: await useRiskUserPrompt(orgId, solicitationText),
       tools: BRIEF_TOOLS,
@@ -627,6 +633,7 @@ async function runPricing(job: Job): Promise<void> {
 
     const data = await invokeClaudeWithTools({
       modelId: BEDROCK_MODEL_ID,
+      orgId,
       system: await usePricingSystemPrompt(orgId),
       user: await usePricingUserPrompt(
         orgId,
@@ -743,6 +750,7 @@ async function runScoring(job: Job): Promise<void> {
 
     const data = await invokeClaudeWithTools({
       modelId: BEDROCK_MODEL_ID,
+      orgId,
       system: await useScoringSystemPrompt(orgId),
       user: await useScoringUserPrompt(
         orgId,

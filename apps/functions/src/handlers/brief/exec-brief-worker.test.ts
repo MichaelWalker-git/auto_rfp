@@ -62,7 +62,7 @@ jest.mock('@/constants/prompt', () => ({
   useSummaryUserPrompt: jest.fn(),
 }));
 
-import { applyExpiredDeadlineGuard, isExpiredDeadlineBlocker, runSummary } from './exec-brief-worker';
+import { applyExpiredDeadlineGuard, handler, isExpiredDeadlineBlocker, runSummary } from './exec-brief-worker';
 import {
   getExecutiveBrief,
   invokeClaudeJson,
@@ -348,5 +348,38 @@ describe('runSummary — physical submission detection', () => {
     await runSummary(baseJob);
 
     expect(updateOpportunity).not.toHaveBeenCalled();
+  });
+});
+
+describe('orgId propagation to Bedrock (summary section)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (getExecutiveBrief as jest.Mock).mockResolvedValue({
+      projectId: 'proj-1',
+      opportunityId: 'opp-1',
+      allTextKeys: [],
+      sections: {},
+    });
+    (loadSolicitationForBrief as jest.Mock).mockResolvedValue({
+      solicitationText: 'solicitation text',
+      textKeys: [],
+    });
+    (smartTruncate as jest.Mock).mockImplementation((t: string) => t);
+    (invokeClaudeJson as jest.Mock).mockResolvedValue({ summary: 'ok' });
+  });
+
+  it('threads the SQS job orgId into invokeClaudeJson', async () => {
+    const job = {
+      orgId: 'org-1',
+      executiveBriefId: 'brief-1',
+      section: 'summary',
+      inputHash: 'hash-1',
+    };
+
+    await handler({ Records: [{ body: JSON.stringify(job) }] } as never, {} as never, undefined as never);
+
+    expect(invokeClaudeJson).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: 'org-1' }),
+    );
   });
 });

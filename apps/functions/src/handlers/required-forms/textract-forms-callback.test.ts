@@ -171,7 +171,7 @@ describe('textract-forms-callback', () => {
     await baseHandler(event({ JobId: 'j-1', Status: 'SUCCEEDED', JobTag: 'form-1' }), ctx);
 
     expect(mockFetchBlocks).toHaveBeenCalledWith('j-1');
-    expect(mockAutofill).toHaveBeenCalledWith(detected, { orgId: 'org-1', companyName: 'Acme Corp' });
+    expect(mockAutofill).toHaveBeenCalledWith(detected, { orgId: 'org-1', companyName: 'Acme Corp' }, 'org-1');
     expect(mockUpdateForm).toHaveBeenCalledWith({
       ...formStub,
       patch: expect.objectContaining({

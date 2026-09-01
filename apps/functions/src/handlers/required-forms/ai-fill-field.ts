@@ -144,7 +144,7 @@ const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
 
   let rawText: string | null = null;
   try {
-    const responseBody = await invokeModel(getBedrockModelId(), JSON.stringify(prompt));
+    const responseBody = await invokeModel(getBedrockModelId(), JSON.stringify(prompt), orgId);
     const responseJson = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as Record<string, unknown>;
     const contentBlocks = (responseJson?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
     rawText = contentBlocks.find((c) => c?.type === 'text')?.text ?? null;

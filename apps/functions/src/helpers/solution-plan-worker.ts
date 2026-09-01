@@ -284,7 +284,7 @@ export const processGrillingRound = async (message: GrillingRoundMessage): Promi
       );
       grillerText = persistedGriller.content;
     } else {
-      const griller = new GrillerAgent({ modelId: resolveGrillerModelId() });
+      const griller = new GrillerAgent({ modelId: resolveGrillerModelId(), orgId: message.orgId });
       grillerText = await griller.ask({
         solicitationText,
         execBriefText,
@@ -354,6 +354,7 @@ export const processSynthesis = async (message: GrillingRoundMessage): Promise<v
 
     const { title, htmlContent, costSchedule } = await invokeClaudeJson({
       modelId: resolveModelId(),
+      orgId: message.orgId,
       system: buildSynthesizerSystemPrompt(),
       user: buildSynthesizerUserPrompt({
         opportunityPrimer: buildOpportunityPrimer(solicitationText, execBriefText),

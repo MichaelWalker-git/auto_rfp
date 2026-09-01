@@ -948,7 +948,7 @@ export function computeOverallStatus(
 
 export async function queryCompanyKnowledgeBase(orgId: string, solicitationText: string, topK: number): Promise<PineconeHit[]> {
   try {
-    const embeddings = await getEmbedding(solicitationText);
+    const embeddings = await getEmbedding(solicitationText, orgId);
     return await semanticSearchChunks(orgId, embeddings, topK);
   } catch (err) {
     console.warn('queryCompanyKnowledgeBase failed (non-fatal):', (err as Error)?.message);
@@ -966,6 +966,7 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
   outputSchema: S;
   maxTokens?: number;
   temperature?: number;
+  orgId: string;
 }): Promise<ReturnType<S['parse']>> {
   const {
     modelId,
@@ -974,6 +975,7 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
     outputSchema,
     maxTokens = 2000,
     temperature = 0.2,
+    orgId,
   } = args;
 
   const body = {
@@ -987,8 +989,7 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
   const responseBody = await invokeModel(
     modelId,
     JSON.stringify(body),
-    'application/json',
-    'application/json'
+    orgId,
   );
   let jsonText = new TextDecoder('utf-8').decode(responseBody);
   let stopReason: string | undefined;
@@ -1027,8 +1028,7 @@ export async function invokeClaudeJson<S extends SchemaLike<any>>(args: {
     const retryResponseBody = await invokeModel(
       modelId,
       JSON.stringify(retryBody),
-      'application/json',
-      'application/json'
+      orgId,
     );
     let retryJsonText = new TextDecoder('utf-8').decode(retryResponseBody);
 

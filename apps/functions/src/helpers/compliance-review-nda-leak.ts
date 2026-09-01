@@ -252,7 +252,11 @@ const parseLeakIndices = (modelOut: unknown): Set<number> | null => {
  * ambiguous candidates are KEPT (fail toward reporting — an NDA leak is critical;
  * a false positive is safer than a missed disclosure).
  */
-const pruneAmbiguous = async (candidates: LeakCandidate[], modelId: string): Promise<LeakCandidate[]> => {
+const pruneAmbiguous = async (
+  candidates: LeakCandidate[],
+  modelId: string,
+  orgId: string,
+): Promise<LeakCandidate[]> => {
   const ambiguousIdx = candidates
     .map((c, i) => (isAmbiguous(c.name) ? i : -1))
     .filter((i) => i >= 0);
@@ -260,7 +264,7 @@ const pruneAmbiguous = async (candidates: LeakCandidate[], modelId: string): Pro
 
   try {
     const items = ambiguousIdx.map((i) => ({ i, name: candidates[i].name, snippet: candidates[i].snippet }));
-    const body = await invokeModel(modelId, JSON.stringify(buildPrunePrompt(items)));
+    const body = await invokeModel(modelId, JSON.stringify(buildPrunePrompt(items)), orgId);
     const json = JSON.parse(new TextDecoder('utf-8').decode(body)) as Record<string, unknown>;
     const blocks = (json?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
     const raw = blocks.find((c) => c?.type === 'text')?.text ?? null;
@@ -308,7 +312,7 @@ export const computeNdaLeakFindings = async (args: {
     // is counted into the visible summary below.
     const cappedAmbiguous = ambiguous.slice(0, MAX_FACTUAL_CANDIDATES_PER_CHECK);
     const unverifiedAmbiguous = ambiguous.length - cappedAmbiguous.length;
-    const keptAmbiguous = await pruneAmbiguous(cappedAmbiguous, modelId);
+    const keptAmbiguous = await pruneAmbiguous(cappedAmbiguous, modelId, orgId);
 
     // Emit unambiguous leaks FIRST (highest confidence), then surviving ambiguous
     // ones. Bound the number of INDIVIDUAL findings so a pathological package

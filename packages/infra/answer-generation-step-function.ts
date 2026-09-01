@@ -47,7 +47,8 @@ export class AnswerGenerationPipelineStack extends Stack {
         removalPolicy: RemovalPolicy.DESTROY,
       });
 
-    const bedrockApiKeyParamArn = `arn:aws:ssm:us-east-1:${this.account}:parameter/auto-rfp/bedrock/api-key`;
+    // Per-org Bedrock keys live in Secrets Manager as `bedrock-api-key-<orgId>`.
+    const bedrockApiKeySecretArn = `arn:aws:secretsmanager:${this.region}:${this.account}:secret:bedrock-api-key-*`;
     const auditHmacSecretParamArn = `arn:aws:ssm:us-east-1:${this.account}:parameter/auto-rfp/audit-hmac-secret-${stage.toLowerCase()}`;
 
     const commonLambdaEnv = {
@@ -85,8 +86,8 @@ export class AnswerGenerationPipelineStack extends Stack {
     );
     prepareQuestionsLambda.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['ssm:GetParameter'],
-        resources: [bedrockApiKeyParamArn],
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [bedrockApiKeySecretArn],
       }),
     );
 
@@ -118,8 +119,14 @@ export class AnswerGenerationPipelineStack extends Stack {
     );
     generateAnswerLambda.addToRolePolicy(
       new iam.PolicyStatement({
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [bedrockApiKeySecretArn],
+      }),
+    );
+    generateAnswerLambda.addToRolePolicy(
+      new iam.PolicyStatement({
         actions: ['ssm:GetParameter'],
-        resources: [bedrockApiKeyParamArn, auditHmacSecretParamArn],
+        resources: [auditHmacSecretParamArn],
       }),
     );
 

@@ -230,6 +230,7 @@ const generateSingleSection = async (args: {
   maxTokensPerSection: number;
   temperature: number;
   maxToolRoundsPerSection: number;
+  orgId: string;
 }): Promise<{ html: string; toolRoundsUsed: number }> => {
   const {
     modelId,
@@ -241,6 +242,7 @@ const generateSingleSection = async (args: {
     maxTokensPerSection,
     temperature,
     maxToolRoundsPerSection,
+    orgId,
   } = args;
 
   // Fresh conversation for this section
@@ -267,7 +269,7 @@ const generateSingleSection = async (args: {
       requestBody.tools = tools;
     }
 
-    const responseBody = await invokeModel(modelId, JSON.stringify(requestBody));
+    const responseBody = await invokeModel(modelId, JSON.stringify(requestBody), orgId);
     const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as {
       stop_reason?: string;
       content?: ContentBlock[];
@@ -304,7 +306,7 @@ const generateSingleSection = async (args: {
         temperature,
       };
 
-      const finalResponse = await invokeModel(modelId, JSON.stringify(finalBody));
+      const finalResponse = await invokeModel(modelId, JSON.stringify(finalBody), orgId);
       const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResponse)) as { content?: ContentBlock[] };
       sectionHtml = extractText(finalParsed.content ?? []);
     }
@@ -460,6 +462,7 @@ export const generateDocumentSectionBySectionHtml = async (
         maxTokensPerSection,
         temperature,
         maxToolRoundsPerSection,
+        orgId,
       });
 
       const durationMs = Date.now() - sectionStart;

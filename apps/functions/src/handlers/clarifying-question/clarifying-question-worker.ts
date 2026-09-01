@@ -169,6 +169,7 @@ export const handler = async (event: SQSEvent): Promise<SQSBatchResponse> => {
 
       const response = await invokeClaudeJson({
         modelId: BEDROCK_MODEL_ID,
+        orgId,
         system: systemPrompt,
         user: userPrompt,
         outputSchema: GeneratedQuestionsArraySchema,

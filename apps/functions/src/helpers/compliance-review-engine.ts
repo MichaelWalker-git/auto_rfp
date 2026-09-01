@@ -175,6 +175,7 @@ const runReview = async (args: {
 
   const output = await invokeClaudeWithTools<ReviewOutput>({
     modelId,
+    orgId,
     system: SYSTEM_PROMPT,
     user: userPrompt,
     tools: COMPLIANCE_REVIEW_TOOLS,
@@ -220,6 +221,7 @@ export const runFullReview = async (args: {
     augmentFindings: async (rawFindings, inventory) => {
       const [missing, inconsistent, profileFacts, certs, kb, pastperf, ndaLeak, solutionPlan] = await Promise.all([
         computeMissingFormFindings({
+          orgId: args.orgId,
           projectId: args.projectId,
           oppId: args.oppId,
           modelId: args.modelId,

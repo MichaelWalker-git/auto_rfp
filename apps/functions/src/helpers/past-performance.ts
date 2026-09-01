@@ -466,7 +466,7 @@ export async function indexPastProjectToPinecone(
     project.naicsCodes.length ? `NAICS: ${project.naicsCodes.join(', ')}` : '',
   ].filter(Boolean).join('\n\n');
 
-  const embedding = await getEmbedding(textForEmbedding);
+  const embedding = await getEmbedding(textForEmbedding, orgId);
   const id = `past_project#${project.projectId}`;
 
   await index.namespace(orgId).upsert([
@@ -523,7 +523,7 @@ export async function searchPastProjects(
     const client = await initPineconeClient();
   const index = client.Index(requireEnv('PINECONE_INDEX'));
 
-    const embedding = await getEmbedding(queryText);
+    const embedding = await getEmbedding(queryText, orgId);
 
     const results = await index.namespace(orgId).query({
       vector: embedding,

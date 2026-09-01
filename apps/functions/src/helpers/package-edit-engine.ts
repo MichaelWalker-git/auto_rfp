@@ -478,6 +478,7 @@ export const runProposeEdits = async (args: {
 
   const output = await invokeClaudeWithTools<ProposeOutput>({
     modelId,
+    orgId,
     system: SYSTEM_PROMPT,
     user: buildUserPrompt(instruction),
     tools: COMPLIANCE_REVIEW_TOOLS,

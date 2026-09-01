@@ -270,12 +270,13 @@ export class DocumentPipelineStack extends Stack {
       }),
     );
 
-    const bedrockApiKeyParamArn = `arn:aws:ssm:us-east-1:${this.account}:parameter/auto-rfp/bedrock/api-key`;
+    // Per-org Bedrock keys live in Secrets Manager as `bedrock-api-key-<orgId>`.
+    const bedrockApiKeySecretArn = `arn:aws:secretsmanager:${this.region}:${this.account}:secret:bedrock-api-key-*`;
 
     indexDocumentLambda.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['ssm:GetParameter'],
-        resources: [bedrockApiKeyParamArn],
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [bedrockApiKeySecretArn],
       }),
     );
 

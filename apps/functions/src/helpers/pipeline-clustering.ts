@@ -51,7 +51,7 @@ export const embedQuestions = async (
 
     const embeddings = await Promise.all(
       batch.map(async (q) => {
-        const embedding = await getEmbedding(q.questionText);
+        const embedding = await getEmbedding(q.questionText, orgId);
         return { ...q, embedding };
       }),
     );

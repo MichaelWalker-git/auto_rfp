@@ -46,6 +46,8 @@ import { GapAnalysisCard } from './components/GapAnalysisCard';
 import { PricingCard } from './components/PricingCard';
 import { OpportunitySelector } from './components/OpportunitySelector';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { AiNotConfiguredNotice } from '@/components/ai-not-configured-notice';
+import { isAiNotConfiguredError } from '@/lib/ai-not-configured';
 import { PermissionButton } from '@/components/ui/permission-button';
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { isExtractedQuestionFile } from '@/lib/utils/question-file-status';
@@ -165,12 +167,18 @@ interface SectionContentProps {
 }
 
 function SectionContent({ section, status, error, isBusy, children, skeletonRows = 4 }: SectionContentProps) {
+  const { currentOrganization } = useCurrentOrganization();
   const isFailed = status === 'FAILED';
   // Only show in-progress if NOT failed - failed status takes priority
   const isInProgress = !isFailed && (isInProgressStatus(status) || isBusy);
 
   // Show error if failed (check this FIRST, before in-progress)
   if (isFailed) {
+    // The org has no valid Bedrock key — point an admin to settings rather than
+    // surfacing the raw failure string.
+    if (isAiNotConfiguredError({ message: error })) {
+      return <AiNotConfiguredNotice orgId={currentOrganization?.id ?? ''} />;
+    }
     return (
       <Alert variant="destructive">
         <AlertTriangle className="h-4 w-4"/>

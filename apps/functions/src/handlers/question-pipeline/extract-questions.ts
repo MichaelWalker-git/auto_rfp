@@ -10,6 +10,7 @@ import { nowIso } from '@/helpers/date';
 import { loadTextFromS3 } from '@/helpers/s3';
 import { v4 as uuidv4 } from 'uuid';
 import { invokeModel } from '@/helpers/bedrock-http-client';
+import { isAiNotConfiguredError } from '@/helpers/ai-config-error';
 import { updateQuestionFile, checkQuestionFileCancelled, getQuestionFileItem } from '@/helpers/questionFile';
 import { GroupedSection, QuestionOption, QuestionResponseKind } from '@auto-rfp/core';
 import { buildQuestionSK, isConditionalCheckFailed, normalizeQuestionText, sha256Hex } from '@/helpers/question';
@@ -218,6 +219,7 @@ const extractQuestionsWithBedrock = async (
   chunkIndex: number,
   totalChunks: number,
   isQuestionnaire = false,
+  orgId: string,
 ): Promise<ExtractedQuestions> => {
   const body = {
     anthropic_version: 'bedrock-2023-05-31',
@@ -227,7 +229,7 @@ const extractQuestionsWithBedrock = async (
     temperature: 0.1,
   };
 
-  const responseBody = await invokeModel(getBedrockModelId(), JSON.stringify(body));
+  const responseBody = await invokeModel(getBedrockModelId(), JSON.stringify(body), orgId);
   const jsonTxt = new TextDecoder('utf-8').decode(responseBody);
 
   let outer: Record<string, unknown>;
@@ -440,6 +442,17 @@ export const baseHandler = async (
   const isQuestionnaire = event.docType === 'QUESTIONNAIRE';
   console.log(`Document type: ${event.docType ?? 'not set'} (isQuestionnaire: ${isQuestionnaire})`);
 
+  // Resolve orgId from the question file so it can be threaded into the Bedrock
+  // invoke (per-org API key routing). Required (ticket 09): without an orgId we
+  // cannot resolve the org's Bedrock key, so fail loudly rather than silently.
+  const qf = await getQuestionFileItem(projectId, opportunityId, questionFileId);
+  const orgId = qf?.orgId;
+  if (!orgId) {
+    throw new Error(
+      `Cannot extract questions for question file ${questionFileId}: no orgId on the item for Bedrock key routing`,
+    );
+  }
+
   const text = await loadTextFromS3(getDocumentsBucket(), textFileKey);
   console.log(`Loaded text: ${text.length} characters`);
 
@@ -450,10 +463,15 @@ export const baseHandler = async (
 
   for (let i = 0; i < chunks.length; i++) {
     try {
-      const extracted = await extractQuestionsWithBedrock(chunks[i]!, i, chunks.length, isQuestionnaire);
+      const extracted = await extractQuestionsWithBedrock(chunks[i]!, i, chunks.length, isQuestionnaire, orgId);
       allSections.push(...extracted.sections);
       console.log(`Chunk ${i + 1} extracted ${extracted.sections.length} sections`);
     } catch (err: unknown) {
+      // Fail closed: an unconfigured org can't extract any chunk, so surface the
+      // AI-not-configured error rather than silently returning zero questions.
+      // Other per-chunk errors are still tolerated so one bad chunk doesn't sink
+      // the whole extraction.
+      if (isAiNotConfiguredError(err)) throw err;
       console.error(`Failed to extract from chunk ${i + 1}:`, err);
     }
   }

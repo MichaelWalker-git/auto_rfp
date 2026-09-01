@@ -105,6 +105,16 @@ describe('parseDocxForms', () => {
     const fields = await parseDocxForms('lots of blanks');
     expect(fields.length).toBeLessThanOrEqual(200);
   });
+
+  it('threads orgId through to invokeModel as the third argument', async () => {
+    mockInvokeModel.mockResolvedValueOnce(encodeModelResponse(JSON.stringify({ fields: [] })));
+    await parseDocxForms('Company Name: ____', 'the-org-id');
+    expect(mockInvokeModel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'the-org-id',
+    );
+  });
 });
 
 describe('extractAndAutofillDocxForm', () => {
@@ -188,6 +198,12 @@ describe('extractAndAutofillDocxForm', () => {
     expect(result.totalFieldCount).toBe(1);
     // Anchor-less manual field, surfaced so nothing is silently dropped.
     expect(result.fields[0].docxAnchor).toBeNull();
+    // orgId flows from the caller into the LLM-fallback parse → invokeModel.
+    expect(mockInvokeModel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'org-1',
+    );
   });
 
   it('skips profile lookup and autofill when no fields are extracted', async () => {

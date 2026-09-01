@@ -241,6 +241,8 @@ describe('computeNdaLeakFindings', () => {
 
     const findings = await computeNdaLeakFindings({ orgId: 'o', modelId: 'm', inventory: htmlDocInventory() });
     expect(mockInvokeModel).toHaveBeenCalledTimes(1);
+    // orgId threads through to the Stage-2 prune call as the 3rd arg.
+    expect(mockInvokeModel).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'o');
     expect(findings).toHaveLength(1);
   });
 

@@ -16,6 +16,8 @@ import {
   useRFPDocumentHtmlContent,
   useRFPDocumentPolling,
 } from '@/lib/hooks/use-rfp-documents';
+import { AiNotConfiguredNotice } from '@/components/ai-not-configured-notice';
+import { isAiNotConfiguredError } from '@/lib/ai-not-configured';
 import { RichTextEditor, stripPresignedUrlsFromHtml } from './rich-text-editor';
 import { sanitizeGeneratedHtml } from './rfp-document-utils';
 import { usePresignUpload, usePresignDownload, uploadFileToS3 } from '@/lib/hooks/use-presign';
@@ -298,23 +300,40 @@ export const RFPDocumentEditorPage = ({
           </div>
         ) : isFailed ? (
           <div className="flex flex-col items-center justify-center h-full gap-4">
-            <div className="rounded-full bg-red-50 p-3">
-              <FileText className="h-10 w-10 text-red-500" />
-            </div>
-            <div className="text-center max-w-md">
-              <p className="text-sm font-medium text-red-600 mb-1">Generation Failed</p>
-              <p className="text-xs text-muted-foreground mb-4">
-                {doc?.generationError || 'The AI encountered an error while generating this document.'}
-              </p>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => router.back()}
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Go Back
-              </Button>
-            </div>
+            {isAiNotConfiguredError({ message: doc?.generationError }) ? (
+              <div className="max-w-md w-full">
+                <AiNotConfiguredNotice orgId={orgId} />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => router.back()}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Go Back
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="rounded-full bg-red-50 p-3">
+                  <FileText className="h-10 w-10 text-red-500" />
+                </div>
+                <div className="text-center max-w-md">
+                  <p className="text-sm font-medium text-red-600 mb-1">Generation Failed</p>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    {doc?.generationError || 'The AI encountered an error while generating this document.'}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => router.back()}
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Go Back
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         ) : isHtmlLoading ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground">

@@ -178,6 +178,12 @@ describe('generateTeamRecommendation', () => {
       expect.objectContaining({ employeeId: 'emp-se', nameSnapshot: 'Bob Engineer' }),
     ]);
     expect(mockInvokeModel).toHaveBeenCalledTimes(1);
+    // orgId propagates to invokeModel as the third argument (per-org Bedrock key).
+    expect(mockInvokeModel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      key.orgId,
+    );
   });
 
   it('turns an unfillable position into an UNFILLED line and guards hallucinated ids', async () => {

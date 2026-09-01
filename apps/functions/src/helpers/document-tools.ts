@@ -623,6 +623,7 @@ const formatPricingTable = (results: ServicePricingResult[], lookupUnavailable: 
  */
 const executeSearchServicePricing = async (
   toolInput: Record<string, unknown>,
+  orgId: string,
 ): Promise<string> => {
   const { success, data, error } = SearchServicePricingInputSchema.safeParse(toolInput);
   if (!success) {
@@ -634,7 +635,7 @@ const executeSearchServicePricing = async (
   }
 
   try {
-    return formatPricingTable(await searchServicePricing({ services: data.services }), false);
+    return formatPricingTable(await searchServicePricing({ services: data.services, orgId }), false);
   } catch (err) {
     console.warn('search_service_pricing lookup unavailable, degrading all rows:', (err as Error)?.message);
     const degraded: ServicePricingResult[] = data.services.map(s => ({
@@ -734,7 +735,7 @@ export const executeDocumentTool = async (args: {
         break;
 
       case 'search_service_pricing':
-        content = await executeSearchServicePricing(toolInput);
+        content = await executeSearchServicePricing(toolInput, orgId);
         break;
 
       default:

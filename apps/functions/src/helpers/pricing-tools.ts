@@ -243,6 +243,7 @@ export const PRICING_TOOLS: Array<ToolDefinition> = [
 
 const extractLaborRequirementsFromText = async (
   solicitationText: string,
+  orgId: string,
   focusSection?: string
 ): Promise<Array<{ position: string; skillLevel: string; estimatedHours: number; phase?: string }>> => {
   const extractionSchema = z.object({
@@ -276,12 +277,13 @@ const extractLaborRequirementsFromText = async (
     outputSchema: extractionSchema,
     maxTokens: 2000,
     temperature: 0.1,
+    orgId,
   });
 
   return result.laborRequirements;
 };
 
-const extractContractValueFromText = async (solicitationText: string) => {
+const extractContractValueFromText = async (solicitationText: string, orgId: string) => {
   const valueSchema = z.object({
     estimatedValue: z.number().optional(),
     ceilingValue: z.number().optional(),
@@ -311,10 +313,11 @@ const extractContractValueFromText = async (solicitationText: string) => {
     outputSchema: valueSchema,
     maxTokens: 1000,
     temperature: 0.1,
+    orgId,
   });
 };
 
-const extractPricingEvaluationCriteria = async (solicitationText: string) => {
+const extractPricingEvaluationCriteria = async (solicitationText: string, orgId: string) => {
   const criteriaSchema = z.object({
     evaluationMethod: z.string().optional(),
     priceWeight: z.number().optional(),
@@ -344,11 +347,13 @@ const extractPricingEvaluationCriteria = async (solicitationText: string) => {
     outputSchema: criteriaSchema,
     maxTokens: 1500,
     temperature: 0.1,
+    orgId,
   });
 };
 
 const extractMaterialRequirementsFromText = async (
   solicitationText: string,
+  orgId: string,
   category?: string
 ) => {
   const materialSchema = z.object({
@@ -381,6 +386,7 @@ const extractMaterialRequirementsFromText = async (
     outputSchema: materialSchema,
     maxTokens: 2000,
     temperature: 0.1,
+    orgId,
   });
 
   return result.materials;
@@ -404,6 +410,7 @@ export const executePricingTool = async (params: {
         
         const laborRequirements = await extractLaborRequirementsFromText(
           solicitationText as string,
+          orgId,
           focusSection as string | undefined
         );
         
@@ -421,7 +428,7 @@ export const executePricingTool = async (params: {
       case 'extract_contract_value': {
         const { solicitationText } = toolInput;
         
-        const contractValue = await extractContractValueFromText(solicitationText as string);
+        const contractValue = await extractContractValueFromText(solicitationText as string, orgId);
         
         return {
           tool_use_id: toolUseId,
@@ -435,7 +442,7 @@ export const executePricingTool = async (params: {
       case 'extract_pricing_evaluation_criteria': {
         const { solicitationText } = toolInput;
         
-        const evaluationCriteria = await extractPricingEvaluationCriteria(solicitationText as string);
+        const evaluationCriteria = await extractPricingEvaluationCriteria(solicitationText as string, orgId);
         
         return {
           tool_use_id: toolUseId,
@@ -451,6 +458,7 @@ export const executePricingTool = async (params: {
         
         const materials = await extractMaterialRequirementsFromText(
           solicitationText as string,
+          orgId,
           category as string | undefined
         );
         

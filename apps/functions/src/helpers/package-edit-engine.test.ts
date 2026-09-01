@@ -136,6 +136,8 @@ describe('runProposeEdits — find/replace expansion (backend owns recall)', () 
     expect(mockMakeExecutor).toHaveBeenCalledWith(
       expect.objectContaining({ orgId: 'o', oppId: 'opp', projectId: 'p' }),
     );
+    // orgId also threads through to the Bedrock tool loop.
+    expect(mockInvoke).toHaveBeenCalledWith(expect.objectContaining({ orgId: 'o' }));
   });
 
   it('expands ONE find/replace to EVERY occurrence across docs AND forms (recall fix)', async () => {

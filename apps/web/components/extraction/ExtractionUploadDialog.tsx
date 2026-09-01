@@ -15,6 +15,11 @@ import { Badge } from '@/components/ui/badge';
 import { Upload, FileText, X, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useStartExtraction, useExtractionJob, useDrafts } from '@/lib/hooks/use-extraction';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  isAiNotConfiguredError,
+  AI_NOT_CONFIGURED_TITLE,
+  AI_NOT_CONFIGURED_DESCRIPTION,
+} from '@/lib/ai-not-configured';
 import { usePresignUpload, uploadFileToS3 } from '@/lib/hooks/use-presign';
 import { DraftReviewCard } from './DraftReviewCard';
 import { DraftType } from '@auto-rfp/core';
@@ -224,11 +229,19 @@ export const ExtractionUploadDialog = ({
         });
       } catch (error) {
         console.error('Failed to start extraction:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to start extraction. Please try again.',
-          variant: 'destructive',
-        });
+        if (isAiNotConfiguredError(error)) {
+          toast({
+            title: AI_NOT_CONFIGURED_TITLE,
+            description: AI_NOT_CONFIGURED_DESCRIPTION,
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Error',
+            description: 'Failed to start extraction. Please try again.',
+            variant: 'destructive',
+          });
+        }
       }
     }
 

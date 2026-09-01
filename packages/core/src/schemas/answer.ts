@@ -74,10 +74,13 @@ export type AnswerStatus = z.infer<typeof AnswerStatusSchema>;
 // - ANSWERED:           generation produced an answer (from KB, tools, or content library)
 // - NO_KB_MATCH:        generation ran but found no supporting content in the knowledge base
 // - GENERATION_FAILED:  generation errored or timed out before producing an answer
+// - AI_NOT_CONFIGURED:  the org has no valid Bedrock key, so generation could not run at all
+//                       (distinct from GENERATION_FAILED — an admin must add a key in settings)
 export const AnswerResolutionSchema = z.enum([
   'ANSWERED',
   'NO_KB_MATCH',
   'GENERATION_FAILED',
+  'AI_NOT_CONFIGURED',
 ]);
 export type AnswerResolution = z.infer<typeof AnswerResolutionSchema>;
 

@@ -222,7 +222,7 @@ export const computePastPerfValueFindings = async (args: {
 
     let mismatches: ParsedMismatch[] = [];
     try {
-      const body = await invokeModel(modelId, JSON.stringify(buildVerifyPrompt(verifiable)));
+      const body = await invokeModel(modelId, JSON.stringify(buildVerifyPrompt(verifiable)), orgId);
       const json = JSON.parse(new TextDecoder('utf-8').decode(body)) as Record<string, unknown>;
       const blocks = (json?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
       const raw = blocks.find((c) => c?.type === 'text')?.text ?? null;

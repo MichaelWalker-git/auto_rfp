@@ -223,7 +223,7 @@ export const verifyCandidates = async (args: {
   if (candidates.length === 0) return [];
 
   try {
-    const body = await invokeModel(modelId, JSON.stringify(buildVerifyPrompt(candidates)));
+    const body = await invokeModel(modelId, JSON.stringify(buildVerifyPrompt(candidates)), orgId);
     const outer = JSON.parse(new TextDecoder('utf-8').decode(body)) as Record<string, unknown>;
     const blocks = (outer?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
     const raw = blocks.find((b) => b?.type === 'text')?.text ?? null;

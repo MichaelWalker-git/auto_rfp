@@ -27,18 +27,24 @@ jest.mock('@/helpers/opportunity', () => ({
 }));
 
 const mockSaveChatMessagePair = jest.fn().mockResolvedValue({
-  assistantMsg: { messageId: 'msg-1' },
+  assistantMsg: { messageId: '11111111-1111-1111-1111-111111111111' },
 });
 jest.mock('@/helpers/opportunity-assistant', () => ({
   saveChatMessagePair: (...args: unknown[]) => mockSaveChatMessagePair(...args),
 }));
 
+const mockInvokeModel = jest.fn();
 jest.mock('@/helpers/bedrock-http-client', () => ({
-  invokeModel: jest.fn(),
+  invokeModel: (...args: unknown[]) => mockInvokeModel(...args),
 }));
 
+/** Encode a Bedrock-style response whose text content is the given answer. */
+const bedrockResponse = (text: string): Uint8Array =>
+  new TextEncoder().encode(JSON.stringify({ content: [{ type: 'text', text }] }));
+
+const mockLoadTextFromS3 = jest.fn();
 jest.mock('@/helpers/s3', () => ({
-  loadTextFromS3: jest.fn(),
+  loadTextFromS3: (...args: unknown[]) => mockLoadTextFromS3(...args),
 }));
 
 jest.mock('@/helpers/audit-log', () => ({
@@ -65,6 +71,7 @@ describe('chat', () => {
     jest.clearAllMocks();
     mockGetOpportunity.mockResolvedValue({ item: { oppId: 'opp-456' }, oppId: 'opp-456' });
     mockSearchSolicitation.mockResolvedValue([]);
+    mockInvokeModel.mockResolvedValue(bedrockResponse('The deadline is next week.'));
   });
 
   it('passes orgId as the first arg to searchSolicitation', async () => {
@@ -76,6 +83,30 @@ describe('chat', () => {
     );
 
     expect(mockSearchSolicitation).toHaveBeenCalledWith('org-123', 'opp-456', 'what is the deadline?', 5);
+  });
+
+  it('threads the request orgId through to invokeModel as the third argument', async () => {
+    // The model is only invoked when solicitation context exists — provide a hit.
+    mockSearchSolicitation.mockResolvedValue([
+      {
+        metadata: { bucket: 'b', chunkKey: 'k', fileName: 'rfp.pdf', chunkIndex: 0, questionFileId: 'qf-1' },
+        score: 0.9,
+      },
+    ]);
+    mockLoadTextFromS3.mockResolvedValue('The deadline is next week.');
+
+    await baseHandler(
+      makeEvent(
+        { orgId: 'org-123', projectId: 'proj-1', opportunityId: 'opp-456' },
+        { message: 'what is the deadline?' },
+      ),
+    );
+
+    expect(mockInvokeModel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'org-123',
+    );
   });
 
   it('returns 400 when orgId query param is missing', async () => {

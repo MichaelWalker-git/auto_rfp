@@ -163,6 +163,12 @@ describe('fulfill-opportunity-fields', () => {
       );
       // Should NOT mark as PROCESSED - extract-questions will do that
       expect(mockUpdateQuestionFile).not.toHaveBeenCalled();
+      // orgId (from the question file) must reach the Bedrock invoke as the 3rd arg.
+      expect(mockInvokeModel).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.any(String),
+        'org-1',
+      );
     });
 
     it('returns ok:false and marks FAILED when Bedrock returns no fields', async () => {

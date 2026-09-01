@@ -11,6 +11,7 @@ jest.mock('uuid', () => ({
 }));
 
 import { baseHandler } from './extract-questions';
+import { AiNotConfiguredError } from '@/helpers/ai-config-error';
 
 // Mock dependencies
 jest.mock('@/helpers/db', () => ({
@@ -51,6 +52,7 @@ jest.mock('@/helpers/questionFile', () => ({
   getQuestionFileItem: jest.fn().mockResolvedValue({
     questionFileId: 'qf-123',
     projectId: 'proj-456',
+    orgId: 'org-1',
     status: 'PROCESSING',
   }),
 }));
@@ -190,6 +192,54 @@ describe('extract-questions Lambda', () => {
       expect(result).toHaveProperty('count');
       expect(typeof result.count).toBe('number');
       expect(result.cancelled).toBe(false);
+    });
+  });
+
+  describe('orgId propagation to Bedrock', () => {
+    const { checkQuestionFileCancelled, getQuestionFileItem } = require('@/helpers/questionFile');
+    const { invokeModel } = require('@/helpers/bedrock-http-client');
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      checkQuestionFileCancelled.mockResolvedValue(false);
+    });
+
+    it('reads orgId from the question file and passes it as the 3rd arg to invokeModel', async () => {
+      getQuestionFileItem.mockResolvedValue({
+        questionFileId: 'qf-123',
+        projectId: 'proj-456',
+        orgId: 'org-1',
+        status: 'PROCESSING',
+      });
+
+      await baseHandler(validEvent, mockContext);
+
+      expect(invokeModel).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.any(String),
+        'org-1',
+      );
+    });
+
+    it('re-throws AiNotConfiguredError from a chunk instead of silently returning zero questions', async () => {
+      // A per-chunk failure is normally swallowed (see JSON-parsing tests), but an
+      // unconfigured org can't extract ANY chunk, so it must fail closed.
+      invokeModel.mockRejectedValueOnce(new AiNotConfiguredError('org-1'));
+
+      await expect(baseHandler(validEvent, mockContext)).rejects.toThrow(AiNotConfiguredError);
+    });
+
+    it('throws when the question file has no orgId (per-org Bedrock key is required)', async () => {
+      // `mockResolvedValueOnce` so this orgId-less item does not leak into later
+      // describes (clearAllMocks resets calls, not implementations).
+      getQuestionFileItem.mockResolvedValueOnce({
+        questionFileId: 'qf-123',
+        projectId: 'proj-456',
+        status: 'PROCESSING',
+      });
+
+      await expect(baseHandler(validEvent, mockContext)).rejects.toThrow(/no orgId/i);
+      expect(invokeModel).not.toHaveBeenCalled();
     });
   });
 

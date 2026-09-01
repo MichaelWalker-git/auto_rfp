@@ -131,8 +131,9 @@ export const extractExpectedFormsFromSolicitation = async (args: {
   projectId: string;
   oppId: string;
   modelId: string;
+  orgId: string;
 }): Promise<string[]> => {
-  const { projectId, oppId, modelId } = args;
+  const { projectId, oppId, modelId, orgId } = args;
   try {
     const solicitationText = await loadAllSolicitationTexts(
       projectId,
@@ -141,7 +142,7 @@ export const extractExpectedFormsFromSolicitation = async (args: {
     );
     if (!solicitationText.trim()) return [];
 
-    const responseBody = await invokeModel(modelId, JSON.stringify(buildExtractionPrompt(solicitationText)));
+    const responseBody = await invokeModel(modelId, JSON.stringify(buildExtractionPrompt(solicitationText)), orgId);
     const responseJson = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as Record<string, unknown>;
     const contentBlocks = (responseJson?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
     const rawText = contentBlocks.find((c) => c?.type === 'text')?.text ?? null;
@@ -164,6 +165,7 @@ export const buildExpectedForms = async (args: {
   projectId: string;
   oppId: string;
   modelId: string;
+  orgId: string;
 }): Promise<string[]> => {
   const fromBrief = await getExpectedFormsFromBrief(args.projectId, args.oppId);
   if (fromBrief.length > 0) return fromBrief;
@@ -286,12 +288,14 @@ export const computeMissingFormFindings = async (args: {
   modelId: string;
   inventory: PackageInventory;
   existingFindings: readonly RawFinding[];
+  orgId: string;
 }): Promise<RawFinding[]> => {
   try {
     const expected = await buildExpectedForms({
       projectId: args.projectId,
       oppId: args.oppId,
       modelId: args.modelId,
+      orgId: args.orgId,
     });
     if (expected.length === 0) return [];
     return crossCheckMissingForms(expected, args.inventory, args.existingFindings);
