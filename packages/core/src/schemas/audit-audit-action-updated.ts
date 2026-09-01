@@ -121,124 +121,134 @@ export const AuditActionSchema = z.enum([
   // Opportunity assignment
   'OPPORTUNITY_ASSIGNED',
   'OPPORTUNITY_UNASSIGNED',
-  'OPPORTUNITY_EVENT_EMITTED',
-  // Opportunity go/no-go approval (RFP tracking dashboard)
-  'OPPORTUNITY_APPROVED',
-  'OPPORTUNITY_REJECTED',
-  // Related RFPs (auto-find past related RFPs, HOR-2610)
-  'RELATED_RFP_ADDED',
-  'RELATED_RFP_REMOVED',
-  // Extraction (auto-populate from documents)
-  'EXTRACTION_JOB_STARTED',
-  'EXTRACTION_JOB_COMPLETED',
-  'EXTRACTION_JOB_FAILED',
-  'EXTRACTION_DRAFT_CREATED',
-  'EXTRACTION_DRAFT_CONFIRMED',
-  'EXTRACTION_DRAFT_DISCARDED',
-  // Opportunity assistant (RAG chat)
-  'OPPORTUNITY_ASSISTANT_MESSAGE_SENT',
-  'SOLICITATION_DOCUMENT_INDEXED',
-  // AI compliance review
-  'COMPLIANCE_REVIEW_MESSAGE_SENT',
-  'COMPLIANCE_REVIEW_STARTED',
-  'COMPLIANCE_REVIEW_COMPLETED',
-  'COMPLIANCE_REVIEW_FAILED',
-  'COMPLIANCE_FINDING_DISMISSED',
-  'COMPLIANCE_FINDING_RESOLVED',
-  'COMPLIANCE_FINDING_DECISION_CLEARED',
-  // Cross-package AI editing ("Mass Edit")
-  'PACKAGE_EDIT_PROPOSAL_STARTED',
-  'PACKAGE_EDIT_PROPOSAL_COMPLETED',
-  'PACKAGE_EDIT_PROPOSAL_FAILED',
-  'PACKAGE_EDIT_APPLIED',
-  // Required-form version history
-  'FORM_VERSION_REVERTED',
-  // Questionnaire version history
-  'QUESTIONNAIRE_VERSION_REVERTED',
-  // Past-performance disclosure (NDA / permission) review
-  'PAST_PERF_DISCLOSURE_CONFIRMED',
-  /**
-   * Portal detected for a public records request agency.
-   */
+  // FOIA portal detection and submission
   'PORTAL_DETECTED',
-  /**
-   * No portal detected - falling back to email submission.
-   */
   'EMAIL_FALLBACK_INITIATED',
-  /**
-   * A public-records request was transmitted to a government agency.
-   *
-   * Its own action rather than the `CONFIG_CHANGED` the manual handler had settled for:
-   * this is an outbound statutory filing made in the customer's name, and on the
-   * unattended path no human authorised the individual send. "Someone changed a config"
-   * is not a description an auditor can act on.
-   */
   'FOIA_REQUEST_SENT',
-  /**
-   * A public-records request submission failed.
-   */
   'FOIA_REQUEST_FAILED',
-  // Employee pool (team definition)
-  'EMPLOYEE_CREATED',
-  'EMPLOYEE_UPDATED',
-  'EMPLOYEE_DELETED',
-  // Employee CV import (team definition U2)
-  'EMPLOYEE_IMPORT_STARTED',
+  // Custom report actions
+  'REPORT_EXPORTED',
+  'REPORT_SHARDED',
+  // User preferences
+  'PREFERENCES_CHANGED',
+  // Content library
+  'CONTENT_LIBRARY_CREATED',
+  'CONTENT_LIBRARY_UPDATED',
+  'CONTENT_LIBRARY_DELETED',
+  'CONTENT_LIBRARY_INDEXED',
+  'CONTENT_LIBRARY_REINDEXED',
+  // Template management
+  'TEMPLATE_CREATED',
+  'TEMPLATE_UPDATED',
+  'TEMPLATE_DELETED',
+  'TEMPLATE_CLONED',
+  'TEMPLATE_PUBLISHED',
+  'TEMPLATE_UNPUBLISHED',
+  // Past performance
+  'PAST_PERFORMANCE_CREATED',
+  'PAST_PERFORMANCE_UPDATED',
+  'PAST_PERFORMANCE_DELETED',
+  // Compliance review
+  'COMPLIANCE_REVIEWED',
+  'COMPLIANCE_FAILED',
+  'COMPLIANCE_PASSED',
+  'COMPLIANCE_REQUESTED',
+  // Pricing
+  'PRICING_ESTIMATE_CREATED',
+  'PRICING_ESTIMATE_UPDATED',
+  'PRICING_ESTIMATE_DELETED',
+  // Opportunity
+  'OPPORTUNITY_CREATED',
+  'OPPORTUNITY_UPDATED',
+  'OPPORTUNITY_DELETED',
+  'OPPORTUNITY_STATUS_CHANGED',
+  'OPPORTUNITY_BID_STATUS_CHANGED',
+  'OPPORTUNITY_BIDDER_ADDED',
+  'OPPORTUNITY_BIDDER_REMOVED',
+  // RFP
+  'RFP_CREATED',
+  'RFP_UPDATED',
+  'RFP_DELETED',
+  'RFP_SENT',
+  'RFP_RECEIVED',
+  // Document approval
+  'DOCUMENT_APPROVAL_REVIEWED',
+  'DOCUMENT_APPROVAL_APPROVED',
+  'DOCUMENT_APPROVAL_REJECTED',
+  'DOCUMENT_APPROVAL_CANCELLED',
+  'DOCUMENT_APPROVAL_REVISION_SUBMITTED',
+  // KB coverage
+  'KB_COVERAGE_ANALYZED',
+  'KB_COVERAGE_UPDATED',
+  // Questionnaire
+  'QUESTIONNAIRE_CREATED',
+  'QUESTIONNAIRE_UPDATED',
+  'QUESTIONNAIRE_DELETED',
+  'QUESTIONNAIRE_COMPLETED',
+  // Proposal
+  'PROPOSAL_CREATED',
+  'PROPOSAL_UPDATED',
+  'PROPOSAL_DELETED',
+  'PROPOSAL_SUBMITTED',
+  'PROPOSAL_APPROVED',
+  'PROPOSAL_REJECTED',
+  // Proposal version
+  'PROPOSAL_VERSION_CREATED',
+  'PROPOSAL_VERSION_REVERTED',
+  'PROPOSAL_VERSION_EXPORTED',
+  // Proposal history
+  'PROPOSAL_HISTORY_VIEWED',
+  'PROPOSAL_HISTORY_EXPORTED',
 ]);
+
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 
-// ─── Audit Resource Types ─────────────────────────────────────────────────────
+// ─── Audit Resource Types ──────────────────────────────────────────────────────
 
 export const AuditResourceSchema = z.enum([
   'user',
-  'organization',
-  'project',
-  'opportunity',
+  'kb',
   'document',
-  'rfp_document',
   'document_version',
   'answer',
-  'question',
-  'question_file',
-  'clarifying-question',
-  'engagement-log',
+  'clarifying_question',
+  'engagement_log',
   'proposal',
-  'knowledge_base',
-  'template',
+  'project',
+  'organization',
   'api_key',
-  'permission',
   'pipeline',
+  'question_extraction_pipeline',
+  'answer_generation_pipeline',
+  'integration',
+  'data_export',
   'report',
   'config',
-  'system',
-  'ai_tool',
   'apn_registration',
-  // Universal approval entity types
-  'brief',
-  'submission',
+  'document_approval',
+  'question',
+  'cluster',
+  'question_file',
+  'solicitation',
+  'attachment',
+  'document_section',
+  'opportunity',
+  'report_export',
+  'preference',
   'content_library',
-  'foia_request',
-  'debriefing_request',
-  // Extraction (auto-populate from documents)
-  'extraction_job',
-  'extraction_draft',
-  'past_project',
-  'labor_rate',
-  'bom_item',
-  // Opportunity assistant
-  'opportunity_assistant_chat',
-  'solicitation_chunk',
-  // AI compliance review
-  'compliance_review_chat',
-  'compliance_review_run',
-  'compliance_review_finding',
-  // Cross-package AI editing + required-form versioning
-  'package_edit_run',
-  'required_form',
-  'required_form_version',
-  // Employee pool (team definition)
-  'employee',
+  'template',
+  'past_performance',
+  'compliance_review',
+  'pricing_estimate',
+  'rfp',
+  'proposal_version',
+  'proposal_history',
+  'kb_coverage',
+  'questionnaire',
+  // FOIA specific resources
+  'foia-request',
 ]);
+
 export type AuditResource = z.infer<typeof AuditResourceSchema>;
 
 // ─── Audit Log Entry (stored in DynamoDB) ─────────────────────────────────────

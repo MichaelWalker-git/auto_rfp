@@ -95,6 +95,11 @@ export function foiaDomain(): DomainRoutes {
         path: 'get-foia-dashboard',
         entry: lambdaEntry('foia/get-foia-dashboard.ts'),
       },
+      {
+        method: 'POST',
+        path: 'submit-to-portal',
+        entry: lambdaEntry('foia/submit-to-portal.ts'),
+      },
     ],
   };
 }
