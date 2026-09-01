@@ -68,6 +68,7 @@ import { GapAnalysisCard } from './components/GapAnalysisCard';
 import { PricingCard } from './components/PricingCard';
 import { OpportunitySelector } from './components/OpportunitySelector';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { isRfpTrackingEnabledForOrg } from '@/features/rfp-tracking';
 import { PermissionButton } from '@/components/ui/permission-button';
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { isExtractedQuestionFile } from '@/lib/utils/question-file-status';
@@ -247,6 +248,9 @@ export function ExecutiveBriefView({
   const router = useRouter();
   const { data: project, isLoading, isError, mutate: refetchProject } = useProject(projectId);
   const { currentOrganization } = useCurrentOrganization();
+  // Create Drive Folder / Create Linear Ticket are Horus-Tech-only, gated by the
+  // same org allow-list as RFP Tracking (NEXT_PUBLIC_RFP_TRACKING_ORG_ID).
+  const isHorusTechOrg = isRfpTrackingEnabledForOrg(currentOrganization?.id);
   const init = useInitExecutiveBrief(currentOrganization?.id);
   const genSummary = useGenerateExecutiveBriefSummary(currentOrganization?.id);
   const genDeadlines = useGenerateExecutiveBriefDeadlines(currentOrganization?.id);
@@ -1112,7 +1116,7 @@ export function ExecutiveBriefView({
                         Drive Folder
                       </a>
                     </Button>
-                  ) : (
+                  ) : isHorusTechOrg ? (
                     <PermissionButton
                       requiredPermission="brief:edit"
                       variant="outline"
@@ -1128,7 +1132,7 @@ export function ExecutiveBriefView({
                       )}
                       {driveSyncStarted ? 'Creating folder…' : 'Create Drive Folder'}
                     </PermissionButton>
-                  )}
+                  ) : null}
                   {briefItem?.linearTicketUrl ? (
                     <Button variant="outline" size="sm" asChild>
                       <a href={briefItem.linearTicketUrl} target="_blank" rel="noopener noreferrer">
@@ -1136,7 +1140,7 @@ export function ExecutiveBriefView({
                         Linear Ticket
                       </a>
                     </Button>
-                  ) : (
+                  ) : isHorusTechOrg ? (
                     <PermissionButton
                       requiredPermission="brief:edit"
                       variant="outline"
@@ -1152,7 +1156,7 @@ export function ExecutiveBriefView({
                       )}
                       Create Linear Ticket
                     </PermissionButton>
-                  )}
+                  ) : null}
                   <Dialog open={linearDialogOpen} onOpenChange={setLinearDialogOpen}>
                     <DialogContent className="sm:max-w-md">
                       <DialogHeader>
