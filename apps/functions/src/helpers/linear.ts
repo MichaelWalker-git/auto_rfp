@@ -308,6 +308,112 @@ export async function swapLinearGateLabelByIdentifier(
   return true;
 }
 
+export const PHYSICAL_SUBMISSION_LABEL = 'physical submission';
+
+interface ResolvedIssueContext {
+  client: LinearClient;
+  issue: { id: string; identifier: string; labels: () => Promise<{ nodes: Array<{ id: string }> }> };
+  currentIds: string[];
+  labelIdByName: Map<string, string>;
+}
+
+const resolveIssueContext = async (
+  orgId: string,
+  identifier: string,
+  logPrefix: string,
+): Promise<ResolvedIssueContext | null> => {
+  const apiKey = await getLinearApiKey(orgId);
+  const client = new LinearClient({ apiKey });
+
+  const search = await client.issues({
+    filter: { number: { eq: Number(identifier.split('-')[1]) } },
+    first: 50,
+  });
+  const issue = search.nodes.find((n) => n.identifier === identifier);
+  if (!issue) {
+    console.warn(`[linear] ${logPrefix}: issue not found for identifier ${identifier}`);
+    return null;
+  }
+
+  const team = await issue.team;
+  const teamId = team?.id;
+  if (!teamId) {
+    console.warn(`[linear] ${logPrefix}: no team for issue ${identifier}`);
+    return null;
+  }
+
+  const teamObj = await client.team(teamId);
+  const allLabels = await teamObj.labels();
+  const labelIdByName = new Map(allLabels.nodes.map((l) => [l.name.toLowerCase(), l.id]));
+
+  const current = await issue.labels();
+  const currentIds = current.nodes.map((l) => l.id);
+
+  return { client, issue, currentIds, labelIdByName };
+};
+
+export const addLinearLabelByIdentifier = async (
+  orgId: string,
+  identifier: string,
+  labelName: string,
+): Promise<void> => {
+  try {
+    const ctx = await resolveIssueContext(orgId, identifier, 'addLabel');
+    if (!ctx) return;
+
+    const addLabelId = ctx.labelIdByName.get(labelName.toLowerCase());
+    if (!addLabelId) {
+      console.warn(`[linear] addLabel: label "${labelName}" not found for ${identifier}`);
+      return;
+    }
+
+    const nextIds = Array.from(new Set([...ctx.currentIds, addLabelId]));
+    await ctx.client.updateIssue(ctx.issue.id, { labelIds: nextIds });
+    console.log(`[linear] ${identifier}: +"${labelName}"`);
+  } catch (err) {
+    console.warn(`[linear] addLabel failed for ${identifier}:`, (err as Error).message);
+  }
+};
+
+export const removeLinearLabelByIdentifier = async (
+  orgId: string,
+  identifier: string,
+  labelName: string,
+): Promise<void> => {
+  try {
+    const ctx = await resolveIssueContext(orgId, identifier, 'removeLabel');
+    if (!ctx) return;
+
+    const removeLabelId = ctx.labelIdByName.get(labelName.toLowerCase());
+    if (!removeLabelId) {
+      console.warn(`[linear] removeLabel: label "${labelName}" not found for ${identifier}`);
+      return;
+    }
+
+    const nextIds = ctx.currentIds.filter((id) => id !== removeLabelId);
+    await ctx.client.updateIssue(ctx.issue.id, { labelIds: nextIds });
+    console.log(`[linear] ${identifier}: -"${labelName}"`);
+  } catch (err) {
+    console.warn(`[linear] removeLabel failed for ${identifier}:`, (err as Error).message);
+  }
+};
+
+export const syncPhysicalSubmissionLabel = async (
+  orgId: string,
+  oppId: string,
+  isPhysical: boolean,
+): Promise<void> => {
+  if (!oppId.startsWith('linear-')) {
+    return;
+  }
+  const identifier = oppId.slice('linear-'.length).toUpperCase();
+  if (isPhysical) {
+    await addLinearLabelByIdentifier(orgId, identifier, PHYSICAL_SUBMISSION_LABEL);
+  } else {
+    await removeLinearLabelByIdentifier(orgId, identifier, PHYSICAL_SUBMISSION_LABEL);
+  }
+};
+
 export async function updateLinearTicket(
   orgId: string,
   issueId: string,
