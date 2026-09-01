@@ -266,7 +266,8 @@ describe('runSummary — physical submission detection', () => {
     expect(updateOpportunity).not.toHaveBeenCalled();
   });
 
-  it('syncs the Linear label as not-physical when detection is ELECTRONIC', async () => {
+  it('syncs the Linear label with submissionMethod ELECTRONIC when detection is ELECTRONIC', async () => {
+    (getOpportunity as jest.Mock).mockResolvedValue({ item: { noticeId: 'HOR-42' } });
     (scanPhysicalSubmission as jest.Mock).mockReturnValue({
       submissionMethod: 'ELECTRONIC',
       submissionMailingAddress: null,
@@ -275,10 +276,11 @@ describe('runSummary — physical submission detection', () => {
 
     await runSummary(baseJob);
 
-    expect(syncPhysicalSubmissionLabel).toHaveBeenCalledWith('org-1', 'opp-1', false);
+    expect(syncPhysicalSubmissionLabel).toHaveBeenCalledWith('opp-1', 'HOR-42', 'ELECTRONIC');
   });
 
-  it('syncs the Linear label as physical when detection is BOTH', async () => {
+  it('syncs the Linear label with submissionMethod BOTH when detection is BOTH', async () => {
+    (getOpportunity as jest.Mock).mockResolvedValue({ item: { noticeId: 'HOR-42' } });
     (scanPhysicalSubmission as jest.Mock).mockReturnValue({
       submissionMethod: 'BOTH',
       submissionMailingAddress: null,
@@ -287,6 +289,64 @@ describe('runSummary — physical submission detection', () => {
 
     await runSummary(baseJob);
 
-    expect(syncPhysicalSubmissionLabel).toHaveBeenCalledWith('org-1', 'opp-1', true);
+    expect(syncPhysicalSubmissionLabel).toHaveBeenCalledWith('opp-1', 'HOR-42', 'BOTH');
+  });
+
+  it('falls back to the LLM-extracted submissionMethod when the deterministic scan returns null', async () => {
+    (scanPhysicalSubmission as jest.Mock).mockReturnValue(null);
+    (invokeClaudeJson as jest.Mock).mockResolvedValue({
+      summary: 'x',
+      submissionMethod: 'PHYSICAL',
+      submissionMethodRationale: 'LLM found mailing instructions',
+    });
+
+    await runSummary(baseJob);
+
+    expect(updateOpportunity).toHaveBeenCalledWith({
+      orgId: 'org-1',
+      projectId: 'project-1',
+      oppId: 'opp-1',
+      patch: {
+        submissionMethod: 'PHYSICAL',
+        submissionMailingAddress: null,
+        submissionMethodRationale: 'LLM found mailing instructions',
+      },
+    });
+  });
+
+  it('prefers the deterministic scan over the LLM fallback when both are present', async () => {
+    (scanPhysicalSubmission as jest.Mock).mockReturnValue({
+      submissionMethod: 'ELECTRONIC',
+      submissionMailingAddress: null,
+      submissionMethodRationale: 'scan rationale',
+    });
+    (invokeClaudeJson as jest.Mock).mockResolvedValue({
+      summary: 'x',
+      submissionMethod: 'PHYSICAL',
+      submissionMethodRationale: 'llm rationale',
+    });
+
+    await runSummary(baseJob);
+
+    expect(updateOpportunity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        patch: expect.objectContaining({
+          submissionMethod: 'ELECTRONIC',
+          submissionMethodRationale: 'scan rationale',
+        }),
+      }),
+    );
+  });
+
+  it('ignores an invalid LLM submissionMethod value when the scan returns null', async () => {
+    (scanPhysicalSubmission as jest.Mock).mockReturnValue(null);
+    (invokeClaudeJson as jest.Mock).mockResolvedValue({
+      summary: 'x',
+      submissionMethod: 'NOT_A_REAL_VALUE',
+    });
+
+    await runSummary(baseJob);
+
+    expect(updateOpportunity).not.toHaveBeenCalled();
   });
 });

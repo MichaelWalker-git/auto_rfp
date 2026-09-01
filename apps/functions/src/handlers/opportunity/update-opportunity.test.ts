@@ -63,12 +63,12 @@ const flushMicrotasks = () => new Promise((resolve) => setImmediate(resolve));
 describe('update-opportunity — physical submission Linear sync', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetOpportunity.mockResolvedValue({ item: { status: 'IDENTIFIED' }, oppId: 'opp-1' });
+    mockGetOpportunity.mockResolvedValue({ item: { status: 'IDENTIFIED', noticeId: 'HOR-42' }, oppId: 'opp-1' });
     mockResolveUserNames.mockResolvedValue({});
     mockSyncPhysicalSubmissionLabel.mockResolvedValue(undefined);
   });
 
-  it('syncs the Linear label with isPhysical: true when submissionMethod is patched to PHYSICAL', async () => {
+  it('syncs the Linear label with submissionMethod PHYSICAL', async () => {
     mockUpdateOpportunity.mockResolvedValue({ item: { submissionMethod: 'PHYSICAL' }, oppId: 'opp-1' });
 
     const response = await baseHandler(
@@ -77,10 +77,10 @@ describe('update-opportunity — physical submission Linear sync', () => {
     await flushMicrotasks();
 
     expect(response).toMatchObject({ statusCode: 200 });
-    expect(mockSyncPhysicalSubmissionLabel).toHaveBeenCalledWith('org-123', 'opp-1', true);
+    expect(mockSyncPhysicalSubmissionLabel).toHaveBeenCalledWith('opp-1', 'HOR-42', 'PHYSICAL');
   });
 
-  it('syncs the Linear label with isPhysical: false when submissionMethod is patched to ELECTRONIC', async () => {
+  it('syncs the Linear label with submissionMethod ELECTRONIC', async () => {
     mockUpdateOpportunity.mockResolvedValue({ item: { submissionMethod: 'ELECTRONIC' }, oppId: 'opp-1' });
 
     const response = await baseHandler(
@@ -89,7 +89,7 @@ describe('update-opportunity — physical submission Linear sync', () => {
     await flushMicrotasks();
 
     expect(response).toMatchObject({ statusCode: 200 });
-    expect(mockSyncPhysicalSubmissionLabel).toHaveBeenCalledWith('org-123', 'opp-1', false);
+    expect(mockSyncPhysicalSubmissionLabel).toHaveBeenCalledWith('opp-1', 'HOR-42', 'ELECTRONIC');
   });
 
   it('does not sync the Linear label when a field other than submissionMethod is patched', async () => {
@@ -114,6 +114,6 @@ describe('update-opportunity — physical submission Linear sync', () => {
     await flushMicrotasks();
 
     expect(response).toMatchObject({ statusCode: 200 });
-    expect(mockSyncPhysicalSubmissionLabel).toHaveBeenCalledWith('org-123', 'opp-1', true);
+    expect(mockSyncPhysicalSubmissionLabel).toHaveBeenCalledWith('opp-1', 'HOR-42', 'BOTH');
   });
 });

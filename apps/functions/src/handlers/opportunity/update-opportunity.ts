@@ -17,7 +17,7 @@ import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware'
 import { updateOpportunity, getOpportunity } from '@/helpers/opportunity';
 import { transitionOpportunityStatus } from '@/helpers/opportunity-status';
 import { syncPhysicalSubmissionLabel } from '@/helpers/linear';
-import { OpportunityUpdateRequestSchema, TERMINAL_OPPORTUNITY_STATUSES, isPhysicalSubmission } from '@auto-rfp/core';
+import { OpportunityUpdateRequestSchema, TERMINAL_OPPORTUNITY_STATUSES } from '@auto-rfp/core';
 import type { OpportunityStatus } from '@auto-rfp/core';
 import { resolveUserNames } from '@/helpers/resolve-users';
 import { getOrgMembers } from '@/helpers/user';
@@ -147,7 +147,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
     // method. Fire-and-forget: a Linear API failure must never fail the PATCH,
     // since the opportunity update above is already committed.
     if ('submissionMethod' in patch) {
-      syncPhysicalSubmissionLabel(orgId, oppId, isPhysicalSubmission(patch.submissionMethod)).catch((syncErr) =>
+      syncPhysicalSubmissionLabel(oppId, existing.item.noticeId, patch.submissionMethod).catch((syncErr) =>
         console.warn('Failed to sync physical-submission Linear label:', (syncErr as Error)?.message),
       );
     }

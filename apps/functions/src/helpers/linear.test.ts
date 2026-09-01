@@ -46,6 +46,11 @@ beforeEach(() => {
   mockGetApiKey.mockResolvedValue('test-api-key');
   mockTeam.mockResolvedValue({ labels: () => Promise.resolve(makeTeamLabels()) });
   mockUpdateIssue.mockResolvedValue({});
+  process.env.RFP_SYNC_LINEAR_ORG_ID = 'linear-org-1';
+});
+
+afterEach(() => {
+  delete process.env.RFP_SYNC_LINEAR_ORG_ID;
 });
 
 describe('addLinearLabelByIdentifier', () => {
@@ -131,11 +136,12 @@ describe('removeLinearLabelByIdentifier', () => {
 });
 
 describe('syncPhysicalSubmissionLabel', () => {
-  it('calls addLinearLabelByIdentifier when isPhysical is true', async () => {
+  it('calls addLinearLabelByIdentifier when submissionMethod is PHYSICAL', async () => {
     mockIssues.mockResolvedValue({ nodes: [makeIssue([EXISTING_LABEL_ID])] });
 
-    await syncPhysicalSubmissionLabel('org-1', 'linear-hor-42', true);
+    await syncPhysicalSubmissionLabel('linear-hor-42', 'HOR-42', 'PHYSICAL');
 
+    expect(mockGetApiKey).toHaveBeenCalledWith('linear-org-1', expect.anything());
     expect(mockIssues).toHaveBeenCalledWith(
       expect.objectContaining({ filter: { number: { eq: 42 } } }),
     );
@@ -145,12 +151,23 @@ describe('syncPhysicalSubmissionLabel', () => {
     );
   });
 
-  it('calls removeLinearLabelByIdentifier when isPhysical is false', async () => {
+  it('calls addLinearLabelByIdentifier when submissionMethod is BOTH', async () => {
+    mockIssues.mockResolvedValue({ nodes: [makeIssue([EXISTING_LABEL_ID])] });
+
+    await syncPhysicalSubmissionLabel('linear-hor-42', 'HOR-42', 'BOTH');
+
+    expect(mockUpdateIssue).toHaveBeenCalledWith(
+      'issue-uuid',
+      expect.objectContaining({ labelIds: expect.arrayContaining([TARGET_LABEL_ID]) }),
+    );
+  });
+
+  it('calls removeLinearLabelByIdentifier when submissionMethod is ELECTRONIC', async () => {
     mockIssues.mockResolvedValue({
       nodes: [makeIssue([EXISTING_LABEL_ID, TARGET_LABEL_ID])],
     });
 
-    await syncPhysicalSubmissionLabel('org-1', 'linear-hor-42', false);
+    await syncPhysicalSubmissionLabel('linear-hor-42', 'HOR-42', 'ELECTRONIC');
 
     expect(mockUpdateIssue).toHaveBeenCalledWith('issue-uuid', {
       labelIds: [EXISTING_LABEL_ID],
@@ -158,10 +175,25 @@ describe('syncPhysicalSubmissionLabel', () => {
   });
 
   it('is a no-op for non-linear- oppIds', async () => {
-    await syncPhysicalSubmissionLabel('org-1', 'sam-ABC123', true);
+    await syncPhysicalSubmissionLabel('sam-ABC123', 'HOR-42', 'PHYSICAL');
 
     expect(mockIssues).not.toHaveBeenCalled();
     expect(mockUpdateIssue).not.toHaveBeenCalled();
   });
 
+  it('is a no-op when noticeId is missing', async () => {
+    await syncPhysicalSubmissionLabel('linear-hor-42', null, 'PHYSICAL');
+
+    expect(mockIssues).not.toHaveBeenCalled();
+    expect(mockUpdateIssue).not.toHaveBeenCalled();
+  });
+
+  it('is a no-op when RFP_SYNC_LINEAR_ORG_ID is not configured', async () => {
+    delete process.env.RFP_SYNC_LINEAR_ORG_ID;
+
+    await syncPhysicalSubmissionLabel('linear-hor-42', 'HOR-42', 'PHYSICAL');
+
+    expect(mockIssues).not.toHaveBeenCalled();
+    expect(mockUpdateIssue).not.toHaveBeenCalled();
+  });
 });

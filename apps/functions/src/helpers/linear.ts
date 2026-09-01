@@ -1,5 +1,5 @@
 import { LinearClient } from '@linear/sdk';
-import type { RfpDigestIssue } from '@auto-rfp/core';
+import { isPhysicalSubmission, type RfpDigestIssue, type SubmissionMethodDetected } from '@auto-rfp/core';
 import { getApiKey } from './api-key-storage';
 import { LINEAR_SECRET_PREFIX } from '../constants/linear';
 
@@ -398,19 +398,34 @@ export const removeLinearLabelByIdentifier = async (
   }
 };
 
+/**
+ * Keep the "physical submission" Linear label in sync with a detected/toggled
+ * submission method. No-ops for opportunities that aren't Linear-synced or that
+ * don't carry a Linear identifier (`noticeId`).
+ *
+ * Like `writeBackApprovalToLinear`, the Linear API key lives in Secrets Manager
+ * under the *Linear* org id (`RFP_SYNC_LINEAR_ORG_ID`) — not the AutoRFP org id
+ * of the caller — so it is read here rather than accepted as a parameter.
+ */
 export const syncPhysicalSubmissionLabel = async (
-  orgId: string,
   oppId: string,
-  isPhysical: boolean,
+  noticeId: string | null | undefined,
+  submissionMethod: SubmissionMethodDetected | null | undefined,
 ): Promise<void> => {
-  if (!oppId.startsWith('linear-')) {
+  if (!oppId.startsWith('linear-') || !noticeId) {
     return;
   }
-  const identifier = oppId.slice('linear-'.length).toUpperCase();
-  if (isPhysical) {
-    await addLinearLabelByIdentifier(orgId, identifier, PHYSICAL_SUBMISSION_LABEL);
+
+  const linearOrgId = process.env.RFP_SYNC_LINEAR_ORG_ID;
+  if (!linearOrgId) {
+    console.warn('[linear] Skipping physical-submission label sync: RFP_SYNC_LINEAR_ORG_ID not configured');
+    return;
+  }
+
+  if (isPhysicalSubmission(submissionMethod)) {
+    await addLinearLabelByIdentifier(linearOrgId, noticeId, PHYSICAL_SUBMISSION_LABEL);
   } else {
-    await removeLinearLabelByIdentifier(orgId, identifier, PHYSICAL_SUBMISSION_LABEL);
+    await removeLinearLabelByIdentifier(linearOrgId, noticeId, PHYSICAL_SUBMISSION_LABEL);
   }
 };
 
