@@ -1,5 +1,6 @@
 'use client';
 
+import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
 import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
@@ -79,6 +80,32 @@ export type HandleLinearTicketRequest = {
    * change in DecisionCard) omits it.
    */
   appUrl?: string;
+  /** Linear user id to assign the ticket to (chosen in the create dialog). */
+  assigneeId?: string;
+  /** Linear workflow state id (status/column) the ticket starts in. */
+  stateId?: string;
+  /** RFP due date, ISO calendar date (YYYY-MM-DD), chosen in the create dialog. */
+  dueDate?: string;
+};
+
+export type LinearUser = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+export type LinearState = {
+  id: string;
+  name: string;
+  type: string;
+};
+
+export type ListLinearUsersResponse = {
+  users: LinearUser[];
+};
+
+export type ListLinearStatesResponse = {
+  states: LinearState[];
 };
 
 export type HandleLinearTicketResponse = {
@@ -139,6 +166,19 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   }
 }
 
+async function getJson<T>(url: string): Promise<T> {
+  const res = await authFetcher(url, { method: 'GET' });
+
+  if (!res.ok) {
+    const raw = await res.text().catch(() => '');
+    const err = new Error(raw || 'Request failed');
+    (err as any).status = res.status;
+    throw err;
+  }
+
+  return (await res.json()) as T;
+}
+
 const endpoints = {
   init: (orgId?: string) => `${env.BASE_API_URL}/brief/init-executive-brief${orgId ? `?orgId=${orgId}` : ''}`,
   summary: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-summary${orgId ? `?orgId=${orgId}` : ''}`,
@@ -150,6 +190,8 @@ const endpoints = {
   scoring: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-scoring${orgId ? `?orgId=${orgId}` : ''}`,
   getByProject: (orgId?: string) => `${env.BASE_API_URL}/brief/get-executive-brief-by-project${orgId ? `?orgId=${orgId}` : ''}`,
   handleLinearTicket: (orgId?: string) => `${env.BASE_API_URL}/brief/handle-linear-ticket${orgId ? `?orgId=${orgId}` : ''}`,
+  linearUsers: (orgId?: string) => `${env.BASE_API_URL}/linear/list-users${orgId ? `?orgId=${orgId}` : ''}`,
+  linearStates: (orgId?: string) => `${env.BASE_API_URL}/linear/list-states${orgId ? `?orgId=${orgId}` : ''}`,
   updateDecision: (orgId?: string) => `${env.BASE_API_URL}/brief/update-decision${orgId ? `?orgId=${orgId}` : ''}`,
   syncToGoogleDrive: (orgId?: string) => `${env.BASE_API_URL}/brief/sync-to-google-drive${orgId ? `?orgId=${orgId}` : ''}`,
 } as const;
@@ -255,6 +297,28 @@ export function useHandleLinearTicket(orgId?: string) {
   return useSWRMutation<HandleLinearTicketResponse, Error, string, HandleLinearTicketRequest>(
     endpoints.handleLinearTicket(orgId),
     (url, { arg }) => postJson<HandleLinearTicketResponse>(url, arg),
+  );
+}
+
+/**
+ * Lists the org's Linear team members for the create-ticket assignee picker.
+ * Pass `enabled: false` to defer the fetch until the dialog opens.
+ */
+export function useLinearUsers(orgId?: string, enabled = true) {
+  return useSWR<ListLinearUsersResponse, Error>(
+    enabled ? endpoints.linearUsers(orgId) : null,
+    (url: string) => getJson<ListLinearUsersResponse>(url),
+  );
+}
+
+/**
+ * Lists the org's Linear workflow states (statuses) for the create-ticket status
+ * picker. Pass `enabled: false` to defer the fetch until the dialog opens.
+ */
+export function useLinearStates(orgId?: string, enabled = true) {
+  return useSWR<ListLinearStatesResponse, Error>(
+    enabled ? endpoints.linearStates(orgId) : null,
+    (url: string) => getJson<ListLinearStatesResponse>(url),
   );
 }
 

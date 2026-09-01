@@ -24,6 +24,12 @@ const RequestSchema = z.object({
    * link in the message); the update-an-existing-ticket path ignores it.
    */
   appUrl: z.string().url().optional(),
+  /** Linear user id to assign the new ticket to (chosen in the create dialog). */
+  assigneeId: z.string().min(1).optional(),
+  /** Linear workflow state id (status/column) the new ticket starts in. */
+  stateId: z.string().min(1).optional(),
+  /** Due date for the RFP, ISO calendar date (YYYY-MM-DD), set in the dialog. */
+  dueDate: z.string().min(1).optional(),
 });
 
 /**
@@ -61,7 +67,8 @@ export const baseHandler = async (
       return apiResponse(400, { message: 'Org Id is required' });
     }
     const bodyJson = event.body ? JSON.parse(event.body) : {};
-    const { executiveBriefId, appUrl } = RequestSchema.parse(bodyJson);
+    const { executiveBriefId, appUrl, assigneeId, stateId, dueDate: requestedDueDate } =
+      RequestSchema.parse(bodyJson);
 
     const brief = await getExecutiveBrief(executiveBriefId);
 
@@ -145,7 +152,9 @@ export const baseHandler = async (
       });
     }
     const description = buildTicketDescription(brief, appUrl);
-    const dueDate = deadlines?.submissionDeadlineIso ?? undefined;
+    // The dialog now sends an explicit due date; fall back to the brief's derived
+    // submission deadline only when a direct API caller omits it.
+    const dueDate = requestedDueDate ?? deadlines?.submissionDeadlineIso ?? undefined;
 
     const ticket = await createLinearTicket({
       orgId,
@@ -153,6 +162,8 @@ export const baseHandler = async (
       description,
       priority: 3,
       dueDate,
+      assigneeId,
+      stateId,
       labels,
     });
 

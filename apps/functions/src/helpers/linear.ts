@@ -123,6 +123,110 @@ export const listProjectIssues = async (
   return issues;
 };
 
+export interface LinearTeamMember {
+  id: string;
+  name: string;
+  email: string;
+}
+
+const TEAM_MEMBERS_QUERY = `
+  query TeamMembers($teamId: String!) {
+    team(id: $teamId) {
+      members(first: 250) {
+        nodes { id name email active }
+      }
+    }
+  }
+`;
+
+interface TeamMembersResponse {
+  team: {
+    members: {
+      nodes: Array<{ id: string; name: string; email: string; active: boolean }>;
+    };
+  } | null;
+}
+
+/**
+ * Lists the active members of a Linear team so the UI can offer them as
+ * assignees. Falls back to the LINEAR_TEAM_ID env when no team is passed —
+ * mirrors createLinearTicket, which files into that same team by default.
+ */
+export const listTeamMembers = async (
+  orgId: string,
+  teamId?: string,
+): Promise<LinearTeamMember[]> => {
+  const resolvedTeamId = teamId || LINEAR_TEAM_ID;
+  if (!resolvedTeamId) {
+    throw new Error('Linear team ID not configured');
+  }
+
+  const apiKey = await getLinearApiKey(orgId);
+  const client = new LinearClient({ apiKey });
+
+  const response: { data?: TeamMembersResponse } = await client.client.rawRequest(
+    TEAM_MEMBERS_QUERY,
+    { teamId: resolvedTeamId },
+  );
+
+  const nodes = response.data?.team?.members.nodes ?? [];
+  return nodes
+    .filter((node) => node.active)
+    .map((node) => ({ id: node.id, name: node.name, email: node.email }));
+};
+
+export interface LinearWorkflowState {
+  id: string;
+  name: string;
+  type: string;
+}
+
+const WORKFLOW_STATES_QUERY = `
+  query WorkflowStates($teamId: String!) {
+    team(id: $teamId) {
+      states(first: 250) {
+        nodes { id name type position }
+      }
+    }
+  }
+`;
+
+interface WorkflowStatesResponse {
+  team: {
+    states: {
+      nodes: Array<{ id: string; name: string; type: string; position: number }>;
+    };
+  } | null;
+}
+
+/**
+ * Lists a Linear team's workflow states (the board columns / statuses) ordered
+ * by their board position, so the UI can offer them as the ticket's starting
+ * status. States live on the team, not the project.
+ */
+export const listWorkflowStates = async (
+  orgId: string,
+  teamId?: string,
+): Promise<LinearWorkflowState[]> => {
+  const resolvedTeamId = teamId || LINEAR_TEAM_ID;
+  if (!resolvedTeamId) {
+    throw new Error('Linear team ID not configured');
+  }
+
+  const apiKey = await getLinearApiKey(orgId);
+  const client = new LinearClient({ apiKey });
+
+  const response: { data?: WorkflowStatesResponse } = await client.client.rawRequest(
+    WORKFLOW_STATES_QUERY,
+    { teamId: resolvedTeamId },
+  );
+
+  const nodes = response.data?.team?.states.nodes ?? [];
+  return [...nodes]
+    .sort((a, b) => a.position - b.position)
+    .map((node) => ({ id: node.id, name: node.name, type: node.type }));
+};
+
 export interface CreateLinearTicketParams {
   orgId: string;
   title: string;
@@ -130,6 +234,8 @@ export interface CreateLinearTicketParams {
   priority?: number;
   dueDate?: string;
   assigneeId?: string;
+  /** Linear workflow state (status) the issue starts in. Omit for the team default. */
+  stateId?: string;
   teamId?: string;
   projectId?: string;
   labels?: string[];
@@ -179,6 +285,8 @@ export async function createLinearTicket(params: CreateLinearTicketParams): Prom
       priority: params.priority ?? 3,
       dueDate: params.dueDate,
       assigneeId: params.assigneeId || LINEAR_DEFAULT_ASSIGNEE_ID,
+      // Undefined lets Linear apply the team's default state; a value pins the column.
+      stateId: params.stateId || undefined,
       labelIds,
     });
 

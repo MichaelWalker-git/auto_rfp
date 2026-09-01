@@ -10,9 +10,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 
-import { AlertTriangle, Briefcase, CalendarClock, CheckCircle2, Clock, DollarSign, Download, ExternalLink, FileText, FolderPlus, ListChecks, Loader2, RefreshCw, Shield, Target, TicketPlus, Users, XCircle } from 'lucide-react';
+import { AlertTriangle, Briefcase, CalendarClock, CalendarIcon, CheckCircle2, Clock, DollarSign, Download, ExternalLink, FileText, FolderPlus, ListChecks, Loader2, RefreshCw, Shield, Target, TicketPlus, Users, XCircle } from 'lucide-react';
+import { format } from 'date-fns';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
 import DeadlinesDashboard from '../deadlines/DeadlinesDashboard';
 import { useProject } from '@/lib/hooks/use-api';
@@ -28,6 +47,8 @@ import {
   useGetExecutiveBriefByProject,
   useInitExecutiveBrief,
   useHandleLinearTicket,
+  useLinearUsers,
+  useLinearStates,
   useSyncBriefToGoogleDrive,
 } from '@/lib/hooks/use-executive-brief';
 import { useGenerateExecutiveBriefPricing } from '@/lib/hooks/use-pricing';
@@ -243,6 +264,14 @@ export function ExecutiveBriefView({
   const [isSyncingToDrive, setIsSyncingToDrive] = useState(false);
   const [driveSyncStarted, setDriveSyncStarted] = useState(false);
   const [isCreatingLinearTicket, setIsCreatingLinearTicket] = useState(false);
+  // Create-Linear-Ticket dialog: required assignee, status, and due date.
+  const [linearDialogOpen, setLinearDialogOpen] = useState(false);
+  const [linearAssigneeId, setLinearAssigneeId] = useState<string>('');
+  const [linearStateId, setLinearStateId] = useState<string>('');
+  const [linearDueDate, setLinearDueDate] = useState<Date | undefined>(undefined);
+  // Only fetch the Linear members/states once the dialog is open.
+  const linearUsers = useLinearUsers(currentOrganization?.id, linearDialogOpen);
+  const linearStates = useLinearStates(currentOrganization?.id, linearDialogOpen);
   const [previousBrief, setPreviousBrief] = useState<any>(null);
   const [briefItem, setBriefItem] = useState<any>(null);
   const [localBusySections, setLocalBusySections] = useState<Set<SectionKey>>(() => new Set());
@@ -559,9 +588,30 @@ export function ExecutiveBriefView({
     }
   };
 
+  // Opens the create-ticket dialog, pre-filling the due date from the brief's
+  // detected submission deadline (still editable and required in the dialog).
+  const handleOpenLinearDialog = () => {
+    setRegenError(null);
+    const deadlineIso = briefItem?.sections?.deadlines?.data?.submissionDeadlineIso;
+    const parsed = deadlineIso ? new Date(deadlineIso) : undefined;
+    setLinearDueDate(parsed && !isNaN(parsed.getTime()) ? parsed : undefined);
+    setLinearAssigneeId('');
+    setLinearStateId('');
+    setLinearDialogOpen(true);
+  };
+
   const handleCreateLinearTicket = async () => {
     const executiveBriefId = briefItem?.sort_key;
-    if (!executiveBriefId || isCreatingLinearTicket) return;
+    // All three inputs are required before the ticket can be created.
+    if (
+      !executiveBriefId ||
+      isCreatingLinearTicket ||
+      !linearAssigneeId ||
+      !linearStateId ||
+      !linearDueDate
+    ) {
+      return;
+    }
     setIsCreatingLinearTicket(true);
     setRegenError(null);
     try {
@@ -574,7 +624,12 @@ export function ExecutiveBriefView({
       await handleLinearTicket.trigger({
         executiveBriefId: String(executiveBriefId),
         appUrl: `${window.location.origin}${opportunityPath}`,
+        assigneeId: linearAssigneeId,
+        stateId: linearStateId,
+        dueDate: format(linearDueDate, 'yyyy-MM-dd'),
       });
+
+      setLinearDialogOpen(false);
 
       // Re-fetch so the button flips to the ticket link.
       const resp = await getBriefByProject.trigger({
@@ -1086,7 +1141,7 @@ export function ExecutiveBriefView({
                       requiredPermission="brief:edit"
                       variant="outline"
                       size="sm"
-                      onClick={handleCreateLinearTicket}
+                      onClick={handleOpenLinearDialog}
                       disabled={isCreatingLinearTicket || !briefItem?.googleDriveFolderUrl}
                       title={briefItem?.googleDriveFolderUrl ? 'Create the Linear ticket for this opportunity' : 'Create the Google Drive folder first — the ticket links to it'}
                     >
@@ -1098,6 +1153,122 @@ export function ExecutiveBriefView({
                       Create Linear Ticket
                     </PermissionButton>
                   )}
+                  <Dialog open={linearDialogOpen} onOpenChange={setLinearDialogOpen}>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Create Linear Ticket</DialogTitle>
+                        <DialogDescription>
+                          Assign the ticket, set its status, and pick the RFP due date.
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <div className="space-y-4 py-2">
+                        {/* Assignee */}
+                        <div className="space-y-1.5">
+                          <Label>Assignee</Label>
+                          {linearUsers.isLoading ? (
+                            <Skeleton className="h-9 w-full" />
+                          ) : linearUsers.error ? (
+                            <p className="text-sm text-destructive">
+                              Couldn’t load Linear members. Check the Linear API key in organization settings.
+                            </p>
+                          ) : (
+                            <Select value={linearAssigneeId} onValueChange={setLinearAssigneeId}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a team member" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {linearUsers.data?.users.map((user) => (
+                                  <SelectItem key={user.id} value={user.id}>
+                                    {user.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+
+                        {/* Status */}
+                        <div className="space-y-1.5">
+                          <Label>Status</Label>
+                          {linearStates.isLoading ? (
+                            <Skeleton className="h-9 w-full" />
+                          ) : linearStates.error ? (
+                            <p className="text-sm text-destructive">
+                              Couldn’t load Linear statuses. Check the Linear API key in organization settings.
+                            </p>
+                          ) : (
+                            <Select value={linearStateId} onValueChange={setLinearStateId}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a status" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {linearStates.data?.states.map((state) => (
+                                  <SelectItem key={state.id} value={state.id}>
+                                    {state.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+
+                        {/* Due date */}
+                        <div className="space-y-1.5">
+                          <Label>Due date</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className={cn(
+                                  'w-full justify-start text-left font-normal',
+                                  !linearDueDate && 'text-muted-foreground',
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {linearDueDate ? format(linearDueDate, 'MMM d, yyyy') : <span>Pick a date</span>}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={linearDueDate}
+                                onSelect={setLinearDueDate}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </div>
+
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setLinearDialogOpen(false)}
+                          disabled={isCreatingLinearTicket}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleCreateLinearTicket}
+                          disabled={
+                            isCreatingLinearTicket ||
+                            !linearAssigneeId ||
+                            !linearStateId ||
+                            !linearDueDate
+                          }
+                        >
+                          {isCreatingLinearTicket ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <TicketPlus className="h-4 w-4 mr-2" />
+                          )}
+                          Create Ticket
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                   {!fixedOpportunityId && selectedOpportunityId && currentOrganization?.id && (
                     <Button variant="outline" size="sm" asChild>
                       <Link href={`/organizations/${currentOrganization.id}/projects/${projectId}/opportunities/${selectedOpportunityId}`}>
