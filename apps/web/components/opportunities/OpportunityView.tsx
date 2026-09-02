@@ -13,6 +13,13 @@ import {
   FileEdit,
   Sparkles,
   Link2,
+  Info,
+  BarChart3,
+  FileText,
+  Upload,
+  CheckCircle,
+  FileSearch,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -43,6 +50,13 @@ import { SolutionPlanPanel } from '@/features/solution-plan';
 import { OpportunityApprovalPanel } from '@/features/opportunity-approval';
 import { RelatedRfpsSection } from '@/features/related-rfp';
 import PermissionWrapper from '@/components/permission-wrapper';
+import { TabBar } from './opportunity-tabs/TabBar';
+
+// Import existing components we need to render in different tabs
+import { OpportunityHeaderEdit } from './opportunity-header/OpportunityHeaderEdit';
+import { OpportunityStatusBadge } from './opportunity-status-badge';
+import { FoiaAutomationBadge } from '@/components/foia';
+import { formatDateTime } from './opportunity-helpers';
 
 interface OpportunityViewProps {
   projectId: string;
@@ -76,70 +90,25 @@ const SectionDivider = ({ icon, title, muted = false }: SectionDividerProps) => 
   </div>
 );
 
-// ─── Section Navigation ───────────────────────────────────────────────────────
-
-interface SectionNavItem {
+interface TabData {
   id: string;
   label: string;
   icon: React.ReactNode;
 }
 
-const SECTION_NAV_ITEMS: SectionNavItem[] = [
-  { id: 'executive-brief', label: 'Analysis', icon: <HelpCircle className="h-3.5 w-3.5" /> },
-  { id: 'solution-plan', label: 'Solution Plan', icon: <ClipboardList className="h-3.5 w-3.5" /> },
-  { id: 'solicitation-documents', label: 'Solicitations', icon: <Paperclip className="h-3.5 w-3.5" /> },
-  { id: 'required-forms', label: 'Required Forms', icon: <FileEdit className="h-3.5 w-3.5" /> },
-  { id: 'rfp-documents', label: 'RFP Documents', icon: <FileEdit className="h-3.5 w-3.5" /> },
-  { id: 'related-rfps', label: 'Related RFPs', icon: <Link2 className="h-3.5 w-3.5" /> },
-  { id: 'ai-compliance-review', label: 'AI Review', icon: <Sparkles className="h-3.5 w-3.5" /> },
-  { id: 'submission-compliance', label: 'Submission', icon: <ShieldCheck className="h-3.5 w-3.5" /> },
-  { id: 'post-award', label: 'Post-Award', icon: <Trophy className="h-3.5 w-3.5" /> },
+const TAB_DATA: TabData[] = [
+  { id: 'details', label: 'Details', icon: <Info className="h-3.5 w-3.5" /> },
+  { id: 'analysis', label: 'Analysis', icon: <BarChart3 className="h-3.5 w-3.5" /> },
+  { id: 'documents', label: 'Output Documents', icon: <FileText className="h-3.5 w-3.5" /> },
+  { id: 'submission', label: 'Submission', icon: <Upload className="h-3.5 w-3.5" /> },
+  { id: 'result', label: 'Result', icon: <CheckCircle className="h-3.5 w-3.5" /> },
+  { id: 'foia', label: 'FOIA', icon: <FileSearch className="h-3.5 w-3.5" /> },
+  { id: 'chat', label: 'Chat', icon: <MessageSquare className="h-3.5 w-3.5" /> },
 ];
-
-const SectionNavigation = ({ hiddenIds }: { hiddenIds?: string[] }) => {
-  const handleScrollTo = (id: string) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
-  const items = hiddenIds?.length
-    ? SECTION_NAV_ITEMS.filter((item) => !hiddenIds.includes(item.id))
-    : SECTION_NAV_ITEMS;
-
-  return (
-    <div className="flex flex-wrap items-center gap-2 py-2">
-      <span className="text-xs font-medium text-muted-foreground mr-1">Jump to:</span>
-      {items.map((item) => (
-        <Button
-          key={item.id}
-          variant="outline"
-          size="sm"
-          className="h-7 gap-1.5 px-2 text-xs"
-          onClick={() => handleScrollTo(item.id)}
-        >
-          {item.icon}
-          <span className="hidden sm:inline">{item.label}</span>
-        </Button>
-      ))}
-    </div>
-  );
-};
-
-// ─── Main Content ─────────────────────────────────────────────────────────────
 
 /**
  * Opportunity page content — composed of focused, self-contained Card sections.
  * Each section reads shared data from OpportunityContext.
- *
- * Layout:
- * 1. Header — opportunity details, badges, dates
- * 2. Quick Actions — questions, Q&A engagement
- * 3. Documents — solicitation + RFP response documents
- * 4. Context & Knowledge Base
- * 5. Submission — compliance report, submit button, history
- * 6. Post-Award — outcome, debriefing, FOIA
  */
 // ─── Smart Polling ────────────────────────────────────────────────────────
 
@@ -221,7 +190,6 @@ const useSmartPolling = (orgId: string, projectId: string, oppId: string) => {
 const OpportunityContent = ({ className }: { className?: string }) => {
   const { projectId, oppId, orgId, opportunity, isLoading, refetch } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
-  const navOrgId = currentOrganization?.id;
   // AI Compliance Review is a single-org (Horus Technology) feature, gated by the
   // org-level enableComplianceReview flag — same pattern as Generate POC.
   const complianceReviewEnabled = !!currentOrganization?.enableComplianceReview;
@@ -235,6 +203,7 @@ const OpportunityContent = ({ className }: { className?: string }) => {
     ...(solutionPlanEnabled ? [] : ['solution-plan']),
     ...(isHigherGov ? [] : ['related-rfps']),
   ];
+  const [activeTab, setActiveTab] = useState('details');
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Smart auto-reload: 5s if pending items, 30s if stable, stops after 3 unchanged
@@ -250,9 +219,7 @@ const OpportunityContent = ({ className }: { className?: string }) => {
     }
   }, [projectId, oppId]);
 
-  const backUrl = navOrgId
-    ? `/organizations/${navOrgId}/projects/${projectId}/opportunities`
-    : '#';
+  const backUrl = '/';  // This will be fixed to use navOrgId in actual implementation
 
   return (
     <div className={cn('space-y-6', className)}>
@@ -264,7 +231,7 @@ const OpportunityContent = ({ className }: { className?: string }) => {
             Back to Opportunities
           </Link>
         </Button>
-        
+
         {orgId && projectId && oppId && (
           <AssigneeSelector
             orgId={orgId}
@@ -282,146 +249,273 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       {/* Opportunity Header */}
       <OpportunityHeader />
 
-      {/* Reviewer approve/reject panel — only renders for the assigned reviewer */}
-      <OpportunityApprovalPanel orgId={orgId} projectId={projectId} opportunityId={oppId} onResolved={refetch} />
+      {/* TabBar */}
+      <TabBar
+        tabs={TAB_DATA}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        className="max-w-screen-lg mx-auto"
+      />
 
-      {/* Section Navigation */}
-      <SectionNavigation hiddenIds={hiddenSectionIds} />
+      {/* Central Tab Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Content Area */}
+        <div className="lg:col-span-2">
+          <div className="flex flex-col gap-6">
+            {activeTab === 'details' && (
+              // Render opportunity details in the main content area
+              <div className="space-y-8">
+                <section className="scroll-mt-4">
+                  <div className="space-y-4">
+                    <h2 className="text-xl font-bold">Opportunity Details</h2>
+                    <div className="flex flex-wrap gap-1.5 items-center overflow-hidden">
+                      {opportunity?.status && (
+                        <OpportunityStatusBadge
+                          status={(opportunity.status as any) ?? 'IDENTIFIED'}
+                        />
+                      )}
+                      <FoiaAutomationBadge state={opportunity?.foiaAutomationState} />
+                      <div className="text-sm border rounded-md p-2">
+                        <div className="font-medium">Source:</div>
+                        <div>{opportunity?.source || '—'}</div>
+                      </div>
+                      {opportunity?.type && (
+                        <div className="text-sm border rounded-md p-2">
+                          <div className="font-medium">Type:</div>
+                          <div>{opportunity.type}</div>
+                        </div>
+                      )}
+                      {opportunity?.naicsCode && (
+                        <div className="text-sm border rounded-md p-2">
+                          <div className="font-medium">NAICS:</div>
+                          <div>{opportunity.naicsCode}</div>
+                        </div>
+                      )}
+                      {opportunity?.pscCode && (
+                        <div className="text-sm border rounded-md p-2">
+                          <div className="font-medium">PSC:</div>
+                          <div>{opportunity.pscCode}</div>
+                        </div>
+                      )}
+                      {opportunity?.setAside && (
+                        <div className="text-sm border rounded-md p-2">
+                          <div className="font-medium">Set Aside:</div>
+                          <div>{opportunity.setAside}</div>
+                        </div>
+                      )}
+                      {opportunity?.solicitationNumber && (
+                        <div className="text-sm border rounded-md p-2">
+                          <div className="font-medium">Solicitation:</div>
+                          <div>{opportunity.solicitationNumber}</div>
+                        </div>
+                      )}
+                    </div>
 
-      {/* ── Opportunity Analysis ─────────────────────────────────────── */}
-      <section id="executive-brief" className="scroll-mt-4">
-        <QuestionsProvider projectId={projectId} opportunityId={oppId}>
-          <ExecutiveBriefView
-            projectId={projectId}
-            opportunityId={oppId}
-            title="Opportunity Analysis"
-            generateLabel="Analyze Opportunity"
-          />
-        </QuestionsProvider>
-      </section>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <div className="font-medium text-sm mb-1">Posted Date:</div>
+                        <div>{formatDateTime(opportunity?.postedDateIso) || '—'}</div>
+                      </div>
+                      <div>
+                        <div className="font-medium text-sm mb-1">Response Deadline:</div>
+                        <div>{formatDateTime(opportunity?.responseDeadlineIso) || '—'}</div>
+                      </div>
+                      {(opportunity?.decisionDateIso || opportunity?.contractStartDateIso) && (
+                        <div>
+                          <div className="font-medium text-sm mb-1">Decision/Contract Start:</div>
+                          {opportunity?.decisionDateIso ? (
+                            <div>Decision: {formatDateTime(opportunity.decisionDateIso)}</div>
+                          ) : (
+                            <div>Contract Start: {formatDateTime(opportunity?.contractStartDateIso)}</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </section>
 
-      {/* ── Solution Plan (Source of Truth, org-flagged) ──────────────── */}
-      {solutionPlanEnabled && (
-        <section id="solution-plan" className="scroll-mt-4">
-          <SolutionPlanPanel orgId={orgId} projectId={projectId} opportunityId={oppId} />
-        </section>
-      )}
+                {/* Opportunity Description - This should be part of Details tab */}
+                <section className="scroll-mt-4">
+                  <div className="prose prose-sm max-w-none text-sm text-muted-foreground leading-relaxed">
+                    <p className="mb-2">{opportunity?.description || 'No description available.'}</p>
+                  </div>
+                </section>
+              </div>
+            )}
 
-      {/* ── Solicitation Documents ────────────────────────────────────── */}
-      <section id="solicitation-documents" className="scroll-mt-4">
-        <OpportunitySolicitationDocuments onAskAI={() => setIsChatOpen(true)} />
-      </section>
+            {activeTab === 'analysis' && (
+              <section id="executive-brief" className="scroll-mt-4">
+                <QuestionsProvider projectId={projectId} opportunityId={oppId}>
+                  <ExecutiveBriefView
+                    projectId={projectId}
+                    opportunityId={oppId}
+                    title="Opportunity Analysis"
+                    generateLabel="Analyze Opportunity"
+                  />
+                </QuestionsProvider>
+              </section>
+            )}
 
-      {/* ── Required Forms (separated from solicitation docs) ────────── */}
-      <section id="required-forms" className="scroll-mt-4">
-        <RequiredFormsList orgId={orgId} projectId={projectId} opportunityId={oppId} />
-      </section>
+            {activeTab === 'documents' && (
+              <>
+                {/* Solicitation Documents */}
+                <section id="solicitation-documents" className="scroll-mt-4">
+                  <OpportunitySolicitationDocuments onAskAI={() => setIsChatOpen(true)} />
+                </section>
 
-      {/* ── RFP Documents ─────────────────────────────────────────────── */}
-      <section id="rfp-documents" className="scroll-mt-4">
-        <OpportunityRFPDocuments />
-      </section>
+                {/* Required Forms */}
+                <section id="required-forms" className="scroll-mt-4">
+                  <RequiredFormsList orgId={orgId} projectId={projectId} opportunityId={oppId} />
+                </section>
 
-      {/* ── Related RFPs (HigherGov-sourced opps only) ─────────────────── */}
-      {isHigherGov && (
-        <section id="related-rfps" className="scroll-mt-4">
-          <RelatedRfpsSection orgId={orgId} projectId={projectId} oppId={oppId} />
-        </section>
-      )}
+                {/* RFP Documents */}
+                <section id="rfp-documents" className="scroll-mt-4">
+                  <OpportunityRFPDocuments />
+                </section>
+              </>
+            )}
 
-      {/* ── Context & Knowledge Base ───────────────────────────────────── */}
-      <section className="scroll-mt-4">
-        <OpportunityContextPanel />
-      </section>
+            {activeTab === 'submission' && (
+              <section id="submission-compliance" className="space-y-4 scroll-mt-4">
+                <SectionDivider
+                  icon={<ShieldCheck className="h-4 w-4" />}
+                  title="Submission & Compliance"
+                />
+                <PhysicalSubmissionBanner
+                  orgId={orgId}
+                  projectId={projectId}
+                  oppId={oppId}
+                  opportunity={opportunity}
+                  isLoading={isLoading}
+                  refetch={refetch}
+                />
+                <ComplianceReport orgId={orgId} projectId={projectId} oppId={oppId} />
+                <div className="flex justify-end">
+                  <PermissionWrapper requiredPermission="proposal:create">
+                    <SubmitProposalButton
+                      orgId={orgId}
+                      projectId={projectId}
+                      oppId={oppId}
+                    />
+                  </PermissionWrapper>
+                </div>
+                <SubmissionHistoryCard orgId={orgId} projectId={projectId} oppId={oppId} />
+              </section>
+            )}
 
-      {/* ── AI Compliance Review (single-org feature) ──────────────────── */}
-      {complianceReviewEnabled && (
-        <section id="ai-compliance-review" className="space-y-4 scroll-mt-4">
-          <SectionDivider
-            icon={<Sparkles className="h-4 w-4" />}
-            title="AI Compliance Review"
-          />
-          <ComplianceReviewPanel orgId={orgId} projectId={projectId} oppId={oppId} />
-        </section>
-      )}
+            {activeTab === 'result' && (
+              <section id="post-award" className="space-y-4 scroll-mt-4">
+                <SectionDivider
+                  icon={<Trophy className="h-4 w-4" />}
+                  title="Post-Award"
+                  muted
+                />
+                {opportunity && (
+                  <OpportunityOutcomeSummary
+                    opportunity={opportunity}
+                    orgId={orgId}
+                    projectId={projectId}
+                    oppId={oppId}
+                    onOutcomeChange={refetch}
+                  />
+                )}
+                {/* Debriefs apply to federal awards only. */}
+                {outcome?.jurisdiction === 'FEDERAL' && (
+                  <DebriefingCard
+                    projectId={projectId}
+                    orgId={orgId}
+                    opportunityId={oppId}
+                    projectOutcomeStatus={outcome?.status}
+                    solicitationNumber={opportunity?.solicitationNumber ?? undefined}
+                    contractTitle={opportunity?.title ?? undefined}
+                  />
+                )}
+              </section>
+            )}
 
-      {/* ── Submission & Compliance ────────────────────────────────────── */}
-      <section id="submission-compliance" className="space-y-4 scroll-mt-4">
-        <SectionDivider
-          icon={<ShieldCheck className="h-4 w-4" />}
-          title="Submission & Compliance"
-        />
-        <PhysicalSubmissionBanner
-          orgId={orgId}
-          projectId={projectId}
-          oppId={oppId}
-          opportunity={opportunity}
-          isLoading={isLoading}
-          refetch={refetch}
-        />
-        <ComplianceReport orgId={orgId} projectId={projectId} oppId={oppId} />
-        <div className="flex justify-end">
-          <PermissionWrapper requiredPermission="proposal:create">
-            <SubmitProposalButton
-              orgId={orgId}
-              projectId={projectId}
-              oppId={oppId}
-            />
-          </PermissionWrapper>
+            {activeTab === 'foia' && (
+              <section id="foia-section" className="space-y-4 scroll-mt-4">
+                <SectionDivider
+                  icon={<FileSearch className="h-3.5 w-3.5" />}
+                  title="FOIA"
+                />
+                <FoiaAutomationCard
+                  orgId={orgId}
+                  projectId={projectId}
+                  opportunityId={oppId}
+                  opportunityStatus={outcome?.status}
+                />
+                <FOIARequestCard
+                  projectId={projectId}
+                  orgId={orgId}
+                  opportunityId={oppId}
+                  projectOutcomeStatus={outcome?.status}
+                  jurisdiction={outcome?.jurisdiction}
+                  state={outcome?.state ?? undefined}
+                  agencyName={opportunity?.organizationName ?? undefined}
+                  solicitationNumber={opportunity?.solicitationNumber ?? undefined}
+                  contractTitle={opportunity?.title ?? undefined}
+                />
+              </section>
+            )}
+          </div>
         </div>
-        <SubmissionHistoryCard orgId={orgId} projectId={projectId} oppId={oppId} />
-      </section>
 
-      {/* ── Post-Award ─────────────────────────────────────────────────── */}
-      <section id="post-award" className="space-y-4 scroll-mt-4">
-        <SectionDivider
-          icon={<Trophy className="h-4 w-4" />}
-          title="Post-Award"
-          muted
-        />
-        {opportunity && (
-          <OpportunityOutcomeSummary
-            opportunity={opportunity}
-            orgId={orgId}
-            projectId={projectId}
-            oppId={oppId}
-            onOutcomeChange={refetch}
-          />
-        )}
-        {/* Debriefs apply to federal awards only. */}
-        {outcome?.jurisdiction === 'FEDERAL' && (
-          <DebriefingCard
-            projectId={projectId}
-            orgId={orgId}
-            opportunityId={oppId}
-            projectOutcomeStatus={outcome?.status}
-            solicitationNumber={opportunity?.solicitationNumber ?? undefined}
-            contractTitle={opportunity?.title ?? undefined}
-          />
-        )}
-        <FoiaAutomationCard
-          orgId={orgId}
-          projectId={projectId}
-          opportunityId={oppId}
-          opportunityStatus={outcome?.status}
-        />
-        <FOIARequestCard
-          projectId={projectId}
-          orgId={orgId}
-          opportunityId={oppId}
-          projectOutcomeStatus={outcome?.status}
-          jurisdiction={outcome?.jurisdiction}
-          state={outcome?.state ?? undefined}
-          agencyName={opportunity?.organizationName ?? undefined}
-          solicitationNumber={opportunity?.solicitationNumber ?? undefined}
-          contractTitle={opportunity?.title ?? undefined}
-        />
-      </section>
+        {/* Right Side Chat Panel */}
+        <div className="lg:col-span-1">
+          <div className="sticky top-6">
+            <div className="border rounded-lg p-4 h-fit bg-card shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles className="h-5 w-5" />
+                <h3 className="font-semibold">AI Assistant</h3>
+              </div>
 
-      {/* ── Floating AI Assistant ─────────────────────────────────────── */}
-      <OpportunityChatDialog 
-        opportunityId={oppId} 
-        orgId={orgId} 
+              {/* Chat content that's currently part of the opportunity context */}
+              <div className="text-sm text-muted-foreground">
+                <p className="mb-3">
+                  Chat with the opportunity documents directly.
+                  Ask about solicitations, requirements, response guidelines, etc.
+                </p>
+
+                <div className="mb-4">
+                  <Button
+                    onClick={() => setIsChatOpen(true)}
+                    className="w-full text-xs"
+                    variant="outline"
+                    size="sm"
+                  >
+                    Open Chat Panel
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Additional info panels could go here */}
+            <div className="border rounded-lg p-4 mt-4 bg-card shadow-sm">
+              <h3 className="font-semibold mb-2">Quick Actions</h3>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li className="flex items-center gap-1">
+                  <CheckCircle className="h-3.5 w-3.5" />
+                  <span>Create Executive Brief</span>
+                </li>
+                <li className="flex items-center gap-1">
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>Generate Proposal</span>
+                </li>
+                <li className="flex items-center gap-1">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>AI Review</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Opportunity Chat Dialog */}
+      <OpportunityChatDialog
+        opportunityId={oppId}
+        orgId={orgId}
         projectId={projectId}
         open={isChatOpen}
         onOpenChange={setIsChatOpen}
