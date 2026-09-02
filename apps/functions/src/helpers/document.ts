@@ -39,56 +39,55 @@ export async function createDocument(
 export async function deleteDocument(dto: DeleteDocumentDTO): Promise<void> {
   const sk = buildDocumentSK(dto.knowledgeBaseId, dto.id);
 
-  // 1) Load DB record so we know the file keys
+  // 1) Load DB record so we know the file keys and chunk count
   const item = await getItem<DocumentItem>(DOCUMENT_PK, sk);
 
   if (!item) {
-    console.warn(`deleteDocument: no document found for PK=${DOCUMENT_PK}, SK=${sk}; nothing to delete`,);
+    console.warn(`deleteDocument: no document found for PK=${DOCUMENT_PK}, SK=${sk}; attempting best-effort Pinecone cleanup anyway`);
+  }
+
+  // 2) Delete from Pinecone first — a failure here must stop the delete so the
+  // DDB row (and therefore the document in the KB list) survives for retry.
+  await deleteFromPinecone(dto.orgId, sk, {
+    chunkCount: item?.chunkCount,
+    textFileKey: item?.textFileKey,
+  });
+
+  // 3) Delete S3 objects — a failure here must also stop the delete before the
+  // DDB row is removed.
+  const deletes: Promise<unknown>[] = [];
+  if (item?.fileKey) {
+    console.log('Deleting original file from S3:', DOCUMENTS_BUCKET, item.fileKey);
+    deletes.push(
+      s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: DOCUMENTS_BUCKET,
+          Key: item.fileKey,
+        }),
+      ),
+    );
   } else {
-    const deletes: Promise<any>[] = [];
-    if (item.fileKey) {
-      console.log(
-        'Deleting original file from S3:',
-        DOCUMENTS_BUCKET,
-        item.fileKey,
-      );
-      deletes.push(
-        s3Client.send(
-          new DeleteObjectCommand({
-            Bucket: DOCUMENTS_BUCKET,
-            Key: item.fileKey,
-          }),
-        ),
-      );
-    } else {
-      console.log(`deleteDocument: no fileKey on item PK=${DOCUMENT_PK}, SK=${sk}`);
-    }
-
-    if (item.textFileKey) {
-      console.log('Deleting text file from S3:', DOCUMENTS_BUCKET, item.textFileKey,);
-      deletes.push(
-        s3Client.send(
-          new DeleteObjectCommand({
-            Bucket: DOCUMENTS_BUCKET,
-            Key: item.textFileKey,
-          }),
-        ),
-      );
-    } else {
-      console.log(`deleteDocument: no textFileKey on item PK=${DOCUMENT_PK}, SK=${sk}`);
-    }
-    if (deletes.length > 0) {
-      await Promise.all(deletes);
-    }
+    console.log(`deleteDocument: no fileKey on item PK=${DOCUMENT_PK}, SK=${sk}`);
   }
 
-  // 2) Delete from Pinecone by documentId
-  try {
-    await deleteFromPinecone(dto.orgId, sk);
-  } catch (err) {
-    console.error(`Failed to delete documentId=${dto.id} from Pinecone:`, err);
+  if (item?.textFileKey) {
+    console.log('Deleting text file from S3:', DOCUMENTS_BUCKET, item.textFileKey);
+    deletes.push(
+      s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: DOCUMENTS_BUCKET,
+          Key: item.textFileKey,
+        }),
+      ),
+    );
+  } else {
+    console.log(`deleteDocument: no textFileKey on item PK=${DOCUMENT_PK}, SK=${sk}`);
+  }
+  if (deletes.length > 0) {
+    await Promise.all(deletes);
   }
 
+  // 4) Delete DDB row last — this is the commit marker for a successful delete.
   await deleteItem(DOCUMENT_PK, sk);
 }
 

@@ -50,6 +50,7 @@ import {
   searchSolicitation,
   deleteOpportunitySolicitationVectors,
   deleteSolicitationFile,
+  deleteFromPinecone,
 } from './pinecone';
 
 describe('pinecone — solicitation RAG helpers', () => {
@@ -258,6 +259,90 @@ describe('pinecone — solicitation RAG helpers', () => {
       mockQuery.mockResolvedValueOnce({ matches: [] });
 
       await expect(deleteSolicitationFile('org-123', 'opp-456', 'qf-789')).resolves.not.toThrow();
+    });
+  });
+
+  describe('deleteFromPinecone', () => {
+    const sk = 'KB#kb-1#DOC#doc-1';
+
+    it('builds chunk IDs deterministically from chunkCount and never queries', async () => {
+      await deleteFromPinecone('org-123', sk, {
+        chunkCount: 3,
+        textFileKey: 'orgs/org-123/kb-1/doc-1.txt',
+      });
+
+      expect(mockQuery).not.toHaveBeenCalled();
+      expect(mockDeleteMany).toHaveBeenCalledTimes(1);
+      expect(mockDeleteMany).toHaveBeenCalledWith([
+        `${sk}#orgs/org-123/kb-1/chunks/1.txt`,
+        `${sk}#orgs/org-123/kb-1/chunks/2.txt`,
+        `${sk}#orgs/org-123/kb-1/chunks/3.txt`,
+      ]);
+    });
+
+    it('skips deletion entirely when chunkCount is 0', async () => {
+      await deleteFromPinecone('org-123', sk, {
+        chunkCount: 0,
+        textFileKey: 'orgs/org-123/kb-1/doc-1.txt',
+      });
+
+      expect(mockQuery).not.toHaveBeenCalled();
+      expect(mockDeleteMany).not.toHaveBeenCalled();
+    });
+
+    it('batches deterministic deletes in groups of 100', async () => {
+      await deleteFromPinecone('org-123', sk, {
+        chunkCount: 150,
+        textFileKey: 'orgs/org-123/kb-1/doc-1.txt',
+      });
+
+      expect(mockDeleteMany).toHaveBeenCalledTimes(2);
+      expect(mockDeleteMany.mock.calls[0][0]).toHaveLength(100);
+      expect(mockDeleteMany.mock.calls[1][0]).toHaveLength(50);
+    });
+
+    it('rethrows when the deterministic delete fails', async () => {
+      mockDeleteMany.mockRejectedValueOnce(new Error('pinecone down'));
+
+      await expect(
+        deleteFromPinecone('org-123', sk, { chunkCount: 1, textFileKey: 'orgs/org-123/kb-1/doc-1.txt' }),
+      ).rejects.toThrow('Pinecone delete failed');
+    });
+
+    it('falls back to a paginated query-delete loop when chunkCount is missing (legacy documents)', async () => {
+      mockQuery
+        .mockResolvedValueOnce({ matches: [{ id: 'v1' }, { id: 'v2' }] })
+        .mockResolvedValueOnce({ matches: [{ id: 'v3' }] })
+        .mockResolvedValueOnce({ matches: [] });
+
+      await deleteFromPinecone('org-123', sk);
+
+      expect(mockQuery).toHaveBeenCalledTimes(3);
+      expect(mockDeleteMany).toHaveBeenNthCalledWith(1, ['v1', 'v2']);
+      expect(mockDeleteMany).toHaveBeenNthCalledWith(2, ['v3']);
+    });
+
+    it('legacy fallback terminates as soon as a query returns no matches', async () => {
+      mockQuery.mockResolvedValueOnce({ matches: [] });
+
+      await deleteFromPinecone('org-123', sk);
+
+      expect(mockQuery).toHaveBeenCalledTimes(1);
+      expect(mockDeleteMany).not.toHaveBeenCalled();
+    });
+
+    it('legacy fallback is also used when textFileKey is missing', async () => {
+      mockQuery.mockResolvedValueOnce({ matches: [] });
+
+      await deleteFromPinecone('org-123', sk, { chunkCount: 3 });
+
+      expect(mockQuery).toHaveBeenCalledTimes(1);
+    });
+
+    it('rethrows when the legacy fallback query fails', async () => {
+      mockQuery.mockRejectedValueOnce(new Error('network error'));
+
+      await expect(deleteFromPinecone('org-123', sk)).rejects.toThrow('Pinecone delete failed');
     });
   });
 });

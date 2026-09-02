@@ -181,7 +181,10 @@ export async function deleteAllDocumentsInKB(orgId: string, kbId: string): Promi
 
       // Delete vectors from Pinecone
       try {
-        await deleteFromPinecone(orgId, sk);
+        await deleteFromPinecone(orgId, sk, {
+          chunkCount: doc.chunkCount,
+          textFileKey: doc.textFileKey,
+        });
       } catch (err) {
         console.warn(`Failed to delete Pinecone vectors for SK=${sk}:`, (err as Error)?.message);
       }

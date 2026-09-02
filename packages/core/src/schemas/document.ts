@@ -18,6 +18,10 @@ export const DocumentItemSchema = z.object({
 
   fileSize: z.number().int().min(0).optional(),  // file size in bytes
 
+  // Set once indexing completes; used to reconstruct Pinecone chunk IDs deterministically on delete.
+  // Distinct from the raw `chunksCount` attribute the chunking step writes ahead of indexing.
+  chunkCount: z.number().int().nonnegative().optional(),
+
   // Freshness tracking fields
   freshnessStatus: z.enum(['ACTIVE', 'WARNING', 'STALE', 'ARCHIVED']).optional(),
   staleReason: z.string().optional(),

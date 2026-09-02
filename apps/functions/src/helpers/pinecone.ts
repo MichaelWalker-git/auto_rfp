@@ -6,6 +6,7 @@ import { DocumentItem } from '@auto-rfp/core';
 import { getEmbedding } from './embeddings';
 import { nowIso } from './date';
 import { DocumentDBItem } from '@/types/document';
+import { buildChunkKey, buildChunksPrefixFromTxtKey } from './document-keys';
 
 import type { PineconeHit } from '@/types/pinecone';
 
@@ -153,35 +154,96 @@ export async function indexChunkToPinecone(
 }
 
 /**
- * Delete document chunks from Pinecone by documentId
+ * Delete document chunks from Pinecone by documentId.
+ *
+ * When `chunkCount` (and `textFileKey`, needed to derive the chunks S3
+ * prefix) is available, chunk IDs are reconstructed deterministically and
+ * deleted directly — no query round-trip, no cap on chunk count.
+ *
+ * Legacy documents indexed before `chunkCount` was tracked fall back to a
+ * paginated metadata-filtered query loop that keeps deleting until a query
+ * returns no more matches.
  */
-export async function deleteFromPinecone(orgId: string, sk: string): Promise<void> {
-  const index = await getPineconeIndex();
+export async function deleteFromPinecone(
+  orgId: string,
+  sk: string,
+  options?: { chunkCount?: DocumentItem['chunkCount']; textFileKey?: DocumentItem['textFileKey'] },
+): Promise<void> {
+  const { chunkCount, textFileKey } = options ?? {};
+
+  if (typeof chunkCount === 'number' && textFileKey) {
+    await deleteFromPineconeDeterministic(orgId, sk, chunkCount, textFileKey);
+    return;
+  }
+
+  console.warn(
+    `Pinecone: chunkCount unavailable for sk=${sk} (legacy document); falling back to paginated query-delete`,
+  );
+  await deleteFromPineconeByQuery(orgId, sk);
+}
+
+async function deleteFromPineconeDeterministic(
+  orgId: string,
+  sk: string,
+  chunkCount: number,
+  textFileKey: string,
+): Promise<void> {
+  if (chunkCount === 0) {
+    console.log(`Pinecone: chunkCount=0 for sk=${sk} (nothing to delete)`);
+    return;
+  }
+
+  const chunksPrefix = buildChunksPrefixFromTxtKey(textFileKey);
+  const idsToDelete = Array.from(
+    { length: chunkCount },
+    (_, i) => `${sk}#${buildChunkKey(chunksPrefix, i)}`,
+  );
 
   try {
-    const results = await index.namespace(orgId).query({
-      vector: new Array(1024).fill(0),
-      topK: 10000,
-      includeMetadata: true,
-      filter: {
-        [SK_NAME]: { $eq: sk },
-      },
-    });
-
-    const idsToDelete = (results.matches || []).map((match) => match.id);
-
-    if (idsToDelete.length === 0) {
-      console.log(`Pinecone: no docs found for sk=${sk} (nothing to delete)`);
-      return;
-    }
-
+    const index = await getPineconeIndex();
     const batchSize = 100;
     for (let i = 0; i < idsToDelete.length; i += batchSize) {
       const batch = idsToDelete.slice(i, i + batchSize);
       await index.namespace(orgId).deleteMany(batch);
     }
 
-    console.log(`Pinecone: deleted ${idsToDelete.length} docs for ${SK_NAME}=${sk}`);
+    console.log(`Pinecone: deleted ${idsToDelete.length} docs for ${SK_NAME}=${sk} (deterministic)`);
+  } catch (err) {
+    console.error('Pinecone delete error:', err);
+    throw new Error(
+      `Pinecone delete failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+    );
+  }
+}
+
+async function deleteFromPineconeByQuery(orgId: string, sk: string): Promise<void> {
+  const index = await getPineconeIndex();
+  const PAGE_SIZE = 1000;
+  const batchSize = 100;
+  let totalDeleted = 0;
+
+  try {
+    for (;;) {
+      const results = await index.namespace(orgId).query({
+        vector: new Array(1024).fill(0),
+        topK: PAGE_SIZE,
+        includeMetadata: false,
+        filter: {
+          [SK_NAME]: { $eq: sk },
+        },
+      });
+
+      const idsToDelete = (results.matches || []).map((match) => match.id);
+      if (idsToDelete.length === 0) break;
+
+      for (let i = 0; i < idsToDelete.length; i += batchSize) {
+        const batch = idsToDelete.slice(i, i + batchSize);
+        await index.namespace(orgId).deleteMany(batch);
+      }
+      totalDeleted += idsToDelete.length;
+    }
+
+    console.log(`Pinecone: deleted ${totalDeleted} docs for ${SK_NAME}=${sk} (paginated fallback)`);
   } catch (err) {
     console.error('Pinecone delete error:', err);
     throw new Error(
