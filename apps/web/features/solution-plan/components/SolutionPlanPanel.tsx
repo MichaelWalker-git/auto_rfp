@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DisabledReasonTooltip } from '@/components/ui/disabled-reason-tooltip';
 import PermissionWrapper from '@/components/permission-wrapper';
 import { useSolutionPlan } from '../hooks/useSolutionPlan';
 import { useGrillingTranscript } from '../hooks/useGrillingTranscript';
@@ -25,6 +26,11 @@ interface SolutionPlanPanelProps {
   orgId: string;
   projectId: string;
   opportunityId: string;
+  /**
+   * When explicitly false, generation actions (Start / Retry / Regenerate)
+   * are disabled with an "upload solicitation documents first" explanation.
+   */
+  hasSolicitationDocs?: boolean;
 }
 
 /**
@@ -32,7 +38,12 @@ interface SolutionPlanPanelProps {
  * shows the plan status, the live grilling transcript while a run is in
  * flight, and the Start / View & Edit / Regenerate / Retry actions.
  */
-export const SolutionPlanPanel = ({ orgId, projectId, opportunityId }: SolutionPlanPanelProps) => {
+export const SolutionPlanPanel = ({
+  orgId,
+  projectId,
+  opportunityId,
+  hasSolicitationDocs,
+}: SolutionPlanPanelProps) => {
   const { plan, isRunning, isLoading, notFound, refresh } = useSolutionPlan(
     orgId,
     projectId,
@@ -56,6 +67,9 @@ export const SolutionPlanPanel = ({ orgId, projectId, opportunityId }: SolutionP
   const handleStart = () => void startRun();
   const handleRegenerate = () => void regenerate();
 
+  const docsMissing = hasSolicitationDocs === false;
+  const docsMissingReason = docsMissing ? 'Upload solicitation documents first' : null;
+
   const renderBody = () => {
     if (isLoading && !plan && !notFound) {
       return (
@@ -70,14 +84,17 @@ export const SolutionPlanPanel = ({ orgId, projectId, opportunityId }: SolutionP
       return (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
-            No Solution Plan yet. Start one to have AI interview your knowledge base and produce
-            the approved plan that document generation builds on.
+            {docsMissing
+              ? 'Upload solicitation documents first — the Solution Plan is generated from them.'
+              : 'No Solution Plan yet. Start one to have AI interview your knowledge base and produce the approved plan that document generation builds on.'}
           </p>
           <PermissionWrapper requiredPermission="proposal:create">
-            <Button onClick={handleStart} disabled={isInitializing}>
-              <Play className="mr-1.5 h-4 w-4" />
-              Start Solution Plan
-            </Button>
+            <DisabledReasonTooltip reason={docsMissingReason}>
+              <Button onClick={handleStart} disabled={isInitializing || docsMissing}>
+                <Play className="mr-1.5 h-4 w-4" />
+                Start Solution Plan
+              </Button>
+            </DisabledReasonTooltip>
           </PermissionWrapper>
         </div>
       );
@@ -109,10 +126,12 @@ export const SolutionPlanPanel = ({ orgId, projectId, opportunityId }: SolutionP
             </AlertDescription>
           </Alert>
           <PermissionWrapper requiredPermission="proposal:create">
-            <Button onClick={handleStart} disabled={isInitializing}>
-              <RefreshCw className="mr-1.5 h-4 w-4" />
-              Retry
-            </Button>
+            <DisabledReasonTooltip reason={docsMissingReason}>
+              <Button onClick={handleStart} disabled={isInitializing || docsMissing}>
+                <RefreshCw className="mr-1.5 h-4 w-4" />
+                Retry
+              </Button>
+            </DisabledReasonTooltip>
           </PermissionWrapper>
         </div>
       );
@@ -153,10 +172,12 @@ export const SolutionPlanPanel = ({ orgId, projectId, opportunityId }: SolutionP
               </Link>
             </Button>
             <PermissionWrapper requiredPermission="proposal:create">
-              <Button variant="outline" onClick={handleRegenerate} disabled={isInitializing}>
-                <RefreshCw className="mr-1.5 h-4 w-4" />
-                Regenerate
-              </Button>
+              <DisabledReasonTooltip reason={docsMissingReason}>
+                <Button variant="outline" onClick={handleRegenerate} disabled={isInitializing || docsMissing}>
+                  <RefreshCw className="mr-1.5 h-4 w-4" />
+                  Regenerate
+                </Button>
+              </DisabledReasonTooltip>
             </PermissionWrapper>
           </div>
         </div>

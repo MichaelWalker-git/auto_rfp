@@ -5,14 +5,9 @@ import Link from 'next/link';
 import { useSWRConfig } from 'swr';
 import {
   ArrowLeft,
-  ClipboardList,
-  HelpCircle,
   Trophy,
   ShieldCheck,
-  Paperclip,
-  FileEdit,
   Sparkles,
-  Link2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -31,6 +26,7 @@ import { DebriefingCard } from '@/components/debriefing';
 import { FOIARequestCard, FoiaAutomationCard } from '@/components/foia';
 import { OpportunityContextPanel } from './opportunity-context-panel';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { saveSelectedOpportunity } from '@/lib/utils/opportunity-selection';
 import {
   SubmitProposalButton,
@@ -42,6 +38,7 @@ import { ComplianceReviewPanel } from '@/features/compliance-review';
 import { SolutionPlanPanel } from '@/features/solution-plan';
 import { OpportunityApprovalPanel } from '@/features/opportunity-approval';
 import { RelatedRfpsSection } from '@/features/related-rfp';
+import { OpportunityProgressBar } from '@/features/opportunity-progress';
 import PermissionWrapper from '@/components/permission-wrapper';
 
 interface OpportunityViewProps {
@@ -76,68 +73,17 @@ const SectionDivider = ({ icon, title, muted = false }: SectionDividerProps) => 
   </div>
 );
 
-// ─── Section Navigation ───────────────────────────────────────────────────────
-
-interface SectionNavItem {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-}
-
-const SECTION_NAV_ITEMS: SectionNavItem[] = [
-  { id: 'executive-brief', label: 'Analysis', icon: <HelpCircle className="h-3.5 w-3.5" /> },
-  { id: 'solution-plan', label: 'Solution Plan', icon: <ClipboardList className="h-3.5 w-3.5" /> },
-  { id: 'solicitation-documents', label: 'Solicitations', icon: <Paperclip className="h-3.5 w-3.5" /> },
-  { id: 'required-forms', label: 'Required Forms', icon: <FileEdit className="h-3.5 w-3.5" /> },
-  { id: 'rfp-documents', label: 'RFP Documents', icon: <FileEdit className="h-3.5 w-3.5" /> },
-  { id: 'related-rfps', label: 'Related RFPs', icon: <Link2 className="h-3.5 w-3.5" /> },
-  { id: 'ai-compliance-review', label: 'AI Review', icon: <Sparkles className="h-3.5 w-3.5" /> },
-  { id: 'submission-compliance', label: 'Submission', icon: <ShieldCheck className="h-3.5 w-3.5" /> },
-  { id: 'post-award', label: 'Post-Award', icon: <Trophy className="h-3.5 w-3.5" /> },
-];
-
-const SectionNavigation = ({ hiddenIds }: { hiddenIds?: string[] }) => {
-  const handleScrollTo = (id: string) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
-  const items = hiddenIds?.length
-    ? SECTION_NAV_ITEMS.filter((item) => !hiddenIds.includes(item.id))
-    : SECTION_NAV_ITEMS;
-
-  return (
-    <div className="flex flex-wrap items-center gap-2 py-2">
-      <span className="text-xs font-medium text-muted-foreground mr-1">Jump to:</span>
-      {items.map((item) => (
-        <Button
-          key={item.id}
-          variant="outline"
-          size="sm"
-          className="h-7 gap-1.5 px-2 text-xs"
-          onClick={() => handleScrollTo(item.id)}
-        >
-          {item.icon}
-          <span className="hidden sm:inline">{item.label}</span>
-        </Button>
-      ))}
-    </div>
-  );
-};
-
 // ─── Main Content ─────────────────────────────────────────────────────────────
 
 /**
  * Opportunity page content — composed of focused, self-contained Card sections.
  * Each section reads shared data from OpportunityContext.
  *
- * Layout:
+ * Layout (follows the working flow):
  * 1. Header — opportunity details, badges, dates
- * 2. Quick Actions — questions, Q&A engagement
- * 3. Documents — solicitation + RFP response documents
- * 4. Context & Knowledge Base
+ * 2. Solicitation Documents — the inputs everything else builds on
+ * 3. Analysis & Solution Plan — brief and plan generated from the documents
+ * 4. Required Forms / RFP Documents / Context & Knowledge Base
  * 5. Submission — compliance report, submit button, history
  * 6. Post-Award — outcome, debriefing, FOIA
  */
@@ -230,12 +176,16 @@ const OpportunityContent = ({ className }: { className?: string }) => {
   const solutionPlanEnabled = !!currentOrganization?.enableSolutionPlan;
   // Related RFPs (HOR-2610) auto-discover from the issuing agency — HigherGov opps only.
   const isHigherGov = !!opportunity?.higherGovOppKey;
-  const hiddenSectionIds = [
-    ...(complianceReviewEnabled ? [] : ['ai-compliance-review']),
-    ...(solutionPlanEnabled ? [] : ['solution-plan']),
-    ...(isHigherGov ? [] : ['related-rfps']),
-  ];
   const [isChatOpen, setIsChatOpen] = useState(false);
+
+  // Generation actions (solution plan, POC) need at least one solicitation
+  // document; the executive brief computes this itself. Treat "still loading" as
+  // present so buttons don't flash disabled — the backend rejects generation
+  // without documents anyway.
+  const { items: solicitationFiles, isLoading: isLoadingSolicitationFiles } =
+    useQuestionFiles(projectId, { oppId });
+  const hasSolicitationDocs =
+    isLoadingSolicitationFiles || solicitationFiles.some((f) => f.status !== 'DELETED');
 
   // Smart auto-reload: 5s if pending items, 30s if stable, stops after 3 unchanged
   useSmartPolling(orgId, projectId, oppId);
@@ -280,13 +230,18 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       </div>
 
       {/* Opportunity Header */}
-      <OpportunityHeader />
+      <OpportunityHeader hasSolicitationDocs={hasSolicitationDocs} />
 
       {/* Reviewer approve/reject panel — only renders for the assigned reviewer */}
       <OpportunityApprovalPanel orgId={orgId} projectId={projectId} opportunityId={oppId} onResolved={refetch} />
 
-      {/* Section Navigation */}
-      <SectionNavigation hiddenIds={hiddenSectionIds} />
+      {/* Package-preparation progress bar (retires the old "Jump to" chip row) */}
+      <OpportunityProgressBar />
+
+      {/* ── Solicitation Documents (first — everything below builds on them) ── */}
+      <section id="solicitation-documents" className="scroll-mt-4">
+        <OpportunitySolicitationDocuments onAskAI={() => setIsChatOpen(true)} />
+      </section>
 
       {/* ── Opportunity Analysis ─────────────────────────────────────── */}
       <section id="executive-brief" className="scroll-mt-4">
@@ -303,14 +258,14 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       {/* ── Solution Plan (Source of Truth, org-flagged) ──────────────── */}
       {solutionPlanEnabled && (
         <section id="solution-plan" className="scroll-mt-4">
-          <SolutionPlanPanel orgId={orgId} projectId={projectId} opportunityId={oppId} />
+          <SolutionPlanPanel
+            orgId={orgId}
+            projectId={projectId}
+            opportunityId={oppId}
+            hasSolicitationDocs={hasSolicitationDocs}
+          />
         </section>
       )}
-
-      {/* ── Solicitation Documents ────────────────────────────────────── */}
-      <section id="solicitation-documents" className="scroll-mt-4">
-        <OpportunitySolicitationDocuments onAskAI={() => setIsChatOpen(true)} />
-      </section>
 
       {/* ── Required Forms (separated from solicitation docs) ────────── */}
       <section id="required-forms" className="scroll-mt-4">

@@ -195,6 +195,7 @@ export function OpportunitySelector({
                   <CommandItem
                     key={oppId}
                     value={`${opp.title} ${opp.solicitationNumber || ''} ${oppId}`}
+                    className="items-start py-2.5"
                     onSelect={() => {
                       const newOppId = isSelected ? null : oppId;
                       // Save selection to sessionStorage for persistence
@@ -207,11 +208,11 @@ export function OpportunitySelector({
                   >
                     <Check
                       className={cn(
-                        'mr-2 h-4 w-4',
+                        'mr-2 mt-0.5 h-4 w-4',
                         isSelected ? 'opacity-100' : 'opacity-0'
                       )}
                     />
-                    <div className="flex flex-col gap-1 min-w-0">
+                    <div className="flex flex-col gap-0.5 min-w-0">
                       <span className="truncate font-medium">{opp.title || 'Untitled'}</span>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         {opp.solicitationNumber && (
@@ -235,6 +236,7 @@ export function OpportunitySelector({
                 <CommandItem
                   key={OTHER_LEGACY_OPPORTUNITY_ID}
                   value="Other Legacy Questions unassigned"
+                  className="items-start py-2.5"
                   onSelect={() => {
                     const newOppId = isOtherSelected ? null : OTHER_LEGACY_OPPORTUNITY_ID;
                     if (newOppId) {
@@ -246,11 +248,11 @@ export function OpportunitySelector({
                 >
                   <Check
                     className={cn(
-                      'mr-2 h-4 w-4',
+                      'mr-2 mt-0.5 h-4 w-4',
                       isOtherSelected ? 'opacity-100' : 'opacity-0'
                     )}
                   />
-                  <div className="flex flex-col gap-1 min-w-0">
+                  <div className="flex flex-col gap-0.5 min-w-0">
                     <span className="truncate font-medium text-muted-foreground">Other / Legacy Questions</span>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>Questions not linked to any opportunity</span>
