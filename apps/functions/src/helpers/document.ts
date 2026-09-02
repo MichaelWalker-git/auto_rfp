@@ -9,6 +9,7 @@ import { createItem, deleteItem, getItem, queryAllBySkPrefix, queryByPkAndSkCont
 import { deleteFromPinecone, updateChunkDocumentNameInPinecone } from './pinecone';
 import { enqueueRenameChunksJob } from './rename-chunks-queue';
 import { buildDocumentSK } from 'helpers/document-keys';
+import { DocumentDBItem } from '@/types/document';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
@@ -75,7 +76,7 @@ export const updateDocument = async (dto: UpdateDocumentDTO): Promise<UpdateDocu
   const hasNameChanged = newName !== undefined && newName !== current.name;
 
   if (hasNameChanged && newName !== undefined) {
-    const siblings = await queryAllBySkPrefix<DocumentItem & { [SK_NAME]: string }>(
+    const siblings = await queryAllBySkPrefix<DocumentDBItem>(
       DOCUMENT_PK,
       `KB#${dto.knowledgeBaseId}#DOC#`,
     );

@@ -31,7 +31,7 @@ export interface DownloadButtonProps {
  * Reusable download button component
  * Handles loading state and provides consistent UX across the app
  */
-export function DownloadButton({
+export const DownloadButton = ({
   isLoading = false,
   disabled = false,
   onClick,
@@ -41,7 +41,7 @@ export function DownloadButton({
   className,
   showLabel = false,
   label = 'Download',
-}: DownloadButtonProps) {
+}: DownloadButtonProps) => {
   return (
     <Button
       size={size}
@@ -60,7 +60,7 @@ export function DownloadButton({
       {showLabel && <span className="ml-2">{label}</span>}
     </Button>
   );
-}
+};
 
 export interface PermissionDownloadButtonProps extends Omit<DownloadButtonProps, 'disabled'> {
   /** The permission required to see the button */
@@ -72,7 +72,7 @@ export interface PermissionDownloadButtonProps extends Omit<DownloadButtonProps,
  * permission — unlike PermissionDeleteButton, there is no disabled/tooltip
  * fallback here by design.
  */
-export function PermissionDownloadButton({
+export const PermissionDownloadButton = ({
   requiredPermission,
   isLoading = false,
   onClick,
@@ -82,7 +82,7 @@ export function PermissionDownloadButton({
   className,
   showLabel = false,
   label = 'Download',
-}: PermissionDownloadButtonProps) {
+}: PermissionDownloadButtonProps) => {
   const hasPermission = usePermission(requiredPermission);
   if (!hasPermission) return null;
 
@@ -98,4 +98,4 @@ export function PermissionDownloadButton({
       label={label}
     />
   );
-}
+};

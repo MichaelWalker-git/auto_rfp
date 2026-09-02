@@ -5,6 +5,15 @@ jest.mock('@/helpers/pinecone', () => ({
   updateChunkDocumentNameInPinecone: (...a: unknown[]) => mockUpdateChunkDocumentNameInPinecone(...a),
 }));
 
+const mockWriteAuditLog = jest.fn().mockResolvedValue(undefined);
+jest.mock('@/helpers/audit-log', () => ({
+  writeAuditLog: (...a: unknown[]) => mockWriteAuditLog(...a),
+}));
+
+jest.mock('@/helpers/secret', () => ({
+  getHmacSecret: jest.fn().mockResolvedValue('test-hmac-secret'),
+}));
+
 import { baseHandler } from './rename-chunks-worker';
 import type { SQSEvent, SQSRecord } from 'aws-lambda';
 

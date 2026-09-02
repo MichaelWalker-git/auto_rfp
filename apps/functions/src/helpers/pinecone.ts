@@ -195,12 +195,12 @@ const buildDeterministicChunkIds = (sk: string, chunkCount: number, textFileKey:
   return Array.from({ length: chunkCount }, (_, i) => `${sk}#${buildChunkKey(chunksPrefix, i)}`);
 };
 
-async function deleteFromPineconeDeterministic(
+const deleteFromPineconeDeterministic = async (
   orgId: string,
   sk: string,
   chunkCount: number,
   textFileKey: string,
-): Promise<void> {
+): Promise<void> => {
   if (chunkCount === 0) {
     console.log(`Pinecone: chunkCount=0 for sk=${sk} (nothing to delete)`);
     return;
@@ -223,9 +223,9 @@ async function deleteFromPineconeDeterministic(
       `Pinecone delete failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
     );
   }
-}
+};
 
-async function deleteFromPineconeByQuery(orgId: string, sk: string): Promise<void> {
+const deleteFromPineconeByQuery = async (orgId: string, sk: string): Promise<void> => {
   const index = await getPineconeIndex();
   const PAGE_SIZE = 1000;
   const batchSize = 100;
@@ -259,7 +259,7 @@ async function deleteFromPineconeByQuery(orgId: string, sk: string): Promise<voi
       `Pinecone delete failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
     );
   }
-}
+};
 
 /**
  * Propagate a document rename to every chunk's `documentName` metadata, inline.

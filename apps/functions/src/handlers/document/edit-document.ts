@@ -45,6 +45,15 @@ export const baseHandler = async (
 
     const dto: UpdateDocumentDTO = parsed.data;
 
+    // Set upfront (best-guess action from intent) so a failure below is still
+    // audited — the `after`/`onError` audit-middleware hooks only log when
+    // `_auditCtx` has been set on the event.
+    setAuditContext(event, {
+      action: dto.name !== undefined ? 'DOCUMENT_RENAMED' : 'DOCUMENT_UPDATED',
+      resource: 'document',
+      resourceId: dto.id,
+    });
+
     let result;
     try {
       result = await updateDocument(dto);
@@ -58,6 +67,7 @@ export const baseHandler = async (
       throw err;
     }
 
+    // Refine the action now that we know whether the name actually changed.
     setAuditContext(event, {
       action: result.hasNameChanged ? 'DOCUMENT_RENAMED' : 'DOCUMENT_UPDATED',
       resource: 'document',
