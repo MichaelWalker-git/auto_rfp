@@ -18,6 +18,7 @@ import { RfpLinearSyncStack } from '../rfp-linear-sync-stack';
 import { FoiaAutomationStack } from '../foia-automation-stack';
 import { FoiaInboundStack } from '../foia-inbound-stack';
 import { RfpDigestStack } from '../rfp-digest-stack';
+import { GoogleDriveSyncStack } from '../google-drive-sync-stack';
 import { RFP_SYNC_PROJECT_ID } from '@auto-rfp/core';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import {
@@ -276,6 +277,28 @@ const rfpLinearSyncStack = new RfpLinearSyncStack(app, `AutoRfp-RfpLinearSync-${
 
 rfpLinearSyncStack.addDependency(db);
 
+// Scheduled import of Google Drive document edits. Depends on both db (for the
+// byDriveSync index it queries — deploy the table stack first) and storage (for the
+// documents bucket its DOCUMENTS_BUCKET env var and S3 grant point at).
+const googleDriveSyncStack = new GoogleDriveSyncStack(app, `AutoRfp-GoogleDriveSync-${stage}`, {
+  env,
+  stage,
+  mainTable: db.tableName,
+  documentsBucketName: storage.documentsBucket.bucketName,
+  notificationQueueName,
+  commonEnv: {
+    STAGE: stage,
+    DB_TABLE_NAME: db.tableName.tableName,
+    REGION: env.region ?? 'us-east-1',
+    SENTRY_DSN: sentryDNS,
+    SENTRY_ENVIRONMENT: stage,
+    NODE_ENV: 'production',
+  },
+});
+
+googleDriveSyncStack.addDependency(db);
+googleDriveSyncStack.addDependency(storage);
+
 // Daily reconcile of automatic FOIA request scheduling (Level 2). Recomputes
 // the intended state for every eligible opportunity, so a missed run or a
 // changed setting self-corrects on the next pass.
@@ -479,6 +502,9 @@ addLambdaSuppressions(auditStack, isProduction);
 
 addLambdaSuppressions(rfpLinearSyncStack, isProduction);
 addDynamoDBSuppressions(rfpLinearSyncStack, isProduction);
+
+addLambdaSuppressions(googleDriveSyncStack, isProduction);
+addDynamoDBSuppressions(googleDriveSyncStack, isProduction);
 
 addLambdaSuppressions(foiaAutomationStack, isProduction);
 addDynamoDBSuppressions(foiaAutomationStack, isProduction);

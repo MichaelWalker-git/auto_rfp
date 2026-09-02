@@ -258,6 +258,99 @@ export const linearGateLabelSwap = (
   };
 };
 
+// ─── Board-stage write (brief "Set RFP Status" → Linear status + gate label) ──
+
+/**
+ * The nine RFP board columns a user can move a ticket to from the brief, in
+ * board order. `found`/`expired` are intake/auto-classification stages, not
+ * user-selectable destinations, so they're excluded.
+ */
+export const RFP_SELECTABLE_STAGES = [
+  'execSummaryToReview',
+  'firstApproved',
+  'inProgress',
+  'preSubmissionReview',
+  'secondApproved',
+  'submitted',
+  'notApproved',
+  'awarded',
+  'lost',
+] as const satisfies readonly RfpPipelineStage[];
+
+export const RfpSelectableStageSchema = z.enum(
+  RFP_SELECTABLE_STAGES as unknown as [string, ...string[]],
+);
+export type RfpSelectableStage = (typeof RFP_SELECTABLE_STAGES)[number];
+
+/** Dropdown options for the "Set RFP Status" picker: stage key + display label. */
+export const RFP_STAGE_OPTIONS: ReadonlyArray<{ stage: RfpSelectableStage; label: string }> =
+  RFP_SELECTABLE_STAGES.map((stage) => ({ stage, label: RFP_STAGE_LABELS[stage] }));
+
+/**
+ * The Linear workflow status each selectable stage maps to. Some stages share a
+ * status and are told apart by their gate label (see linearStageWrite): e.g.
+ * firstApproved/inProgress/preSubmissionReview/secondApproved all sit in the
+ * "In Progress"/"Reviewed - Approved" area and differ only by label.
+ */
+const STAGE_TO_LINEAR_STATUS: Record<RfpSelectableStage, string> = {
+  execSummaryToReview: RFP_LINEAR_STATUS.TO_BE_REVIEWED,
+  firstApproved: RFP_LINEAR_STATUS.REVIEWED_APPROVED,
+  inProgress: RFP_LINEAR_STATUS.IN_PROGRESS,
+  preSubmissionReview: RFP_LINEAR_STATUS.IN_PROGRESS,
+  secondApproved: RFP_LINEAR_STATUS.IN_PROGRESS,
+  submitted: RFP_LINEAR_STATUS.SUBMITTED,
+  notApproved: RFP_LINEAR_STATUS.REVIEWED_NOT_APPROVED,
+  awarded: RFP_LINEAR_STATUS.AWARDED,
+  lost: RFP_LINEAR_STATUS.AWARDED,
+};
+
+/** The gate label each stage carries (null → status alone identifies it). */
+const STAGE_TO_GATE_LABEL: Record<RfpSelectableStage, string | null> = {
+  execSummaryToReview: RFP_LINEAR_LABEL.INITIAL_APPROVAL,
+  firstApproved: RFP_LINEAR_LABEL.FIRST_APPROVED,
+  inProgress: RFP_LINEAR_LABEL.FIRST_APPROVED,
+  preSubmissionReview: RFP_LINEAR_LABEL.PRE_SUB_APPROVAL,
+  secondApproved: RFP_LINEAR_LABEL.SECOND_APPROVED,
+  submitted: null,
+  notApproved: RFP_LINEAR_LABEL.NOT_APPROVED,
+  awarded: null,
+  lost: null,
+};
+
+/**
+ * Compute the full Linear write to land a ticket in a given board stage: the
+ * workflow status to set, plus the labels to add/remove so resolveRfpStage reads
+ * the same stage back on the next sync. Mirrors the inverse of resolveRfpStage.
+ *
+ *  - Gate stages (execSummary…notApproved): add their one gate label, remove the
+ *    other gate labels and `dnw`. Non-gate labels (proposal, genai, …) untouched.
+ *  - submitted/awarded: status-driven; gate labels left in place (submission /
+ *    award is a status change), `dnw` removed so an award isn't read as a loss.
+ *  - lost: status Awarded + the `dnw` label (a lost bid is an award that dnw).
+ */
+export const linearStageWrite = (
+  stage: RfpSelectableStage,
+): { status: string; addLabels: string[]; removeLabels: string[] } => {
+  const status = STAGE_TO_LINEAR_STATUS[stage];
+  const gateLabel = STAGE_TO_GATE_LABEL[stage];
+  const dnw = RFP_LINEAR_LABEL.DID_NOT_WIN;
+
+  if (gateLabel) {
+    return {
+      status,
+      addLabels: [gateLabel],
+      removeLabels: [...RFP_GATE_LABELS.filter((l) => l !== gateLabel), dnw],
+    };
+  }
+
+  if (stage === 'lost') {
+    return { status, addLabels: [dnw], removeLabels: [] };
+  }
+
+  // submitted / awarded — status-driven; only clear the loss marker.
+  return { status, addLabels: [], removeLabels: [dnw] };
+};
+
 // ─── Pipeline board item ────────────────────────────────────────────────────
 
 /**

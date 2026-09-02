@@ -9,7 +9,6 @@ import {
   Loader2,
   MoreHorizontal,
   Pencil,
-  RefreshCw,
   Trash2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -21,12 +20,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import {
   type RFPDocumentItem,
   RFP_DOCUMENT_TYPES,
-  useSyncRFPDocumentToGoogleDrive,
 } from '@/lib/hooks/use-rfp-documents';
 import { LinearSyncIndicator } from './linear-sync-indicator';
 import { formatDate, formatFileSize, getDocumentTypeStyle } from './rfp-document-utils';
@@ -250,41 +247,10 @@ function DocumentActions({
   isApproved,
   onExport,
   onDelete,
-  onSyncComplete,
 }: DocumentActionsProps) {
-  const { trigger: syncToGoogleDrive } = useSyncRFPDocumentToGoogleDrive(orgId);
-  const { toast } = useToast();
-  const [isSyncing, setIsSyncing] = useState(false);
-
   const isContentDoc = !!(doc.content || doc.htmlContentKey);
-  const canSync = !!(doc.fileKey || doc.htmlContentKey);
   const isAlreadySynced = !!doc.googleDriveUrl;
   const editorUrl = `/organizations/${orgId}/projects/${projectId}/rfp-documents/${doc.documentId}/edit?opportunityId=${doc.opportunityId}`;
-
-  const handleSync = useCallback(async () => {
-    if (isSyncing || !canSync) return;
-    try {
-      setIsSyncing(true);
-      await syncToGoogleDrive({
-        projectId: doc.projectId,
-        opportunityId: doc.opportunityId,
-        documentId: doc.documentId,
-      });
-      toast({
-        title: isAlreadySynced ? 'Re-synced to Google Drive' : 'Synced to Google Drive',
-        description: `"${doc.name}" has been uploaded to Google Drive.`,
-      });
-      onSyncComplete();
-    } catch (err) {
-      toast({
-        title: 'Sync failed',
-        description: err instanceof Error ? err.message : 'Could not sync to Google Drive',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSyncing(false);
-    }
-  }, [isSyncing, canSync, isAlreadySynced, syncToGoogleDrive, doc, toast, onSyncComplete]);
 
   return (
     <div className="flex items-center gap-2 shrink-0">
@@ -306,35 +272,20 @@ function DocumentActions({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          {/* Google Drive — open link (only when synced) */}
+          {/* Google Drive — open link (only when synced). Content edits now
+              auto-push to Drive from the update handler, so there is no manual
+              sync action here anymore. */}
           {isAlreadySynced && (
-            <DropdownMenuItem asChild>
-              <a href={doc.googleDriveUrl!} target="_blank" rel="noopener noreferrer" className="flex items-center">
-                <GoogleDriveIcon className="h-4 w-4 mr-2" />
-                Open in Google Drive
-              </a>
-            </DropdownMenuItem>
+            <>
+              <DropdownMenuItem asChild>
+                <a href={doc.googleDriveUrl!} target="_blank" rel="noopener noreferrer" className="flex items-center">
+                  <GoogleDriveIcon className="h-4 w-4 mr-2" />
+                  Open in Google Drive
+                </a>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
           )}
-
-          {/* Google Drive — sync / re-sync (hidden while generating) */}
-          {canSync && doc.status !== 'GENERATING' && (
-            <DropdownMenuItem
-              disabled={isSyncing}
-              onClick={handleSync}
-              className="flex items-center"
-            >
-              {isSyncing ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : isAlreadySynced ? (
-                <RefreshCw className="h-4 w-4 mr-2" />
-              ) : (
-                <GoogleDriveIcon className="h-4 w-4 mr-2" />
-              )}
-              {isAlreadySynced ? 'Re-sync to Google Drive' : 'Sync to Google Drive'}
-            </DropdownMenuItem>
-          )}
-
-          {(isAlreadySynced || canSync) && <DropdownMenuSeparator />}
 
           {/* Edit Content — full-page editor (hidden when approved) */}
           {isContentDoc && doc.status !== 'GENERATING' && !isApproved && (

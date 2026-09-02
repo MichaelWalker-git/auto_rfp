@@ -131,6 +131,28 @@ const UPDATABLE_METADATA_FIELDS = [
   'retryCount',
   'solutionPlanId',
   'solutionPlanVersion',
+  // Google Drive sync — omitting any of these makes the corresponding write a silent no-op.
+  'googleDriveFileId',
+  'googleDriveUrl',
+  'driveMimeType',
+  'driveFolderId',
+  'driveModifiedTime',
+  'drivePendingModifiedTime',
+  'driveLastPushedAt',
+  'driveLastPulledAt',
+  'driveSyncStatus',
+  'driveSyncError',
+  'driveSyncStartedAt',
+  'driveSyncPk',
+  'driveSyncSk',
+  // Frozen record of the approved content. Written once on approval, never updated.
+  'driveApprovedSnapshotFileId',
+  'driveApprovedSnapshotUrl',
+  'driveApprovedSnapshotAt',
+  'driveApprovedSnapshotVersion',
+  // Written by the push path when the source is a raw (non-HTML) file.
+  'mimeType',
+  'fileKey',
   'templateId',
   'furniture',
 ] as const;

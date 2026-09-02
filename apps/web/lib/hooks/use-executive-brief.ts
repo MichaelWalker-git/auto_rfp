@@ -1,5 +1,6 @@
 'use client';
 
+import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
 import { env } from '@/lib/env';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
@@ -73,9 +74,48 @@ export type GetExecutiveBriefByProjectResponse = {
 };
 export type HandleLinearTicketRequest = {
   executiveBriefId: string;
+  /**
+   * Absolute URL of the opportunity in this app — becomes the ticket's AutoRFP
+   * link. Required to create a ticket; the update-existing-ticket path (decision
+   * change in DecisionCard) omits it.
+   */
+  appUrl?: string;
+  /** Linear user id to assign the ticket to (chosen in the create dialog). */
+  assigneeId?: string;
+  /** RFP board stage the ticket starts in (drives Linear status + gate label). */
+  stage?: string;
+  /** RFP due date, ISO calendar date (YYYY-MM-DD), chosen in the create dialog. */
+  dueDate?: string;
+};
+
+export type LinearUser = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+export type ListLinearUsersResponse = {
+  users: LinearUser[];
 };
 
 export type HandleLinearTicketResponse = {
+  ok: boolean;
+  ticket?: {
+    id: string;
+    identifier: string;
+    url: string;
+  };
+  message?: string;
+  error?: string;
+};
+
+export type UpdateLinearTicketStatusRequest = {
+  executiveBriefId: string;
+  /** RFP board stage to move the ticket to (drives Linear status + gate label). */
+  stage: string;
+};
+
+export type UpdateLinearTicketStatusResponse = {
   ok: boolean;
   ticket?: {
     id: string;
@@ -95,6 +135,17 @@ export type UpdateDecisionResponse = {
   ok: boolean;
   executiveBriefId?: string;
   decision?: string;
+  message?: string;
+  error?: string;
+};
+
+export type SyncBriefToGoogleDriveRequest = {
+  executiveBriefId: string;
+};
+
+export type SyncBriefToGoogleDriveResponse = {
+  ok: boolean;
+  executiveBriefId?: string;
   message?: string;
   error?: string;
 };
@@ -122,6 +173,19 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
   }
 }
 
+async function getJson<T>(url: string): Promise<T> {
+  const res = await authFetcher(url, { method: 'GET' });
+
+  if (!res.ok) {
+    const raw = await res.text().catch(() => '');
+    const err = new Error(raw || 'Request failed');
+    (err as any).status = res.status;
+    throw err;
+  }
+
+  return (await res.json()) as T;
+}
+
 const endpoints = {
   init: (orgId?: string) => `${env.BASE_API_URL}/brief/init-executive-brief${orgId ? `?orgId=${orgId}` : ''}`,
   summary: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-summary${orgId ? `?orgId=${orgId}` : ''}`,
@@ -133,7 +197,10 @@ const endpoints = {
   scoring: (orgId?: string) => `${env.BASE_API_URL}/brief/generate-executive-brief-scoring${orgId ? `?orgId=${orgId}` : ''}`,
   getByProject: (orgId?: string) => `${env.BASE_API_URL}/brief/get-executive-brief-by-project${orgId ? `?orgId=${orgId}` : ''}`,
   handleLinearTicket: (orgId?: string) => `${env.BASE_API_URL}/brief/handle-linear-ticket${orgId ? `?orgId=${orgId}` : ''}`,
+  updateLinearTicketStatus: (orgId?: string) => `${env.BASE_API_URL}/brief/update-linear-ticket-status${orgId ? `?orgId=${orgId}` : ''}`,
+  linearUsers: (orgId?: string) => `${env.BASE_API_URL}/linear/list-users${orgId ? `?orgId=${orgId}` : ''}`,
   updateDecision: (orgId?: string) => `${env.BASE_API_URL}/brief/update-decision${orgId ? `?orgId=${orgId}` : ''}`,
+  syncToGoogleDrive: (orgId?: string) => `${env.BASE_API_URL}/brief/sync-to-google-drive${orgId ? `?orgId=${orgId}` : ''}`,
 } as const;
 
 // ---------- hooks ----------
@@ -240,9 +307,39 @@ export function useHandleLinearTicket(orgId?: string) {
   );
 }
 
+/**
+ * Lists the org's Linear team members for the create-ticket assignee picker.
+ * Pass `enabled: false` to defer the fetch until the dialog opens.
+ */
+export function useLinearUsers(orgId?: string, enabled = true) {
+  return useSWR<ListLinearUsersResponse, Error>(
+    enabled ? endpoints.linearUsers(orgId) : null,
+    (url: string) => getJson<ListLinearUsersResponse>(url),
+  );
+}
+
+export function useUpdateLinearTicketStatus(orgId?: string) {
+  return useSWRMutation<
+    UpdateLinearTicketStatusResponse,
+    Error,
+    string,
+    UpdateLinearTicketStatusRequest
+  >(
+    endpoints.updateLinearTicketStatus(orgId),
+    (url, { arg }) => postJson<UpdateLinearTicketStatusResponse>(url, arg),
+  );
+}
+
 export function useUpdateDecision(orgId?: string) {
   return useSWRMutation<UpdateDecisionResponse, Error, string, UpdateDecisionRequest>(
     endpoints.updateDecision(orgId),
     (url, { arg }) => postJson<UpdateDecisionResponse>(url, arg),
+  );
+}
+
+export function useSyncBriefToGoogleDrive(orgId?: string) {
+  return useSWRMutation<SyncBriefToGoogleDriveResponse, Error, string, SyncBriefToGoogleDriveRequest>(
+    endpoints.syncToGoogleDrive(orgId),
+    (url, { arg }) => postJson<SyncBriefToGoogleDriveResponse>(url, arg),
   );
 }
