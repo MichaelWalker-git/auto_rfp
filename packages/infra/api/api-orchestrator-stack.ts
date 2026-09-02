@@ -84,6 +84,7 @@ export interface ApiOrchestratorStackProps extends cdk.StackProps {
   documentGenerationQueue?: sqs.IQueue;
   clarifyingQuestionQueue?: sqs.IQueue;
   extractionQueue?: sqs.IQueue;
+  renameChunksQueue?: sqs.IQueue;
   notificationQueueName?: string;
   auditLogQueueName?: string;
   documentPipelineStateMachineArn: string;
@@ -752,6 +753,48 @@ export class ApiOrchestratorStack extends cdk.Stack {
       });
     }
 
+    // Rename Chunks worker — processes async Pinecone chunk-metadata updates for
+    // document renames on documents with more than 1 000 chunks (ticket 04)
+    const renameChunksQueue = props.renameChunksQueue;
+    const renameChunksQueueUrl = renameChunksQueue?.queueUrl || '';
+    if (renameChunksQueue) {
+      renameChunksQueue.grantSendMessages(sharedInfraStack.commonLambdaRole);
+
+      const renameChunksWorker = new lambdaNodejs.NodejsFunction(this, `RenameChunksWorker-${stage}`, {
+        functionName: `auto-rfp-rename-chunks-worker-${stage}`,
+        entry: path.join(__dirname, '../../../apps/functions/src/handlers/document/rename-chunks-worker.ts'),
+        handler: 'handler',
+        runtime: lambda.Runtime.NODEJS_20_X,
+        timeout: cdk.Duration.minutes(5), // Match SQS visibility timeout
+        memorySize: 512,
+        role: sharedInfraStack.commonLambdaRole,
+        environment: {
+          ...commonEnv,
+        },
+        bundling: {
+          minify: true,
+          sourceMap: true,
+          externalModules: ['@aws-sdk/*', '@smithy/*'],
+        },
+      });
+
+      renameChunksWorker.addEventSource(
+        new lambdaEventSources.SqsEventSource(renameChunksQueue, {
+          batchSize: 1,
+          reportBatchItemFailures: true,
+        }),
+      );
+
+      renameChunksQueue.grantConsumeMessages(renameChunksWorker);
+
+      // Add log group for the worker
+      new logs.LogGroup(this, `RenameChunksWorkerLogs-${stage}`, {
+        logGroupName: `/aws/lambda/auto-rfp-rename-chunks-worker-${stage}`,
+        retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      });
+    }
+
     // 3. Collect all domain route definitions
     const allDomains: DomainRoutes[] = [
       organizationDomain(),
@@ -759,7 +802,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       briefDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '', googleDriveSyncQueueUrl: gdSyncQueueUrl }),
       presignedDomain(),
       knowledgebaseDomain(),
-      documentDomain(),
+      documentDomain({ renameChunksQueueUrl }),
       questionfileDomain(),
       userDomain(),
       questionDomain(),

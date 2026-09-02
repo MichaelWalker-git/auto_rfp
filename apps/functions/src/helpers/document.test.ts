@@ -11,6 +11,7 @@ const mockDeleteFromPinecone = jest.fn();
 const mockQueryAllBySkPrefix = jest.fn();
 const mockUpdateItem = jest.fn();
 const mockUpdateChunkDocumentNameInPinecone = jest.fn();
+const mockEnqueueRenameChunksJob = jest.fn();
 
 jest.mock('@aws-sdk/client-s3', () => ({
   S3Client: jest.fn(() => ({ send: (...a: unknown[]) => mockS3Send(...a) })),
@@ -29,6 +30,10 @@ jest.mock('./db', () => ({
 jest.mock('./pinecone', () => ({
   deleteFromPinecone: (...a: unknown[]) => mockDeleteFromPinecone(...a),
   updateChunkDocumentNameInPinecone: (...a: unknown[]) => mockUpdateChunkDocumentNameInPinecone(...a),
+}));
+
+jest.mock('./rename-chunks-queue', () => ({
+  enqueueRenameChunksJob: (...a: unknown[]) => mockEnqueueRenameChunksJob(...a),
 }));
 
 process.env.DOCUMENTS_BUCKET = 'test-bucket';
@@ -136,6 +141,7 @@ describe('updateDocument', () => {
     mockQueryAllBySkPrefix.mockResolvedValue([]);
     mockUpdateItem.mockImplementation(async (_pk: string, _sk: string, updates: Partial<DocumentItem>) => makeItem(updates));
     mockUpdateChunkDocumentNameInPinecone.mockResolvedValue(undefined);
+    mockEnqueueRenameChunksJob.mockResolvedValue(undefined);
   });
 
   it('throws DocumentNotFoundError when the document no longer exists', async () => {
@@ -179,6 +185,7 @@ describe('updateDocument', () => {
     // and the caller (the handler) can tell this wasn't really a rename.
     expect(mockQueryAllBySkPrefix).not.toHaveBeenCalled();
     expect(mockUpdateChunkDocumentNameInPinecone).not.toHaveBeenCalled();
+    expect(mockEnqueueRenameChunksJob).not.toHaveBeenCalled();
     expect(result.hasNameChanged).toBe(false);
   });
 
@@ -196,30 +203,64 @@ describe('updateDocument', () => {
     );
   });
 
-  it('skips inline Pinecone propagation when chunkCount exceeds 1000 (async worker handles it)', async () => {
-    mockGetItem.mockResolvedValue(makeItem({ chunkCount: 1001, name: 'Old Name.pdf' }));
+  it('enqueues an async rename-chunks job instead of running the inline update loop when chunkCount exceeds 1000', async () => {
+    mockGetItem.mockResolvedValue(
+      makeItem({ chunkCount: 1001, name: 'Old Name.pdf', textFileKey: 'files/doc-1.txt' }),
+    );
 
     const result = await updateDocument(renameDto);
 
     expect(mockUpdateChunkDocumentNameInPinecone).not.toHaveBeenCalled();
+    expect(mockEnqueueRenameChunksJob).toHaveBeenCalledWith({
+      orgId: 'org-1',
+      knowledgeBaseId: 'kb-1',
+      id: 'doc-1',
+      sk,
+      documentName: 'New Name.pdf',
+      chunkCount: 1001,
+      textFileKey: 'files/doc-1.txt',
+    });
     expect(mockUpdateItem).toHaveBeenCalled();
     expect(result).toBeDefined();
   });
 
-  it('skips inline Pinecone propagation for legacy documents with no chunkCount', async () => {
+  it('does not enqueue a rename-chunks job for chunkCount <= 1000 (regression guard for ticket 03)', async () => {
+    mockGetItem.mockResolvedValue(makeItem({ chunkCount: 1000, name: 'Old Name.pdf', textFileKey: 'files/doc-1.txt' }));
+
+    await updateDocument(renameDto);
+
+    expect(mockEnqueueRenameChunksJob).not.toHaveBeenCalled();
+    expect(mockUpdateChunkDocumentNameInPinecone).toHaveBeenCalled();
+  });
+
+  it('logs and swallows a rename-chunks enqueue failure — the rename already committed', async () => {
+    mockGetItem.mockResolvedValue(
+      makeItem({ chunkCount: 1001, name: 'Old Name.pdf', textFileKey: 'files/doc-1.txt' }),
+    );
+    mockEnqueueRenameChunksJob.mockRejectedValue(new Error('SQS down'));
+
+    const result = await updateDocument(renameDto);
+
+    expect(result).toBeDefined();
+    expect(mockUpdateItem).toHaveBeenCalled();
+  });
+
+  it('skips inline Pinecone propagation and enqueue for legacy documents with no chunkCount', async () => {
     mockGetItem.mockResolvedValue(makeItem({ chunkCount: undefined, name: 'Old Name.pdf' }));
 
     await updateDocument(renameDto);
 
     expect(mockUpdateChunkDocumentNameInPinecone).not.toHaveBeenCalled();
+    expect(mockEnqueueRenameChunksJob).not.toHaveBeenCalled();
   });
 
-  it('skips inline Pinecone propagation when orgId is not provided', async () => {
-    mockGetItem.mockResolvedValue(makeItem({ chunkCount: 3, name: 'Old Name.pdf' }));
+  it('skips inline Pinecone propagation and enqueue when orgId is not provided', async () => {
+    mockGetItem.mockResolvedValue(makeItem({ chunkCount: 1001, name: 'Old Name.pdf' }));
 
     await updateDocument({ id: 'doc-1', knowledgeBaseId: 'kb-1', name: 'New Name.pdf' });
 
     expect(mockUpdateChunkDocumentNameInPinecone).not.toHaveBeenCalled();
+    expect(mockEnqueueRenameChunksJob).not.toHaveBeenCalled();
   });
 
   it('logs and swallows a Pinecone chunk-metadata propagation failure — the rename already committed', async () => {
@@ -239,6 +280,7 @@ describe('updateDocument', () => {
 
     expect(mockQueryAllBySkPrefix).not.toHaveBeenCalled();
     expect(mockUpdateChunkDocumentNameInPinecone).not.toHaveBeenCalled();
+    expect(mockEnqueueRenameChunksJob).not.toHaveBeenCalled();
     expect(mockUpdateItem).toHaveBeenCalledWith('DOCUMENT', sk, { indexStatus: 'ready' });
     expect(result.hasNameChanged).toBe(false);
   });

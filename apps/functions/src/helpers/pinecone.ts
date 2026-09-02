@@ -292,7 +292,18 @@ export const updateChunkDocumentNameInPinecone = async (
   const BATCH_SIZE = 50;
   for (let i = 0; i < ids.length; i += BATCH_SIZE) {
     const batch = ids.slice(i, i + BATCH_SIZE);
-    await Promise.all(batch.map((id) => namespace.update({ id, metadata: { documentName } })));
+    // Each update is individually logged on failure before Promise.all rethrows —
+    // .catch runs for every rejected promise in the batch (not just the first),
+    // so the caller (inline rename or the async worker) still sees the original
+    // error while every failing chunk ID gets its own log line.
+    await Promise.all(
+      batch.map((id) =>
+        namespace.update({ id, metadata: { documentName } }).catch((err) => {
+          console.error(`Pinecone: failed to update documentName for chunk ${id}:`, err);
+          throw err;
+        }),
+      ),
+    );
   }
 
   console.log(`Pinecone: propagated documentName to ${ids.length} chunks for ${SK_NAME}=${sk}`);

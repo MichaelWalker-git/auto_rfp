@@ -12,3 +12,4 @@ process.env.PINECONE_API_KEY = process.env.PINECONE_API_KEY || 'test-pinecone-ke
 process.env.PINECONE_INDEX = process.env.PINECONE_INDEX || 'test-index';
 process.env.STAGE = process.env.STAGE || 'test';
 process.env.SOLUTION_PLAN_QUEUE_URL = process.env.SOLUTION_PLAN_QUEUE_URL || 'https://sqs.us-east-1.amazonaws.com/123456789/test-solution-plan-queue';
+process.env.RENAME_CHUNKS_QUEUE_URL = process.env.RENAME_CHUNKS_QUEUE_URL || 'https://sqs.us-east-1.amazonaws.com/123456789/test-rename-chunks-queue';

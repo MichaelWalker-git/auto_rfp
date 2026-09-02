@@ -390,5 +390,23 @@ describe('pinecone — solicitation RAG helpers', () => {
         updateChunkDocumentNameInPinecone('org-123', sk, 3, textFileKey, 'New Name.pdf'),
       ).rejects.toThrow('pinecone down');
     });
+
+    it('logs the specific failing chunk ID before rethrowing (worker retry visibility)', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const failingId = `${sk}#orgs/org-123/kb-1/chunks/2.txt`;
+      mockUpdate.mockImplementation(({ id }: { id: string }) =>
+        id === failingId ? Promise.reject(new Error('pinecone down')) : Promise.resolve({}),
+      );
+
+      await expect(
+        updateChunkDocumentNameInPinecone('org-123', sk, 3, textFileKey, 'New Name.pdf'),
+      ).rejects.toThrow('pinecone down');
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining(failingId),
+        expect.any(Error),
+      );
+      consoleErrorSpy.mockRestore();
+    });
   });
 });

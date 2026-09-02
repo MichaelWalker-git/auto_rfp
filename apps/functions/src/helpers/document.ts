@@ -7,6 +7,7 @@ import { CreateDocumentDTO, DeleteDocumentDTO, DocumentItem, UpdateDocumentDTO }
 import { requireEnv } from './env';
 import { createItem, deleteItem, getItem, queryAllBySkPrefix, queryByPkAndSkContains, updateItem } from './db';
 import { deleteFromPinecone, updateChunkDocumentNameInPinecone } from './pinecone';
+import { enqueueRenameChunksJob } from './rename-chunks-queue';
 import { buildDocumentSK } from 'helpers/document-keys';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -30,7 +31,8 @@ export class DocumentNotFoundError extends Error {
 }
 
 // Inline Pinecone chunk-metadata propagation is only attempted for documents at
-// or under this size; larger documents wait for the async worker (ticket 04).
+// or under this size; larger documents enqueue the async rename-chunks worker
+// (ticket 04) instead, so the rename request never waits on the update loop.
 const MAX_INLINE_PROPAGATION_CHUNK_COUNT = 1000;
 
 export async function createDocument(
@@ -96,15 +98,32 @@ export const updateDocument = async (dto: UpdateDocumentDTO): Promise<UpdateDocu
     newName !== undefined &&
     dto.orgId &&
     typeof current.chunkCount === 'number' &&
-    current.chunkCount <= MAX_INLINE_PROPAGATION_CHUNK_COUNT &&
     current.textFileKey
   ) {
-    try {
-      await updateChunkDocumentNameInPinecone(dto.orgId, sk, current.chunkCount, current.textFileKey, newName);
-    } catch (err) {
-      // The DDB write already committed and the list is correct; citations may
-      // lag until the next reindex. Never let a Pinecone outage fail the rename.
-      console.error(`Pinecone chunk-metadata propagation failed for ${SK_NAME}=${sk}:`, err);
+    if (current.chunkCount <= MAX_INLINE_PROPAGATION_CHUNK_COUNT) {
+      try {
+        await updateChunkDocumentNameInPinecone(dto.orgId, sk, current.chunkCount, current.textFileKey, newName);
+      } catch (err) {
+        // The DDB write already committed and the list is correct; citations may
+        // lag until the next reindex. Never let a Pinecone outage fail the rename.
+        console.error(`Pinecone chunk-metadata propagation failed for ${SK_NAME}=${sk}:`, err);
+      }
+    } else {
+      try {
+        await enqueueRenameChunksJob({
+          orgId: dto.orgId,
+          knowledgeBaseId: dto.knowledgeBaseId,
+          id: dto.id,
+          sk,
+          documentName: newName,
+          chunkCount: current.chunkCount,
+          textFileKey: current.textFileKey,
+        });
+      } catch (err) {
+        // Same fail-open rule as the inline path: the rename already committed
+        // to DDB, so a transient SQS outage must not fail the request.
+        console.error(`Failed to enqueue rename-chunks job for ${SK_NAME}=${sk}:`, err);
+      }
     }
   }
 
