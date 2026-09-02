@@ -141,6 +141,9 @@ export type OpportunityItemCardVariant = 'full' | 'compact';
 export interface OpportunityItemCardProps {
   item: OpportunityListItem;
   onOpen?: (item: OpportunityListItem) => void;
+  /** Canonical URL for this opportunity. When set, middle-click / ctrl-click open
+   *  it in a new tab (native browser behaviour); left-click still uses `onOpen`. */
+  href?: string;
   onDeleted?: () => void;
   onUpdated?: (item: OpportunityListItem) => void;
   variant?: OpportunityItemCardVariant;
@@ -300,6 +303,7 @@ const AssigneeChip = ({
 export const OpportunityItemCard = ({
   item,
   onOpen,
+  href,
   onDeleted,
   onUpdated,
   variant = 'full',
@@ -352,8 +356,24 @@ export const OpportunityItemCard = ({
     setDeleteError(null);
   }, []);
 
+  // Middle-click (button 1) opens the opportunity in a new tab. `onMouseDown`
+  // suppresses the browser's middle-click autoscroll cursor; `onAuxClick` does the
+  // actual open once the click completes.
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button === 1 && href) e.preventDefault();
+  }, [href]);
+
+  const handleAuxClick = useCallback((e: React.MouseEvent) => {
+    if (e.button === 1 && href) {
+      e.preventDefault();
+      window.open(href, '_blank', 'noopener,noreferrer');
+    }
+  }, [href]);
+
   return (
-    <Card data-testid="opportunity-card" 
+    <Card data-testid="opportunity-card"
+      onMouseDown={handleMouseDown}
+      onAuxClick={handleAuxClick}
       className={`group cursor-pointer overflow-hidden transition-all duration-200 hover:shadow-md hover:border-primary/20 flex flex-col bg-gradient-to-br from-background to-muted/30 ${className || ''}`}
     >
       <CardContent className="p-3 flex-1 flex flex-col gap-1.5" onClick={() => onOpen?.(item)}>

@@ -2,8 +2,9 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  AlertCircle, Download, ExternalLink, Eye, FileSpreadsheet, FileText, FolderOpen,
-  Link2, Loader2, MoreHorizontal, RefreshCw, RotateCcw, Sparkles, Trash2, X,
+  AlertCircle, ChevronDown, ChevronUp, Download, ExternalLink, Eye, FileSpreadsheet,
+  FileText, FolderOpen, Link2, Loader2, MoreHorizontal, RefreshCw, RotateCcw, Sparkles,
+  Trash2, X,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,6 +54,11 @@ const getFileIcon = (fileKey: string | undefined, docType: string | undefined) =
   if (fileKey && SPREADSHEET_EXTENSIONS.has(getFileExtension(fileKey))) return FileSpreadsheet;
   return FileText;
 };
+
+/** Number of documents shown before the list collapses behind "Show all". */
+const MAX_COLLAPSED_DOCS = 3;
+
+const ERROR_STATUSES = new Set(['FAILED', 'TEXT_EXTRACTION_FAILED', 'ERROR']);
 
 // ─── Image Lightbox ───────────────────────────────────────────────────────────
 
@@ -141,6 +147,7 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
   const [isReextractingAll, setIsReextractingAll] = useState(false);
   const [viewingId, setViewingId] = useState<string | null>(null);
   const [previewState, setPreviewState] = useState<{ name: string; url: string; fileKey: string } | null>(null);
+  const [showAllDocs, setShowAllDocs] = useState(false);
 
   const rows = useMemo<AttachmentRow[]>(
     () => ((qItems ?? []) as QuestionFileItem[]).map((qf) => ({
@@ -160,6 +167,23 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
     })),
     [qItems],
   );
+
+  // Processed / in-progress / error counters for the card header.
+  const docCounts = useMemo(() => {
+    const active = rows.filter((f) => f.status !== 'DELETED');
+    const processed = active.filter((f) => isExtractedQuestionFile(f.status)).length;
+    const errors = active.filter((f) => ERROR_STATUSES.has(String(f.status ?? '').toUpperCase())).length;
+    const cancelled = active.filter((f) => f.status === 'CANCELLED').length;
+    return {
+      total: active.length,
+      processed,
+      errors,
+      inProgress: active.length - processed - errors - cancelled,
+    };
+  }, [rows]);
+
+  const visibleRows = showAllDocs ? rows : rows.slice(0, MAX_COLLAPSED_DOCS);
+  const collapsedRows = showAllDocs ? [] : rows.slice(MAX_COLLAPSED_DOCS);
 
   const handleView = useCallback(async (row: AttachmentRow) => {
     if (!row.fileKey || !row.questionFileId || viewingId === row.questionFileId) return;
@@ -310,8 +334,32 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div>
             <CardTitle className="text-sm font-medium">Solicitation Documents</CardTitle>
-            <CardDescription className="mt-1">
-              {rows.length} {rows.length === 1 ? 'document' : 'documents'} for this opportunity
+            <CardDescription className="mt-1 flex flex-wrap items-center gap-x-1.5">
+              {docCounts.total === 0 ? (
+                <span>No documents for this opportunity</span>
+              ) : (
+                <>
+                  <span>
+                    {docCounts.processed} of {docCounts.total} processed
+                  </span>
+                  {docCounts.inProgress > 0 && (
+                    <>
+                      <span>·</span>
+                      <span className="text-blue-600 dark:text-blue-400">
+                        {docCounts.inProgress} in progress
+                      </span>
+                    </>
+                  )}
+                  {docCounts.errors > 0 && (
+                    <>
+                      <span>·</span>
+                      <span className="font-medium text-red-600 dark:text-red-400">
+                        {docCounts.errors} {docCounts.errors === 1 ? 'error' : 'errors'}
+                      </span>
+                    </>
+                  )}
+                </>
+              )}
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
@@ -376,7 +424,7 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
 
           {!isFilesError && rows.length > 0 && (
             <div className="space-y-2">
-              {rows.map((f) => {
+              {visibleRows.map((f) => {
                 const st = getStatusChip(f.status);
                 const isDeleting = !!f.questionFileId && deletingId === f.questionFileId;
                 const isDownloading = !!f.questionFileId && downloadingId === f.questionFileId;
@@ -540,6 +588,31 @@ export function OpportunitySolicitationDocuments({ onAskAI }: OpportunitySolicit
                   </div>
                 );
               })}
+              {/* Collapsed rows keep their status in the DOM so smart polling
+                  (which reads [data-doc-status]) still sees pending documents. */}
+              {collapsedRows.map((f) => (
+                <span key={f.questionFileId ?? f.name} className="hidden" data-doc-status={f.status ?? 'COMPLETE'} />
+              ))}
+              {rows.length > MAX_COLLAPSED_DOCS && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs text-muted-foreground"
+                  onClick={() => setShowAllDocs((prev) => !prev)}
+                >
+                  {showAllDocs ? (
+                    <>
+                      <ChevronUp className="h-3.5 w-3.5 mr-1" />
+                      Show less
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-3.5 w-3.5 mr-1" />
+                      Show all ({rows.length})
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
