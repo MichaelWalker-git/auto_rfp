@@ -8,3 +8,5 @@ export { OpportunityChatDialog } from './OpportunityChatDialog';
 export { formatDateTime, pickDisplayName, getStatusChip } from './opportunity-helpers';
 export { PhysicalSubmissionChip } from './PhysicalSubmissionChip';
 export { PhysicalSubmissionBanner } from './PhysicalSubmissionBanner';
+export { TabBar } from './opportunity-tabs/TabBar';
+export { TabBarItem } from './opportunity-tabs/TabBarItem';
