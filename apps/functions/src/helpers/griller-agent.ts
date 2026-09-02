@@ -54,6 +54,8 @@ export interface GrillerAgentConfig {
   modelId: string;
   maxTokens?: number;
   temperature?: number;
+  /** Tenant whose Bedrock key should be used. Required (ticket 09). */
+  orgId: string;
 }
 
 export interface GrillerTurnInput {
@@ -70,11 +72,13 @@ export class GrillerAgent {
   private readonly modelId: string;
   private readonly maxTokens: number;
   private readonly temperature: number;
+  private readonly orgId: string;
 
   constructor(config: GrillerAgentConfig) {
     this.modelId = config.modelId;
     this.maxTokens = config.maxTokens ?? DEFAULT_MAX_TOKENS;
     this.temperature = config.temperature ?? DEFAULT_TEMPERATURE;
+    this.orgId = config.orgId;
   }
 
   /** One interview turn: 1-3 pointed questions, or the termination token. */
@@ -89,7 +93,7 @@ export class GrillerAgent {
       temperature: this.temperature,
     });
 
-    const responseBody = await invokeModel(this.modelId, body);
+    const responseBody = await invokeModel(this.modelId, body, this.orgId);
     const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody));
     const text = extractBedrockText(parsed);
     if (!text) throw new Error('Griller returned no text content');

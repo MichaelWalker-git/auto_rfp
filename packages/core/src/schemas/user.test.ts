@@ -262,4 +262,40 @@ describe('ROLE_PERMISSIONS', () => {
     expect(ROLE_PERMISSIONS.BILLING).toContain('org:read');
     expect(ROLE_PERMISSIONS.BILLING).not.toContain('user:create');
   });
+
+  it('grants employee:read to every role but employee:manage to ADMIN only', () => {
+    (['ADMIN', 'EDITOR', 'VIEWER', 'MEMBER', 'BILLING'] as const).forEach((role) => {
+      expect(ROLE_PERMISSIONS[role]).toContain('employee:read');
+    });
+    expect(ROLE_PERMISSIONS.ADMIN).toContain('employee:manage');
+    (['EDITOR', 'VIEWER', 'MEMBER', 'BILLING'] as const).forEach((role) => {
+      expect(ROLE_PERMISSIONS[role]).not.toContain('employee:manage');
+    });
+  });
+});
+
+describe('foia:documents:read', () => {
+  it('is ADMIN-only', () => {
+    // Released FOIA records can contain competitors' pricing and named evaluators, so
+    // the documents are held tighter than the charts derived from them.
+    expect(ROLE_PERMISSIONS.ADMIN).toContain('foia:documents:read');
+
+    for (const role of ['EDITOR', 'VIEWER', 'MEMBER', 'BILLING'] as const) {
+      expect(ROLE_PERMISSIONS[role]).not.toContain('foia:documents:read');
+    }
+  });
+
+  it('is distinct from foia:send', () => {
+    // EDITOR can transmit a request but cannot open what came back — deliberately two
+    // different questions, so neither may be used as a proxy for the other.
+    expect(ROLE_PERMISSIONS.EDITOR).toContain('foia:send');
+    expect(ROLE_PERMISSIONS.EDITOR).not.toContain('foia:documents:read');
+  });
+
+  it('leaves the dashboard charts readable by every role that can see the org', () => {
+    // The aggregate endpoint is gated on project:read, not on either FOIA permission.
+    for (const role of ['ADMIN', 'EDITOR', 'VIEWER', 'MEMBER'] as const) {
+      expect(ROLE_PERMISSIONS[role]).toContain('project:read');
+    }
+  });
 });

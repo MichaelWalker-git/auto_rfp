@@ -125,6 +125,9 @@ export const AuditActionSchema = z.enum([
   // Opportunity go/no-go approval (RFP tracking dashboard)
   'OPPORTUNITY_APPROVED',
   'OPPORTUNITY_REJECTED',
+  // Related RFPs (auto-find past related RFPs, HOR-2610)
+  'RELATED_RFP_ADDED',
+  'RELATED_RFP_REMOVED',
   // Extraction (auto-populate from documents)
   'EXTRACTION_JOB_STARTED',
   'EXTRACTION_JOB_COMPLETED',
@@ -143,6 +146,44 @@ export const AuditActionSchema = z.enum([
   'COMPLIANCE_FINDING_DISMISSED',
   'COMPLIANCE_FINDING_RESOLVED',
   'COMPLIANCE_FINDING_DECISION_CLEARED',
+  // Cross-package AI editing ("Mass Edit")
+  'PACKAGE_EDIT_PROPOSAL_STARTED',
+  'PACKAGE_EDIT_PROPOSAL_COMPLETED',
+  'PACKAGE_EDIT_PROPOSAL_FAILED',
+  'PACKAGE_EDIT_APPLIED',
+  // Required-form version history
+  'FORM_VERSION_REVERTED',
+  // Questionnaire version history
+  'QUESTIONNAIRE_VERSION_REVERTED',
+  // Past-performance disclosure (NDA / permission) review
+  'PAST_PERF_DISCLOSURE_CONFIRMED',
+  /**
+   * Portal detected for a public records request agency.
+   */
+  'PORTAL_DETECTED',
+  /**
+   * No portal detected - falling back to email submission.
+   */
+  'EMAIL_FALLBACK_INITIATED',
+  /**
+   * A public-records request was transmitted to a government agency.
+   *
+   * Its own action rather than the `CONFIG_CHANGED` the manual handler had settled for:
+   * this is an outbound statutory filing made in the customer's name, and on the
+   * unattended path no human authorised the individual send. "Someone changed a config"
+   * is not a description an auditor can act on.
+   */
+  'FOIA_REQUEST_SENT',
+  /**
+   * A public-records request submission failed.
+   */
+  'FOIA_REQUEST_FAILED',
+  // Employee pool (team definition)
+  'EMPLOYEE_CREATED',
+  'EMPLOYEE_UPDATED',
+  'EMPLOYEE_DELETED',
+  // Employee CV import (team definition U2)
+  'EMPLOYEE_IMPORT_STARTED',
 ]);
 export type AuditAction = z.infer<typeof AuditActionSchema>;
 
@@ -191,6 +232,12 @@ export const AuditResourceSchema = z.enum([
   'compliance_review_chat',
   'compliance_review_run',
   'compliance_review_finding',
+  // Cross-package AI editing + required-form versioning
+  'package_edit_run',
+  'required_form',
+  'required_form_version',
+  // Employee pool (team definition)
+  'employee',
 ]);
 export type AuditResource = z.infer<typeof AuditResourceSchema>;
 

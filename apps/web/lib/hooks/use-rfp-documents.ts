@@ -14,6 +14,7 @@ import type {
   RFPExportFormat,
   LinearSyncStatus,
   CustomDocumentType,
+  KBCoverageMissingCategory,
 } from '@auto-rfp/core';
 import {
   RFP_DOCUMENT_TYPES,
@@ -21,6 +22,8 @@ import {
   LINEAR_SYNC_STATUSES,
   RFP_EXPORT_FORMAT_LABELS,
   RFP_EXPORT_FORMAT_EXTENSIONS,
+  KBCoverageIncompleteBodySchema,
+  buildKBCoverageIncompleteMessage,
 } from '@auto-rfp/core';
 
 // Re-export types and constants from shared for convenience
@@ -358,6 +361,25 @@ export class SolutionPlanRequiredError extends ApiError {
 export const isSolutionPlanRequiredError = (err: unknown): err is SolutionPlanRequiredError =>
   err instanceof SolutionPlanRequiredError;
 
+/**
+ * 409 from generate-document when the knowledge base doesn't hold the inputs the
+ * document type requires. Carries the named gaps so the toast prints the same
+ * list the dialog badge showed.
+ */
+export class KBCoverageIncompleteError extends ApiError {
+  code = 'KB_COVERAGE_INCOMPLETE' as const;
+  missingCategories: KBCoverageMissingCategory[];
+
+  constructor(message: string, missingCategories: KBCoverageMissingCategory[] = []) {
+    super(message, 409);
+    this.name = 'KBCoverageIncompleteError';
+    this.missingCategories = missingCategories;
+  }
+}
+
+export const isKBCoverageIncompleteError = (err: unknown): err is KBCoverageIncompleteError =>
+  err instanceof KBCoverageIncompleteError;
+
 const SOLUTION_PLAN_REQUIRED_MESSAGE =
   'A ready Solution Plan is required before generating this document. Create one from the Solution Plan section of the opportunity page.';
 
@@ -372,9 +394,9 @@ const SolutionPlanRequiredBodySchema = z.object({
 });
 
 /**
- * Map a raw generate-document failure to `SolutionPlanRequiredError` when the
- * 409 body carries `code: 'SOLUTION_PLAN_REQUIRED'`; all other errors pass
- * through unchanged. Exported for tests.
+ * Map a raw generate-document failure to the typed error matching the 409's
+ * machine-readable `code` — one gate, two precondition types, one refusal
+ * model. All other errors pass through unchanged. Exported for tests.
  */
 export const toGenerateDocumentError = (err: unknown): unknown => {
   if (!(err instanceof ApiError) || err.status !== 409) return err;
@@ -384,6 +406,15 @@ export const toGenerateDocumentError = (err: unknown): unknown => {
   } catch {
     return err; // Not a JSON body
   }
+
+  const coverage = KBCoverageIncompleteBodySchema.safeParse(raw);
+  if (coverage.success) {
+    return new KBCoverageIncompleteError(
+      coverage.data.message || buildKBCoverageIncompleteMessage(coverage.data.missingCategories),
+      coverage.data.missingCategories,
+    );
+  }
+
   const { success, data: body } = SolutionPlanRequiredBodySchema.safeParse(raw);
   if (!success) return err;
   return new SolutionPlanRequiredError(

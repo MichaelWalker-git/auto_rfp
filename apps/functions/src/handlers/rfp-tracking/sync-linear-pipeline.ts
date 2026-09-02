@@ -7,6 +7,8 @@ import {
   type RfpPipelineStage,
   type OpportunityApprovalStatus,
   type OpportunityStatus,
+  type SubmissionMethodDetected,
+  type FoiaComponentAddress,
 } from '@auto-rfp/core';
 
 import { withSentryLambda } from '@/sentry-lambda';
@@ -499,6 +501,14 @@ interface ExistingRecord {
   approvalStatus?: OpportunityApprovalStatus;
   statusHistory?: OpportunityStatusTransition[];
   approvalHistory?: OpportunityApprovalTransition[];
+  // Physical-submission detection (packages/core OpportunityItemSchema) — this
+  // sync doesn't own these fields (they're written by the brief worker / the
+  // manual toggle), so they must be carried over verbatim or `putFullItem`'s
+  // full-object overwrite silently erases them on every 15-minute re-sync.
+  submissionMethod?: SubmissionMethodDetected | null;
+  submissionMailingAddress?: FoiaComponentAddress | null;
+  submissionMethodRationale?: string | null;
+  foiaContactAddress?: string | null;
 }
 
 /**
@@ -517,6 +527,11 @@ interface ExistingRecord {
  *        backfills the real per-gate timestamps the metrics tab needs; it runs on
  *        every sync but is deterministic/idempotent, so it's a no-op once built.
  *  - createdAt / createdBy are preserved from the existing record.
+ *  - submissionMethod / submissionMailingAddress / submissionMethodRationale /
+ *    foiaContactAddress are preserved verbatim from the existing record — this
+ *    sync neither detects nor toggles them, and `putFullItem` below replaces the
+ *    whole item, so any field not carried over here is silently erased on the
+ *    next 15-minute run.
  */
 const buildRecord = (row: LinearRow, stage: RfpPipelineStage, existing: ExistingRecord | null) => {
   const approvalStatus = STAGE_TO_APPROVAL[stage];
@@ -599,6 +614,11 @@ const buildRecord = (row: LinearRow, stage: RfpPipelineStage, existing: Existing
     // null so submittedAtIso and the outcome window don't treat live work as closed.
     completedAt: isTerminalStage(stage) ? row.completedAt : null,
     baseAndAllOptionsValue: null,
+    // Preserved verbatim — this sync doesn't detect or toggle these; see ExistingRecord.
+    submissionMethod: existing?.submissionMethod ?? null,
+    submissionMailingAddress: existing?.submissionMailingAddress ?? null,
+    submissionMethodRationale: existing?.submissionMethodRationale ?? null,
+    foiaContactAddress: existing?.foiaContactAddress ?? null,
     assigneeName: row.assignee ?? undefined,
     createdByName: row.creator ?? 'Linear sync',
     sourceUrl: row.url,

@@ -4,6 +4,7 @@ import {
   PutSecretValueCommand,
   CreateSecretCommand,
   RestoreSecretCommand,
+  DeleteSecretCommand,
   ResourceNotFoundException,
   InvalidRequestException,
 } from '@aws-sdk/client-secrets-manager';
@@ -91,6 +92,38 @@ export async function getApiKey(orgId: string, prefix: string): Promise<string |
     }
 
     console.error('Failed to retrieve API key for orgId:', orgId, error);
+    throw error;
+  }
+}
+
+/**
+ * Deletes an API key secret from AWS Secrets Manager.
+ * Idempotent — a missing or already-deleted secret is treated as success.
+ * @param orgId - Organization ID
+ * @param prefix - Prefix for the secret name
+ */
+export async function deleteApiKey(orgId: string, prefix: string): Promise<void> {
+  const secretName = `${prefix}-api-key-${orgId}`;
+
+  try {
+    await secretsClient.send(
+      new DeleteSecretCommand({
+        SecretId: secretName,
+        ForceDeleteWithoutRecovery: true,
+      })
+    );
+    console.log(`Successfully deleted API key secret for orgId: ${orgId}`);
+  } catch (error: unknown) {
+    const isNotFound = error instanceof ResourceNotFoundException || (error as { name?: string }).name === 'ResourceNotFoundException';
+    const isMarkedForDeletion = error instanceof InvalidRequestException || (error as { name?: string }).name === 'InvalidRequestException';
+
+    // Already gone (never existed, or already scheduled/forced for deletion) — treat as success.
+    if (isNotFound || isMarkedForDeletion) {
+      console.log(`API key secret already absent for orgId: ${orgId} — nothing to delete`);
+      return;
+    }
+
+    console.error('Failed to delete API key secret for orgId:', orgId, error);
     throw error;
   }
 }

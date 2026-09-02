@@ -70,6 +70,12 @@ export const LoadSearchOpportunitiesRequestSchema = z.object({
   postedTo:   MmDdYyyySchema.optional(),
   /** Response-deadline from (MM/dd/yyyy). SAM.gov `rdlfrom`. */
   rdlfrom:    MmDdYyyySchema.optional(),
+  /**
+   * Response-deadline to (MM/dd/yyyy). SAM.gov `rdlto`.
+   *
+   * Note SAM.gov caps a supplied `rdlfrom`+`rdlto` pair at a one-year span.
+   */
+  rdlto:      MmDdYyyySchema.optional(),
   /** Closing-from date (MM/dd/yyyy). DIBBS `closingFrom`. */
   closingFrom: MmDdYyyySchema.optional(),
   /** Closing-to date (MM/dd/yyyy). DIBBS `closingTo`. */
@@ -115,6 +121,20 @@ export const LoadSearchOpportunitiesRequestSchema = z.object({
    * silently stripped the ID on save.
    */
   higherGovSearchId: z.string().min(1).optional(),
+  /**
+   * Which HigherGov market(s) to search — the `opportunity_type` enum of their MCP
+   * `search_opportunities` tool. Their default is `federal_contract`, so this must be sent
+   * explicitly to reach state & local, grants, SBIR, DIBBS or forecasts.
+   */
+  higherGovMarket: z.enum([
+    'federal_contract', 'state_local', 'federal_and_state_local', 'federal_grant',
+    'dibbs', 'sbir', 'federal_forecast', 'sled_forecast', 'all',
+  ]).optional(),
+  /**
+   * Restrict HigherGov results to currently open opportunities. High impact: the same
+   * `saas` query returns 18 active vs 2860 across all history.
+   */
+  higherGovActiveOnly: z.boolean().optional(),
 
   // ── Value range ───────────────────────────────────────────────────────────
   dollarRange: DollarRangeSchema,
@@ -162,6 +182,11 @@ export const SavedSearchSchema = z.object({
   source:        SavedSearchSourceSchema.default('SAM_GOV'),
   name:          z.string().min(1).max(120),
   criteria:      LoadSearchOpportunitiesRequestSchema,
+  /**
+   * Project the scheduled runner imports auto-import matches into. Optional for
+   * backward compat (older / org-level searches fall back to the org default).
+   */
+  projectId:     z.string().optional(),
   frequency:     SavedSearchFrequencySchema.default('DAILY'),
   autoImport:    z.boolean().default(false),
   notifyEmails:  z.array(z.string().email()).default([]),
@@ -179,6 +204,7 @@ export const CreateSavedSearchRequestSchema = z.object({
   source:       SavedSearchSourceSchema.default('SAM_GOV'),
   name:         z.string().min(1).max(120),
   criteria:     LoadSearchOpportunitiesRequestSchema,
+  projectId:    z.string().optional(),
   frequency:    SavedSearchFrequencySchema.optional(),
   autoImport:   z.boolean().optional(),
   notifyEmails: z.array(z.string().email()).optional(),
@@ -194,6 +220,7 @@ export const PatchSchema = z
   .object({
     name:         z.string().min(1).max(120).optional(),
     criteria:     LoadSearchOpportunitiesRequestSchema.optional(),
+    projectId:    z.string().optional(),
     frequency:    SavedSearchFrequencySchema.optional(),
     autoImport:   z.boolean().optional(),
     notifyEmails: z.array(z.string().email()).optional(),
@@ -654,3 +681,45 @@ export const ImportHigherGovRequestSchema = z.object({
 });
 
 export type ImportHigherGovRequest = z.infer<typeof ImportHigherGovRequestSchema>;
+
+// ─── HigherGov async search cache ────────────────────────────────────────────
+
+/**
+ * HigherGov's `/opportunity/` API takes ~30s+ for some saved searches, which
+ * exceeds the API Gateway 30s ceiling — so a search_id search can NEVER complete
+ * inline. Instead a background worker performs the fetch and writes the results
+ * to this cache row; the search handler reads the row and the frontend polls
+ * until the status leaves `PENDING`.
+ */
+export const HigherGovSearchCacheStatusSchema = z.enum(['PENDING', 'READY', 'ERROR']);
+export type HigherGovSearchCacheStatus = z.infer<typeof HigherGovSearchCacheStatusSchema>;
+
+export const HigherGovSearchCacheSchema = z.object({
+  orgId:        z.string().min(1),
+  /** HigherGov saved-search ID (search_id) this cache row is keyed by. */
+  searchId:     z.string().min(1),
+  status:       HigherGovSearchCacheStatusSchema,
+  opportunities: z.array(SearchOpportunitySchema).default([]),
+  totalCount:   z.number().int().nonnegative().default(0),
+  /** Present only when status is ERROR. */
+  error:        z.string().nullable().default(null),
+  /** ISO timestamp the worker started the fetch — used to detect a stale PENDING. */
+  startedAt:    z.string().datetime().nullable().default(null),
+  /** ISO timestamp the results (or error) were written. */
+  completedAt:  z.string().datetime().nullable().default(null),
+});
+
+export type HigherGovSearchCache = z.infer<typeof HigherGovSearchCacheSchema>;
+
+/**
+ * Fire-and-forget payload the search handler sends to the HigherGov search
+ * worker. `pageSize` mirrors the request limit so the cached slice matches what
+ * the user asked for.
+ */
+export const HigherGovSearchJobSchema = z.object({
+  orgId:    z.string().min(1),
+  searchId: z.string().min(1),
+  pageSize: z.number().int().positive().max(100).default(25),
+});
+
+export type HigherGovSearchJob = z.infer<typeof HigherGovSearchJobSchema>;

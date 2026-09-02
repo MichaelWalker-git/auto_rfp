@@ -439,3 +439,40 @@ describe('getStateRecordsLaw', () => {
     expect(getStateRecordsLaw('Atlantis')).toBeUndefined();
   });
 });
+
+describe('getStateRecordsLaw — code and name forms', () => {
+  it('resolves USPS two-letter codes, which is what real data carries', () => {
+    // Neither `state` nor `jurisdiction` was populated on any opportunity in the
+    // live table, and the feeds that will populate them carry codes. A name-only
+    // lookup meant every state solicitation silently got federal FOIA framing.
+    expect(getStateRecordsLaw('TX')).toBe('Texas Public Information Act (PIA)');
+    expect(getStateRecordsLaw('CA')).toBe('California Public Records Act (CPRA)');
+    expect(getStateRecordsLaw('NY')).toBe('New York Freedom of Information Law (FOIL)');
+  });
+
+  it('resolves full names, in any casing', () => {
+    expect(getStateRecordsLaw('Texas')).toBe('Texas Public Information Act (PIA)');
+    expect(getStateRecordsLaw('texas')).toBe('Texas Public Information Act (PIA)');
+    expect(getStateRecordsLaw('  california  ')).toBe('California Public Records Act (CPRA)');
+    expect(getStateRecordsLaw('NEW JERSEY')).toBe('New Jersey Open Public Records Act (OPRA)');
+  });
+
+  it('handles the District of Columbia spellings', () => {
+    const dc = 'District of Columbia Freedom of Information Act';
+    expect(getStateRecordsLaw('DC')).toBe(dc);
+    expect(getStateRecordsLaw('D.C.')).toBe(dc);
+    expect(getStateRecordsLaw('Washington, D.C.')).toBe(dc);
+  });
+
+  it('returns undefined rather than guessing', () => {
+    // Must fall through to federal framing, never to an arbitrary state.
+    for (const bad of ['', '  ', 'ZZ', 'Ontario', 'Puerto Rico', 'X']) {
+      expect(getStateRecordsLaw(bad)).toBeUndefined();
+    }
+  });
+
+  it('does not confuse Washington state with Washington, D.C.', () => {
+    expect(getStateRecordsLaw('WA')).toBe('Washington Public Records Act');
+    expect(getStateRecordsLaw('Washington')).toBe('Washington Public Records Act');
+  });
+});

@@ -23,6 +23,7 @@ import {
   updateDocumentStatus,
   validateGeneratedContent,
   calculateRetryDelay,
+  isTerminalGenerationError,
 } from '@/helpers/document-generation';
 import { MAX_GENERATION_RETRIES } from '@auto-rfp/core';
 import { getRFPDocument, updateRFPDocumentMetadata, loadRFPDocumentHtml } from '@/helpers/rfp-document';
@@ -42,6 +43,12 @@ const S3_RETRY_BASE_DELAY_MS = 1000; // Exponential backoff: 1s, 2s, 4s
  * Removes sensitive info like stack traces, internal paths, and library versions.
  */
 const sanitizeErrorForUser = (rawError: string): string => {
+  // "AI not configured" is a distinct, actionable outcome — surface it verbatim
+  // instead of collapsing it into the generic "AI service unavailable" below
+  // (its message mentions "Bedrock", which would otherwise match that branch).
+  if (rawError.includes('AI is not configured for this organization')) {
+    return 'AI is not configured for this organization. An administrator must add a Bedrock API key in Organization Settings → Integrations.';
+  }
   // Generic user-friendly message for common error patterns
   if (rawError.includes('ECONNREFUSED') || rawError.includes('ETIMEDOUT') || rawError.includes('NetworkingError')) {
     return 'A temporary network error occurred. Please try again.';
@@ -134,8 +141,22 @@ const enqueueRetry = async (job: Job, currentRetryCount: number): Promise<void> 
  * Mark document as permanently failed after all retries exhausted.
  * Sends notification to the user who triggered the generation.
  */
-const markAsPermanentlyFailed = async (job: Job, failureReason: string): Promise<void> => {
+const markAsPermanentlyFailed = async (
+  job: Job,
+  failureReason: string,
+  /**
+   * Why we stopped. `attemptsMade` counts generations actually run, so a run that
+   * gave up early — a terminal error, or a retry that could not be enqueued —
+   * never reports attempts it never made.
+   */
+  giveUp: { terminal?: boolean; attemptsMade: number },
+): Promise<void> => {
   const { orgId, projectId, opportunityId, documentId, documentType } = job;
+  const attemptSummary = giveUp.terminal
+    ? 'and cannot be retried'
+    : giveUp.attemptsMade >= MAX_GENERATION_RETRIES
+      ? `after ${MAX_GENERATION_RETRIES} attempts`
+      : `after ${giveUp.attemptsMade} of ${MAX_GENERATION_RETRIES} attempts`;
 
   // Get the document to find who created it
   const doc = await getRFPDocument(projectId, opportunityId, documentId);
@@ -148,7 +169,7 @@ const markAsPermanentlyFailed = async (job: Job, failureReason: string): Promise
     documentId,
     updates: {
       status: 'FAILED',
-      generationError: `Generation failed after ${MAX_GENERATION_RETRIES} attempts: ${failureReason}`,
+      generationError: `Generation failed ${attemptSummary}: ${failureReason}`,
     },
     updatedBy: 'system',
   });
@@ -167,7 +188,7 @@ const markAsPermanentlyFailed = async (job: Job, failureReason: string): Promise
       const payload = buildNotification(
         'DOCUMENT_GENERATION_FAILED',
         'Document Generation Failed',
-        `Failed to generate "${documentTypeName}" after ${MAX_GENERATION_RETRIES} attempts. ${userSafeError}`,
+        `Failed to generate "${documentTypeName}" ${attemptSummary}. ${userSafeError}`,
         {
           orgId,
           projectId,
@@ -246,7 +267,9 @@ const processJob = async (job: Job): Promise<void> => {
               return;
             } else {
               // No retries left - mark as permanently failed
-              await markAsPermanentlyFailed(job, `Cannot validate content: ${s3FailureReason}`);
+              await markAsPermanentlyFailed(job, `Cannot validate content: ${s3FailureReason}`, {
+                attemptsMade: currentRetryCount + 1,
+              });
               return;
             }
           }
@@ -268,7 +291,9 @@ const processJob = async (job: Job): Promise<void> => {
         return; // Don't throw - we're retrying
       } else {
         // Max retries reached (have made 3 total attempts): mark as permanently failed and notify
-        await markAsPermanentlyFailed(job, validation.reason ?? 'Unknown validation failure');
+        await markAsPermanentlyFailed(job, validation.reason ?? 'Unknown validation failure', {
+          attemptsMade: currentRetryCount + 1,
+        });
         return; // Don't throw - we've handled the failure
       }
     }
@@ -294,8 +319,19 @@ const processJob = async (job: Job): Promise<void> => {
 
     console.error(`[FATAL] processJob failed for documentId=${documentId}:`, errorMessage, err);
 
+    // A malformed request fails identically on every attempt, so spending the
+    // retry budget on it just burns a Bedrock generation per attempt and buries
+    // the real cause under "Generation failed after 3 attempts". Fail fast and
+    // report the actual error instead.
+    const isTerminal = isTerminalGenerationError(err);
+    if (isTerminal) {
+      console.error(
+        `[worker] Terminal error for documentId=${documentId} — skipping retries: ${errorMessage}`,
+      );
+    }
+
     // Check if we should retry or mark as failed
-    if (currentRetryCount < MAX_GENERATION_RETRIES - 1) {
+    if (!isTerminal && currentRetryCount < MAX_GENERATION_RETRIES - 1) {
       // Retry on error (content regeneration - clears content)
       console.log(`[worker] Retrying after error for documentId=${documentId}`);
       try {
@@ -306,9 +342,13 @@ const processJob = async (job: Job): Promise<void> => {
       }
     }
 
-    // Max retries reached or retry failed: mark as failed
+    // Terminal error, max retries reached, or retry failed: mark as failed
     try {
-      await markAsPermanentlyFailed(job, errorMessage.substring(0, 500));
+      await markAsPermanentlyFailed(job, errorMessage.substring(0, 500), {
+        terminal: isTerminal,
+        // This attempt counts; a retry that could not be enqueued does not.
+        attemptsMade: currentRetryCount + 1,
+      });
       // Successfully marked as failed - return normally so SQS deletes the message.
       // If we throw here, SQS will re-deliver and we'd send duplicate notifications.
       return;

@@ -97,4 +97,16 @@ describe('PipelineCard', () => {
     render(<PipelineCard card={toBoardCard(item, NOW)} orgId="org-1" canAdvance />);
     expect(screen.queryByRole('button', { name: /send for pre-sub review|mark submitted/i })).toBeNull();
   });
+
+  it('shows the physical submission chip when submissionMethod is PHYSICAL', () => {
+    const item = makeItem({ submissionMethod: 'PHYSICAL' });
+    render(<PipelineCard card={toBoardCard(item, NOW)} orgId="org-1" canAdvance={false} />);
+    expect(screen.getByTestId('physical-submission-chip')).toBeTruthy();
+  });
+
+  it('hides the physical submission chip when submissionMethod is ELECTRONIC', () => {
+    const item = makeItem({ submissionMethod: 'ELECTRONIC' });
+    render(<PipelineCard card={toBoardCard(item, NOW)} orgId="org-1" canAdvance={false} />);
+    expect(screen.queryByTestId('physical-submission-chip')).toBeNull();
+  });
 });

@@ -24,6 +24,7 @@ import { useAnalytics } from '@/lib/hooks/use-analytics';
 import { formatMonth, LOSS_REASON_LABELS } from '@auto-rfp/core';
 import type { MonthlyAnalytics } from '@auto-rfp/core';
 import { DateRangeFilter, exportToCsv, exportToPdf } from '@/features/dashboard';
+import { FoiaComparisonSection } from '@/features/foia-dashboard';
 import { cn } from '@/lib/utils';
 
 import './recharts-dark-mode.css';
@@ -408,6 +409,14 @@ export const OrgDashboardClient = ({ orgId }: Props) => {
             </CardContent>
           </Card>
         </div>
+
+        {/*
+          FOIA comparison — how the winner beat us, from records the agencies released.
+          Fetches independently of the month range above: a FOIA response arrives months
+          after the award it describes, so windowing it would hide the rows a reader
+          came for.
+        */}
+        <FoiaComparisonSection orgId={orgId} />
 
         {/* Period Summary */}
         {!isLoading && !noData && summary && (

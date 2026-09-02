@@ -184,6 +184,8 @@ export const groupQuestions = (
       id: q.questionId ?? '',
       question: q.question ?? '',
       answer: answerText || null,
+      responseKind: q.responseKind,
+      options: q.options,
     });
   }
 

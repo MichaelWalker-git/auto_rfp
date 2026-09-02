@@ -9,7 +9,7 @@
  * here so decisions can be matched across runs.
  */
 import { computeFingerprint, normalizeSnippet } from '@/helpers/compliance-review-fingerprint';
-import { loadRFPDocumentHtml } from '@/helpers/rfp-document';
+import { loadInventoryDocHtml } from '@/helpers/compliance-review-doc-cache';
 import { stripHtml } from '@/helpers/compliance-review-html';
 import type { PackageInventory } from '@/helpers/compliance-review-tools';
 import type { ComplianceFinding, FindingAnchor } from '@auto-rfp/core';
@@ -116,7 +116,7 @@ export const validateAndTagFindings = async (
     let text = '';
     if (doc?.htmlContentKey) {
       try {
-        text = stripHtml(await loadRFPDocumentHtml(doc.htmlContentKey)).toLowerCase();
+        text = stripHtml(await loadInventoryDocHtml(inventory, doc.htmlContentKey)).toLowerCase();
       } catch {
         text = '';
       }

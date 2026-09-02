@@ -15,6 +15,7 @@ import { CONTENT_LIBRARY_PK, ContentLibraryItem } from '@auto-rfp/core';
 import { SK_NAME } from '@/constants/common';
 import { getLinkedKBIds } from '@/helpers/project-kb';
 import { getPastProject } from '@/helpers/past-performance';
+import { isUsableInMatching, redactForGeneration } from '@/helpers/past-performance-disclosure';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
@@ -111,7 +112,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
     }
 
     // 1) Embed the question once — reuse for all searches
-    const embedding = await getEmbedding(question);
+    const embedding = await getEmbedding(question, orgId);
 
     // 2) Run all searches in parallel
     const [questions_hits, chunk_hits, past_perf_hits] = await Promise.all([
@@ -156,8 +157,12 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
       if (!projectId) continue;
 
       try {
-        const project = await getPastProject(orgId, projectId);
-        if (!project || project.isArchived) continue;
+        const loaded = await getPastProject(orgId, projectId);
+        if (!loaded || loaded.isArchived) continue;
+        // This response feeds Q&A / answer generation, so it is a generation-adjacent
+        // leak: drop DO_NOT_USE and redact the client on non-NAMEABLE projects.
+        if (!isUsableInMatching(loaded)) continue;
+        const project = redactForGeneration(loaded);
 
         pastPerformance.push({
           projectId: project.projectId,

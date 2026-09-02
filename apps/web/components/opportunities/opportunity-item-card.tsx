@@ -3,6 +3,7 @@
 import React, { useCallback, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { OpportunityListItem } from '@auto-rfp/core';
+import { isPhysicalSubmission } from '@auto-rfp/core';
 import { Building2, FileText, Hash, Loader2, Pencil, Star, Tag, Trash2, User, UserPlus } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
@@ -33,6 +34,9 @@ import { useUsersList } from '@/lib/hooks/use-user';
 import { useAuth } from '@/components/AuthProvider';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { OpportunityStatusBadge } from './opportunity-status-badge';
+import { FoiaAutomationBadge } from '@/components/foia';
+import { OpportunityNotaryChip } from './OpportunityNotaryChip';
+import { PhysicalSubmissionChip } from './PhysicalSubmissionChip';
 import { ApprovalNeededBadge } from '@/features/opportunity-approval';
 
 import type { OpportunityStatus } from '@auto-rfp/core';
@@ -361,10 +365,12 @@ export const OpportunityItemCard = ({
           >
             {item.title}
           </h3>
-          <OpportunityStatusBadge
-            status={(item.status as OpportunityStatus | undefined) ?? (item.active ? 'PURSUING' : 'IDENTIFIED')}
-            className="shrink-0 mt-0.5"
-          />
+          <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+            <OpportunityStatusBadge
+              status={(item.status as OpportunityStatus | undefined) ?? (item.active ? 'PURSUING' : 'IDENTIFIED')}
+            />
+            <FoiaAutomationBadge state={item.foiaAutomationState} />
+          </div>
         </div>
 
         {/* Approval needed — shown when the current user is the assigned reviewer */}
@@ -415,8 +421,8 @@ export const OpportunityItemCard = ({
           'border-t pt-1.5 mt-auto',
           gridColumns === 4 ? 'flex flex-col gap-1.5' : 'flex items-center gap-1.5'
         )} onClick={e => e.stopPropagation()}>
-          {/* Badges */}
-          {(item.naicsCode || item.setAside || (item.type && item.type !== item.setAside)) && (
+          {/* Badges — also renders when only the notary or physical-submission chip is present */}
+          {(item.naicsCode || item.setAside || (item.type && item.type !== item.setAside) || item.notarySummary?.anyNotaryRequired || isPhysicalSubmission(item.submissionMethod)) && (
             <div className="flex flex-wrap gap-1 flex-1 min-w-0">
               {item.naicsCode && (
                 <Badge variant="outline" className="text-xs h-4 px-1 text-muted-foreground">
@@ -434,6 +440,8 @@ export const OpportunityItemCard = ({
                   {item.type}
                 </Badge>
               )}
+              <OpportunityNotaryChip summary={item.notarySummary} />
+              <PhysicalSubmissionChip submissionMethod={item.submissionMethod} />
             </div>
           )}
           {/* Assignee + favorite */}

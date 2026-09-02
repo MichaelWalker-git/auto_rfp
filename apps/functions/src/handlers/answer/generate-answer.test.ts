@@ -166,6 +166,19 @@ describe('generateAnswerForQuestion — resolution recording', () => {
     expect(saved.questionId).toBe('q-123');
   });
 
+  it('records AI_NOT_CONFIGURED (not GENERATION_FAILED) when the org has no Bedrock key', async () => {
+    const { AiNotConfiguredError } = jest.requireActual('@/helpers/ai-config-error');
+    mockGetEmbedding.mockRejectedValueOnce(new AiNotConfiguredError('org-789'));
+
+    await expect(generateAnswerForQuestion(baseParams)).rejects.toBeInstanceOf(AiNotConfiguredError);
+
+    expect(mockSaveAnswer).toHaveBeenCalledTimes(1);
+    const saved = mockSaveAnswer.mock.calls[0][0];
+    expect(saved.resolution).toBe('AI_NOT_CONFIGURED');
+    expect(saved.text).toBe('');
+    expect(saved.skipIfAnswered).toBe(true);
+  });
+
   it('re-throws the ORIGINAL error even if recording the resolution also fails', async () => {
     mockGetEmbedding.mockRejectedValueOnce(new Error('Bedrock timeout'));
     mockSaveAnswer.mockRejectedValueOnce(new Error('DynamoDB unreachable'));
@@ -189,5 +202,13 @@ describe('generateAnswerForQuestion — resolution recording', () => {
     expect(saved.text).toBe('Our transition plan...');
     // The success path must NOT pass skipIfAnswered — a real answer always writes
     expect(saved.skipIfAnswered).toBeUndefined();
+
+    // orgId propagates to both Bedrock seams (per-org Bedrock key).
+    expect(mockGetEmbedding).toHaveBeenCalledWith(expect.anything(), 'org-789');
+    expect(mockInvokeModel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'org-789',
+    );
   });
 });

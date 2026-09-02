@@ -611,6 +611,7 @@ describe('prepareTemplateScaffoldForAI', () => {
 import {
   validateGeneratedContent,
   calculateRetryDelay,
+  isTerminalGenerationError,
   RETRY_BASE_DELAY_SECONDS,
   RETRY_MAX_DELAY_SECONDS,
 } from './document-generation';
@@ -740,5 +741,89 @@ describe('calculateRetryDelay', () => {
 describe('MAX_GENERATION_RETRIES constant', () => {
   it('should be 3 (1 initial + 2 retries)', () => {
     expect(MAX_GENERATION_RETRIES).toBe(3);
+  });
+});
+
+describe('isTerminalGenerationError', () => {
+  /** Shaped like the AWS SDK v3 errors the DocumentClient throws. */
+  const awsError = (name: string, message = 'boom') =>
+    Object.assign(new Error(message), { name });
+
+  it('treats an AiNotConfiguredError as terminal (retrying without a key is pointless)', () => {
+    const { AiNotConfiguredError } = jest.requireActual('@/helpers/ai-config-error');
+    expect(isTerminalGenerationError(new AiNotConfiguredError('org-1'))).toBe(true);
+  });
+
+  it('treats a malformed UpdateExpression as terminal', () => {
+    // The exact error a duplicated document path produces.
+    const err = awsError(
+      'ValidationException',
+      'Invalid UpdateExpression: Two document paths overlap with each other; ' +
+        'must remove or rewrite one of these paths; path one: [templateId], path two: [templateId]',
+    );
+
+    expect(isTerminalGenerationError(err)).toBe(true);
+  });
+
+  it.each([
+    'Invalid UpdateExpression: Two document paths overlap with each other',
+    'Invalid ConditionExpression: Syntax error; token: "="',
+    'Invalid KeyConditionExpression: Syntax error',
+    'ExpressionAttributeValues contains invalid value',
+    'Value provided in ExpressionAttributeNames unused in expressions',
+  ])('treats a ValidationException naming a bad expression as terminal: %s', (message) => {
+    expect(isTerminalGenerationError(awsError('ValidationException', message))).toBe(true);
+  });
+
+  /**
+   * A `ValidationException` is only terminal when it names a malformed expression.
+   * AWS reuses the name for conditions that clear on their own, and failing those
+   * outright strands a document a retry would have saved.
+   */
+  it.each([
+    // `required-form.ts` documents this one: an item that outgrew the 400 KB limit.
+    // A document whose editHistory keeps growing hits it, and shrinking is possible.
+    'Item size to update has exceeded the maximum allowed size',
+    // `index-document.ts` deliberately counts this shape as throttling, not a fault.
+    'The level of configured provisioned throughput for the table was exceeded',
+    // Bedrock capacity/model-availability rejections share the name.
+    'Invocation of model ID with on-demand throughput is not supported',
+  ])('keeps a recoverable ValidationException retryable: %s', (message) => {
+    expect(isTerminalGenerationError(awsError('ValidationException', message))).toBe(false);
+  });
+
+  it('keeps a ValidationException with no message retryable', () => {
+    // Nothing identifies it as malformed, so the conservative default applies.
+    expect(isTerminalGenerationError(Object.assign(new Error(), { name: 'ValidationException' }))).toBe(false);
+  });
+
+  it.each([
+    'SerializationException',
+    'AccessDeniedException',
+    'ResourceNotFoundException',
+  ])('treats %s as terminal', (name) => {
+    expect(isTerminalGenerationError(awsError(name))).toBe(true);
+  });
+
+  it.each([
+    'ThrottlingException',
+    'ProvisionedThroughputExceededException',
+    'RequestLimitExceeded',
+    'InternalServerError',
+    'ServiceUnavailable',
+    'TimeoutError',
+  ])('keeps %s retryable', (name) => {
+    expect(isTerminalGenerationError(awsError(name))).toBe(false);
+  });
+
+  it('keeps an unrecognised error retryable rather than failing it outright', () => {
+    expect(isTerminalGenerationError(new Error('something odd happened'))).toBe(false);
+  });
+
+  it('handles non-error values without throwing', () => {
+    expect(isTerminalGenerationError(null)).toBe(false);
+    expect(isTerminalGenerationError(undefined)).toBe(false);
+    expect(isTerminalGenerationError('ValidationException')).toBe(false);
+    expect(isTerminalGenerationError({ name: 42 })).toBe(false);
   });
 });

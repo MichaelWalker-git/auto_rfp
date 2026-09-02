@@ -1,4 +1,5 @@
 import { readSystemPrompt, readUserPrompt } from '@/helpers/prompt';
+import { CLIENT_CONFIDENTIALITY_RULE } from '@/helpers/document-prompts';
 import { RequirementsSectionSchema, KNOWN_ROLES } from '@auto-rfp/core';
 
 export const SYSTEM_PROMPT_PK = 'SYSTEM_PROMPT';
@@ -281,9 +282,24 @@ export const SUMMARY_USER_PROMPT = [
   '- Conservative tie-break applies ONLY to genuine ambiguity. If explicit prohibition/permission language exists,',
   '  you MUST classify US_ONLY or OFFSHORE_ALLOWED accordingly — never UNKNOWN.',
   '',
+  'SUBMISSION METHOD (scan the ENTIRE document, especially Section L/M — Instructions to Offerors / Evaluation Criteria):',
+  '- submissionMethod: one of ELECTRONIC, PHYSICAL, BOTH, UNKNOWN. This field is REQUIRED — always include it, even as UNKNOWN. Never omit it.',
+  '- PHYSICAL when the solicitation requires submitting paper copies by mail, hand delivery, or drop-off at a physical',
+  '  address. INFER this from context and intent — do not require an exact phrase match. The examples below are',
+  '  ILLUSTRATIVE, not an exhaustive checklist: "mail proposals to", "submit hard copies", "hand-deliver", "USPS",',
+  '  "FedEx", "certified mail", "original plus N copies", "sealed proposals/bids", a specific number of paper copies',
+  '  (e.g. "four (4) copies"), or instructions to deliver/send the proposal to a named person, office, or street address.',
+  '- ELECTRONIC when it explicitly requires electronic-only submission, e.g. "submit electronically",',
+  '  "electronic submission only", "no hard copies", "submit via SAM.gov/email/portal".',
+  '- BOTH when the solicitation asks for both physical and electronic copies.',
+  '- UNKNOWN only when the document truly does not address the submission method at all. Do NOT default to UNKNOWN',
+  '  just because the wording does not match one of the examples above — reason about what the instructions imply.',
+  '- submissionMethodRationale: one short sentence quoting the EXACT deciding phrase from the text.',
+  '',
   'IMPORTANT:',
   '- Do NOT invent solicitation numbers, values, or agency names.',
-  '- If information is not in the solicitation, OMIT the field.',
+  '- If information is not in the solicitation, OMIT the field — EXCEPT submissionMethod and deliveryLocationConstraint,',
+  '  which are REQUIRED fields and must always be included (use UNKNOWN when genuinely unaddressed, never omit).',
   '- Do NOT include an "evidence" field.',
   '- Focus on opportunity scope, not boilerplate. Ensure summary is at least 3 sentences and 250+ characters.',
   '',
@@ -1554,7 +1570,10 @@ export const ANSWER_USER_PROMPT = [
 
 export const getAnswerSystemPrompt = async (orgId: string) => {
   const { prompt } = await readSystemPrompt(orgId, 'ANSWER') || {};
-  return prompt || ANSWER_SYSTEM_PROMPT;
+  // Always append the client-confidentiality rule — even to org-overridden prompts,
+  // so a custom prompt can't drop the disclosure backstop. (Non-overridable, like
+  // the pricing rules block on document prompts.)
+  return `${prompt || ANSWER_SYSTEM_PROMPT}\n\n${CLIENT_CONFIDENTIALITY_RULE}`;
 };
 
 export const getAnswerUserPrompt = async (orgId: string) => {

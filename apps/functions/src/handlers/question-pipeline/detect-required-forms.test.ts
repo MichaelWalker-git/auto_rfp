@@ -66,6 +66,15 @@ jest.mock('@/helpers/mark-forms-ready', () => ({
   markFormsReadyIfAllDone: (...args: unknown[]) => mockMarkFormsReady(...args),
 }));
 
+// WF-A body notary scan — mocked so the detection handler tests stay focused on
+// form detection; the scan's own behaviour is covered in notary-wiring.test.ts.
+const mockRunBodyNotaryScan = jest.fn();
+const mockRollupNotary = jest.fn();
+jest.mock('@/helpers/notary-wiring', () => ({
+  runBodyNotaryScanAndPersist: (...args: unknown[]) => mockRunBodyNotaryScan(...args),
+  rollupOpportunityNotary: (...args: unknown[]) => mockRollupNotary(...args),
+}));
+
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.DOCUMENTS_BUCKET = 'docs-bucket';
 process.env.BEDROCK_MODEL_ID = 'anthropic.claude-test';
@@ -98,6 +107,8 @@ beforeEach(() => {
   mockListForms.mockResolvedValue([]);
   mockUpdateQuestionFile.mockResolvedValue({ success: true });
   mockMarkFormsReady.mockResolvedValue(undefined);
+  mockRunBodyNotaryScan.mockResolvedValue([]);
+  mockRollupNotary.mockResolvedValue(undefined);
   // DOCX branch fetches the raw bytes for structure detection.
   mockGetFileBufferFromS3.mockResolvedValue(Buffer.from('docx bytes'));
 });
@@ -128,8 +139,8 @@ describe('detect-required-forms', () => {
     // The whole-document scan must run on DETECTION_MODEL_ID (set to a distinct value
     // in this suite), never the autofill BEDROCK_MODEL_ID — so the two model tiers
     // stay independently tunable.
-    expect(mockInvokeModel).toHaveBeenCalledWith('anthropic.claude-haiku-test', expect.any(String));
-    expect(mockInvokeModel).not.toHaveBeenCalledWith('anthropic.claude-test', expect.any(String));
+    expect(mockInvokeModel).toHaveBeenCalledWith('anthropic.claude-haiku-test', expect.any(String), 'org-1');
+    expect(mockInvokeModel).not.toHaveBeenCalledWith('anthropic.claude-test', expect.any(String), 'org-1');
   });
 
   it('runs detection when docType is missing', async () => {
@@ -278,7 +289,8 @@ describe('detect-required-forms', () => {
     }));
     // XLSX forms finish inline (no Textract callback), so this handler must run the
     // FORMS_READY check itself or the question file stays stuck in FILLING_FORMS.
-    expect(mockMarkFormsReady).toHaveBeenCalledWith('org-1', 'proj-1', 'opp-1');
+    // The 4th arg carries the unmapped body-notary triggers (mocked to []).
+    expect(mockMarkFormsReady).toHaveBeenCalledWith('org-1', 'proj-1', 'opp-1', []);
   });
 
   it('merges fields from every parsed sheet (instructions sheet contributes none, form sheet contributes all)', async () => {
@@ -628,7 +640,7 @@ describe('detect-required-forms', () => {
     }));
     expect(mockStartTextract).not.toHaveBeenCalled();
     // Readiness check still runs so the question file can leave FILLING_FORMS.
-    expect(mockMarkFormsReady).toHaveBeenCalledWith('org-1', 'proj-1', 'opp-1');
+    expect(mockMarkFormsReady).toHaveBeenCalledWith('org-1', 'proj-1', 'opp-1', []);
   });
 
   it('skips duplicate forms by case-insensitive name match', async () => {
@@ -701,6 +713,147 @@ describe('detect-required-forms', () => {
 
     expect(res.formsDetected).toBe(2);
     expect(mockCreateForm).toHaveBeenCalledTimes(2);
+  });
+
+  describe('notary body scan wiring (WF-A)', () => {
+    it('runs the body notary scan after creating forms and forwards its unmapped triggers to the rollup', async () => {
+      mockLoadTextFromS3.mockResolvedValueOnce('the offeror must have this notarized');
+      mockInvokeModel.mockResolvedValueOnce(
+        encodeModelResponse(JSON.stringify({
+          forms: [{ name: 'Cert', formType: 'PDF_SCANNED' }],
+          confidence: 0.95,
+        })),
+      );
+      mockCreateForm.mockResolvedValueOnce({ formId: 'form-n', item: {} });
+      mockStartTextract.mockResolvedValueOnce('job-n');
+      const unmapped = [
+        { documentName: 'solicitation', status: 'POSSIBLY_REQUIRED', cue: 'KEYWORD', pageNumber: null, triggeringText: 'notary' },
+      ];
+      mockRunBodyNotaryScan.mockResolvedValueOnce(unmapped);
+
+      await baseHandler(baseEvent);
+
+      expect(mockRunBodyNotaryScan).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orgId: 'org-1', projectId: 'proj-1', opportunityId: 'opp-1',
+          docText: 'the offeror must have this notarized',
+          truncated: false,
+        }),
+      );
+      // The unmapped triggers flow into the rollup via markFormsReadyIfAllDone.
+      expect(mockMarkFormsReady).toHaveBeenCalledWith('org-1', 'proj-1', 'opp-1', unmapped);
+    });
+
+    it('signals truncation to the body scan when the detection scan is capped (>8 chunks)', async () => {
+      // 10 windows → >8 chunks → the scan is truncated. A form is detected in the
+      // scanned chunks (same name every chunk → deduped to one) so createdCount > 0.
+      mockLoadTextFromS3.mockResolvedValueOnce('x'.repeat(150_000 * 10));
+      mockInvokeModel.mockResolvedValue(
+        encodeModelResponse(JSON.stringify({
+          forms: [{ name: 'Early Cert', formType: 'PDF_SCANNED' }],
+          confidence: 0.95,
+        })),
+      );
+      mockCreateForm.mockResolvedValueOnce({ formId: 'form-early', item: {} });
+      mockStartTextract.mockResolvedValue('job-early');
+
+      await baseHandler({ ...baseEvent, docType: 'OTHER' });
+
+      expect(mockRunBodyNotaryScan).toHaveBeenCalledWith(expect.objectContaining({ truncated: true }));
+    });
+
+    it('scans a zero-forms document and rolls up directly when its body flags notarization (FR2.1)', async () => {
+      // "Your bid must be notarized" in a solicitation with NO fillable forms:
+      // the scan must still run and the opportunity must still be flagged —
+      // this was the one gap in the zero-miss guarantee.
+      mockLoadTextFromS3.mockResolvedValueOnce('your bid must be notarized');
+      mockInvokeModel.mockResolvedValueOnce(
+        encodeModelResponse(JSON.stringify({ forms: [], confidence: 1.0 })),
+      );
+      const unmapped = [
+        { documentName: 'solicitation', status: 'POSSIBLY_REQUIRED', cue: 'KEYWORD', pageNumber: null, triggeringText: 'must be notarized' },
+      ];
+      mockRunBodyNotaryScan.mockResolvedValueOnce(unmapped);
+
+      const res = await baseHandler(baseEvent);
+
+      expect(res).toEqual({ ok: true, formsDetected: 0 });
+      expect(mockRunBodyNotaryScan).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orgId: 'org-1', projectId: 'proj-1', opportunityId: 'opp-1',
+          docText: 'your bid must be notarized',
+        }),
+      );
+      // Zero forms → no form will ever go terminal, so the rollup fires directly…
+      expect(mockRollupNotary).toHaveBeenCalledWith(
+        expect.objectContaining({ oppId: 'opp-1', forms: [], unmappedTriggers: unmapped }),
+      );
+      // …and markFormsReadyIfAllDone must NOT run (it would clobber the status of
+      // question files that were never FILLING_FORMS).
+      expect(mockMarkFormsReady).not.toHaveBeenCalled();
+    });
+
+    it('skips the direct rollup when a zero-forms document has no notary triggers', async () => {
+      mockLoadTextFromS3.mockResolvedValueOnce('document text');
+      mockInvokeModel.mockResolvedValueOnce(
+        encodeModelResponse(JSON.stringify({ forms: [], confidence: 1.0 })),
+      );
+      await baseHandler(baseEvent);
+      expect(mockRunBodyNotaryScan).toHaveBeenCalled();
+      expect(mockRollupNotary).not.toHaveBeenCalled();
+      expect(mockMarkFormsReady).not.toHaveBeenCalled();
+    });
+
+    it('routes a zero-forms document through markFormsReadyIfAllDone when OTHER documents own forms', async () => {
+      // Another document of this opportunity already created a form: the
+      // readiness check owns the rollup timing (it may still be pending).
+      mockListForms.mockResolvedValue([{ formId: 'form-x', name: 'Other Doc Form', status: 'READY' }]);
+      mockLoadTextFromS3.mockResolvedValueOnce('all certifications must be notarized');
+      mockInvokeModel.mockResolvedValueOnce(
+        encodeModelResponse(JSON.stringify({ forms: [], confidence: 1.0 })),
+      );
+      const unmapped = [
+        { documentName: 'solicitation', status: 'POSSIBLY_REQUIRED', cue: 'INSTRUCTIONAL', pageNumber: null, triggeringText: 'must be notarized' },
+      ];
+      mockRunBodyNotaryScan.mockResolvedValueOnce(unmapped);
+
+      await baseHandler(baseEvent);
+
+      expect(mockMarkFormsReady).toHaveBeenCalledWith('org-1', 'proj-1', 'opp-1', unmapped);
+      expect(mockRollupNotary).not.toHaveBeenCalled();
+    });
+
+    it('re-extract regression: runs the scan + rollup when every detected form ALREADY exists (createdCount 0)', async () => {
+      // Re-extract-all restarts the pipeline on an opportunity whose forms were
+      // created in the first run: each detected form is skipped as a duplicate,
+      // so createdCount === 0. The notary scan + rollup (and its notification)
+      // must still fire — gating them on createdCount silently skipped both.
+      mockListForms.mockResolvedValue([{ formId: 'form-cert', name: 'Cert', notaryRequirements: [] }]);
+      mockLoadTextFromS3.mockResolvedValueOnce('the offeror must have this notarized');
+      mockInvokeModel.mockResolvedValueOnce(
+        encodeModelResponse(JSON.stringify({
+          forms: [{ name: 'Cert', formType: 'PDF_SCANNED' }],
+          confidence: 0.95,
+        })),
+      );
+      const unmapped = [
+        { documentName: 'solicitation', status: 'POSSIBLY_REQUIRED', cue: 'KEYWORD', pageNumber: null, triggeringText: 'notary' },
+      ];
+      mockRunBodyNotaryScan.mockResolvedValueOnce(unmapped);
+
+      const res = await baseHandler(baseEvent);
+
+      // No new form record — the duplicate is skipped…
+      expect(res.formsDetected).toBe(0);
+      expect(mockCreateForm).not.toHaveBeenCalled();
+      // …but the scan and the rollup still run for the existing forms.
+      expect(mockRunBodyNotaryScan).toHaveBeenCalledWith(
+        expect.objectContaining({ orgId: 'org-1', projectId: 'proj-1', opportunityId: 'opp-1' }),
+      );
+      expect(mockMarkFormsReady).toHaveBeenCalledWith('org-1', 'proj-1', 'opp-1', unmapped);
+      // The FILLING_FORMS transition stays gated on newly created forms.
+      expect(mockUpdateQuestionFile).not.toHaveBeenCalled();
+    });
   });
 
   describe('long documents (multi-chunk scan)', () => {

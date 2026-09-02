@@ -24,6 +24,7 @@ import middy from '@middy/core';
 import { z } from 'zod';
 
 import type { ExecutiveBriefItem, PastPerformanceSection, RiskFlag } from '@auto-rfp/core';
+import { isNameable } from '@/helpers/past-performance-disclosure';
 import { apiResponse } from '@/helpers/api';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
@@ -383,13 +384,22 @@ const buildPastPerformance = (brief: ExecutiveBriefItem): (Paragraph | Table)[] 
     out.push(blank(), h2('Top Matching Projects'));
     out.push(dataTable(
       ['#', 'Project', 'Client', 'Match %', 'Value'],
-      matches.slice(0, 10).map((m, i) => [
-        `${i + 1}`,
-        safe(m.project.title),
-        safe(m.project.client),
-        `${m.relevanceScore}%`,
-        m.project.value ? `$${(m.project.value / 1_000_000).toFixed(1)}M` : '—',
-      ]),
+      matches.slice(0, 10).map((m, i) => {
+        // Defense-in-depth for briefs persisted before match-time redaction:
+        // only show the real client when effectively NAMEABLE; otherwise withhold.
+        const clientLabel = isNameable(m.project)
+          ? safe(m.project.client)
+          : m.project.domain
+            ? `[Client withheld — ${m.project.domain}]`
+            : '[Client withheld]';
+        return [
+          `${i + 1}`,
+          safe(m.project.title),
+          clientLabel,
+          `${m.relevanceScore}%`,
+          m.project.value ? `$${(m.project.value / 1_000_000).toFixed(1)}M` : '—',
+        ];
+      }),
       [5, 30, 25, 15, 25],
     ));
   }

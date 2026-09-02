@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
-import { X, Bell, AtSign, UserCheck, FileText, CheckCircle, Trophy, XCircle, Clock, AlertCircle, FileCheck, Download, ClipboardCheck, AlertTriangle } from 'lucide-react';
+import { X, Bell, AtSign, UserCheck, FileText, CheckCircle, Trophy, XCircle, Clock, AlertCircle, FileCheck, Download, ClipboardCheck, AlertTriangle, Scale } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { NotificationItem as NotificationItemType, NotificationType } from '@auto-rfp/core';
@@ -47,6 +47,17 @@ const TYPE_CONFIG: Record<NotificationType, { icon: React.ElementType; color: st
   DECISION_DATE_3_DAYS: { icon: Clock,        color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/50' },
   DECISION_DATE_1_DAY:  { icon: AlertCircle,  color: 'text-red-500 dark:text-red-400',    bg: 'bg-red-100 dark:bg-red-900/50' },
   DOCUMENT_GENERATION_FAILED: { icon: AlertCircle, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/50' },
+  FOIA_SCHEDULED:          { icon: Clock,          color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-100 dark:bg-indigo-900/50' },
+  FOIA_BLOCKED:            { icon: AlertTriangle,  color: 'text-amber-600 dark:text-amber-400',  bg: 'bg-amber-100 dark:bg-amber-900/50' },
+  FOIA_APPROVAL_REQUESTED: { icon: ClipboardCheck, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-100 dark:bg-indigo-900/50' },
+  FOIA_APPROVAL_REMINDER:  { icon: Clock,          color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/50' },
+  FOIA_STALLED:            { icon: AlertTriangle,  color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/50' },
+  FOIA_SENT:               { icon: CheckCircle,    color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/50' },
+  FOIA_SEND_FAILED:        { icon: AlertCircle,    color: 'text-red-600 dark:text-red-400',      bg: 'bg-red-100 dark:bg-red-900/50' },
+  FOIA_BOUNCED:            { icon: AlertCircle,    color: 'text-red-600 dark:text-red-400',      bg: 'bg-red-100 dark:bg-red-900/50' },
+  AWARD_DETECTED:          { icon: Trophy,         color: 'text-amber-600 dark:text-amber-400',  bg: 'bg-amber-100 dark:bg-amber-900/50' },
+  SOLICITATION_CANCELLED:  { icon: XCircle,        color: 'text-slate-600 dark:text-slate-400',  bg: 'bg-slate-100 dark:bg-slate-800/50' },
+  NOTARY_REQUIRED:         { icon: Scale,          color: 'text-amber-600 dark:text-amber-400',  bg: 'bg-amber-100 dark:bg-amber-900/50' },
 };
 
 const DEFAULT_CONFIG = { icon: Bell, color: 'text-muted-foreground', bg: 'bg-muted' };
@@ -76,6 +87,19 @@ const buildNotificationLink = (
       return `${base}/outcomes`;
     case 'RFP_UPLOADED':
       return `${base}/documents`;
+    case 'FOIA_SCHEDULED':
+    case 'FOIA_BLOCKED':
+    case 'FOIA_APPROVAL_REQUESTED':
+    case 'FOIA_APPROVAL_REMINDER':
+    case 'FOIA_STALLED':
+    case 'FOIA_SENT':
+    case 'FOIA_SEND_FAILED':
+    case 'FOIA_BOUNCED':
+    case 'AWARD_DETECTED':
+    case 'SOLICITATION_CANCELLED':
+      // FOIA notifications carry entityId = oppId; the automation card lives in
+      // the opportunity's Post-Award section.
+      return entityId ? `${base}/opportunities/${entityId}` : `${base}/opportunities`;
     case 'DOCUMENT_APPROVAL_REQUESTED':
     case 'DOCUMENT_APPROVED':
     case 'DOCUMENT_REJECTED': {
@@ -98,6 +122,9 @@ const buildNotificationLink = (
       return entityId ? `${base}/opportunities` : `${base}/search-opportunities`;
     case 'OPPORTUNITY_ASSIGNED':
       // entityId is the opportunity ID (oppId)
+      return entityId ? `${base}/opportunities/${entityId}` : `${base}/opportunities`;
+    case 'NOTARY_REQUIRED':
+      // Notary rollup carries entityId = oppId; the badges live on the opportunity page.
       return entityId ? `${base}/opportunities/${entityId}` : `${base}/opportunities`;
     case 'DECISION_DATE_7_DAYS':
     case 'DECISION_DATE_3_DAYS':

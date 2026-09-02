@@ -23,7 +23,8 @@
  */
 
 import { invokeModel } from '@/helpers/bedrock-http-client';
-import { DOCUMENT_TOOLS, executeDocumentTool } from '@/helpers/document-tools';
+import { executeDocumentTool, getDocumentToolsForType } from '@/helpers/document-tools';
+import type { RFPDocumentType } from '@auto-rfp/core';
 import type { QaPair } from '@/types/document-generation';
 import type { ToolResult } from '@/types/tool';
 
@@ -44,6 +45,14 @@ export interface GenerateSectionBySection {
   /** Initial user prompt with solicitation, Q&A, Approved Solution Plan (when READY), and enrichment context */
   initialUserPrompt: string;
   sections: DocumentSection[];
+  /** Determines which tools are offered (search_service_pricing is pricing-doc-only) */
+  documentType: RFPDocumentType;
+  /**
+   * True when an Approved Solution Plan rides in `initialUserPrompt` — the plan
+   * is then the only third-party price source, so search_service_pricing is
+   * withheld (Fix A).
+   */
+  hasSolutionPlan?: boolean;
   orgId: string;
   projectId: string;
   opportunityId: string;
@@ -216,20 +225,24 @@ const generateSingleSection = async (args: {
   systemPrompt: string;
   sectionPrompt: string;
   section: DocumentSection;
+  tools: ReturnType<typeof getDocumentToolsForType>;
   toolExecutorBase: Omit<Parameters<typeof executeDocumentTool>[0], 'toolName' | 'toolInput' | 'toolUseId'>;
   maxTokensPerSection: number;
   temperature: number;
   maxToolRoundsPerSection: number;
+  orgId: string;
 }): Promise<{ html: string; toolRoundsUsed: number }> => {
   const {
     modelId,
     systemPrompt,
     sectionPrompt,
     section,
+    tools,
     toolExecutorBase,
     maxTokensPerSection,
     temperature,
     maxToolRoundsPerSection,
+    orgId,
   } = args;
 
   // Fresh conversation for this section
@@ -253,10 +266,10 @@ const generateSingleSection = async (args: {
 
     // Provide tools on all rounds except the last (force text output on last round)
     if (!isLastRound) {
-      requestBody.tools = DOCUMENT_TOOLS;
+      requestBody.tools = tools;
     }
 
-    const responseBody = await invokeModel(modelId, JSON.stringify(requestBody));
+    const responseBody = await invokeModel(modelId, JSON.stringify(requestBody), orgId);
     const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as {
       stop_reason?: string;
       content?: ContentBlock[];
@@ -293,7 +306,7 @@ const generateSingleSection = async (args: {
         temperature,
       };
 
-      const finalResponse = await invokeModel(modelId, JSON.stringify(finalBody));
+      const finalResponse = await invokeModel(modelId, JSON.stringify(finalBody), orgId);
       const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResponse)) as { content?: ContentBlock[] };
       sectionHtml = extractText(finalParsed.content ?? []);
     }
@@ -328,6 +341,8 @@ export const generateDocumentSectionBySectionHtml = async (
     systemPrompt,
     initialUserPrompt,
     sections,
+    documentType,
+    hasSolutionPlan = false,
     orgId,
     projectId,
     opportunityId,
@@ -339,6 +354,7 @@ export const generateDocumentSectionBySectionHtml = async (
   } = args;
 
   const toolExecutorBase = { orgId, projectId, opportunityId, documentId, qaPairs };
+  const tools = getDocumentToolsForType(documentType, { hasSolutionPlan });
 
   const htmlFragments: string[] = [];
   const completedSectionTitles: string[] = [];
@@ -441,10 +457,12 @@ export const generateDocumentSectionBySectionHtml = async (
         systemPrompt,
         sectionPrompt,
         section,
+        tools,
         toolExecutorBase,
         maxTokensPerSection,
         temperature,
         maxToolRoundsPerSection,
+        orgId,
       });
 
       const durationMs = Date.now() - sectionStart;

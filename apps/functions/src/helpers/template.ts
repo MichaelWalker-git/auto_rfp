@@ -2,7 +2,7 @@ import { PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient, getItem, queryAllBySkPrefix } from './db';
 import { requireEnv } from './env';
 import { PK_NAME, SK_NAME } from '@/constants/common';
-import { createTemplateSK, TEMPLATE_PK, type TemplateItem } from '@auto-rfp/core';
+import { createTemplateSK, isReservedPageToken, TEMPLATE_PK, type TemplateItem } from '@auto-rfp/core';
 import { loadTextFromS3, uploadToS3 } from './s3';
 import { nowIso } from './date';
 import { getProjectById } from './project';
@@ -406,6 +406,11 @@ export const replaceMacros = (
   options: { removeUnresolved?: boolean } = {},
 ): string =>
   text.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    // Page tokens must survive macro substitution untouched. They are resolved
+    // later by each renderer as a native live field (Word PageNumber / Puppeteer
+    // .pageNumber span), because page numbers do not exist until pagination —
+    // long after this runs. `removeUnresolved` would otherwise delete them.
+    if (isReservedPageToken(key)) return match;
     if (key in macroValues) return macroValues[key];
     return options.removeUnresolved ? '' : match;
   });

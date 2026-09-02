@@ -119,7 +119,7 @@ export async function indexChunkToPinecone(
   const bucket = requireEnv('DOCUMENTS_BUCKET');
   const docDBItem = document as DocumentDBItem;
   const id = `${docDBItem[SK_NAME]}#${chunkKey}`;
-  const embedding = await getEmbedding(text);
+  const embedding = await getEmbedding(text, orgId);
 
   const skParts = String(docDBItem[SK_NAME]).split('#');
   const kbId = skParts.length >= 2 ? skParts[1] : '';
@@ -254,7 +254,7 @@ export const indexSolicitationChunk = async (args: {
   const vectorId = `${questionFileId}#${chunkIndex}`;
 
   // Generate embedding
-  const embedding = await getEmbedding(text);
+  const embedding = await getEmbedding(text, orgId);
 
   const metadata: SolicitationChunkMetadata = {
     type: 'solicitation_chunk',
@@ -306,7 +306,7 @@ export const indexSolicitationChunksBatch = async (
   const embeddings: number[][] = [];
   for (let i = 0; i < chunks.length; i += EMBED_BATCH_SIZE) {
     const batch = chunks.slice(i, i + EMBED_BATCH_SIZE);
-    const batchEmbeddings = await Promise.all(batch.map(c => getEmbedding(c.text)));
+    const batchEmbeddings = await Promise.all(batch.map(c => getEmbedding(c.text, orgId)));
     embeddings.push(...batchEmbeddings);
   }
 
@@ -352,7 +352,7 @@ export const searchSolicitation = async (
   const legacyNamespace = getLegacyOpportunityNamespace(opportunityId);
 
   // Embed the query once, reuse for both namespace reads
-  const embedding = await getEmbedding(query);
+  const embedding = await getEmbedding(query, orgId);
 
   const orgPromise = index.namespace(orgId).query({
     vector: embedding,

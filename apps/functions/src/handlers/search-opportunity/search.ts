@@ -9,6 +9,7 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import middy from '@middy/core';
 import https from 'https';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { z } from 'zod';
 
 import { apiResponse, getOrgId } from '@/helpers/api';
@@ -22,15 +23,42 @@ import {
 import { getApiKey } from '@/helpers/api-key-storage';
 import { SAM_GOV_SECRET_PREFIX } from '@/constants/samgov';
 import { DIBBS_SECRET_PREFIX } from '@/constants/dibbs';
-import { HIGHERGOV_SECRET_PREFIX, HIGHERGOV_BASE_URL } from '@/constants/highergov';
+import {
+  HIGHERGOV_SECRET_PREFIX,
+  HIGHERGOV_BASE_URL,
+  HIGHERGOV_SEARCH_WORKER_FUNCTION_NAME_ENV,
+} from '@/constants/highergov';
 import { requireEnv } from '@/helpers/env';
-import { searchSamOpportunities, searchDibbsOpportunities, searchHigherGovOpportunities, withSourceTimeout } from '@/helpers/search-opportunity';
+import { searchSamOpportunities, searchDibbsOpportunities, withSourceTimeout, HIGHERGOV_TIMEOUT_MS } from '@/helpers/search-opportunity';
+import { searchHigherGovViaMcp, HIGHERGOV_MCP_PAGE_SIZE } from '@/helpers/highergov-mcp';
+import {
+  getHigherGovSearchCache,
+  isHigherGovSearchCacheStale,
+  markHigherGovSearchPending,
+} from '@/helpers/highergov-search-cache';
 import {
   samSlimToSearchOpportunity,
   dibbsSlimToSearchOpportunity,
   higherGovToSearchOpportunity,
+  type HigherGovSearchJob,
   type SearchOpportunity,
 } from '@auto-rfp/core';
+
+const lambdaClient = new LambdaClient({});
+
+/**
+ * Fire-and-forget the HigherGov search worker. The worker performs the slow
+ * (~30s+) saved-search fetch out of band and writes results to the cache row.
+ */
+const invokeHigherGovSearchWorker = async (job: HigherGovSearchJob): Promise<void> => {
+  const fnName = process.env[HIGHERGOV_SEARCH_WORKER_FUNCTION_NAME_ENV];
+  if (!fnName) throw new Error(`${HIGHERGOV_SEARCH_WORKER_FUNCTION_NAME_ENV} not configured`);
+  await lambdaClient.send(new InvokeCommand({
+    FunctionName: fnName,
+    InvocationType: 'Event', // fire-and-forget
+    Payload: Buffer.from(JSON.stringify(job)),
+  }));
+};
 
 const SAM_BASE_URL  = requireEnv('SAM_OPPS_BASE_URL', 'https://api.sam.gov');
 const DIBBS_BASE_URL = requireEnv('DIBBS_BASE_URL', 'https://www.dibbs.bsm.dla.mil');
@@ -45,6 +73,16 @@ const SearchRequestSchema = z.object({
   source:       z.enum(['SAM_GOV', 'DIBBS', 'HIGHER_GOV', 'ALL']).default('ALL'),
   /** HigherGov source_type filter to avoid duplicating SAM/DIBBS results */
   higherGovSourceType: z.enum(['sam', 'dibbs', 'sbir', 'grant', 'sled']).optional(),
+  /**
+   * Which HigherGov market(s) to search — the MCP `opportunity_type` enum. Defaults to
+   * federal_contract server-side, so send it explicitly to reach SLED/grants/forecasts.
+   */
+  higherGovMarket: z.enum([
+    'federal_contract', 'state_local', 'federal_and_state_local', 'federal_grant',
+    'dibbs', 'sbir', 'federal_forecast', 'sled_forecast', 'all',
+  ]).optional(),
+  /** Restrict HigherGov to currently open opportunities (18 vs 2860 on a saas search). */
+  higherGovActiveOnly: z.boolean().optional(),
   /** HigherGov search_id — replay a saved search from HigherGov UI */
   higherGovSearchId: z.string().min(1).optional(),
   keywords:     z.string().min(1).optional(),
@@ -54,13 +92,26 @@ const SearchRequestSchema = z.object({
   postedTo:     MmDdYyyy.optional(),
   /** Response-deadline / closing date from (MM/dd/yyyy). SAM.gov: rdlfrom. DIBBS: closingFrom. */
   closingFrom:  MmDdYyyy.optional(),
-  /** Response-deadline / closing date to (MM/dd/yyyy). DIBBS: closingTo. */
+  /** Response-deadline / closing date to (MM/dd/yyyy). SAM.gov: rdlto. DIBBS: closingTo. */
   closingTo:    MmDdYyyy.optional(),
   limit:  z.number().int().positive().max(200).optional(),
   offset: z.number().int().min(0).optional(),
 });
 
 type SearchRequest = z.infer<typeof SearchRequestSchema>;
+
+/** SAM.gov wants MM/dd/yyyy. */
+const toMmDdYyyy = (d: Date): string =>
+  `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
+
+const DEFAULT_POSTED_WINDOW_DAYS = 30;
+
+/** Fallback posted range for a request that omits one: the last 30 days. */
+const defaultPostedFrom = (): string =>
+  toMmDdYyyy(new Date(Date.now() - DEFAULT_POSTED_WINDOW_DAYS * 86_400_000));
+
+const defaultPostedTo = (): string => toMmDdYyyy(new Date());
+
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
@@ -84,6 +135,11 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
   let totalSamGov = 0;
   let totalDibbs  = 0;
   let totalHigherGov = 0;
+  // True while a HigherGov saved-search fetch is running in the background — the
+  // frontend polls (re-issues the search) until this clears. HigherGov can take
+  // ~30s+ per saved search, which exceeds the API Gateway ceiling, so search_id
+  // results are fetched by a worker and served from a cache row.
+  let higherGovPending = false;
 
   // ── Run all sources in parallel to stay under 29s API Gateway limit ────
   const sourcePromises: Array<Promise<void>> = [];
@@ -97,9 +153,14 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
             searchSamOpportunities(
               { baseUrl: SAM_BASE_URL, apiKey, httpsAgent },
               {
-                postedFrom:   data.postedFrom ?? '01/01/2025',
-                postedTo:     data.postedTo   ?? '12/31/2025',
+                // SAM.gov requires a posted range. Default to the last 30 days
+                // rather than a hardcoded calendar year — the previous
+                // '01/01/2025'–'12/31/2025' literals silently excluded everything
+                // posted outside 2025, which looks exactly like broken filtering.
+                postedFrom:   data.postedFrom ?? defaultPostedFrom(),
+                postedTo:     data.postedTo   ?? defaultPostedTo(),
                 rdlfrom:      data.closingFrom,
+                rdlto:        data.closingTo,
                 keywords:     data.keywords,
                 naics:        data.naics,
                 setAsideCode: data.setAsideCode,
@@ -154,28 +215,73 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
         const apiKey = await getApiKey(orgId, HIGHERGOV_SECRET_PREFIX);
         if (apiKey) {
           const hasSearchId = !!data.higherGovSearchId;
+
+          // Keyword/NAICS search for HigherGov goes through their MCP server rather
+          // than the REST API. REST silently ignores those params (a baseline
+          // posted_date query and the same query plus `keywords=zzzznonsense` both
+          // return 580 rows); MCP's `search_opportunities` honours HigherGov's full
+          // documented query language — implicit AND, `or`, `"close match"`,
+          // `-exclude`, `( )`. The old short-circuit that refused these searches has
+          // been removed accordingly.
           const pageSize = data.limit ?? 25;
 
-          const postedDate = !hasSearchId && data.postedFrom
+          // ── Saved-search (search_id): async cache path ──────────────────────
+          // HigherGov's /opportunity/ can take ~30s+ for a saved search, past
+          // the API Gateway 30s ceiling, so an inline fetch can never return.
+          // Serve from a cache row a background worker populates; poll until ready.
+          if (hasSearchId && data.higherGovSearchId) {
+            const searchId = data.higherGovSearchId;
+            const nowMs = Date.now();
+            const cache = await getHigherGovSearchCache(orgId, searchId);
+
+            if (cache && cache.status === 'READY') {
+              totalHigherGov = cache.totalCount;
+              results.push(...cache.opportunities);
+              return;
+            }
+            if (cache && cache.status === 'ERROR' && !isHigherGovSearchCacheStale(cache, nowMs)) {
+              errors['HIGHER_GOV'] = cache.error ?? 'HigherGov search failed';
+              return;
+            }
+            // No fresh row (or a dead PENDING) — kick off a worker and report pending.
+            if (isHigherGovSearchCacheStale(cache, nowMs)) {
+              await markHigherGovSearchPending(orgId, searchId, new Date().toISOString(), nowMs);
+              await invokeHigherGovSearchWorker({ orgId, searchId, pageSize: Math.min(pageSize, 100) });
+            }
+            higherGovPending = true;
+            return;
+          }
+
+          // ── Keyword / NAICS / date search via MCP ───────────────────────────
+          // Runs inline: MCP responds in 0.8-3.8s (measured), well inside the API
+          // Gateway ceiling, unlike REST's 12-15s which forced the worker path above.
+          const postedDate = data.postedFrom
             ? `${data.postedFrom.slice(6)}-${data.postedFrom.slice(0, 2)}-${data.postedFrom.slice(3, 5)}`
             : undefined;
 
           const resp = await withSourceTimeout(
-            searchHigherGovOpportunities(
+            searchHigherGovViaMcp(
               { baseUrl: HIGHERGOV_BASE_URL, apiKey, httpsAgent },
               {
-                keywords:     hasSearchId ? undefined : data.keywords,
-                naics:        hasSearchId ? undefined : data.naics,
-                setAsideCode: hasSearchId ? undefined : data.setAsideCode,
-                searchId:     data.higherGovSearchId,
-                sourceType:   hasSearchId ? undefined : data.higherGovSourceType,
+                // Verbatim: stripping quotes/`-`/`or` would break the query language.
+                keyword:         data.keywords,
+                // MCP takes a single NAICS code, not a list.
+                naicsCode:       data.naics?.[0],
+                opportunityType: data.higherGovMarket,
+                activeOnly:      data.higherGovActiveOnly,
                 postedDate,
-                ordering:     '-captured_date',
-                pageSize,
-                pageNumber: data.offset ? Math.floor(data.offset / pageSize) + 1 : 1,
+                // Paged against MCP's OWN fixed page size, not the caller's `limit`.
+                // MCP ignores `limit` and always returns 100 rows, and the frontend
+                // advances `offset` by rows actually received — so dividing by a
+                // 25-row limit jumped to page 5 after one "show more" and skipped
+                // records 100-399 entirely.
+                pageNumber: data.offset
+                  ? Math.floor(data.offset / HIGHERGOV_MCP_PAGE_SIZE) + 1
+                  : 1,
               },
             ),
             'HigherGov',
+            HIGHERGOV_TIMEOUT_MS,
           );
           totalHigherGov = resp.totalCount;
           results.push(...resp.results.map(higherGovToSearchOpportunity));
@@ -211,6 +317,9 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
     totalHigherGov,
     total: totalSamGov + totalDibbs + totalHigherGov,
     errors: Object.keys(errors).length ? errors : undefined,
+    // Signals the frontend to poll again — a HigherGov saved-search fetch is
+    // still running in the background and its results will appear on a re-issue.
+    higherGovPending: higherGovPending || undefined,
   });
 };
 

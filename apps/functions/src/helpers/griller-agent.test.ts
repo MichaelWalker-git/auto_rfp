@@ -95,6 +95,16 @@ describe('GrillerAgent.ask', () => {
     const agent = new GrillerAgent({ modelId: 'm' });
     await expect(agent.ask(turnInput)).rejects.toThrow('Griller returned no text content');
   });
+
+  it('threads the configured orgId through to invokeModel as the third argument', async () => {
+    const agent = new GrillerAgent({ modelId: 'm', orgId: 'the-org-id' });
+    await agent.ask(turnInput);
+    expect(mockInvokeModel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'the-org-id',
+    );
+  });
 });
 
 describe('GrillerAgent.isInterviewComplete', () => {

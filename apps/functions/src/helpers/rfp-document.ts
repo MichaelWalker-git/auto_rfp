@@ -131,6 +131,8 @@ const UPDATABLE_METADATA_FIELDS = [
   'retryCount',
   'solutionPlanId',
   'solutionPlanVersion',
+  'templateId',
+  'furniture',
 ] as const;
 
 type UpdatableMetadataField = (typeof UPDATABLE_METADATA_FIELDS)[number];
@@ -166,6 +168,10 @@ export const updateRFPDocumentMetadata = async (args: {
     ':updatedBy': args.updatedBy,
   };
 
+  // The loop is the only place an attribute may be assigned: adding a field to
+  // UPDATABLE_METADATA_FIELDS *and* assigning it explicitly would put the same
+  // path in the SET clause twice, which DynamoDB rejects outright
+  // ("Two document paths overlap with each other").
   for (const field of UPDATABLE_METADATA_FIELDS) {
     const value = args.updates[field];
     if (value === undefined) continue;

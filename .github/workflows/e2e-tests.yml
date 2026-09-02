@@ -192,6 +192,10 @@ jobs:
           # Auth credentials for authenticated tests
           E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
           E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+          # Opt-in Solution Plan specs: dev-data opportunity paths (unset = skip).
+          E2E_SP_BLOCKED_OPP_PATH: ${{ vars.E2E_SP_BLOCKED_OPP_PATH }}
+          E2E_SP_HAPPY_OPP_PATH: ${{ vars.E2E_SP_HAPPY_OPP_PATH }}
+          E2E_SP_VERSIONS_OPP_PATH: ${{ vars.E2E_SP_VERSIONS_OPP_PATH }}
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4

@@ -17,8 +17,17 @@ import { loadTextFromS3 } from '@/helpers/s3';
 import { searchSolicitation } from '@/helpers/pinecone';
 import { truncateText } from '@/helpers/executive-opportunity-brief';
 import { listRFPDocumentsByProject, loadRFPDocumentHtml } from '@/helpers/rfp-document';
+import { loadInventoryDocHtml } from '@/helpers/compliance-review-doc-cache';
 import { listRequiredFormsByOpportunity } from '@/helpers/required-form';
 import { extractHeadings, getSectionText } from '@/helpers/compliance-review-html';
+import {
+  loadCompanyFacts,
+  loadCertRecords,
+  searchKnowledgeBase,
+  searchPastPerformanceUsable,
+  loadSolutionPlanFacts,
+} from '@/helpers/compliance-truth-sources';
+import { getLinkedKBIds } from '@/helpers/project-kb';
 import {
   readQuestionnaireCellInventory,
   type QuestionnaireCellInventory,
@@ -28,6 +37,8 @@ import {
   MAX_FORM_FIELDS_RETURNED,
   MAX_FORM_FIELD_VALUE_CHARS,
   MAX_QUESTIONNAIRE_CELLS_RETURNED,
+  FACTUAL_KB_TOP_K,
+  FACTUAL_PP_TOP_K,
 } from '@/constants/compliance-review';
 import type { ToolDefinition, ToolResult } from '@/types/tool';
 import type { ChatSourceCitation, ComplianceTargetKind } from '@auto-rfp/core';
@@ -46,6 +57,10 @@ export interface DocumentInventory {
   htmlContentKey?: string;
   /** First-sheet cells of an XLSX questionnaire (documentType QUESTIONNAIRE, file-based). */
   questionnaireCells?: QuestionnaireCellInventory;
+  /** S3 key of the XLSX questionnaire file — lets the EDIT engine re-read FULL
+   *  (untruncated) cell values for recall + apply, which the truncated review
+   *  `questionnaireCells` can't provide. */
+  fileKey?: string;
 }
 
 export interface FormFieldInventory {
@@ -117,6 +132,7 @@ export const buildPackageInventory = async (args: {
           targetKind: 'XLSX_QUESTIONNAIRE',
           headings: [],
           questionnaireCells,
+          fileKey: doc.fileKey as string,
         };
       }
 
@@ -232,6 +248,32 @@ export const COMPLIANCE_REVIEW_TOOLS: ReadonlyArray<ToolDefinition> = [
       required: ['query'],
     },
   },
+  {
+    name: 'verify_company_facts',
+    description:
+      'Verify a claim the package makes about the company against the org\'s INTERNAL sources of ' +
+      'truth: company profile (identity, NAICS, certifications), approved knowledge base, certification ' +
+      'records, usable past-performance records, and the latest approved SOLUTION PLAN (the ' +
+      'authoritative approach, team, prices, and services). Call this BEFORE asserting whether a claim ' +
+      'about the company (identity fields, certifications, past-performance values, etc.) or a solution ' +
+      'detail (a price, team, approach, or service) is accurate. Returns a snapshot of the relevant ' +
+      'profile facts, gated KB answers, cert records, NDA-safe past-performance facts, and solution-plan ' +
+      'facts. Never returns a withheld client name.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        claim: { type: 'string', description: 'The company claim to verify (e.g. "we are ISO 27001 certified").' },
+        sources: {
+          type: 'array',
+          description:
+            'Optional subset of sources to consult: "profile", "kb", "certs", "past_performance", ' +
+            '"solution_plan". Defaults to all of them.',
+          items: { type: 'string', enum: ['profile', 'kb', 'certs', 'past_performance', 'solution_plan'] },
+        },
+      },
+      required: ['claim'],
+    },
+  },
 ] as const;
 
 // ─── Tool executor ──────────────────────────────────────────────────────────
@@ -243,9 +285,11 @@ export const COMPLIANCE_REVIEW_TOOLS: ReadonlyArray<ToolDefinition> = [
 export const makeComplianceToolExecutor = (ctx: {
   orgId: string;
   oppId: string;
+  /** Present for the full/chat review; enables project-scoped KB verification. */
+  projectId?: string;
   inventory: PackageInventory;
 }) => {
-  const { orgId, oppId, inventory } = ctx;
+  const { orgId, oppId, projectId, inventory } = ctx;
 
   return async (
     toolName: string,
@@ -281,7 +325,7 @@ export const makeComplianceToolExecutor = (ctx: {
           if (!doc || !doc.htmlContentKey) {
             return { tool_use_id: toolUseId, content: `No RFP document with id ${documentId}.` };
           }
-          const html = await loadRFPDocumentHtml(doc.htmlContentKey);
+          const html = await loadInventoryDocHtml(inventory, doc.htmlContentKey);
           const section = getSectionText(html, heading, MAX_SECTION_CHARS);
           return {
             tool_use_id: toolUseId,
@@ -411,6 +455,102 @@ export const makeComplianceToolExecutor = (ctx: {
               textContent: s.excerpt,
             })),
           };
+        }
+
+        case 'verify_company_facts': {
+          const claim = String(toolInput.claim ?? '').trim();
+          if (!claim) return { tool_use_id: toolUseId, content: 'Provide a claim to verify.' };
+          const requested = Array.isArray(toolInput.sources)
+            ? new Set(toolInput.sources.map((s) => String(s)))
+            : new Set(['profile', 'kb', 'certs', 'past_performance', 'solution_plan']);
+          const wants = (s: string) => requested.size === 0 || requested.has(s);
+
+          // Scope KB search to the project's linked KBs when we have a projectId.
+          const kbIds = projectId ? await getLinkedKBIds(projectId).catch(() => []) : [];
+          const scopedKbIds = kbIds.length > 0 ? kbIds : undefined;
+
+          const [profile, kbHits, certs, ppFacts, planFacts] = await Promise.all([
+            wants('profile') ? loadCompanyFacts(orgId) : Promise.resolve(null),
+            wants('kb') ? searchKnowledgeBase(orgId, claim, FACTUAL_KB_TOP_K, scopedKbIds) : Promise.resolve([]),
+            wants('certs') ? loadCertRecords(orgId, claim) : Promise.resolve([]),
+            wants('past_performance') ? searchPastPerformanceUsable(orgId, claim, FACTUAL_PP_TOP_K) : Promise.resolve([]),
+            // Solution plan needs a projectId (with oppId) to address the single plan record.
+            wants('solution_plan') && projectId
+              ? loadSolutionPlanFacts(orgId, projectId, oppId)
+              : Promise.resolve(null),
+          ]);
+
+          const parts: string[] = [`CLAIM: ${claim}`];
+
+          if (wants('profile')) {
+            parts.push(
+              profile
+                ? 'COMPANY PROFILE:\n' +
+                    [
+                      `- name: ${profile.dba || profile.legalEntityName || profile.companyName || '(none)'}`,
+                      `- UEI: ${profile.uei ?? '(none)'} | CAGE: ${profile.cage ?? '(none)'} | EIN: ${profile.ein ?? '(none)'}`,
+                      `- address: ${[profile.address, profile.city, profile.state, profile.zip].filter(Boolean).join(', ') || '(none)'}`,
+                      `- primary NAICS: ${profile.primaryNaics ?? '(none)'} | entity type: ${profile.entityType ?? '(none)'}`,
+                      `- authorized signatory: ${profile.authorizedSignatory?.name ?? '(none)'}`,
+                    ].join('\n')
+                : 'COMPANY PROFILE: (no profile on record)',
+            );
+          }
+          if (wants('certs')) {
+            parts.push(
+              'CERTIFICATION RECORDS:\n' +
+                (certs.length
+                  ? certs
+                      .map(
+                        (c) =>
+                          `- ${c.label} (source: ${c.source}, verified: ${c.verified}, expires: ${c.expiresAt ?? 'n/a'})`,
+                      )
+                      .join('\n')
+                  : '(none on record)'),
+            );
+          }
+          if (wants('kb')) {
+            parts.push(
+              'KNOWLEDGE BASE (approved, active):\n' +
+                (kbHits.length
+                  ? kbHits.map((h) => `- Q: ${h.question}\n  A: ${truncateText(h.answer, EXCERPT_MAX_CHARS)}`).join('\n')
+                  : '(no approved KB answers matched)'),
+            );
+          }
+          if (wants('past_performance')) {
+            parts.push(
+              'PAST PERFORMANCE (usable, NDA-safe):\n' +
+                (ppFacts.length
+                  ? ppFacts
+                      .map(
+                        (p) =>
+                          `- ${p.title} — client: ${p.client} | value: ${p.value ?? 'n/a'} | contract: ${p.contractNumber ?? 'n/a'}`,
+                      )
+                      .join('\n')
+                  : '(no usable past-performance records matched)'),
+            );
+          }
+          if (wants('solution_plan')) {
+            parts.push(
+              planFacts
+                ? 'SOLUTION PLAN (latest approved — authoritative approach/team/prices/services' +
+                    `${planFacts.isStale ? ', currently STALE' : ''}):\n` +
+                    (planFacts.costItems.length
+                      ? 'Cost schedule:\n' +
+                        planFacts.costItems
+                          .map(
+                            (c) =>
+                              `- ${c.label}: ${planFacts.currency} ${c.amount} (${c.billing})${c.optional ? ' [optional]' : ''}`,
+                          )
+                          .join('\n') +
+                        '\n'
+                      : '') +
+                    `Plan text:\n${truncateText(planFacts.text, 1500)}`
+                : 'SOLUTION PLAN: (no approved solution plan on record)',
+            );
+          }
+
+          return { tool_use_id: toolUseId, content: parts.join('\n\n') };
         }
 
         default:

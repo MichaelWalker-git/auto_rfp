@@ -18,8 +18,14 @@
 
 import { z } from 'zod';
 
-import type { SolutionPlanItem, SolutionPlanKey } from '@auto-rfp/core';
+import {
+  SolutionPlanCostScheduleSchema,
+  type SolutionPlanCostSchedule,
+  type SolutionPlanItem,
+  type SolutionPlanKey,
+} from '@auto-rfp/core';
 
+import { computeCostScheduleTotals } from './cost-schedule';
 import { fetchExecutiveBriefAnalysis } from './db-tool-helpers';
 import { loadSolicitation } from './document-generation';
 import { errorMessageOf } from './error';
@@ -28,6 +34,8 @@ import { nowIso } from './date';
 import { invokeClaudeJson, truncateText } from './executive-opportunity-brief';
 import { GrillerAgent, MIN_GRILLING_ROUNDS, shouldHonorTerminationToken } from './griller-agent';
 import { TechLeadAgent } from './tech-lead-agent';
+import { PK_NAME } from '@/constants/common';
+import { isConditionalCheckFailed } from './db';
 import {
   appendGrillingMessage,
   getSolutionPlanByOpportunity,
@@ -35,10 +43,13 @@ import {
   updateSolutionPlanStatus,
   uploadSolutionPlanHtml,
 } from './solution-plan';
+import { captureSolutionPlanVersion } from './solution-plan-version';
+import { attachGeneratedTeam } from './plan-team';
 import { enqueueGrillingRound, type GrillingRoundMessage } from './solution-plan-queue';
 import {
   GRILLER_BRIEF_CHAR_CAP,
   GRILLER_SOLICITATION_CHAR_CAP,
+  SOLUTION_PLAN_BRIEF_SECTIONS,
   TECH_LEAD_PRIMER_CHAR_CAP,
   buildSynthesizerSystemPrompt,
   buildSynthesizerUserPrompt,
@@ -116,8 +127,12 @@ const buildOpportunityPrimer = (solicitationText: string, execBriefText: string)
 const loadRoundContext = async (message: GrillingRoundMessage): Promise<RoundContext> => {
   const [solicitationRaw, execBriefRaw, allMessages] = await Promise.all([
     loadSolicitation(message.projectId, message.opportunityId),
-    // Empty string when no brief exists — recommended, never required (ADR-14)
-    fetchExecutiveBriefAnalysis(message.projectId, message.opportunityId),
+    // Empty string when no brief exists — recommended, never required (ADR-14).
+    // Factual sections only — the scoring/bid-decision section must never
+    // reach the plan agents.
+    fetchExecutiveBriefAnalysis(message.projectId, message.opportunityId, [
+      ...SOLUTION_PLAN_BRIEF_SECTIONS,
+    ]),
     listGrillingMessages(message.solutionPlanId),
   ]);
 
@@ -134,9 +149,16 @@ const loadRoundContext = async (message: GrillingRoundMessage): Promise<RoundCon
 
 // ─── Synthesis output ───────────────────────────────────────────────────────────
 
-const SynthesisResponseSchema = z.object({
+/**
+ * Synthesis output shape. `costSchedule` is `.nullish().catch(undefined)`:
+ * `invokeClaudeJson` has no schema-retry, so a present-but-malformed schedule
+ * must degrade to "absent + warn" instead of FAILING the whole plan.
+ * Exported for tests.
+ */
+export const SynthesisResponseSchema = z.object({
   title: z.string().min(1),
   htmlContent: z.string().min(1),
+  costSchedule: SolutionPlanCostScheduleSchema.nullish().catch(undefined),
 });
 
 // ─── Failure handling ───────────────────────────────────────────────────────────
@@ -262,7 +284,7 @@ export const processGrillingRound = async (message: GrillingRoundMessage): Promi
       );
       grillerText = persistedGriller.content;
     } else {
-      const griller = new GrillerAgent({ modelId: resolveGrillerModelId() });
+      const griller = new GrillerAgent({ modelId: resolveGrillerModelId(), orgId: message.orgId });
       grillerText = await griller.ask({
         solicitationText,
         execBriefText,
@@ -330,8 +352,9 @@ export const processSynthesis = async (message: GrillingRoundMessage): Promise<v
       throw new Error('No Tech Lead answers in transcript — nothing to synthesize');
     }
 
-    const { title, htmlContent } = await invokeClaudeJson({
+    const { title, htmlContent, costSchedule } = await invokeClaudeJson({
       modelId: resolveModelId(),
+      orgId: message.orgId,
       system: buildSynthesizerSystemPrompt(),
       user: buildSynthesizerUserPrompt({
         opportunityPrimer: buildOpportunityPrimer(solicitationText, execBriefText),
@@ -342,25 +365,101 @@ export const processSynthesis = async (message: GrillingRoundMessage): Promise<v
       temperature: 0.3,
     });
 
+    // Model-stated totals are unreliable — always overwrite them with the
+    // deterministic recomputation before persisting. Items whose label says
+    // "(Optional)" are treated as optional even when the model forgot the
+    // flag — optional CLINs must never inflate the base totals.
+    let normalizedSchedule: SolutionPlanCostSchedule | null = null;
+    if (costSchedule) {
+      const items = costSchedule.items.map((item) => ({
+        ...item,
+        optional: item.optional || /\boptional\b/i.test(item.label),
+      }));
+      normalizedSchedule = { ...costSchedule, items, ...computeCostScheduleTotals(items) };
+    } else {
+      console.warn(
+        '[solution-plan-worker] synthesis returned no usable costSchedule — documents fall back to Fix A behavior',
+      );
+    }
+
     // Monotonic version (ADR-11) — bump from the plan's current counter, never reset
     const version = (plan.version ?? 0) + 1;
     const html = /<h1[\s>]/i.test(htmlContent) ? htmlContent : `<h1>${title}</h1>\n${htmlContent}`;
     const contentKey = await uploadSolutionPlanHtml(key, version, html);
 
-    await updateSolutionPlanStatus(key, 'READY', {
-      contentKey,
-      version,
-      // A fresh synthesis is current by definition and carries no user edits
-      isStale: false,
-      staleReason: '',
-      isUserEdited: false,
-      error: '',
-    });
+    // The completion write is CONDITIONAL on the plan still being mid-synthesis
+    // (BR5.3): a redelivered completion racing past the read guard above finds
+    // the plan already READY, fails the condition, and skips the counter bump,
+    // the capture, and the team hook entirely — no duplicate-content version.
+    try {
+      await updateSolutionPlanStatus(
+        key,
+        'READY',
+        {
+          contentKey,
+          version,
+          // A fresh synthesis is current by definition and carries no user edits
+          isStale: false,
+          staleReason: '',
+          isUserEdited: false,
+          error: '',
+          costSchedule: normalizedSchedule,
+        },
+        {
+          condition: 'attribute_exists(#pk) AND #status = :generatingStatus',
+          conditionNames: { '#pk': PK_NAME, '#status': 'status' },
+          conditionValues: { ':generatingStatus': 'GENERATING_SOT' },
+        },
+      );
+    } catch (err) {
+      if (isConditionalCheckFailed(err)) {
+        console.log(
+          '[solution-plan-worker] completion write skipped — plan no longer GENERATING_SOT (already processed or superseded, BR5.3)',
+        );
+        return;
+      }
+      throw err;
+    }
+
+    // Version capture (BR1.1, W1): attribution comes from the plan's initiator
+    // stamp (BR6.2), read from the plan RECORD, never the queue message; a
+    // missing stamp degrades to the system sentinel inside capture (BR3.3).
+    // Capture is fail-open by contract (BR5.1) — the .catch only shields the
+    // synthesis from an unexpectedly rejecting mock or regression.
+    await captureSolutionPlanVersion({
+      key,
+      solutionPlanId: message.solutionPlanId,
+      versionNumber: version,
+      htmlContentKey: contentKey,
+      costScheduleSnapshot: normalizedSchedule,
+      origin: 'generation',
+      createdBy: plan.generationInitiatedBy,
+      createdByName: plan.generationInitiatedByName,
+    }).catch((captureErr) =>
+      console.error(
+        '[solution-plan-worker] version capture rejected unexpectedly (fail-open):',
+        errorMessageOf(captureErr),
+      ),
+    );
+
     await appendGrillingMessage({
       ...messageBase(message),
       role: 'SYSTEM',
       content: `Solution plan v${version} synthesized: "${title}"`,
     });
+
+    // Team-definition hook (BR1.1): propose the recommended team now that the
+    // plan content is stored. A user-modified team is preserved untouched
+    // (BR1.2), and ANY failure here only logs — the plan stays READY (BR4.2).
+    try {
+      const outcome = await attachGeneratedTeam(key);
+      console.log(`[solution-plan-worker] team recommendation outcome: ${outcome}`);
+    } catch (teamErr) {
+      console.warn(
+        `[solution-plan-worker] team recommendation failed — plan v${version} stays READY without a team (BR4.2):`,
+        errorMessageOf(teamErr),
+      );
+    }
 
     console.log(
       `[solution-plan-worker] plan ${message.solutionPlanId} READY — v${version}, ${html.length} chars`,

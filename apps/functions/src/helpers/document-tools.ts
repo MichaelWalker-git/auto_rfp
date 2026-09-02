@@ -4,17 +4,22 @@
  * These tools allow Claude to actively query the database during document
  * generation rather than relying solely on pre-fetched context.
  *
- * Available tools (7 total):
+ * Available tools (9 total):
  *  - search_past_performance      → semantic search over past projects
  *  - search_knowledge_base        → semantic search over company KB
  *  - get_qa_answers               → filter Q&A pairs by topic
  *  - get_organization_context     → org details, primary contact, project, team
  *  - get_executive_brief_analysis → pre-analyzed opportunity intelligence
+ *  - get_pricing_data             → internal labor rates, estimates, staffing plans
  *  - get_content_library          → search pre-approved content snippets
  *  - get_deadlines                → deadline information for the opportunity
+ *  - search_service_pricing       → web lookup of third-party service prices
+ *                                   (COST_PROPOSAL / PRICE_VOLUME only — offer tools
+ *                                   via getDocumentToolsForType, not DOCUMENT_TOOLS)
  */
 
 import { searchPastProjects, getPastProject } from './past-performance';
+import { isUsableInMatching, redactForGeneration, anonymizationNotice } from './past-performance-disclosure';
 import { queryCompanyKnowledgeBase } from './executive-opportunity-brief';
 import { loadTextFromS3 } from './s3';
 import { requireEnv } from './env';
@@ -32,6 +37,14 @@ import {
 } from './db-tool-helpers';
 import type { BriefSectionName } from './executive-opportunity-brief';
 import type { ToolResult } from '@/types/tool';
+import { z } from 'zod';
+import {
+  ServicePricingLookupSchema,
+  RFP_DOCUMENT_TYPES,
+  type RFPDocumentType,
+  type ServicePricingResult,
+} from '@auto-rfp/core';
+import { searchServicePricing } from './service-pricing';
 
 export type { ToolResult };
 
@@ -214,9 +227,78 @@ export const DOCUMENT_TOOLS = [
       required: [],
     },
   },
+  {
+    name: 'search_service_pricing',
+    description:
+      'Look up current public prices for third-party services, subscriptions, and software licenses ' +
+      'via live web search (e.g., cloud services, SaaS tools, developer platforms). ' +
+      'Use this for the "Third-Party Services & Subscriptions" pricing in Cost Proposals and Price ' +
+      'Volumes — NEVER invent or estimate third-party prices yourself. ' +
+      'IMPORTANT: request ALL third-party services you need in ONE call (batched, max 10 services) — ' +
+      'you may not get another tool round. ' +
+      'Returns a table with one row per requested service: estimated price, plan/tier, source URL, ' +
+      'and retrieval date. Rows where no price could be found say "vendor quote required". ' +
+      'All returned prices are ESTIMATES subject to vendor quote. ' +
+      'Do NOT use this for internal labor rates or cost estimates — use get_pricing_data for those.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        services: {
+          type: 'array',
+          maxItems: 10,
+          description:
+            'ALL third-party services to price, in one batched call (max 10).',
+          items: {
+            type: 'object',
+            properties: {
+              serviceName: {
+                type: 'string',
+                description:
+                  'Vendor + product/plan name, specific enough to search. ' +
+                  'Example: "Datadog Pro" or "GitHub Enterprise Cloud"',
+              },
+              billingPeriod: {
+                type: 'string',
+                enum: ['MONTHLY', 'ANNUAL', 'ONE_TIME', 'USAGE_BASED', 'UNKNOWN'],
+                description: 'Billing period to price, if known.',
+              },
+            },
+            required: ['serviceName'],
+          },
+        },
+      },
+      required: ['services'],
+    },
+  },
 ] as const;
 
 export type ToolName = typeof DOCUMENT_TOOLS[number]['name'];
+
+/** Document types allowed to call the third-party pricing web lookup (T3). */
+export const PRICING_TOOL_DOC_TYPES: ReadonlySet<RFPDocumentType> = new Set(
+  // `satisfies` pins these to real built-in types — a typo here would silently
+  // withhold the pricing tool with no error anywhere.
+  ['COST_PROPOSAL', 'PRICE_VOLUME'] satisfies (keyof typeof RFP_DOCUMENT_TYPES)[],
+);
+
+/**
+ * Tools to offer the model for a given document type: `search_service_pricing`
+ * is only offered for pricing documents (COST_PROPOSAL / PRICE_VOLUME), and
+ * even then only when NO approved Solution Plan exists — a plan's "Selected
+ * Services & Licenses" table is the single allowed third-party price source,
+ * so live lookups are withheld (pricing single source, Fix A). All other types
+ * get the base tool set. Generation code should pass the result of this — not
+ * DOCUMENT_TOOLS directly — as the request's `tools`.
+ */
+export const getDocumentToolsForType = (
+  documentType: RFPDocumentType,
+  opts?: { hasSolutionPlan?: boolean },
+) =>
+  DOCUMENT_TOOLS.filter((tool) => {
+    if (tool.name !== 'search_service_pricing') return true;
+    if (!PRICING_TOOL_DOC_TYPES.has(documentType)) return false;
+    return !opts?.hasSolutionPlan;
+  });
 
 // ─── Tool executors ───────────────────────────────────────────────────────────
 
@@ -235,13 +317,18 @@ const executePastPerformanceSearch = async (
 
     const details = await Promise.all(
       relevant.map(async (r) => {
-        const project = await getPastProject(orgId, r.projectId).catch(() => null);
-        if (!project) return null;
+        const loaded = await getPastProject(orgId, r.projectId).catch(() => null);
+        if (!loaded) return null;
+        // Disclosure gate: drop DO_NOT_USE, redact non-NAMEABLE before it reaches the prompt.
+        if (!isUsableInMatching(loaded)) return null;
+        const project = redactForGeneration(loaded);
 
         const lines: string[] = [
           `**${project.title}** (relevance: ${Math.round(r.score * 100)}%)`,
           `Client: ${project.client}`,
         ];
+        const notice = anonymizationNotice(loaded);
+        if (notice) lines.push(notice);
         if (project.domain) lines.push(`Domain: ${project.domain}`);
         if (project.contractNumber) lines.push(`Contract: ${project.contractNumber}`);
         if (project.value) lines.push(`Value: $${project.value.toLocaleString()}`);
@@ -495,6 +582,72 @@ const fetchPricingData = async (
   }
 };
 
+// ─── Third-Party Service Pricing (web lookup) ────────────────────────────────
+
+const SearchServicePricingInputSchema = z.object({
+  // No max here: the helper caps at 10 and degrades extras to "vendor quote
+  // required" rows, which reads better to the model than a validation error.
+  services: z.array(ServicePricingLookupSchema).min(1),
+});
+
+const formatPricingRow = (r: ServicePricingResult, lookupUnavailable: boolean): string => {
+  if (!r.found || r.price === undefined) {
+    const note = lookupUnavailable ? 'vendor quote required (lookup unavailable)' : 'vendor quote required';
+    return `| ${r.serviceName} | ${r.billingPeriod} | ${note} | — | — | — | — |`;
+  }
+  const price = `${r.price} ${r.currency ?? 'USD'}${r.unit ? ` ${r.unit}` : ''}`;
+  const retrieved = r.retrievedAt ? r.retrievedAt.slice(0, 10) : 'unknown';
+  return `| ${r.serviceName} | ${r.billingPeriod} | ${price} | ${r.tier ?? '—'} | ${r.confidence ?? '—'} | ${r.sourceUrl ?? '—'} | ${retrieved} |`;
+};
+
+const formatPricingTable = (results: ServicePricingResult[], lookupUnavailable: boolean): string => {
+  const foundCount = results.filter(r => r.found).length;
+  return [
+    `THIRD-PARTY SERVICE PRICING — ${foundCount} of ${results.length} service(s) priced:`,
+    '',
+    '| Service | Billing Period | Price (estimate) | Tier | Confidence | Source URL | Retrieved |',
+    '|---|---|---|---|---|---|---|',
+    ...results.map(r => formatPricingRow(r, lookupUnavailable)),
+    '',
+    'ESTIMATES — subject to vendor quote. In the document, label each price as an estimate and ' +
+    'write "vendor quote required" for services without a price. Do NOT print the Source URLs or ' +
+    'Retrieved dates in the document — they are internal traceability only.',
+  ].join('\n');
+};
+
+/**
+ * Batched third-party price lookup. Never throws into the tool loop (ADR-15):
+ * invalid input returns an instructive message, and a total lookup outage
+ * (Brave down, quota exhausted, SSM key missing) degrades every row to
+ * "vendor quote required (lookup unavailable)" so the document always completes.
+ */
+const executeSearchServicePricing = async (
+  toolInput: Record<string, unknown>,
+  orgId: string,
+): Promise<string> => {
+  const { success, data, error } = SearchServicePricingInputSchema.safeParse(toolInput);
+  if (!success) {
+    return (
+      `Invalid search_service_pricing input: ${error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; ')}. ` +
+      'Expected { "services": [{ "serviceName": string, "billingPeriod"?: "MONTHLY" | "ANNUAL" | "ONE_TIME" | "USAGE_BASED" | "UNKNOWN" }] } ' +
+      'with at least one service. Write "vendor quote required" for any service you cannot look up.'
+    );
+  }
+
+  try {
+    return formatPricingTable(await searchServicePricing({ services: data.services, orgId }), false);
+  } catch (err) {
+    console.warn('search_service_pricing lookup unavailable, degrading all rows:', (err as Error)?.message);
+    const degraded: ServicePricingResult[] = data.services.map(s => ({
+      serviceName: s.serviceName,
+      billingPeriod: s.billingPeriod ?? 'UNKNOWN',
+      found: false,
+      fromCache: false,
+    }));
+    return formatPricingTable(degraded, true);
+  }
+};
+
 // ─── Tool dispatcher ──────────────────────────────────────────────────────────
 
 export const executeDocumentTool = async (args: {
@@ -579,6 +732,10 @@ export const executeDocumentTool = async (args: {
           toolInput.includeBidAnalysis !== false,
         );
         if (!content) content = 'No pricing data available. Create labor rates and cost estimates in the Pricing module first.';
+        break;
+
+      case 'search_service_pricing':
+        content = await executeSearchServicePricing(toolInput, orgId);
         break;
 
       default:

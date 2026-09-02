@@ -60,6 +60,9 @@ export const criteriaToParams = (c: SearchOpportunityCriteria): URLSearchParams 
   if (c.closingTo)           p.set('closingTo', c.closingTo);
   if (c.higherGovSourceType) p.set('hgSource', c.higherGovSourceType);
   if (c.higherGovSearchId)   p.set('hgId', c.higherGovSearchId);
+  // Only serialize non-defaults, so a plain HigherGov search stays a readable URL.
+  if (c.higherGovMarket && c.higherGovMarket !== 'all') p.set('hgMarket', c.higherGovMarket);
+  if (c.higherGovActiveOnly === false) p.set('hgActive', '0');
   if (c.limit && c.limit !== DEFAULT_LIMIT) p.set('limit', String(c.limit));
   return p;
 };
@@ -68,14 +71,15 @@ export const criteriaToParams = (c: SearchOpportunityCriteria): URLSearchParams 
  * Query string that reopens a saved search on the search page.
  *
  * Saved searches used to navigate to `?search=<json>`, which no page on this route
- * reads — only the older `samgov-opportunity-search` page does — so the run button
+ * reads — only a since-deleted SAM.gov-only search page did — so the run button
  * landed on an empty form. Going through `criteriaToParams` produces the flat
  * shape the search page actually parses.
  */
 export const savedSearchToParams = (s: SavedSearch): URLSearchParams =>
   criteriaToParams({
     keywords:            s.criteria.keywords,
-    sources:             s.source ? [s.source] : undefined,
+    // A stored DIBBS search reopens against SAM.gov — DIBBS is no longer selectable.
+    sources:             [s.source === 'HIGHER_GOV' ? 'HIGHER_GOV' : 'SAM_GOV'],
     naics:               s.criteria.naics,
     setAsideCode:        s.criteria.setAsideCode,
     postedFrom:          mmDdYyyyToIso(s.criteria.postedFrom),
@@ -97,12 +101,21 @@ export const savedSearchToParams = (s: SavedSearch): URLSearchParams =>
 const hasAnyCriteria = (p: URLSearchParams): boolean =>
   p.has('q') || p.has('source') || p.has('naics') || p.has('setAside') || p.has('from') || p.has('hgId');
 
+/**
+ * The UI now offers SAM.gov and HigherGov only, but URLs predating that are still
+ * bookmarked and still linked from saved searches — `?source=DIBBS` and `?source=all`
+ * were both valid. Anything unrecognised degrades to SAM.gov rather than stranding
+ * the form on a provider it can no longer select.
+ */
+const parseSource = (raw: string | null): 'SAM_GOV' | 'HIGHER_GOV' =>
+  raw === 'HIGHER_GOV' ? 'HIGHER_GOV' : 'SAM_GOV';
+
 export const paramsToFormValues = (p: URLSearchParams): Partial<FormValues> | null => {
   if (!hasAnyCriteria(p)) return null;
   const parseDate = (s: string | null) => (s ? isoToLocalDate(s) : undefined);
   return {
     keywords: p.get('q') ?? '',
-    source: (p.get('source') as FormValues['source']) ?? 'all',
+    source: parseSource(p.get('source')),
     naics: p.get('naics')?.split(',').filter(Boolean) ?? [],
     setAsideCode: p.get('setAside') ?? '',
     postedFrom: parseDate(p.get('from')),
@@ -111,15 +124,17 @@ export const paramsToFormValues = (p: URLSearchParams): Partial<FormValues> | nu
     closingTo: parseDate(p.get('closingTo')),
     higherGovSourceType: (p.get('hgSource') ?? '') as FormValues['higherGovSourceType'],
     higherGovSearchId: p.get('hgId') ?? '',
+    higherGovMarket: (p.get('hgMarket') ?? 'all') as FormValues['higherGovMarket'],
+    higherGovActiveOnly: p.get('hgActive') !== '0',
   };
 };
 
 export const paramsToCriteria = (p: URLSearchParams): SearchOpportunityCriteria | null => {
   if (!hasAnyCriteria(p)) return null;
-  const source = p.get('source') as 'SAM_GOV' | 'DIBBS' | 'HIGHER_GOV' | null;
+  const source = parseSource(p.get('source'));
   return {
     keywords:            p.get('q') ?? undefined,
-    sources:             source ? [source] : undefined,
+    sources:             [source],
     naics:               p.get('naics')?.split(',').filter(Boolean) ?? undefined,
     setAsideCode:        p.get('setAside') ?? undefined,
     postedFrom:          p.get('from') ?? undefined,
@@ -128,6 +143,16 @@ export const paramsToCriteria = (p: URLSearchParams): SearchOpportunityCriteria 
     closingTo:           p.get('closingTo') ?? undefined,
     higherGovSourceType: p.get('hgSource') ?? undefined,
     higherGovSearchId:   p.get('hgId') ?? undefined,
+    // Defaults to 'all', NOT undefined. `criteriaToParams` omits this param when it is
+    // 'all' to keep URLs readable, so an absent param means "all markets" — and sending
+    // undefined instead let HigherGov apply its own `federal_contract` default. That
+    // showed the UI reading "All sources" while returning the federal-only count (18
+    // instead of 310).
+    higherGovMarket:     (p.get('hgMarket') ?? 'all') as SearchOpportunityCriteria['higherGovMarket'],
+    // Explicit `true` rather than undefined: the results bar keys its "open
+    // opportunities only" note off this, so an omitted param must still read as on —
+    // which is also what the backend defaults to.
+    higherGovActiveOnly: p.get('hgActive') !== '0',
     limit:               parseLimit(p.get('limit')),
   };
 };

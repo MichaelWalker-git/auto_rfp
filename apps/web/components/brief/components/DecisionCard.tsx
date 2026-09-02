@@ -53,6 +53,7 @@ function ScoreChangeIndicator({ prev, current }: { prev?: number; current?: numb
 export function DecisionCard({
   projectName,
   projectId,
+  opportunityId,
   orgId,
   summary,
   briefItem,
@@ -61,6 +62,7 @@ export function DecisionCard({
 }: {
   projectName: string;
   projectId: string;
+  opportunityId?: string;
   orgId?: string;
   summary: any;
   briefItem: any;
@@ -116,8 +118,17 @@ export function DecisionCard({
     }
 
     try {
-      // Refresh brief
-      const latest = await getBriefByProject.trigger({ projectId });
+      // Refresh brief. opportunityId is REQUIRED by the endpoint — omitting it
+      // makes the lookup fail (or, on older backends, return an arbitrary brief
+      // for a different opportunity, which swapped the summary/requirements view).
+      const briefOpportunityId = opportunityId ?? briefItem?.opportunityId;
+      if (!briefOpportunityId) {
+        throw new Error('Cannot refresh brief: opportunityId is missing.');
+      }
+      const latest = await getBriefByProject.trigger({
+        projectId,
+        opportunityId: briefOpportunityId,
+      });
       if (latest?.ok && latest?.brief) {
         onBriefUpdate?.(latest.brief);
       }

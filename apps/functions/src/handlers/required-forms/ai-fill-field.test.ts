@@ -127,6 +127,12 @@ describe('ai-fill-field', () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
     expect(body).toMatchObject({ value: 'Acme Corp', source: 'companyName', confidence: 0.95 });
+    // orgId propagates to invokeModel as the third argument (per-org Bedrock key).
+    expect(mockInvokeModel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'org-1',
+    );
   });
 
   it('falls back to a friendly response when AI returns malformed JSON', async () => {

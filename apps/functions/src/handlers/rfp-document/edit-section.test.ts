@@ -40,14 +40,22 @@ jest.mock('@/helpers/bedrock-http-client', () => ({
   invokeModel: (...args: unknown[]) => mockInvokeModel(...args),
 }));
 
+const mockGetDocumentToolsForType = jest.fn(() => []);
 jest.mock('@/helpers/document-tools', () => ({
   DOCUMENT_TOOLS: [],
+  PRICING_TOOL_DOC_TYPES: new Set(['COST_PROPOSAL', 'PRICE_VOLUME']),
+  getDocumentToolsForType: (...args: unknown[]) => mockGetDocumentToolsForType(...(args as [])),
   executeDocumentTool: jest.fn(),
 }));
 
 jest.mock('@/helpers/document-generation', () => ({
   loadQaPairs: jest.fn().mockResolvedValue([]),
   loadSolicitation: jest.fn().mockResolvedValue(''),
+}));
+
+const mockGetSolutionPlan = jest.fn();
+jest.mock('@/helpers/solution-plan', () => ({
+  getSolutionPlanByOpportunity: (...args: unknown[]) => mockGetSolutionPlan(...args),
 }));
 
 jest.mock('@/helpers/document-context', () => ({
@@ -99,6 +107,14 @@ const sentSystemPrompt = (callIndex = 0): string => {
   return body.system[0].text as string;
 };
 
+/** Extract the last user-message text from the captured invokeModel request body. */
+const sentUserPrompt = (callIndex = 0): string => {
+  const body = JSON.parse(mockInvokeModel.mock.calls[callIndex]![1] as string);
+  const userMessages = (body.messages as Array<{ role: string; content: Array<{ text?: string }> }>)
+    .filter((m) => m.role === 'user');
+  return userMessages[userMessages.length - 1]!.content.map((c) => c.text ?? '').join('\n');
+};
+
 describe('buildSectionEditSystemPrompt', () => {
   it('injects the guidance override into the DOCUMENT TYPE GUIDANCE section', () => {
     const prompt = buildSectionEditSystemPrompt('Approach', 'TECHNICAL_PROPOSAL', 'CUSTOM ORG GUIDANCE');
@@ -128,6 +144,7 @@ describe('buildSectionEditSystemPrompt', () => {
 describe('edit-section handler — override wiring', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetSolutionPlan.mockResolvedValue(null);
     mockGetRFPDocument.mockResolvedValue({
       documentId: 'doc-1',
       documentType: 'COVER_LETTER',
@@ -186,5 +203,194 @@ describe('edit-section handler — override wiring', () => {
     const body = JSON.parse((result as { body: string }).body);
     expect(body.ok).toBe(true);
     expect(body.updatedHtml).toBe('<h2>Approach</h2><p>Updated content</p>');
+  });
+
+  it('threads the request orgId through to invokeModel as the third argument', async () => {
+    await baseHandler(makeEvent());
+
+    expect(mockInvokeModel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'org-1',
+    );
+  });
+});
+
+describe('edit-section handler — Solution Plan pricing-tool gating (Fix A)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetSolutionPlan.mockResolvedValue(null);
+    mockResolveFragments.mockResolvedValue({ guidance: null, task: null });
+    mockInvokeModel.mockResolvedValue(
+      bedrockTextResponse('<h2>Approach</h2><p>Updated content</p>'),
+    );
+  });
+
+  it('withholds the pricing tool when the document carries an ADR-7 solutionPlanId stamp', async () => {
+    mockGetRFPDocument.mockResolvedValue({
+      documentId: 'doc-1',
+      documentType: 'COST_PROPOSAL',
+      solutionPlanId: 'plan-1',
+    });
+
+    await baseHandler(makeEvent());
+
+    expect(mockGetDocumentToolsForType).toHaveBeenCalledWith('COST_PROPOSAL', {
+      hasSolutionPlan: true,
+    });
+  });
+
+  it('offers the pricing tool when the document has no solutionPlanId stamp', async () => {
+    mockGetRFPDocument.mockResolvedValue({
+      documentId: 'doc-1',
+      documentType: 'COST_PROPOSAL',
+      solutionPlanId: null,
+    });
+
+    await baseHandler(makeEvent());
+
+    expect(mockGetDocumentToolsForType).toHaveBeenCalledWith('COST_PROPOSAL', {
+      hasSolutionPlan: false,
+    });
+  });
+});
+
+describe('edit-section handler — pricing-table math auto-correction (Fix B)', () => {
+  const WRONG_TOTAL_TABLE =
+    '<h2>Pricing</h2><table>' +
+    '<tr><th>Service</th><th>Price</th></tr>' +
+    '<tr><td>Datadog Pro</td><td>$100.00</td></tr>' +
+    '<tr><td>GitHub Enterprise</td><td>$250.00</td></tr>' +
+    '<tr><td>Total</td><td>$275.00</td></tr>' +
+    '</table>';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetSolutionPlan.mockResolvedValue(null);
+    mockResolveFragments.mockResolvedValue({ guidance: null, task: null });
+    mockInvokeModel.mockResolvedValue(bedrockTextResponse(WRONG_TOTAL_TABLE));
+  });
+
+  it('auto-corrects a wrong table total for pricing document types', async () => {
+    mockGetRFPDocument.mockResolvedValue({ documentId: 'doc-1', documentType: 'COST_PROPOSAL' });
+
+    const result = await baseHandler(makeEvent({ sectionTitle: 'Pricing' }));
+
+    const body = JSON.parse((result as { body: string }).body);
+    expect(body.updatedHtml).toContain('$350.00');
+    expect(body.updatedHtml).not.toContain('$275.00');
+  });
+
+  it('leaves non-pricing document types untouched', async () => {
+    mockGetRFPDocument.mockResolvedValue({ documentId: 'doc-1', documentType: 'TECHNICAL_PROPOSAL' });
+
+    const result = await baseHandler(makeEvent({ sectionTitle: 'Pricing' }));
+
+    const body = JSON.parse((result as { body: string }).body);
+    expect(body.updatedHtml).toContain('$275.00');
+  });
+});
+
+describe('edit-section handler — plan-governed pricing rules & reconciliation', () => {
+  const costSchedule = {
+    currency: 'USD',
+    items: [{ label: 'Implementation', category: 'LABOR', amount: 34720, billing: 'ONE_TIME' }],
+    oneTimeTotal: 34720,
+    ongoingAnnualTotal: 0,
+  };
+
+  const readyPlanWithSchedule = {
+    id: 'plan-1',
+    status: 'READY',
+    version: 3,
+    costSchedule,
+  };
+
+  // Fix B corrects $275 → $350; the plan reconciliation then forces the
+  // bucket-labeled total to the schedule value — proving pass order.
+  const WRONG_TOTAL_TABLE =
+    '<h2>Pricing</h2><table>' +
+    '<tr><td>Setup</td><td>$100.00</td></tr>' +
+    '<tr><td>Migration</td><td>$250.00</td></tr>' +
+    '<tr><td>Total One-Time Costs</td><td>$275.00</td></tr>' +
+    '</table>';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockResolveFragments.mockResolvedValue({ guidance: null, task: null });
+    mockGetSolutionPlan.mockResolvedValue(readyPlanWithSchedule);
+    mockGetRFPDocument.mockResolvedValue({
+      documentId: 'doc-1',
+      documentType: 'COST_PROPOSAL',
+      solutionPlanId: 'plan-1',
+    });
+    mockInvokeModel.mockResolvedValue(bedrockTextResponse(WRONG_TOTAL_TABLE));
+  });
+
+  it('appends the mandatory pricing rules block to the section-edit system prompt (previously missing)', async () => {
+    await baseHandler(makeEvent({ sectionTitle: 'Pricing' }));
+
+    const prompt = sentSystemPrompt();
+    expect(prompt).toContain('MANDATORY PRICING RULES');
+    // Plan-stamped document → plan-present variant with the plan-governed rules
+    expect(prompt).toContain('PLAN-GOVERNED COSTS');
+  });
+
+  it('does not add pricing rules for non-pricing document types', async () => {
+    mockGetRFPDocument.mockResolvedValue({ documentId: 'doc-1', documentType: 'COVER_LETTER' });
+
+    await baseHandler(makeEvent());
+
+    expect(sentSystemPrompt()).not.toContain('MANDATORY PRICING RULES');
+    expect(mockGetSolutionPlan).not.toHaveBeenCalled();
+  });
+
+  it('injects the AUTHORITATIVE COST SCHEDULE block into the section-edit user prompt', async () => {
+    await baseHandler(makeEvent({ sectionTitle: 'Pricing' }));
+
+    const prompt = sentUserPrompt();
+    expect(prompt).toContain('AUTHORITATIVE COST SCHEDULE (SOURCE OF TRUTH — COPY THESE NUMBERS EXACTLY)');
+    expect(prompt).toContain('TOTAL ONE-TIME: $34,720.00');
+  });
+
+  it('forces the plan totals AFTER the Fix B pass (last writer)', async () => {
+    const result = await baseHandler(makeEvent({ sectionTitle: 'Pricing' }));
+
+    const body = JSON.parse((result as { body: string }).body);
+    expect(body.updatedHtml).toContain('$34,720.00'); // plan value, not Fix B's $350
+    expect(body.updatedHtml).not.toContain('$275.00');
+    expect(body.updatedHtml).not.toContain('>$350.00');
+  });
+
+  it('skips schedule injection and reconciliation when the document has no plan stamp', async () => {
+    mockGetRFPDocument.mockResolvedValue({
+      documentId: 'doc-1',
+      documentType: 'COST_PROPOSAL',
+      solutionPlanId: null,
+    });
+
+    const result = await baseHandler(makeEvent({ sectionTitle: 'Pricing' }));
+
+    expect(sentUserPrompt()).not.toContain('AUTHORITATIVE COST SCHEDULE');
+    const body = JSON.parse((result as { body: string }).body);
+    expect(body.updatedHtml).toContain('$350.00'); // Fix B only
+  });
+
+  it('falls back to Fix A behavior when the plan has no schedule (legacy / user-edited)', async () => {
+    mockGetSolutionPlan.mockResolvedValue({ ...readyPlanWithSchedule, costSchedule: null });
+
+    const result = await baseHandler(makeEvent({ sectionTitle: 'Pricing' }));
+
+    expect(sentUserPrompt()).not.toContain('AUTHORITATIVE COST SCHEDULE');
+    const body = JSON.parse((result as { body: string }).body);
+    expect(body.updatedHtml).toContain('$350.00');
+  });
+
+  it('never fails the edit when the plan load rejects', async () => {
+    mockGetSolutionPlan.mockRejectedValue(new Error('DynamoDB down'));
+
+    const result = await baseHandler(makeEvent({ sectionTitle: 'Pricing' }));
+
+    expect(result).toMatchObject({ statusCode: 200 });
   });
 });

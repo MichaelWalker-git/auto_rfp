@@ -11,6 +11,7 @@ jest.mock('uuid', () => ({
 }));
 
 import { baseHandler } from './extract-questions';
+import { AiNotConfiguredError } from '@/helpers/ai-config-error';
 
 // Mock dependencies
 jest.mock('@/helpers/db', () => ({
@@ -51,6 +52,7 @@ jest.mock('@/helpers/questionFile', () => ({
   getQuestionFileItem: jest.fn().mockResolvedValue({
     questionFileId: 'qf-123',
     projectId: 'proj-456',
+    orgId: 'org-1',
     status: 'PROCESSING',
   }),
 }));
@@ -193,6 +195,54 @@ describe('extract-questions Lambda', () => {
     });
   });
 
+  describe('orgId propagation to Bedrock', () => {
+    const { checkQuestionFileCancelled, getQuestionFileItem } = require('@/helpers/questionFile');
+    const { invokeModel } = require('@/helpers/bedrock-http-client');
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      checkQuestionFileCancelled.mockResolvedValue(false);
+    });
+
+    it('reads orgId from the question file and passes it as the 3rd arg to invokeModel', async () => {
+      getQuestionFileItem.mockResolvedValue({
+        questionFileId: 'qf-123',
+        projectId: 'proj-456',
+        orgId: 'org-1',
+        status: 'PROCESSING',
+      });
+
+      await baseHandler(validEvent, mockContext);
+
+      expect(invokeModel).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.any(String),
+        'org-1',
+      );
+    });
+
+    it('re-throws AiNotConfiguredError from a chunk instead of silently returning zero questions', async () => {
+      // A per-chunk failure is normally swallowed (see JSON-parsing tests), but an
+      // unconfigured org can't extract ANY chunk, so it must fail closed.
+      invokeModel.mockRejectedValueOnce(new AiNotConfiguredError('org-1'));
+
+      await expect(baseHandler(validEvent, mockContext)).rejects.toThrow(AiNotConfiguredError);
+    });
+
+    it('throws when the question file has no orgId (per-org Bedrock key is required)', async () => {
+      // `mockResolvedValueOnce` so this orgId-less item does not leak into later
+      // describes (clearAllMocks resets calls, not implementations).
+      getQuestionFileItem.mockResolvedValueOnce({
+        questionFileId: 'qf-123',
+        projectId: 'proj-456',
+        status: 'PROCESSING',
+      });
+
+      await expect(baseHandler(validEvent, mockContext)).rejects.toThrow(/no orgId/i);
+      expect(invokeModel).not.toHaveBeenCalled();
+    });
+  });
+
   describe('JSON Parsing (Sentry: AUTO-RFP-2A)', () => {
     const { checkQuestionFileCancelled } = require('@/helpers/questionFile');
     const { invokeModel } = require('@/helpers/bedrock-http-client');
@@ -241,6 +291,195 @@ describe('extract-questions Lambda', () => {
 
       const result = await baseHandler(validEvent, mockContext);
       expect(result.count).toBe(0);
+    });
+  });
+
+  /**
+   * Regression tests for Sentry AUTO-RFP-FT: "AI imported radio button
+   * multiple-choice questions separately, not as a whole." A radio/checkbox
+   * question must persist as ONE row carrying responseKind + options, not one
+   * row per option.
+   */
+  describe('Multiple-choice extraction (Sentry: AUTO-RFP-FT)', () => {
+    const { checkQuestionFileCancelled } = require('@/helpers/questionFile');
+    const { invokeModel } = require('@/helpers/bedrock-http-client');
+    const { docClient } = require('@/helpers/db');
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      checkQuestionFileCancelled.mockResolvedValue(false);
+    });
+
+    /** Collect the Items written by PutCommand across all docClient.send calls. */
+    const capturedItems = (): Array<Record<string, unknown>> =>
+      (docClient.send as jest.Mock).mock.calls
+        .map(([cmd]) => cmd?.input?.Item)
+        .filter(Boolean);
+
+    it('persists a single-choice question as ONE row with responseKind + options', async () => {
+      invokeModel.mockResolvedValueOnce(
+        new TextEncoder().encode(
+          JSON.stringify({
+            content: [
+              {
+                text: JSON.stringify({
+                  sections: [
+                    {
+                      title: 'Qualifications',
+                      questions: [
+                        {
+                          question: 'Which cloud provider do you primarily use?',
+                          responseKind: 'SINGLE_CHOICE',
+                          options: [
+                            { label: 'AWS', value: 'A' },
+                            { label: 'Azure', value: 'B' },
+                            { label: 'GCP', value: 'C' },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                }),
+              },
+            ],
+            stop_reason: 'end_turn',
+          })
+        )
+      );
+
+      const result = await baseHandler(validEvent, mockContext);
+
+      expect(result.count).toBe(1); // ONE question, not one-per-option
+      const items = capturedItems();
+      expect(items).toHaveLength(1);
+      expect(items[0]!.question).toBe('Which cloud provider do you primarily use?');
+      expect(items[0]!.responseKind).toBe('SINGLE_CHOICE');
+      expect(items[0]!.options).toEqual([
+        { label: 'AWS', value: 'A' },
+        { label: 'Azure', value: 'B' },
+        { label: 'GCP', value: 'C' },
+      ]);
+    });
+
+    it('persists a multi-choice question with its options', async () => {
+      invokeModel.mockResolvedValueOnce(
+        new TextEncoder().encode(
+          JSON.stringify({
+            content: [
+              {
+                text: JSON.stringify({
+                  sections: [
+                    {
+                      title: 'Capabilities',
+                      questions: [
+                        {
+                          question: 'Which certifications does your team hold?',
+                          responseKind: 'MULTI_CHOICE',
+                          options: [{ label: 'CISSP' }, { label: 'PMP' }],
+                        },
+                      ],
+                    },
+                  ],
+                }),
+              },
+            ],
+            stop_reason: 'end_turn',
+          })
+        )
+      );
+
+      const result = await baseHandler(validEvent, mockContext);
+
+      expect(result.count).toBe(1);
+      const items = capturedItems();
+      expect(items[0]!.responseKind).toBe('MULTI_CHOICE');
+      expect(items[0]!.options).toEqual([{ label: 'CISSP' }, { label: 'PMP' }]);
+    });
+
+    it('collapses interior whitespace in option labels so they never contain the delimiter', async () => {
+      // A wrapped label ("Line one\nLine two") would otherwise serialize into
+      // two newline-joined "options" on the frontend and never round-trip as
+      // selected. Interior whitespace (incl. newlines) is collapsed to a space.
+      invokeModel.mockResolvedValueOnce(
+        new TextEncoder().encode(
+          JSON.stringify({
+            content: [
+              {
+                text: JSON.stringify({
+                  sections: [
+                    {
+                      title: 'Capabilities',
+                      questions: [
+                        {
+                          question: 'Pick one.',
+                          responseKind: 'SINGLE_CHOICE',
+                          options: [
+                            { label: 'Line one\nLine two' },
+                            { label: '  Yes  ' },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                }),
+              },
+            ],
+            stop_reason: 'end_turn',
+          })
+        )
+      );
+
+      const result = await baseHandler(validEvent, mockContext);
+
+      expect(result.count).toBe(1);
+      const items = capturedItems();
+      expect(items[0]!.options).toEqual([{ label: 'Line one Line two' }, { label: 'Yes' }]);
+    });
+
+    it('degrades a choice question with no usable options to plain text', async () => {
+      invokeModel.mockResolvedValueOnce(
+        new TextEncoder().encode(
+          JSON.stringify({
+            content: [
+              {
+                text: JSON.stringify({
+                  sections: [
+                    {
+                      title: 'Technical',
+                      questions: [
+                        {
+                          question: 'Describe your approach.',
+                          responseKind: 'SINGLE_CHOICE',
+                          options: [],
+                        },
+                      ],
+                    },
+                  ],
+                }),
+              },
+            ],
+            stop_reason: 'end_turn',
+          })
+        )
+      );
+
+      const result = await baseHandler(validEvent, mockContext);
+
+      expect(result.count).toBe(1);
+      const items = capturedItems();
+      // Neither field should be written for a degraded text question.
+      expect(items[0]!.responseKind).toBeUndefined();
+      expect(items[0]!.options).toBeUndefined();
+    });
+
+    it('leaves free-text questions with no responseKind/options', async () => {
+      // Uses the default mock (a single plain-text question).
+      const result = await baseHandler(validEvent, mockContext);
+
+      expect(result.count).toBe(1);
+      const items = capturedItems();
+      expect(items[0]!.responseKind).toBeUndefined();
+      expect(items[0]!.options).toBeUndefined();
     });
   });
 });

@@ -10,8 +10,9 @@ import { nowIso } from '@/helpers/date';
 import { loadTextFromS3 } from '@/helpers/s3';
 import { v4 as uuidv4 } from 'uuid';
 import { invokeModel } from '@/helpers/bedrock-http-client';
+import { isAiNotConfiguredError } from '@/helpers/ai-config-error';
 import { updateQuestionFile, checkQuestionFileCancelled, getQuestionFileItem } from '@/helpers/questionFile';
-import { GroupedSection } from '@auto-rfp/core';
+import { GroupedSection, QuestionOption, QuestionResponseKind } from '@auto-rfp/core';
 import { buildQuestionSK, isConditionalCheckFailed, normalizeQuestionText, sha256Hex } from '@/helpers/question';
 import { writeAuditLog } from '@/helpers/audit-log';
 import { getHmacSecret } from '@/helpers/secret';
@@ -80,7 +81,7 @@ INCLUDE — questions that require a substantive written answer:
 
 EXCLUDE — do NOT extract these (they are not questions requiring a written answer):
 - Submission format instructions (page limits, font size, file naming, upload procedures)
-- Administrative requirements (registration in SAM.gov, representations & certifications checkboxes)
+- Administrative rep-and-cert checkboxes (SAM.gov registration, FAR/DFARS representations & certifications the vendor merely attests to)
 - Boilerplate compliance statements ("The offeror shall comply with FAR 52.xxx")
 - General background, agency overview, definitions, or context paragraphs
 - Evaluation criteria descriptions (how the government will evaluate — not what the vendor must answer)
@@ -89,7 +90,15 @@ EXCLUDE — do NOT extract these (they are not questions requiring a written ans
 - Statements of work descriptions (what the government needs — not what the vendor must answer about)
 - Procedural steps ("Submit via email to...", "Questions must be submitted by...")
 
-THE KEY TEST: Ask yourself — "Would a proposal writer need to write a substantive answer to this?" If yes, include it. If it's a checkbox, a format rule, a background statement, or a government requirement description, exclude it.
+MULTIPLE-CHOICE / RADIO / CHECKBOX QUESTIONS — these ARE questions, do not exclude them:
+A question that offers the vendor a set of answer choices (Yes/No, lettered/numbered/bulleted alternatives, or checkbox/☐ items) is a SINGLE question. Its choices are answer OPTIONS, not separate questions or excludable "checkboxes".
+- Emit ONE question for the whole thing. Never emit each option as its own question.
+- Set "responseKind" to "SINGLE_CHOICE" (pick exactly one) or "MULTI_CHOICE" (pick any that apply).
+- Put every choice in "options" as { "label": "<choice text>", "value": "<original marker if any, e.g. A / 1 / ☐>" }.
+- Keep "question" as just the question stem — do NOT paste the options into the question text.
+- The "Administrative rep-and-cert checkboxes" exclusion above applies ONLY to attestation checkboxes, NOT to answer-choice options.
+
+THE KEY TEST: Ask yourself — "Would a proposal writer need to answer this (in prose OR by choosing among options)?" If yes, include it. If it's a bare attestation checkbox, a format rule, a background statement, or a government requirement description, exclude it.
 
 Output format:
 Return ONLY valid JSON (no markdown, no commentary). Use exactly this schema:
@@ -108,6 +117,8 @@ Return ONLY valid JSON (no markdown, no commentary). Use exactly this schema:
           "isRequired": "required|optional|unknown",
           "deliverable": "What the answer should produce (e.g., 'Technical narrative', 'Past performance reference', 'Staffing plan') or empty string.",
           "responseFormat": "narrative|table|bullets|spreadsheet or empty string.",
+          "responseKind": "TEXT|SINGLE_CHOICE|MULTI_CHOICE",
+          "options": [],
           "constraints": []
         }
       ]
@@ -117,6 +128,8 @@ Return ONLY valid JSON (no markdown, no commentary). Use exactly this schema:
 
 Rules:
 - Only include questions where a proposal writer would write a substantive answer.
+- "responseKind" defaults to "TEXT". Use "SINGLE_CHOICE" / "MULTI_CHOICE" only when the question offers explicit answer choices; then list those choices in "options" (each { "label", "value" }) and leave them OUT of the question text. For TEXT questions, "options" MUST be [].
+- A multiple-choice question and ALL of its options are ONE question — never emit an option as its own question.
 - Preserve the exact wording of each question.
 - Group questions by the proposal section they belong to (Technical, Management, Past Performance, Pricing, etc.).
 - If a section has no substantive questions, omit it entirely.
@@ -133,6 +146,16 @@ This document is a QUESTIONNAIRE — a structured file where each row contains a
 GOAL:
 Extract EVERY question row from this document. Unlike narrative RFPs, in a questionnaire EVERY row in the question column IS a question that needs an answer. Do not filter aggressively.
 
+MULTIPLE-CHOICE / RADIO / CHECKBOX QUESTIONS — CRITICAL:
+Some questions offer a set of answer choices. In a flattened spreadsheet these choices often land on their OWN rows/lines beneath the question (e.g. a "(select one)" row followed by "Yes", "No", or "(A) React", "(B) Vue", "(C) Angular", or "☐ Option 1", "☐ Option 2"). Those option rows are NOT their own questions — they are the choices for the question above them.
+- Emit ONE question for the whole group. NEVER emit each option as a separate question.
+- Set "responseKind" to "SINGLE_CHOICE" (pick exactly one, e.g. radio / "select one") or "MULTI_CHOICE" (pick any, e.g. checkboxes / "select all that apply").
+- Put every choice in "options" as { "label": "<choice text>", "value": "<original marker if any, e.g. A / 1 / ☐>" }.
+- Keep "question" as just the question stem — do NOT paste the options into the question text.
+- Set "rowNumber" to the row of the QUESTION stem (the first row), not the option rows.
+- A row is an OPTION (not a question) when it is a short alternative that only makes sense as a choice for the preceding question — a checkbox/radio marker, a leading option letter/number, or one of a run of parallel short values (Yes/No, Low/Medium/High).
+- For an ordinary free-text question, set "responseKind":"TEXT" and "options":[].
+
 IMPORTANT: You MUST include the row number for each question. The row number is the 1-indexed row in the original spreadsheet where this question appears.
 
 Output format:
@@ -146,13 +169,14 @@ Return ONLY valid JSON (no markdown, no commentary). Use exactly this schema:
       "locationHint": "",
       "questions": [
         {
-          "question": "The exact question text from the question column.",
+          "question": "The exact question stem from the question column (WITHOUT its answer options).",
           "type": "technical|management|past_performance|pricing|security|qualifications|other",
           "isExplicitQuestion": true,
           "isRequired": "required",
           "deliverable": "",
           "responseFormat": "narrative",
-          "constraints": [],
+          "responseKind": "TEXT|SINGLE_CHOICE|MULTI_CHOICE",
+          "options": [],
           "rowNumber": 5
         }
       ]
@@ -162,10 +186,12 @@ Return ONLY valid JSON (no markdown, no commentary). Use exactly this schema:
 
 Rules:
 - Include EVERY row that contains a question or requirement needing a vendor response.
-- The "rowNumber" field MUST be the 1-indexed row number from the original spreadsheet.
+- A multiple-choice/radio/checkbox question and its answer options are ONE question — never split the options into separate questions (see MULTIPLE-CHOICE QUESTIONS above).
+- "responseKind" defaults to "TEXT" with "options":[]. Only use SINGLE_CHOICE / MULTI_CHOICE when the question has explicit answer choices.
+- The "rowNumber" field MUST be the 1-indexed row number from the original spreadsheet (the question stem's row for multiple-choice).
 - Preserve the exact wording of each question.
 - Group by section/category if the spreadsheet has section headers; otherwise use a single section titled "Questions".
-- Skip truly empty rows or rows that are clearly headers/section dividers (not questions).
+- Skip truly empty rows, rows that are clearly headers/section dividers (not questions), and rows that are answer options for the question above them (fold those into that question's "options").
 - Ensure the JSON is strictly valid.
 `.trim();
 
@@ -193,6 +219,7 @@ const extractQuestionsWithBedrock = async (
   chunkIndex: number,
   totalChunks: number,
   isQuestionnaire = false,
+  orgId: string,
 ): Promise<ExtractedQuestions> => {
   const body = {
     anthropic_version: 'bedrock-2023-05-31',
@@ -202,7 +229,7 @@ const extractQuestionsWithBedrock = async (
     temperature: 0.1,
   };
 
-  const responseBody = await invokeModel(getBedrockModelId(), JSON.stringify(body));
+  const responseBody = await invokeModel(getBedrockModelId(), JSON.stringify(body), orgId);
   const jsonTxt = new TextDecoder('utf-8').decode(responseBody);
 
   let outer: Record<string, unknown>;
@@ -235,6 +262,45 @@ const deduplicateQuestions = (questions: Array<{ question: string }>): Array<{ q
     seen.add(normalized);
     return true;
   });
+};
+
+/**
+ * Normalize the loose responseKind/options the model returns into typed values.
+ * Only returns a choice kind when there is at least one usable option, so a
+ * mislabelled TEXT question (or one with empty options) degrades gracefully to
+ * free-text rather than persisting a choice question with no choices.
+ */
+const normalizeChoice = (
+  q: unknown,
+): { responseKind?: QuestionResponseKind; options?: QuestionOption[] } => {
+  const raw = q as { responseKind?: unknown; options?: unknown };
+  const kind = typeof raw?.responseKind === 'string' ? raw.responseKind.toUpperCase() : '';
+
+  if (kind !== 'SINGLE_CHOICE' && kind !== 'MULTI_CHOICE') return {};
+
+  const rawOptions = Array.isArray(raw?.options) ? raw.options : [];
+  const options: QuestionOption[] = [];
+  const seen = new Set<string>();
+
+  for (const opt of rawOptions) {
+    // Collapse interior whitespace (incl. newlines) so a label can never contain
+    // the MULTI_CHOICE delimiter ('\n') — otherwise a wrapped label serializes
+    // into two "options" and can never round-trip as selected on the frontend.
+    const label = String((opt as { label?: unknown })?.label ?? '').replace(/\s+/g, ' ').trim();
+    if (!label) continue;
+    const dedupeKey = label.toLowerCase();
+    if (seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+
+    const rawValue = (opt as { value?: unknown })?.value;
+    const value = rawValue == null ? undefined : String(rawValue).trim() || undefined;
+    options.push(value ? { label, value } : { label });
+  }
+
+  // A choice question with no usable options isn't a choice question.
+  if (options.length === 0) return {};
+
+  return { responseKind: kind, options };
 };
 
 const mergeSections = (sections: GroupedSection[]): GroupedSection[] => {
@@ -290,6 +356,7 @@ const saveQuestionsFromSections = async (
       const sortKey = buildQuestionSK(projectId, opportunityId, questionFileId, questionHash);
 
       const rowNumber = (q as { rowNumber?: number })?.rowNumber;
+      const { responseKind, options } = normalizeChoice(q);
 
       const item = {
         [PK_NAME]: QUESTION_PK,
@@ -307,6 +374,10 @@ const saveQuestionsFromSections = async (
         createdAt: now,
         updatedAt: now,
         ...(typeof rowNumber === 'number' && { sourceRow: rowNumber }),
+        // Multiple-choice metadata — only stored for actual choice questions so
+        // free-text rows stay byte-identical to before.
+        ...(responseKind && { responseKind }),
+        ...(options && options.length > 0 && { options }),
       };
 
       writes.push(
@@ -371,6 +442,17 @@ export const baseHandler = async (
   const isQuestionnaire = event.docType === 'QUESTIONNAIRE';
   console.log(`Document type: ${event.docType ?? 'not set'} (isQuestionnaire: ${isQuestionnaire})`);
 
+  // Resolve orgId from the question file so it can be threaded into the Bedrock
+  // invoke (per-org API key routing). Required (ticket 09): without an orgId we
+  // cannot resolve the org's Bedrock key, so fail loudly rather than silently.
+  const qf = await getQuestionFileItem(projectId, opportunityId, questionFileId);
+  const orgId = qf?.orgId;
+  if (!orgId) {
+    throw new Error(
+      `Cannot extract questions for question file ${questionFileId}: no orgId on the item for Bedrock key routing`,
+    );
+  }
+
   const text = await loadTextFromS3(getDocumentsBucket(), textFileKey);
   console.log(`Loaded text: ${text.length} characters`);
 
@@ -381,10 +463,15 @@ export const baseHandler = async (
 
   for (let i = 0; i < chunks.length; i++) {
     try {
-      const extracted = await extractQuestionsWithBedrock(chunks[i]!, i, chunks.length, isQuestionnaire);
+      const extracted = await extractQuestionsWithBedrock(chunks[i]!, i, chunks.length, isQuestionnaire, orgId);
       allSections.push(...extracted.sections);
       console.log(`Chunk ${i + 1} extracted ${extracted.sections.length} sections`);
     } catch (err: unknown) {
+      // Fail closed: an unconfigured org can't extract any chunk, so surface the
+      // AI-not-configured error rather than silently returning zero questions.
+      // Other per-chunk errors are still tolerated so one bad chunk doesn't sink
+      // the whole extraction.
+      if (isAiNotConfiguredError(err)) throw err;
       console.error(`Failed to extract from chunk ${i + 1}:`, err);
     }
   }
@@ -392,6 +479,16 @@ export const baseHandler = async (
   const mergedSections = mergeSections(allSections);
   console.log(`After merging: ${mergedSections.length} sections`);
 
+  // NOTE: extraction is intentionally idempotent — writes use an
+  // `attribute_not_exists` condition and swallow ConditionalCheckFailedException
+  // as a duplicate (see saveQuestionsFromSections), so a Lambda/Step Functions
+  // retry safely re-writes the same rows. We deliberately do NOT delete prior
+  // questions here: the question SK is a hash of the text, and blindly sweeping
+  // before every run would (a) orphan answers/comments/assignments keyed on the
+  // old hash and (b) empty the file if a transient error hit between delete and
+  // write. Clearing prior questions is the job of the explicit, user-triggered
+  // re-extract path (reextractQuestions in helpers/questionFile.ts), which
+  // deletes up-front and reports a deletedCount.
   const totalQuestions = await saveQuestionsFromSections(
     questionFileId,
     projectId,

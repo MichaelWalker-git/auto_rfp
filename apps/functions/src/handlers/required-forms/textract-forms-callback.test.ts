@@ -39,6 +39,18 @@ jest.mock('@/helpers/autofill-fields-with-tools', () => ({
   autofillFieldsWithTools: (...args: unknown[]) => mockAutofill(...args),
 }));
 
+// WF-B notary scan — mocked so the callback tests stay focused on Textract wiring;
+// the scan's own behaviour is covered in notary-wiring.test.ts.
+const mockScanFormPageNotary = jest.fn();
+jest.mock('@/helpers/notary-wiring', () => ({
+  scanFormPageNotary: (...args: unknown[]) => mockScanFormPageNotary(...args),
+}));
+
+jest.mock('@/helpers/db', () => ({
+  isConditionalCheckFailed: (err: unknown): boolean =>
+    typeof err === 'object' && err !== null && (err as { name?: string }).name === 'ConditionalCheckFailedException',
+}));
+
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.REGION = 'us-east-1';
 process.env.BEDROCK_MODEL_ID = 'anthropic.claude-test';
@@ -96,6 +108,12 @@ const field = (overrides: Partial<DetectedFormField>): DetectedFormField => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // Default: a clean notary scan. Tests that exercise notary behaviour override this.
+  mockScanFormPageNotary.mockResolvedValue({
+    notaryStatus: 'NOT_REQUIRED',
+    notaryRequirements: [],
+    notarySource: 'AI_DETECTED',
+  });
 });
 
 describe('textract-forms-callback', () => {
@@ -153,7 +171,7 @@ describe('textract-forms-callback', () => {
     await baseHandler(event({ JobId: 'j-1', Status: 'SUCCEEDED', JobTag: 'form-1' }), ctx);
 
     expect(mockFetchBlocks).toHaveBeenCalledWith('j-1');
-    expect(mockAutofill).toHaveBeenCalledWith(detected, { orgId: 'org-1', companyName: 'Acme Corp' });
+    expect(mockAutofill).toHaveBeenCalledWith(detected, { orgId: 'org-1', companyName: 'Acme Corp' }, 'org-1');
     expect(mockUpdateForm).toHaveBeenCalledWith({
       ...formStub,
       patch: expect.objectContaining({
@@ -163,6 +181,7 @@ describe('textract-forms-callback', () => {
         manualFieldCount: 1,
         autoFillPercentage: 50,
       }),
+      guardNotaryAiDetected: true,
     });
   });
 
@@ -205,6 +224,7 @@ describe('textract-forms-callback', () => {
     expect(mockUpdateForm).toHaveBeenCalledWith({
       ...formStub,
       patch: expect.objectContaining({ status: 'READY', fields: detected }),
+      guardNotaryAiDetected: true,
     });
   });
 
@@ -225,6 +245,7 @@ describe('textract-forms-callback', () => {
         manualFieldCount: 0,
         autoFillPercentage: 0,
       }),
+      guardNotaryAiDetected: true,
     });
   });
 
@@ -237,6 +258,109 @@ describe('textract-forms-callback', () => {
     expect(mockUpdateForm).toHaveBeenCalledWith({
       ...formStub,
       patch: expect.objectContaining({ status: 'FAILED', errorMessage: 'throttled' }),
+    });
+  });
+
+  describe('notary page scan (WF-B)', () => {
+    it('folds the notary result into the SAME READY patch (one guarded write), fail-open', async () => {
+      mockFindForm.mockResolvedValueOnce(formStub);
+      mockFetchBlocks.mockResolvedValueOnce([{ BlockType: 'LINE', Text: 'notary public', Page: 1 }]);
+      mockMapBlocks.mockReturnValueOnce([]);
+      mockScanFormPageNotary.mockResolvedValueOnce({
+        notaryStatus: 'POSSIBLY_REQUIRED',
+        notaryRequirements: [
+          { documentName: 'form-1', status: 'POSSIBLY_REQUIRED', cue: 'KEYWORD', pageNumber: 1, triggeringText: 'notary public' },
+        ],
+        notarySource: 'AI_DETECTED',
+      });
+
+      await baseHandler(event({ JobId: 'j-1', Status: 'SUCCEEDED', JobTag: 'form-1' }), ctx);
+
+      // A POSSIBLY_REQUIRED scan never blocks READY; the notary fields ride the
+      // READY patch with the AI_DETECTED guard (one write).
+      expect(mockUpdateForm).toHaveBeenCalledTimes(1);
+      expect(mockUpdateForm).toHaveBeenCalledWith({
+        ...formStub,
+        patch: expect.objectContaining({ status: 'READY', notaryStatus: 'POSSIBLY_REQUIRED', notarySource: 'AI_DETECTED' }),
+        guardNotaryAiDetected: true,
+      });
+    });
+
+    it('preserves a USER_SET notary override: reaches READY without the notary fields on a conditional-check rejection', async () => {
+      mockFindForm.mockResolvedValueOnce(formStub);
+      mockFetchBlocks.mockResolvedValueOnce([{ BlockType: 'LINE', Text: 'notary', Page: 1 }]);
+      mockMapBlocks.mockReturnValueOnce([]);
+      mockScanFormPageNotary.mockResolvedValueOnce({
+        notaryStatus: 'REQUIRED',
+        notaryRequirements: [{ documentName: 'form-1', status: 'REQUIRED', cue: 'ACK_BLOCK', pageNumber: 1, triggeringText: 'must be notarized' }],
+        notarySource: 'AI_DETECTED',
+      });
+      // First (guarded) write rejects — a USER_SET override exists; second write succeeds.
+      mockUpdateForm
+        .mockRejectedValueOnce({ name: 'ConditionalCheckFailedException' })
+        .mockResolvedValueOnce({});
+
+      await baseHandler(event({ JobId: 'j-1', Status: 'SUCCEEDED', JobTag: 'form-1' }), ctx);
+
+      expect(mockUpdateForm).toHaveBeenCalledTimes(2);
+      // Fallback write reaches READY but does NOT touch the notary fields.
+      const secondCall = mockUpdateForm.mock.calls[1][0];
+      expect(secondCall.patch.status).toBe('READY');
+      expect(secondCall.patch).not.toHaveProperty('notaryStatus');
+      expect(secondCall.guardNotaryAiDetected).toBeUndefined();
+    });
+
+    it('scopes the notary scan to the form\'s OWN pages (sourcePageRange) — never the whole shared PDF', async () => {
+      // Two form records share one source PDF / Textract job; this form owns pages 3-4.
+      // Without the filter, a notary clause anywhere in the PDF would flag every form.
+      mockFindForm.mockResolvedValueOnce({ ...formStub, sourcePageRange: '3-4' });
+      const allBlocks = [
+        { BlockType: 'LINE', Text: 'all bids must be notarized', Page: 1 },
+        { BlockType: 'LINE', Text: 'company name', Page: 3 },
+        { BlockType: 'LINE', Text: 'signature', Page: 4 },
+        { BlockType: 'LINE', Text: 'state of county of', Page: 5 },
+      ];
+      mockFetchBlocks.mockResolvedValueOnce(allBlocks);
+      mockParsePageRange.mockReturnValueOnce(new Set([3, 4]));
+      mockMapBlocks.mockReturnValueOnce([]);
+
+      await baseHandler(event({ JobId: 'j-1', Status: 'SUCCEEDED', JobTag: 'form-1' }), ctx);
+
+      expect(mockScanFormPageNotary).toHaveBeenCalledTimes(1);
+      const { blocks } = mockScanFormPageNotary.mock.calls[0][0] as { blocks: Array<{ Page?: number }> };
+      expect(blocks.map((b) => b.Page)).toEqual([3, 4]);
+    });
+
+    it('scans ALL pages when the form has no sourcePageRange (whole-file form)', async () => {
+      mockFindForm.mockResolvedValueOnce(formStub);
+      const allBlocks = [
+        { BlockType: 'LINE', Text: 'notary public', Page: 1 },
+        { BlockType: 'LINE', Text: 'signature', Page: 2 },
+      ];
+      mockFetchBlocks.mockResolvedValueOnce(allBlocks);
+      mockParsePageRange.mockReturnValueOnce(null);
+      mockMapBlocks.mockReturnValueOnce([]);
+
+      await baseHandler(event({ JobId: 'j-1', Status: 'SUCCEEDED', JobTag: 'form-1' }), ctx);
+
+      const { blocks } = mockScanFormPageNotary.mock.calls[0][0] as { blocks: unknown[] };
+      expect(blocks).toEqual(allBlocks);
+    });
+
+    it('rethrows a genuine (non-conditional) write error so the form is marked FAILED', async () => {
+      mockFindForm.mockResolvedValueOnce(formStub);
+      mockFetchBlocks.mockResolvedValueOnce([{ BlockType: 'LINE', Text: 'notary', Page: 1 }]);
+      mockMapBlocks.mockReturnValueOnce([]);
+      // Guarded READY write throws a real service error, then the catch writes FAILED.
+      mockUpdateForm
+        .mockRejectedValueOnce(new Error('ddb unavailable'))
+        .mockResolvedValueOnce({});
+
+      await baseHandler(event({ JobId: 'j-1', Status: 'SUCCEEDED', JobTag: 'form-1' }), ctx);
+
+      expect(mockUpdateForm).toHaveBeenLastCalledWith(expect.objectContaining({
+        patch: expect.objectContaining({ status: 'FAILED', errorMessage: 'ddb unavailable' }),
+      }));
     });
   });
 });

@@ -27,6 +27,8 @@ import {
   createItem,
   deleteItemWithRetry,
   updateItem,
+  appendToList,
+  setOrRemoveAttribute,
 } from './db';
 
 const makeError = (name: string, message = '') => {
@@ -203,6 +205,104 @@ describe('updateItem expression attribute pruning', () => {
       '#status': 'status',
     });
     expect(params.ExpressionAttributeNames).not.toHaveProperty('#sk');
+  });
+});
+
+describe('updateItem server-side increments', () => {
+  const sentCommandParams = () =>
+    (mockSend.mock.calls[0][0] as { params: Record<string, any> }).params;
+
+  it('emits an atomic counter expression alongside plain SET updates', async () => {
+    mockSend.mockResolvedValue({ Attributes: {} });
+
+    await updateItem(
+      'PK',
+      'SK',
+      { status: 'READY' },
+      { increments: { version: 1 } },
+    );
+
+    const params = sentCommandParams();
+    expect(params.UpdateExpression).toContain('#version = #version + :version_inc');
+    expect(params.ExpressionAttributeNames['#version']).toBe('version');
+    expect(params.ExpressionAttributeValues[':version_inc']).toBe(1);
+    // Plain updates still ride along in the same expression
+    expect(params.UpdateExpression).toContain('#status = :status');
+  });
+
+  it('works without increments (option absent leaves the expression unchanged)', async () => {
+    mockSend.mockResolvedValue({ Attributes: {} });
+
+    await updateItem('PK', 'SK', { status: 'READY' });
+
+    const params = sentCommandParams();
+    expect(params.UpdateExpression).not.toContain('_inc');
+  });
+});
+
+describe('setOrRemoveAttribute', () => {
+  const sentCommandParams = () =>
+    (mockSend.mock.calls[0][0] as { params: Record<string, any> }).params;
+
+  it('SETs the attribute + updatedAt with an existence condition', async () => {
+    mockSend.mockResolvedValue({ Attributes: { label: 'x' } });
+
+    const result = await setOrRemoveAttribute('PK', 'SK', 'label', 'x');
+
+    expect(result).toEqual({ label: 'x' });
+    const params = sentCommandParams();
+    expect(params.UpdateExpression).toBe('SET #attr = :value, #updatedAt = :updatedAt');
+    expect(params.ConditionExpression).toBe('attribute_exists(#pk) AND attribute_exists(#sk)');
+    expect(params.ExpressionAttributeNames['#attr']).toBe('label');
+    expect(params.ExpressionAttributeValues[':value']).toBe('x');
+    expect(params.ExpressionAttributeValues[':updatedAt']).toEqual(expect.any(String));
+  });
+
+  it('REMOVEs the attribute when the value is undefined', async () => {
+    mockSend.mockResolvedValue({ Attributes: {} });
+
+    await setOrRemoveAttribute('PK', 'SK', 'label', undefined);
+
+    const params = sentCommandParams();
+    expect(params.UpdateExpression).toBe('REMOVE #attr SET #updatedAt = :updatedAt');
+    expect(params.ExpressionAttributeValues).toEqual({ ':updatedAt': expect.any(String) });
+  });
+
+  it('returns null when the item does not exist (condition failed)', async () => {
+    mockSend.mockRejectedValue(makeError('ConditionalCheckFailedException'));
+    await expect(setOrRemoveAttribute('PK', 'SK', 'label', 'x')).resolves.toBeNull();
+    expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('rethrows non-conditional errors', async () => {
+    mockSend.mockRejectedValue(makeError('AccessDeniedException', 'nope'));
+    await expect(setOrRemoveAttribute('PK', 'SK', 'label', 'x')).rejects.toThrow('nope');
+  });
+});
+
+describe('appendToList', () => {
+  it('emits a list_append UpdateCommand touching only the target attribute + updatedAt', async () => {
+    mockSend.mockResolvedValue({ Attributes: { appliedEditIds: ['e1', 'e2'] } });
+
+    const result = await appendToList('PK', 'SK', 'appliedEditIds', ['e2']);
+
+    expect(result).toEqual({ appliedEditIds: ['e1', 'e2'] });
+    const cmd = mockSend.mock.calls[0][0];
+    expect(cmd.type).toBe('Update');
+    // list_append(if_not_exists(...)) so a concurrent append can't clobber.
+    expect(cmd.params.UpdateExpression).toContain('list_append(if_not_exists(#attr, :empty), :items)');
+    expect(cmd.params.ExpressionAttributeNames['#attr']).toBe('appliedEditIds');
+    expect(cmd.params.ExpressionAttributeValues[':items']).toEqual(['e2']);
+    // Guarded on item existence (mirrors updateItem).
+    expect(cmd.params.ConditionExpression).toContain('attribute_exists(#pk)');
+    // Only the attribute + updatedAt are set — no sibling fields.
+    expect(cmd.params.UpdateExpression).not.toContain('#status');
+  });
+
+  it('does not retry a ConditionalCheckFailedException (missing item)', async () => {
+    mockSend.mockRejectedValue(makeError('ConditionalCheckFailedException'));
+    await expect(appendToList('PK', 'SK', 'appliedEditIds', ['e1'])).rejects.toThrow();
+    expect(mockSend).toHaveBeenCalledTimes(1);
   });
 });
 

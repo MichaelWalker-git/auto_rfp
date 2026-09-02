@@ -58,11 +58,20 @@ export const updateSolutionPlan = async (event: AuthedEvent): Promise<APIGateway
   const version = plan.version + 1;
   const contentKey = await uploadSolutionPlanHtml(key, version, htmlContent);
 
-  const updated = await updateSolutionPlanContent(key, {
-    version,
-    contentKey,
-    editedBy: getUserId(event),
-  });
+  // Display name for version-capture attribution (BR3.1) — the manual save
+  // records a SolutionPlanVersion credited to this caller.
+  const editorName =
+    (event.auth?.claims?.name as string | undefined) ??
+    (event.auth?.claims?.email as string | undefined);
+  const updated = await updateSolutionPlanContent(
+    key,
+    {
+      version,
+      contentKey,
+      editedBy: getUserId(event),
+    },
+    editorName,
+  );
   if (!updated) {
     // Conditional write failed between the read above and the write — either
     // a regenerate flipped the status or a concurrent edit claimed this

@@ -6,6 +6,8 @@ import { findRequiredFormByFormId, updateRequiredForm } from '@/helpers/required
 import { getCompanyProfile } from '@/helpers/company-profile';
 import { autofillFieldsWithTools } from '@/helpers/autofill-fields-with-tools';
 import { markFormsReadyIfAllDone } from '@/helpers/mark-forms-ready';
+import { scanFormPageNotary } from '@/helpers/notary-wiring';
+import { isConditionalCheckFailed } from '@/helpers/db';
 
 import type { DetectedFormField } from '@auto-rfp/core';
 
@@ -82,21 +84,44 @@ export const baseHandler = async (event: SNSEvent, _context: Context): Promise<v
       if (detected.length > 0) {
         const profile = await getCompanyProfile(form.orgId);
         if (profile) {
-          fields = await autofillFieldsWithTools(detected, profile);
+          fields = await autofillFieldsWithTools(detected, profile, form.orgId);
         }
       }
 
       const stats = computeStats(fields);
-      await updateRequiredForm({
-        ...baseKeys,
-        patch: {
-          fields,
-          status: 'READY',
-          ...stats,
-        },
-      });
+
+      // WF-B — form-page notary scan. Best-effort/fail-open: the scan never blocks
+      // READY and never yields a silent NOT_REQUIRED (a scan error degrades to
+      // POSSIBLY_REQUIRED review-manually). The notary fields ride the SAME patch
+      // that sets READY (one write), guarded so a USER_SET override is not
+      // clobbered (WF-C / BR12.2). If that atomic guard rejects the write
+      // (USER_SET), the form still reaches READY without the notary fields.
+      // The scan sees ONLY this form's own pages (same sourcePageRange filter as
+      // the field mapping above) — otherwise a notary clause anywhere in the
+      // shared source PDF would flag EVERY form extracted from it with identical
+      // triggers. Whole-document instructions ("all forms must be notarized")
+      // are covered by the WF-A body scan, which reads the full document text.
+      const notaryBlocks = allowedPages
+        ? blocks.filter((b) => allowedPages.has(b.Page ?? 1))
+        : blocks;
+      const notaryPatch = await scanFormPageNotary({ orgId: form.orgId, form, blocks: notaryBlocks });
+      try {
+        await updateRequiredForm({
+          ...baseKeys,
+          patch: { fields, status: 'READY', ...stats, ...notaryPatch },
+          guardNotaryAiDetected: true,
+        });
+      } catch (writeErr) {
+        if (isConditionalCheckFailed(writeErr)) {
+          // A concurrent/prior USER_SET notary override — preserve it and still
+          // reach READY without touching the notary fields.
+          await updateRequiredForm({ ...baseKeys, patch: { fields, status: 'READY', ...stats } });
+        } else {
+          throw writeErr;
+        }
+      }
       console.log(
-        `[textract-forms-callback] form ${formId}: ${stats.totalFieldCount} fields, ${stats.autoFillPercentage}% auto-filled`,
+        `[textract-forms-callback] form ${formId}: ${stats.totalFieldCount} fields, ${stats.autoFillPercentage}% auto-filled, notary=${notaryPatch.notaryStatus}`,
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

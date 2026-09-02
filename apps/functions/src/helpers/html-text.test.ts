@@ -1,4 +1,4 @@
-import { decodeHtmlEntities, stripHtmlToText } from './html-text';
+import { decodeHtmlEntities, matchHtmlEntityAt, HTML_ENTITIES, stripHtmlToText } from './html-text';
 
 describe('decodeHtmlEntities', () => {
   it('decodes the common named and numeric entities', () => {
@@ -9,6 +9,10 @@ describe('decodeHtmlEntities', () => {
     expect(decodeHtmlEntities('A&nbsp;B')).toBe('A B');
   });
 
+  it('matches numeric/nbsp entities case-insensitively', () => {
+    expect(decodeHtmlEntities('It&#X27;s&NBSP;here')).toBe("It's here");
+  });
+
   it('decodes typographic entities', () => {
     expect(decodeHtmlEntities('&mdash;&ndash;&hellip;&rsquo;&lsquo;&rdquo;&ldquo;&bull;&trade;&copy;&reg;')).toBe(
       '—–…’‘”“•™©®',
@@ -17,6 +21,21 @@ describe('decodeHtmlEntities', () => {
 
   it('leaves plain text untouched', () => {
     expect(decodeHtmlEntities('no entities here')).toBe('no entities here');
+  });
+});
+
+describe('matchHtmlEntityAt (shared with html-edit)', () => {
+  it('decodes every entity to the same char decodeHtmlEntities produces', () => {
+    // Guards the html-edit projection against drifting from the regex decoder:
+    // every table entry, matched at offset 0, yields the same char as decoding it.
+    for (const { entity } of HTML_ENTITIES) {
+      const matched = matchHtmlEntityAt(entity, 0);
+      expect(matched?.char).toBe(decodeHtmlEntities(entity));
+    }
+  });
+
+  it('returns undefined when no entity begins at the offset', () => {
+    expect(matchHtmlEntityAt('plain & text', 6)).toBeUndefined();
   });
 });
 

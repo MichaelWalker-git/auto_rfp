@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   CreateFOIARequestSchema,
   type CreateFOIARequest,
+  isFoiaEligibleStatus,
 } from '@auto-rfp/core';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { FOIA_REQUEST_PK } from '@/constants/organization';
@@ -22,6 +23,8 @@ import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
 import { getOpportunity } from '@/helpers/opportunity';
 import type { DBFOIARequestItem } from '@/types/project-outcome';
+import { detectAgencyPortal, getAgencyName } from '@/helpers/portal-detection';
+import { findAgencyRecordsPage, scrapeAgencyContactInfo } from '@/helpers/agency-scraper';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -53,21 +56,56 @@ export const baseHandler = async (
     }
     const userId = event.authContext?.userId || 'unknown';
 
-    // Verify the specific opportunity has a LOST outcome
-    const outcomeExists = await checkLostOutcome(dto.orgId, dto.projectId, dto.opportunityId);
-    if (!outcomeExists) {
+    // Verify the specific opportunity has a WON or LOST outcome
+    const outcomeEligible = await checkEligibleOutcome(dto.orgId, dto.projectId, dto.opportunityId);
+    if (!outcomeEligible) {
       return apiResponse(400, {
-        message: 'FOIA request can only be created for projects with LOST outcome',
+        message: 'FOIA request can only be created for opportunities with a WON or LOST outcome',
       });
+    }
+
+    // Detect portal information
+    const agencyName = getAgencyName(dto.agencyName);
+    const portalInfo = await detectAgencyPortal(agencyName, dto.agencyDomain);
+    
+    // Update the DTO with portal information
+    dto.portalDetected = portalInfo.detected;
+    dto.portalType = portalInfo.type;
+    dto.portalBaseUrl = portalInfo.baseUrl;
+    dto.portalRecordTypeField = portalInfo.recordTypeField;
+    dto.portalRecordTypeValue = portalInfo.recordTypeValue;
+
+    // If no portal detected, try to find agency's records page for fallback
+    if (!portalInfo.detected) {
+      const recordsPageUrl = await findAgencyRecordsPage(agencyName);
+      if (recordsPageUrl) {
+        const contactInfo = await scrapeAgencyContactInfo(agencyName, recordsPageUrl);
+        // Update any available contact information from the scraped data
+        if (contactInfo.coordinatorEmail) {
+          dto.agencyFOIAEmail = contactInfo.coordinatorEmail;
+        }
+        if (contactInfo.statutoryCitation) {
+          // We'll handle the statutory citation in the FOIA letter generation
+          // This will be used to generate the correct statutory language
+        }
+      }
     }
 
     const foiaRequest = await createFOIARequest(dto, userId);
 
-    
+    // Log audit event for portal detection
     setAuditContext(event, {
-      action: 'CONFIG_CHANGED',
-      resource: 'config',
-      resourceId: 'foia-request',
+      action: portalInfo.detected ? 'PORTAL_DETECTED' : 'EMAIL_FALLBACK_INITIATED',
+      resource: 'foia_request',
+      resourceId: foiaRequest.foiaId,
+      changes: {
+        after: {
+          portalDetected: portalInfo.detected,
+          portalType: portalInfo.type,
+          portalBaseUrl: portalInfo.baseUrl,
+          agencyName: agencyName,
+        },
+      },
     });
 
     return apiResponse(201, { foiaRequest });
@@ -85,10 +123,10 @@ export const baseHandler = async (
   }
 };
 
-async function checkLostOutcome(orgId: string, projectId: string, opportunityId: string): Promise<boolean> {
+const checkEligibleOutcome = async (orgId: string, projectId: string, opportunityId: string): Promise<boolean> => {
   const result = await getOpportunity({ orgId, projectId, oppId: opportunityId });
-  return result?.item?.status === 'LOST';
-}
+  return isFoiaEligibleStatus(result?.item?.status);
+};
 
 export async function createFOIARequest(
   dto: CreateFOIARequest,
@@ -128,6 +166,11 @@ export async function createFOIARequest(
     createdAt: now,
     updatedAt: now,
     createdBy: userId,
+    portalDetected: dto.portalDetected || false,
+    portalType: dto.portalType || 'Unknown',
+    portalBaseUrl: dto.portalBaseUrl || '',
+    portalRecordTypeField: dto.portalRecordTypeField || '',
+    portalRecordTypeValue: dto.portalRecordTypeValue || '',
   };
 
   const cmd = new PutCommand({

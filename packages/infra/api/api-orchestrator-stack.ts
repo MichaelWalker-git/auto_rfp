@@ -12,6 +12,8 @@ import * as apigwv2Authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as path from 'path';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
@@ -20,6 +22,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import { ApiSharedInfraStack } from './api-shared-infra-stack';
 import { ApiDomainLambdaStack } from './api-domain-lambda-stack';
 import type { DomainRoutes } from './routes/types';
+import { apiTierForDomain, validateApiAssignment, SECONDARY_API_DOMAINS } from './routes/api-assignment';
 import { foiaDomain } from './routes/foia.routes';
 import { debriefingDomain } from './routes/debriefing.routes';
 import { answerDomain } from './routes/answer.routes';
@@ -38,6 +41,7 @@ import { projectsDomain } from './routes/projects.routes';
 import { promptDomain } from './routes/prompt.routes';
 import { searchOpportunityDomain } from './routes/search-opportunity.routes';
 import { linearRoutes } from './routes/linear.routes';
+import { bedrockRoutes } from './routes/bedrock.routes';
 import { briefDomain } from './routes/brief.routes';
 import { pastperfDomain } from './routes/pastperf.routes';
 import { rfpDocumentDomain } from './routes/rfp-document.routes';
@@ -59,10 +63,15 @@ import { pricingDomain } from './routes/pricing.routes';
 import { extractionDomain } from './routes/extraction.routes';
 import { opportunityAssistantDomain } from './routes/opportunity-assistant.routes';
 import { complianceReviewDomain } from './routes/compliance-review.routes';
+import { packageEditDomain } from './routes/package-edit.routes';
+import { questionnaireDomain } from './routes/questionnaire.routes';
 import { companyProfileDomain } from './routes/company-profile.routes';
 import { requiredFormsDomain } from './routes/required-forms.routes';
 import { dashboardDomain } from './routes/dashboard.routes';
 import { solutionPlanDomain } from './routes/solution-plan.routes';
+import { relatedRfpDomain } from './routes/related-rfp.routes';
+import { employeeDomain } from './routes/employee.routes';
+import { foiaConfigurationSetName } from '../foia-naming';
 
 export interface ApiOrchestratorStackProps extends cdk.StackProps {
   stage: string;
@@ -105,6 +114,7 @@ export interface ApiOrchestratorStackProps extends cdk.StackProps {
 export class ApiOrchestratorStack extends cdk.Stack {
   public readonly commonLambdaRoleArn: string;
   public readonly httpApi: apigwv2.HttpApi;
+  public readonly httpApiSecondary: apigwv2.HttpApi;
   public readonly apiUrl: string;
 
   // Keep legacy fields for backward compatibility during migration
@@ -154,32 +164,52 @@ export class ApiOrchestratorStack extends cdk.Stack {
     this.restApiId = this.api.restApiId;
     this.rootResourceId = this.api.restApiRootResourceId;
 
-    // 1. Create HTTP API (v2) — no resource limit, cheaper, lower latency
+    // 1. Create the HTTP APIs (v2) — AWS caps each HTTP API at 300 integrations
+    // (hard limit) and we create one integration per route, so routes are split
+    // across two APIs by domain (see routes/api-assignment.ts). A CloudFront
+    // distribution created below routes by path prefix, so clients only ever
+    // see one base URL. Both APIs must keep identical CORS + stage config.
+    const corsPreflight: apigwv2.CorsPreflightOptions = {
+      allowOrigins: ['*'],
+      allowMethods: [apigwv2.CorsHttpMethod.ANY],
+      allowHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Amz-Date',
+        'X-Api-Key',
+        'X-Amz-Security-Token',
+        'X-Org-Id',
+      ],
+      allowCredentials: false, // Cannot be true with allowOrigins: ['*']
+      maxAge: cdk.Duration.hours(1),
+    };
+
     this.httpApi = new apigwv2.HttpApi(this, 'AutoRfpHttpApi', {
       apiName: `AutoRFP API (${stage})`,
-      corsPreflight: {
-        allowOrigins: ['*'],
-        allowMethods: [apigwv2.CorsHttpMethod.ANY],
-        allowHeaders: [
-          'Content-Type',
-          'Authorization',
-          'X-Amz-Date',
-          'X-Api-Key',
-          'X-Amz-Security-Token',
-          'X-Org-Id',
-        ],
-        allowCredentials: false, // Cannot be true with allowOrigins: ['*']
-        maxAge: cdk.Duration.hours(1),
-      },
+      corsPreflight,
       createDefaultStage: false,
     });
 
-    // apiUrl points to the NEW HTTP API (not the legacy REST API)
+    this.httpApiSecondary = new apigwv2.HttpApi(this, 'AutoRfpHttpApi2', {
+      apiName: `AutoRFP API 2 (${stage})`,
+      corsPreflight,
+      createDefaultStage: false,
+    });
 
-    // JWT authorizer using Cognito User Pool
+    // apiUrl points to the CloudFront distribution fronting both HTTP APIs
+
+    // JWT authorizers using the Cognito User Pool. An authorizer instance binds
+    // to exactly one API, so each HTTP API needs its own.
     const region = cdk.Aws.REGION;
     const jwtAuthorizer = new apigwv2Authorizers.HttpJwtAuthorizer(
       'CognitoJwtAuthorizer',
+      `https://cognito-idp.${region}.amazonaws.com/${userPool.userPoolId}`,
+      {
+        jwtAudience: [userPoolClientId],
+      },
+    );
+    const jwtAuthorizerSecondary = new apigwv2Authorizers.HttpJwtAuthorizer(
+      'CognitoJwtAuthorizer2',
       `https://cognito-idp.${region}.amazonaws.com/${userPool.userPoolId}`,
       {
         jwtAudience: [userPoolClientId],
@@ -218,6 +248,23 @@ export class ApiOrchestratorStack extends cdk.Stack {
       deadLetterQueue: { queue: solutionPlanDlq, maxReceiveCount: 1 },
     });
 
+    // ─── Package Edit queue (async cross-package "Mass Edit" proposal scan) ────
+    // Clone of the compliance-review queue: the proposal scan is a long Sonnet job
+    // that can't fit in the 29s chat turn, so the chat handler enqueues it here and
+    // the PackageEditWorker drafts the proposals asynchronously.
+    const packageEditDlq = new sqs.Queue(this, `PackageEditDLQ-${stage}`, {
+      queueName: `auto-rfp-package-edit-dlq-${stage}`,
+      retentionPeriod: cdk.Duration.days(14),
+    });
+    const packageEditQueue = new sqs.Queue(this, `PackageEditQueue-${stage}`, {
+      queueName: `auto-rfp-package-edit-${stage}`,
+      // Must be >= the worker Lambda timeout so a message isn't redelivered mid-scan.
+      visibilityTimeout: cdk.Duration.minutes(16),
+      // Long, expensive Sonnet scan — one attempt then DLQ (don't burn ~15 min
+      // retrying a doomed run). The run is marked FAILED by the worker/stale-recovery.
+      deadLetterQueue: { queue: packageEditDlq, maxReceiveCount: 1 },
+    });
+
     const commonEnv: Record<string, string> = {
       STAGE: stage,
       // Solution Plan grilling loop — REST init enqueues, the worker re-enqueues each round.
@@ -225,10 +272,19 @@ export class ApiOrchestratorStack extends cdk.Stack {
       // Solution Plan generation gate kill switch (T9) — deploy with
       // SOLUTION_PLAN_GATING=off to disable the gate stage-wide.
       SOLUTION_PLAN_GATING: process.env.SOLUTION_PLAN_GATING || 'on',
+      // KB coverage precheck kill switch — deploy with KB_COVERAGE_GATING=off to
+      // disable stage-wide. Safe to default 'on': blocking additionally requires
+      // the per-org `enableKBCoverageGate` flag, which defaults off.
+      KB_COVERAGE_GATING: process.env.KB_COVERAGE_GATING || 'on',
       // AI compliance review — fast model for sync chat, stronger model for the async worker.
       COMPLIANCE_REVIEW_CHAT_MODEL_ID: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
       COMPLIANCE_REVIEW_WORKER_MODEL_ID: 'us.anthropic.claude-sonnet-4-6',
       COMPLIANCE_REVIEW_QUEUE_URL: complianceReviewQueue.queueUrl,
+      // Cross-package AI editing ("Mass Edit") — Haiku routes the chat turn, Sonnet
+      // scans in the async worker.
+      PACKAGE_EDIT_CHAT_MODEL_ID: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+      PACKAGE_EDIT_WORKER_MODEL_ID: 'us.anthropic.claude-sonnet-4-6',
+      PACKAGE_EDIT_QUEUE_URL: packageEditQueue.queueUrl,
       AWS_ACCOUNT_ID: cdk.Aws.ACCOUNT_ID,
       DOCUMENTS_BUCKET: documentsBucket.bucketName,
       NODE_ENV: 'production',
@@ -239,6 +295,21 @@ export class ApiOrchestratorStack extends cdk.Stack {
       BEDROCK_REGION: 'us-east-1',
       BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
       BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
+      // Canonical pinned text-model IDs (ADR-003). Haiku (chat) and Sonnet
+      // (worker) previously had only per-domain vars; these give the save-time
+      // probe (ticket 04) and per-org invoke resolution (ticket 09) one
+      // authoritative role→model map to probe/select against.
+      BEDROCK_CHAT_MODEL_ID: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+      BEDROCK_WORKER_MODEL_ID: 'us.anthropic.claude-sonnet-4-6',
+      // Web-search provider for the search_service_pricing tool (T3/T15).
+      // 'tavily' (default) or 'brave' — deploy with WEB_SEARCH_PROVIDER=brave on a
+      // stage that should keep using an existing Brave key. API keys are created
+      // manually per stage in SSM (see docs/improvements_v1/
+      // RUNBOOK-WEB-SEARCH-API-KEY.md); commonLambdaRole's ssm:GetParameter
+      // grant on /auto-rfp/* already covers both parameters.
+      WEB_SEARCH_PROVIDER: process.env.WEB_SEARCH_PROVIDER || 'tavily',
+      TAVILY_API_KEY_SSM_PARAM: '/auto-rfp/tavily/api-key',
+      BRAVE_SEARCH_API_KEY_SSM_PARAM: '/auto-rfp/brave-search/api-key',
       STATE_MACHINE_ARN: documentPipelineStateMachineArn,
       QUESTION_PIPELINE_STATE_MACHINE_ARN: questionPipelineStateMachineArn,
       ANSWER_GENERATION_STATE_MACHINE_ARN: answerGenerationStateMachineArn,
@@ -261,6 +332,15 @@ export class ApiOrchestratorStack extends cdk.Stack {
       ...(rfpTrackingOrgId ? { RFP_TRACKING_ORG_ID: rfpTrackingOrgId } : {}),
       // Verified SES sender identity — horustech.dev domain must be verified in SES
       SES_FROM_EMAIL: 'noreply@horustech.dev',
+      // SES configuration set owned by FoiaAutomationStack. Naming it on a send
+      // is what routes bounces and complaints to the handler; without it a
+      // rejected FOIA request looks identical to a delivered one. Referenced by
+      // name rather than imported to avoid a cross-stack dependency cycle (that
+      // stack already depends on the database and storage stacks).
+      // Derived by the shared helper, not spelled here. The two derivations drifted on
+      // casing once; SES config-set names are case-sensitive, so the mismatch rejected
+      // every send on one path while the other kept working.
+      FOIA_SES_CONFIGURATION_SET: foiaConfigurationSetName(stage),
       // Construct the notification queue URL from the queue name — no cross-stack token reference
       ...(notificationQueueName ? {
         NOTIFICATION_QUEUE_URL: `https://sqs.${cdk.Aws.REGION}.amazonaws.com/${cdk.Aws.ACCOUNT_ID}/${notificationQueueName}`,
@@ -463,12 +543,20 @@ export class ApiOrchestratorStack extends cdk.Stack {
     });
     pocResultRule.addTarget(new eventsTargets.LambdaFunction(onPocResultFn));
 
-    // Grant SES send permission for FOIA auto-submit via email
+    // Grant SES send permission for FOIA auto-submit via email.
+    //
+    // The configuration-set ARN is required in addition to the identity: naming a
+    // configuration set on a send is authorized separately, so without it SES
+    // rejects the call outright — and that set is what routes bounces to the
+    // handler, so a send that skipped it would be undeliverable-but-silent.
     sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
       new iam.PolicyStatement({
         sid: 'SESFoiaSubmit',
         actions: ['ses:SendEmail', 'ses:SendRawEmail'],
-        resources: [`arn:aws:ses:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:identity/*`],
+        resources: [
+          `arn:aws:ses:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:identity/*`,
+          `arn:aws:ses:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:configuration-set/*`,
+        ],
       }),
     );
 
@@ -705,10 +793,15 @@ export class ApiOrchestratorStack extends cdk.Stack {
       extractionDomain({ extractionQueueUrl }),
       opportunityAssistantDomain(),
       complianceReviewDomain(),
+      packageEditDomain(),
+      questionnaireDomain(),
       companyProfileDomain(),
       requiredFormsDomain(),
       dashboardDomain(),
       solutionPlanDomain(),
+      relatedRfpDomain(),
+      employeeDomain({ extractionQueueUrl }),
+      bedrockRoutes,
     ];
 
     // ─── Compliance Review worker ─────────────────────────────────────────
@@ -778,6 +871,44 @@ export class ApiOrchestratorStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
+    // ─── Package Edit worker ──────────────────────────────────────────────
+    // Processes async cross-package "Mass Edit" proposal scans (Sonnet, no 29s
+    // limit). REST handlers enqueue via PACKAGE_EDIT_QUEUE_URL (in commonEnv).
+    // Clone of the compliance-review worker.
+    packageEditQueue.grantSendMessages(sharedInfraStack.commonLambdaRole);
+    const packageEditWorkerFunctionName = `auto-rfp-package-edit-worker-${stage}`;
+    const packageEditWorker = new lambdaNodejs.NodejsFunction(this, `PackageEditWorker-${stage}`, {
+      functionName: packageEditWorkerFunctionName,
+      entry: path.join(__dirname, '../../../apps/functions/src/handlers/package-edit/propose-worker.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.minutes(15), // Lambda max; < queue visibility timeout (16m)
+      memorySize: 1024,
+      role: sharedInfraStack.commonLambdaRole,
+      environment: { ...commonEnv },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        externalModules: ['@aws-sdk/*', '@smithy/*'],
+      },
+    });
+    packageEditWorker.addEventSource(
+      new lambdaEventSources.SqsEventSource(packageEditQueue, {
+        batchSize: 1,
+        reportBatchItemFailures: true,
+      }),
+    );
+    packageEditQueue.grantConsumeMessages(packageEditWorker);
+
+    // Explicit log group with controlled retention (the compliance worker relies
+    // on the auto-created group; package-edit gets an explicit one for
+    // observability + retention control, mirroring RasterizePdfWorkerLogs).
+    new logs.LogGroup(this, `PackageEditWorkerLogs-${stage}`, {
+      logGroupName: `/aws/lambda/${packageEditWorkerFunctionName}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
     // ─── Rasterize PDF worker ─────────────────────────────────────────────
     // Owns the heavy pdfjs-dist + @napi-rs/canvas deps so callers
     // (export-rfp-document, export-all-rfp-documents, etc.) stay under the
@@ -828,6 +959,94 @@ export class ApiOrchestratorStack extends cdk.Stack {
     // Pass the function name to every downstream route Lambda via commonEnv.
     sharedInfraStack.commonEnv.RASTERIZE_PDF_FUNCTION_NAME = rasterizePdfFunctionName;
 
+    // ─── HigherGov async search worker ────────────────────────────────────
+    // HigherGov's /opportunity/ API takes ~30s+ for some saved searches, past
+    // the API Gateway 30s ceiling — so a search_id search can't complete inline.
+    // This worker (not fronted by API Gateway) performs the fetch fire-and-forget
+    // and writes results to a DynamoDB cache row the search handler reads and the
+    // frontend polls. Created before the domain stacks so its name lands in
+    // commonEnv first. 60s timeout gives headroom over the observed ~32s fetch.
+    const higherGovSearchFunctionName = `auto-rfp-highergov-search-${stage}`;
+    new lambdaNodejs.NodejsFunction(this, `HigherGovSearchWorker-${stage}`, {
+      functionName: higherGovSearchFunctionName,
+      entry: path.join(__dirname, '../../../apps/functions/src/handlers/search-opportunity/highergov-search-worker.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      // 120s: HigherGov's /opportunity/ has been observed as slow as ~60s on a
+      // cold saved-search fetch (fast, ~34s, once warm). Headroom over the worst
+      // case lets the fetch finish in one invocation instead of relying on
+      // Lambda's async retry (which pushes first-paste results out to ~90s+).
+      timeout: cdk.Duration.seconds(120),
+      memorySize: 512,
+      role: sharedInfraStack.commonLambdaRole,
+      environment: { ...commonEnv },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        externalModules: ['@aws-sdk/*', '@smithy/*'],
+      },
+    });
+
+    new logs.LogGroup(this, `HigherGovSearchWorkerLogs-${stage}`, {
+      logGroupName: `/aws/lambda/${higherGovSearchFunctionName}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Allow the shared Lambda role to invoke the worker (string-built ARN to
+    // avoid a SharedInfra ⇄ worker dependency cycle — same reasoning as above).
+    sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        sid: 'InvokeHigherGovSearchWorker',
+        actions: ['lambda:InvokeFunction'],
+        resources: [
+          `arn:aws:lambda:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:function:${higherGovSearchFunctionName}`,
+        ],
+      }),
+    );
+
+    sharedInfraStack.commonEnv.HIGHERGOV_SEARCH_FUNCTION_NAME = higherGovSearchFunctionName;
+
+    // ─── Find Related RFPs worker (HOR-2610) ──────────────────────────────
+    // Auto-discovers past/present RFPs from the same solicitation agency via
+    // HigherGov (not fronted by API Gateway — invoked fire-and-forget after a
+    // HigherGov-sourced import and by the manual `refresh` route). Created BEFORE
+    // the domain stacks so its function name lands in commonEnv first.
+    const findRelatedRfpsFunctionName = `auto-rfp-find-related-rfps-${stage}`;
+    new lambdaNodejs.NodejsFunction(this, `FindRelatedRfpsWorker-${stage}`, {
+      functionName: findRelatedRfpsFunctionName,
+      entry: path.join(__dirname, '../../../apps/functions/src/handlers/related-rfp/find-related-rfps.ts'),
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_20_X,
+      timeout: cdk.Duration.minutes(2),
+      memorySize: 512,
+      role: sharedInfraStack.commonLambdaRole,
+      environment: { ...commonEnv },
+      bundling: {
+        minify: true,
+        sourceMap: true,
+        externalModules: ['@aws-sdk/*', '@smithy/*'],
+      },
+    });
+
+    new logs.LogGroup(this, `FindRelatedRfpsWorkerLogs-${stage}`, {
+      logGroupName: `/aws/lambda/${findRelatedRfpsFunctionName}`,
+      retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    sharedInfraStack.commonLambdaRole.addToPrincipalPolicy(
+      new iam.PolicyStatement({
+        sid: 'InvokeFindRelatedRfpsWorker',
+        actions: ['lambda:InvokeFunction'],
+        resources: [
+          `arn:aws:lambda:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:function:${findRelatedRfpsFunctionName}`,
+        ],
+      }),
+    );
+
+    sharedInfraStack.commonEnv.FIND_RELATED_RFPS_FUNCTION_NAME = findRelatedRfpsFunctionName;
+
     // 4. Create nested stacks per domain (Lambda + LogGroup + Route registration)
     //    Each nested stack stays under CloudFormation's 500 resource limit.
     //    Routes are HttpApi routes (no resource tree limit like REST API).
@@ -847,10 +1066,15 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'DocumentApprovalRoutes', 'UniversalApprovalRoutes', 'PricingRoutes', 'ExtractionRoutes',
       'OpportunityAssistantRoutes',
       'ComplianceReviewRoutes',
+      'PackageEditRoutes',
+      'QuestionnaireRoutes',
       'CompanyProfileRoutes',
       'RequiredFormsRoutes',
       'DashboardRoutes',
       'SolutionPlanRoutes',
+      'RelatedRfpRoutes',
+      'EmployeeRoutes',
+      'BedrockRoutes',
     ];
 
     // allDomains and domainStackNames are mapped 1:1 by index. A mismatch silently
@@ -862,25 +1086,93 @@ export class ApiOrchestratorStack extends cdk.Stack {
       );
     }
 
+    // Fail synth (with guidance) before either API can hit the AWS hard limit
+    // of 300 integrations per HTTP API.
+    validateApiAssignment(allDomains);
+
     for (let i = 0; i < allDomains.length; i++) {
+      const tier = apiTierForDomain(allDomains[i]!.basePath);
       new ApiDomainLambdaStack(this, domainStackNames[i]!, {
-        httpApi: this.httpApi,
+        httpApi: tier === 'secondary' ? this.httpApiSecondary : this.httpApi,
         userPoolId: userPool.userPoolId,
         lambdaRole: sharedInfraStack.commonLambdaRole,
         commonEnv: sharedInfraStack.commonEnv,
         domain: allDomains[i]!,
-        authorizer: jwtAuthorizer,
+        authorizer: tier === 'secondary' ? jwtAuthorizerSecondary : jwtAuthorizer,
+        stage,
       });
     }
 
-    // 5. Create stage with auto-deploy
+    // 5. Create stages with auto-deploy. Both APIs use the same stage name so
+    // the origins share the path shape /{stage}/{basePath}/... — CloudFront's
+    // originPath re-adds the stage segment clients no longer send.
     const apiStage = new apigwv2.HttpStage(this, 'HttpApiStage', {
       httpApi: this.httpApi,
       stageName: stage,
       autoDeploy: true,
     });
 
-    this.apiUrl = apiStage.url ?? '';
+    const apiStageSecondary = new apigwv2.HttpStage(this, 'HttpApiStage2', {
+      httpApi: this.httpApiSecondary,
+      stageName: stage,
+      autoDeploy: true,
+    });
+
+    // 6. CloudFront distribution routing by path prefix — the single client-facing
+    // base URL. Default behavior → primary API; one /{basePath}/* behavior per
+    // secondary domain (behavior quota is 25 by default; we use |SECONDARY| + default).
+    //
+    // CachingDisabled + AllViewerExceptHostHeader is load-bearing: that pair
+    // forwards the Authorization header to the JWT authorizer without caching
+    // authed responses. CloudFront's defaults strip Authorization → blanket 401s.
+    const behaviorFor = (origin: cloudfront.IOrigin): cloudfront.BehaviorOptions => ({
+      origin,
+      allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+      cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+      originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+      viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
+      compress: true,
+    });
+
+    const primaryOrigin = new origins.HttpOrigin(
+      `${this.httpApi.apiId}.execute-api.${region}.${cdk.Aws.URL_SUFFIX}`,
+      { originPath: `/${stage}` },
+    );
+    const secondaryOrigin = new origins.HttpOrigin(
+      `${this.httpApiSecondary.apiId}.execute-api.${region}.${cdk.Aws.URL_SUFFIX}`,
+      { originPath: `/${stage}` },
+    );
+
+    const apiDistribution = new cloudfront.Distribution(this, 'ApiDistribution', {
+      comment: `AutoRFP API router (${stage})`,
+      priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
+      defaultBehavior: behaviorFor(primaryOrigin),
+      additionalBehaviors: Object.fromEntries(
+        [...SECONDARY_API_DOMAINS].map((basePath) => [`/${basePath}/*`, behaviorFor(secondaryOrigin)]),
+      ),
+    });
+
+    // The client-facing base URL is the distribution, not either execute-api URL.
+    // Flows to SSM (/auto-rfp/{stage}/api-url) and AmplifyFeStack → NEXT_PUBLIC_BASE_API_URL.
+    this.apiUrl = `https://${apiDistribution.distributionDomainName}`;
+
+    // TEMPORARY export-migration shim: apiUrl used to reference the HTTP API, so
+    // CloudFormation auto-exported the API's Ref for AmplifyFeStack to import.
+    // apiUrl now references the CloudFront distribution, which would DELETE that
+    // export in the same deploy that AmplifyFeStack (deployed after this stack)
+    // still imports it — "Cannot delete export ... in use by AmplifyFeStack".
+    // Keep the old export alive until AmplifyFeStack has deployed with the new
+    // value; remove this line after one successful full `cdk deploy --all`.
+    this.exportValue(this.httpApi.apiId);
+
+    new cdk.CfnOutput(this, 'PrimaryHttpApiUrl', {
+      value: apiStage.url ?? '',
+      description: 'Primary HTTP API execute-api URL (debugging only — clients use ApiBaseUrl)',
+    });
+    new cdk.CfnOutput(this, 'SecondaryHttpApiUrl', {
+      value: apiStageSecondary.url ?? '',
+      description: 'Secondary HTTP API execute-api URL (debugging only — clients use ApiBaseUrl)',
+    });
 
     // ─── DIBBS run-saved-search scheduler ────────────────────────────────────
     const dibbsRunSavedSearchFn = new lambdaNodejs.NodejsFunction(this, `DibbsRunSavedSearch-${stage}`, {

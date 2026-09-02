@@ -20,6 +20,18 @@ jest.mock('@/helpers/solution-plan', () => ({
   uploadSolutionPlanHtml: (...a: unknown[]) => mockUploadHtml(...a),
 }));
 
+const mockCaptureVersion = jest.fn();
+jest.mock('@/helpers/solution-plan-version', () => ({
+  captureSolutionPlanVersion: (...a: unknown[]) => mockCaptureVersion(...a),
+}));
+
+// The worker only needs the conditional-check classifier from the db layer —
+// mock it so the real DynamoDB client is never constructed in this suite.
+jest.mock('@/helpers/db', () => ({
+  isConditionalCheckFailed: (err: unknown) =>
+    (err as { name?: string } | null)?.name === 'ConditionalCheckFailedException',
+}));
+
 const mockEnqueue = jest.fn();
 jest.mock('@/helpers/solution-plan-queue', () => ({
   enqueueGrillingRound: (...a: unknown[]) => mockEnqueue(...a),
@@ -53,6 +65,11 @@ jest.mock('@/helpers/db-tool-helpers', () => ({
   fetchExecutiveBriefAnalysis: (...a: unknown[]) => mockFetchBrief(...a),
 }));
 
+const mockAttachGeneratedTeam = jest.fn();
+jest.mock('@/helpers/plan-team', () => ({
+  attachGeneratedTeam: (...a: unknown[]) => mockAttachGeneratedTeam(...a),
+}));
+
 jest.mock('@/helpers/solution-plan-tools', () => ({
   SOLUTION_PLAN_TOOLS: [],
   executeSolutionPlanTool: jest.fn().mockResolvedValue({ tool_use_id: 'tu-1', content: 'ok' }),
@@ -68,6 +85,7 @@ import {
   processGrillingRound,
   processSynthesis,
   resolveMaxRounds,
+  SynthesisResponseSchema,
 } from './solution-plan-worker';
 import type { GrillingRoundMessage } from './solution-plan-queue';
 
@@ -136,6 +154,14 @@ beforeEach(() => {
     title: 'Solution Plan',
     htmlContent: '<h2>Solution Architecture</h2><p>…</p>',
   });
+  mockAttachGeneratedTeam.mockResolvedValue('ATTACHED');
+  mockCaptureVersion.mockResolvedValue(undefined);
+});
+
+/** The BR5.3 conditional-write options every synthesis completion write carries. */
+const completionWriteCondition = expect.objectContaining({
+  condition: 'attribute_exists(#pk) AND #status = :generatingStatus',
+  conditionValues: { ':generatingStatus': 'GENERATING_SOT' },
 });
 
 // ─── Round bounds ───────────────────────────────────────────────────────────────
@@ -170,6 +196,20 @@ describe('processGrillingRound', () => {
     expect(appendedRoles()).toEqual(['GRILLER', 'TECH_LEAD']);
     expect(mockUpdateStatus).toHaveBeenCalledWith(planKey, 'GRILLING', { grillingRounds: 1 });
     expect(mockEnqueue).toHaveBeenCalledWith({ ...message, round: 2, phase: 'GRILL' });
+    // Grilling rounds produce no plan content — no version capture on this path (BR1.4/W5)
+    expect(mockCaptureVersion).not.toHaveBeenCalled();
+  });
+
+  it('loads the exec brief with factual sections only — never scoring/bid-decision', async () => {
+    await processGrillingRound(message);
+
+    expect(mockFetchBrief).toHaveBeenCalledWith(
+      'proj-1',
+      'opp-1',
+      ['summary', 'deadlines', 'requirements', 'contacts', 'risks', 'pricing', 'pastPerformance'],
+    );
+    const [, , sections] = mockFetchBrief.mock.calls[0] as [string, string, string[]];
+    expect(sections).not.toContain('scoring');
   });
 
   it('terminates to SYNTHESIZE when the token is honored (round ≥ 2)', async () => {
@@ -350,15 +390,132 @@ describe('processSynthesis', () => {
 
     // Monotonic version bump from the plan's current counter (ADR-11)
     expect(mockUploadHtml).toHaveBeenCalledWith(planKey, 3, expect.stringContaining('<h2>Solution Architecture</h2>'));
-    expect(mockUpdateStatus).toHaveBeenCalledWith(planKey, 'READY', {
-      contentKey: 'org-1/proj-1/opp-1/solution-plan/v1/solution-plan.html',
-      version: 3,
-      isStale: false,
-      staleReason: '',
-      isUserEdited: false,
-      error: '',
-    });
+    expect(mockUpdateStatus).toHaveBeenCalledWith(
+      planKey,
+      'READY',
+      {
+        contentKey: 'org-1/proj-1/opp-1/solution-plan/v1/solution-plan.html',
+        version: 3,
+        isStale: false,
+        staleReason: '',
+        isUserEdited: false,
+        error: '',
+        costSchedule: null,
+      },
+      // Conditional on the plan still being mid-synthesis (BR5.3)
+      completionWriteCondition,
+    );
     expect(appendedRoles()).toEqual(['SYSTEM']);
+  });
+
+  it('attaches the recommended team after the plan is READY (team-definition BR1.1)', async () => {
+    await processSynthesis(synthMessage);
+
+    expect(mockAttachGeneratedTeam).toHaveBeenCalledWith(planKey);
+    // The hook runs AFTER the plan content is stored
+    expect(mockUpdateStatus).toHaveBeenCalledWith(planKey, 'READY', expect.anything(), completionWriteCondition);
+    expect(mockAttachGeneratedTeam.mock.invocationCallOrder[0]).toBeGreaterThan(
+      mockUpdateStatus.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('still completes synthesis when the team hook fails — the plan stays READY (BR4.2)', async () => {
+    mockAttachGeneratedTeam.mockRejectedValue(new Error('matching broke'));
+
+    await expect(processSynthesis(synthMessage)).resolves.toBeUndefined();
+
+    expect(mockUpdateStatus).toHaveBeenCalledWith(planKey, 'READY', expect.anything(), completionWriteCondition);
+    // The failure is logged, never recorded as a plan FAILURE
+    expect(mockUpdateStatus).not.toHaveBeenCalledWith(planKey, 'FAILED', expect.anything());
+  });
+
+  it('persists the costSchedule with server-recomputed totals (model-stated totals are overwritten)', async () => {
+    mockInvokeClaudeJson.mockResolvedValue({
+      title: 'Solution Plan',
+      htmlContent: '<h2>Solution Architecture</h2><p>…</p>',
+      costSchedule: {
+        currency: 'USD',
+        items: [
+          { label: 'Implementation', category: 'LABOR', amount: 34720, billing: 'ONE_TIME' },
+          { label: 'Managed hosting', category: 'LABOR', amount: 400, billing: 'MONTHLY' },
+          { label: 'GIS plugin', category: 'THIRD_PARTY', amount: null, billing: 'ANNUAL' },
+        ],
+        // Model-stated totals are wrong on purpose — they must be overwritten
+        oneTimeTotal: 99999,
+        ongoingAnnualTotal: 1,
+      },
+    });
+
+    await processSynthesis(synthMessage);
+
+    expect(mockUpdateStatus).toHaveBeenCalledWith(
+      planKey,
+      'READY',
+      expect.objectContaining({
+        costSchedule: expect.objectContaining({
+          oneTimeTotal: 34720,
+          ongoingAnnualTotal: 4800, // 12 × $400 monthly; null amounts excluded
+        }),
+      }),
+      completionWriteCondition,
+    );
+  });
+
+  it('marks "(Optional)"-labeled items optional and excludes them from the recomputed totals (2026-08-18 incident)', async () => {
+    mockInvokeClaudeJson.mockResolvedValue({
+      title: 'Solution Plan',
+      htmlContent: '<h2>Solution Architecture</h2><p>…</p>',
+      costSchedule: {
+        currency: 'USD',
+        items: [
+          { label: 'Steady-state operations', category: 'LABOR', amount: 2402050, billing: 'ANNUAL', optional: false },
+          // Model wrote "(Optional)" in the label but forgot the flag
+          { label: 'Real-Time Eligibility Integration Upgrade (Optional)', category: 'THIRD_PARTY', amount: 129600, billing: 'ANNUAL', optional: false },
+          // Explicitly flagged item (no label hint) is honored as-is
+          { label: 'Enhanced reporting module', category: 'OTHER', amount: 5000, billing: 'ONE_TIME', optional: true },
+        ],
+        oneTimeTotal: 0,
+        ongoingAnnualTotal: 0,
+      },
+    });
+
+    await processSynthesis(synthMessage);
+
+    expect(mockUpdateStatus).toHaveBeenCalledWith(
+      planKey,
+      'READY',
+      expect.objectContaining({
+        costSchedule: expect.objectContaining({
+          // Persisted items carry the normalized flags
+          items: [
+            expect.objectContaining({ label: 'Steady-state operations', optional: false }),
+            expect.objectContaining({
+              label: 'Real-Time Eligibility Integration Upgrade (Optional)',
+              optional: true,
+            }),
+            expect.objectContaining({ label: 'Enhanced reporting module', optional: true }),
+          ],
+          oneTimeTotal: 0, // optional ONE_TIME excluded
+          ongoingAnnualTotal: 2402050, // optional ANNUAL $129,600 excluded
+        }),
+      }),
+      completionWriteCondition,
+    );
+  });
+
+  it('warns and persists costSchedule: null when synthesis returns no schedule (READY, not FAILED)', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await processSynthesis(synthMessage);
+
+    expect(mockUpdateStatus).toHaveBeenCalledWith(
+      planKey,
+      'READY',
+      expect.objectContaining({ costSchedule: null }),
+      completionWriteCondition,
+    );
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('no usable costSchedule'));
+    warnSpy.mockRestore();
   });
 
   it('prepends the title as <h1> when the model omitted a heading', async () => {
@@ -374,11 +531,84 @@ describe('processSynthesis', () => {
     expect(mockUpdateStatus).not.toHaveBeenCalled();
   });
 
-  it('skips redelivery when the plan is already READY', async () => {
+  it('skips redelivery when the plan is already READY — no write, no bump, no capture (BR5.3)', async () => {
     mockGetPlan.mockResolvedValue({ ...basePlan, status: 'READY' });
     await processSynthesis(synthMessage);
     expect(mockInvokeClaudeJson).not.toHaveBeenCalled();
     expect(mockUploadHtml).not.toHaveBeenCalled();
+    expect(mockUpdateStatus).not.toHaveBeenCalled();
+    expect(mockCaptureVersion).not.toHaveBeenCalled();
+  });
+
+  it('captures a generation version attributed via the plan initiator stamp (BR1.1/BR6.2)', async () => {
+    mockGetPlan.mockResolvedValue({
+      ...basePlan,
+      status: 'GENERATING_SOT',
+      version: 2,
+      generationInitiatedBy: 'user-7',
+      generationInitiatedByName: 'Grace Initiator',
+    });
+
+    await processSynthesis(synthMessage);
+
+    expect(mockCaptureVersion).toHaveBeenCalledTimes(1);
+    expect(mockCaptureVersion).toHaveBeenCalledWith({
+      key: planKey,
+      solutionPlanId: 'plan-1',
+      versionNumber: 3,
+      htmlContentKey: 'org-1/proj-1/opp-1/solution-plan/v1/solution-plan.html',
+      costScheduleSnapshot: null,
+      origin: 'generation',
+      createdBy: 'user-7',
+      createdByName: 'Grace Initiator',
+    });
+    // Capture runs only AFTER the conditional completion write succeeded
+    expect(mockCaptureVersion.mock.invocationCallOrder[0]).toBeGreaterThan(
+      mockUpdateStatus.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('passes an absent stamp through — the sentinel fallback lives inside capture (BR3.3)', async () => {
+    // basePlan (GENERATING_SOT, version 2) carries no initiator stamp
+    await processSynthesis(synthMessage);
+
+    expect(mockCaptureVersion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        origin: 'generation',
+        createdBy: undefined,
+        createdByName: undefined,
+      }),
+    );
+  });
+
+  it('skips capture, team hook, and marker when the conditional completion write loses the race (BR5.3)', async () => {
+    const conditionError = new Error('The conditional request failed');
+    conditionError.name = 'ConditionalCheckFailedException';
+    mockUpdateStatus.mockRejectedValue(conditionError);
+
+    await expect(processSynthesis(synthMessage)).resolves.toBeUndefined();
+
+    expect(mockCaptureVersion).not.toHaveBeenCalled();
+    expect(mockAttachGeneratedTeam).not.toHaveBeenCalled();
+    expect(mockAppendMessage).not.toHaveBeenCalled();
+    // Treated as already processed — never recorded as a plan FAILURE
+    expect(mockUpdateStatus).not.toHaveBeenCalledWith(planKey, 'FAILED', expect.anything());
+  });
+
+  it('still completes synthesis when the capture rejects — fail-open at the call site (AC1.1.7)', async () => {
+    mockCaptureVersion.mockRejectedValue(new Error('capture broke'));
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await expect(processSynthesis(synthMessage)).resolves.toBeUndefined();
+
+    expect(mockUpdateStatus).toHaveBeenCalledWith(
+      planKey,
+      'READY',
+      expect.anything(),
+      completionWriteCondition,
+    );
+    expect(mockUpdateStatus).not.toHaveBeenCalledWith(planKey, 'FAILED', expect.anything());
+    errorSpy.mockRestore();
   });
 
   it('fails when the transcript has no Tech Lead answers', async () => {
@@ -395,5 +625,44 @@ describe('processSynthesis', () => {
 
     await expect(processSynthesis(synthMessage)).rejects.toThrow('model exploded');
     expect(mockUpdateStatus).toHaveBeenCalledWith(planKey, 'FAILED', { error: 'model exploded' });
+  });
+});
+
+// ─── SynthesisResponseSchema ────────────────────────────────────────────────────
+
+describe('SynthesisResponseSchema', () => {
+  const base = { title: 'Plan', htmlContent: '<h2>Architecture</h2>' };
+
+  it('parses a valid costSchedule through', () => {
+    const { success, data } = SynthesisResponseSchema.safeParse({
+      ...base,
+      costSchedule: {
+        items: [{ label: 'Hosting', amount: 400, billing: 'MONTHLY' }],
+        oneTimeTotal: 0,
+        ongoingAnnualTotal: 4800,
+      },
+    });
+    expect(success).toBe(true);
+    expect(data?.costSchedule?.items).toHaveLength(1);
+  });
+
+  it('degrades a malformed costSchedule to undefined instead of failing the plan', () => {
+    const { success, data } = SynthesisResponseSchema.safeParse({
+      ...base,
+      costSchedule: { items: [{ label: 'Hosting', amount: '$400', billing: 'WEEKLY' }] },
+    });
+    expect(success).toBe(true);
+    expect(data?.costSchedule).toBeUndefined();
+  });
+
+  it('accepts an omitted costSchedule (legacy-shaped output)', () => {
+    const { success, data } = SynthesisResponseSchema.safeParse(base);
+    expect(success).toBe(true);
+    expect(data?.costSchedule).toBeUndefined();
+  });
+
+  it('still requires title and htmlContent', () => {
+    expect(SynthesisResponseSchema.safeParse({ title: 'Plan' }).success).toBe(false);
+    expect(SynthesisResponseSchema.safeParse({ htmlContent: '<p>x</p>' }).success).toBe(false);
   });
 });

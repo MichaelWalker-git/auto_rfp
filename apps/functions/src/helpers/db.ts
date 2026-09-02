@@ -41,6 +41,15 @@ const RETRYABLE_ERROR_NAMES = new Set([
   'ServiceUnavailable',
 ]);
 
+/**
+ * True when an error is a DynamoDB conditional-check failure — the write's
+ * ConditionExpression was not met (e.g. `attribute_not_exists` on an SK that now
+ * exists). Callers that write with a uniqueness condition use this to detect a
+ * lost race and recompute+retry, rather than surfacing a 500.
+ */
+export const isConditionalCheckFailed = (err: unknown): boolean =>
+  typeof err === 'object' && err !== null && (err as { name?: string }).name === 'ConditionalCheckFailedException';
+
 const isRetryableError = (err: unknown): boolean => {
   if (typeof err !== 'object' || err === null) return false;
   const e = err as {
@@ -128,10 +137,12 @@ export const createItem = async <T extends Record<string, any>>(
 ): Promise<T & DBItem> => {
   const now = nowIso();
   
+  // Keys after the spread, for the same reason as `putItem` below: an item that
+  // carries its own key fields must not be able to overwrite the arguments.
   const fullItem = {
+    ...item,
     [PK_NAME]: pk,
     [SK_NAME]: sk,
-    ...item,
     createdAt: now,
     updatedAt: now,
   } as T & DBItem;
@@ -169,6 +180,12 @@ export const updateItem = async <T extends Record<string, any>>(
     conditionNames?: Record<string, string>;
     conditionValues?: Record<string, any>;
     returnValues?: 'ALL_NEW' | 'ALL_OLD' | 'UPDATED_NEW' | 'UPDATED_OLD';
+    /**
+     * Numeric attributes to increment server-side (`SET #attr = #attr + :n`),
+     * atomically alongside the plain SET updates — no read-modify-write race.
+     * An incremented attribute must not also appear in `updates`.
+     */
+    increments?: Record<string, number>;
   }
 ): Promise<T & DBItem> => {
   const now = nowIso();
@@ -196,6 +213,15 @@ export const updateItem = async <T extends Record<string, any>>(
       values[valueKey] = value;
       setParts.push(`${nameKey} = ${valueKey}`);
     }
+  });
+
+  // Server-side atomic counters (e.g. version bumps)
+  Object.entries(options?.increments ?? {}).forEach(([key, delta]) => {
+    const nameKey = `#${key}`;
+    const valueKey = `:${key}_inc`;
+    names[nameKey] = key;
+    values[valueKey] = delta;
+    setParts.push(`${nameKey} = ${nameKey} + ${valueKey}`);
   });
 
   const command: any = {
@@ -234,6 +260,94 @@ export const updateItem = async <T extends Record<string, any>>(
 };
 
 /**
+ * Set or remove a SINGLE attribute on an existing item: a defined `value`
+ * issues `SET #attr = :value`, `undefined` issues `REMOVE #attr` — both also
+ * touch `updatedAt` and require the item to exist (`attribute_exists`).
+ * Returns the updated item (ALL_NEW), or null when the existence condition
+ * fails (item gone → 404 semantics at the caller). Other errors propagate.
+ */
+export const setOrRemoveAttribute = async <T extends Record<string, any>>(
+  pk: string,
+  sk: string,
+  attribute: string,
+  value: unknown,
+): Promise<(T & DBItem) | null> => {
+  const now = nowIso();
+
+  const isRemove = value === undefined;
+  const command = new UpdateCommand({
+    TableName: DB_TABLE_NAME,
+    Key: { [PK_NAME]: pk, [SK_NAME]: sk },
+    UpdateExpression: isRemove
+      ? 'REMOVE #attr SET #updatedAt = :updatedAt'
+      : 'SET #attr = :value, #updatedAt = :updatedAt',
+    ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
+    ExpressionAttributeNames: {
+      '#pk': PK_NAME,
+      '#sk': SK_NAME,
+      '#attr': attribute,
+      '#updatedAt': 'updatedAt',
+    },
+    ExpressionAttributeValues: isRemove
+      ? { ':updatedAt': now }
+      : { ':value': value, ':updatedAt': now },
+    ReturnValues: 'ALL_NEW',
+  });
+
+  try {
+    const res = await withRetry(() => docClient.send(command), { label: 'setOrRemoveAttribute' });
+    return res.Attributes as T & DBItem;
+  } catch (err) {
+    if (isConditionalCheckFailed(err)) return null;
+    throw err;
+  }
+};
+
+/**
+ * Atomically append items to a list attribute (server-side `list_append`), so
+ * concurrent appends both survive instead of one clobbering the other via a
+ * read-modify-write full-item overwrite. The attribute is created if absent.
+ * Only touches `attribute` + `updatedAt` — never rewrites sibling fields.
+ *
+ * Note: `list_append` does NOT dedupe; callers that treat the list as a set must
+ * dedupe on read. Returns the updated item (ALL_NEW).
+ */
+export const appendToList = async <T extends Record<string, any>>(
+  pk: string,
+  sk: string,
+  attribute: string,
+  items: unknown[],
+): Promise<T & DBItem> => {
+  const now = nowIso();
+  const res = await withRetry(
+    () => docClient.send(
+      new UpdateCommand({
+        TableName: DB_TABLE_NAME,
+        Key: { [PK_NAME]: pk, [SK_NAME]: sk },
+        UpdateExpression:
+          'SET #attr = list_append(if_not_exists(#attr, :empty), :items), #updatedAt = :now',
+        // Require the item to exist — mirrors updateItem's default guard.
+        ConditionExpression: 'attribute_exists(#pk) AND attribute_exists(#sk)',
+        ExpressionAttributeNames: {
+          '#pk': PK_NAME,
+          '#sk': SK_NAME,
+          '#attr': attribute,
+          '#updatedAt': 'updatedAt',
+        },
+        ExpressionAttributeValues: {
+          ':empty': [],
+          ':items': items,
+          ':now': now,
+        },
+        ReturnValues: 'ALL_NEW',
+      }),
+    ),
+    { label: 'appendToList' },
+  );
+  return res.Attributes as T & DBItem;
+};
+
+/**
  * Generic put item helper (upsert)
  * Automatically adds/updates timestamps
  */
@@ -245,10 +359,26 @@ export const putItem = async <T extends Record<string, any>>(
 ): Promise<T & DBItem> => {
   const now = nowIso();
   
+  /**
+   * Keys are applied AFTER the spread, so the caller's item can never clobber them.
+   *
+   * They used to come first, which meant an item carrying its own
+   * `partition_key`/`sort_key` silently overwrote the arguments. That is not
+   * hypothetical: `deriveFoiaRequest` seeded both with `''` to satisfy the
+   * `DBFOIARequestItem` type, and every automated FOIA preparation then failed
+   * with "The AttributeValue for a key attribute cannot contain an empty string
+   * value" — a message that names the symptom and none of the twelve helpers in
+   * the call graph.
+   *
+   * The `item: Omit<T, typeof PK_NAME | typeof SK_NAME>` signature does not
+   * prevent this. `PK_NAME` is a `const` of type `string`, so that resolves to
+   * `Omit<T, string>`, which strips nothing — and even a correct `Omit` only
+   * removes the property from the *type*, never from the runtime object.
+   */
   let fullItem: any = {
+    ...item,
     [PK_NAME]: pk,
     [SK_NAME]: sk,
-    ...item,
     updatedAt: now,
   };
 
@@ -302,6 +432,39 @@ export const deleteItem = async (pk: string, sk: string) => {
     ),
     { label: 'deleteItem' },
   );
+};
+
+/**
+ * Delete an item only if a ConditionExpression holds (e.g. a lock whose owner
+ * matches). Returns true if the delete happened, false if the condition failed
+ * (including when the item doesn't exist — a conditional delete on a missing item
+ * fails its condition, which we treat as a benign no-op). Other errors propagate.
+ */
+export const deleteItemIf = async (
+  pk: string,
+  sk: string,
+  condition: string,
+  conditionNames?: Record<string, string>,
+  conditionValues?: Record<string, any>,
+): Promise<boolean> => {
+  try {
+    await withRetry(
+      () => docClient.send(
+        new DeleteCommand({
+          TableName: DB_TABLE_NAME,
+          Key: { [PK_NAME]: pk, [SK_NAME]: sk },
+          ConditionExpression: condition,
+          ExpressionAttributeNames: conditionNames,
+          ExpressionAttributeValues: conditionValues,
+        }),
+      ),
+      { label: 'deleteItemIf' },
+    );
+    return true;
+  } catch (err) {
+    if (isConditionalCheckFailed(err)) return false;
+    throw err;
+  }
 };
 
 export const getItem = async <T>(

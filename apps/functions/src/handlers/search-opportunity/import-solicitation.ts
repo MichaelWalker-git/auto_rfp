@@ -28,12 +28,15 @@ import { getProjectById } from '@/helpers/project';
 import { syncOpportunityToApn } from '@/helpers/apn-db';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
 import { resolveUserNames } from '@/helpers/resolve-users';
-import { importAttachments } from '@/helpers/attachment-importer';
+import { importAttachments, isSafeUrlAsync } from '@/helpers/attachment-importer';
+import { triggerRelatedRfpDiscovery } from '@/helpers/related-rfp';
+import { scanPhysicalSubmission } from '@/helpers/executive-opportunity-brief';
 import {
   httpsGetBuffer,
   fetchOpportunityViaSearch,
   extractAttachmentsFromOpportunity,
   safeIsoOrNull,
+  sha1,
   toBoolActive,
 } from '@/helpers/search-opportunity';
 import {
@@ -85,6 +88,15 @@ const ImportRequestSchema = z.discriminatedUnion('source', [
     sourceDocumentId: z.string().optional(),
     force:            z.boolean().optional(),
   }),
+  z.object({
+    source:           z.literal('MANUAL_UPLOAD'),
+    orgId:            z.string().min(1),
+    projectId:        z.string().min(1),
+    url:              z.string().url(),
+    title:            z.string().min(1).optional(),
+    sourceDocumentId: z.string().optional(),
+    force:            z.boolean().optional(),
+  }),
 ]);
 
 type ImportRequest = z.infer<typeof ImportRequestSchema>;
@@ -102,6 +114,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
 
   if (data.source === 'SAM_GOV') return importSamGov(event, data);
   if (data.source === 'DIBBS') return importDibbs(event, data);
+  if (data.source === 'MANUAL_UPLOAD') return importFromUrl(event, data);
   return importHigherGov(event, data);
 };
 
@@ -146,6 +159,22 @@ const resolveDescription = async (
   } catch (err) {
     console.warn(`[importSamGov] Failed to fetch description from ${description}:`, (err as Error)?.message);
     return description;
+  }
+};
+
+/**
+ * Deterministic physical-vs-electronic submission scan, run at import time so
+ * opportunities carry a detection result before any documents are uploaded or a
+ * brief is generated. Supplementary and lightweight — never blocks the import.
+ */
+const scanPhysicalSubmissionSafely = (
+  text: string,
+): ReturnType<typeof scanPhysicalSubmission> => {
+  try {
+    return scanPhysicalSubmission(text);
+  } catch (err) {
+    console.warn('[importSamGov] Physical submission scan failed:', (err as Error)?.message);
+    return null;
   }
 };
 
@@ -208,6 +237,14 @@ const importSamGov = async (
 
   const rawDescription = ((oppRaw as Record<string, unknown>)?.description ?? null) as string | null;
   const description = await resolveDescription(rawDescription, apiKey);
+  const title = String((oppRaw as Record<string, unknown>)?.title ?? 'Untitled');
+
+  // Supplementary, lightweight scan so the opportunity carries a physical-submission
+  // detection result from the moment it enters the system. The brief worker remains
+  // the authoritative path for Linear label sync — this only seeds the fields.
+  const physicalScanResult = scanPhysicalSubmissionSafely(
+    [title, description].filter(Boolean).join('\n\n'),
+  );
 
   const { oppId, item } = await createOpportunity({
     orgId: data.orgId,
@@ -217,7 +254,7 @@ const importSamGov = async (
       projectId: data.projectId,
       source: 'SAM_GOV',
       id: data.noticeId,
-      title: String((oppRaw as Record<string, unknown>)?.title ?? 'Untitled'),
+      title,
       type: ((oppRaw as Record<string, unknown>)?.type ?? null) as string | null,
       postedDateIso: safeIsoOrNull((oppRaw as Record<string, unknown>)?.postedDate as string | undefined),
       responseDeadlineIso: safeIsoOrNull((oppRaw as Record<string, unknown>)?.responseDeadLine as string | undefined),
@@ -230,6 +267,11 @@ const importSamGov = async (
       description,
       active: toBoolActive((oppRaw as Record<string, unknown>)?.active),
       baseAndAllOptionsValue: ((oppRaw as Record<string, unknown>)?.baseAndAllOptionsValue ?? null) as number | null,
+      ...(physicalScanResult ? {
+        submissionMethod: physicalScanResult.submissionMethod,
+        submissionMailingAddress: physicalScanResult.submissionMailingAddress,
+        submissionMethodRationale: physicalScanResult.submissionMethodRationale,
+      } : {}),
     },
   });
 
@@ -273,7 +315,6 @@ const importSamGov = async (
   if (userId) {
     const nameMap = await resolveUserNames(data.orgId, [userId]).catch(() => ({} as Record<string, string>));
     const userName = nameMap[userId] ?? 'A user';
-    const title = String((oppRaw as Record<string, unknown>)?.title ?? data.noticeId);
     await sendNotification(buildNotification(
       'SOLICITATION_IMPORTED',
       'New solicitation imported',
@@ -508,6 +549,10 @@ const importHigherGov = async (
     changes: { after: { source: 'HIGHER_GOV', higherGovOppKey: opp.opp_key, projectId: data.projectId, filesImported: files.length } },
   });
 
+  // Auto-find past/present RFPs from the same agency (HOR-2610). Fire-and-forget —
+  // never blocks the import; re-runnable via the manual refresh route.
+  await triggerRelatedRfpDiscovery(data.orgId, data.projectId, oppId);
+
   const userId = getUserId(event);
   if (userId) {
     const nameMap = await resolveUserNames(data.orgId, [userId]).catch(() => ({} as Record<string, string>));
@@ -524,6 +569,141 @@ const importHigherGov = async (
     ok: true, source: 'HIGHER_GOV', projectId: data.projectId,
     higherGovOppKey: opp.opp_key, opportunityId: oppId,
     imported: files.length, opportunity: item, files,
+  });
+};
+
+// ─── Manual URL import ────────────────────────────────────────────────────────
+
+/**
+ * Import a solicitation from a manually-provided URL (paste-a-URL fallback
+ * for sources without API integration). The URL is SSRF-validated, then
+ * downloaded as a single attachment. No provider metadata, no attachment
+ * discovery — just the URL itself.
+ */
+const importFromUrl = async (
+  event: AuthedEvent,
+  data: Extract<ImportRequest, { source: 'MANUAL_UPLOAD' }>,
+): Promise<APIGatewayProxyResultV2> => {
+  // SSRF protection: validate URL before any network call
+  if (!(await isSafeUrlAsync(data.url))) {
+    return apiResponse(400, {
+      message: 'Invalid or unsafe URL. Cannot import from private networks or blocked hosts.',
+      url: data.url,
+    });
+  }
+
+  // Derive a title from the URL filename if not provided
+  const deriveTitle = (url: string): string => {
+    try {
+      const parsed = new URL(url);
+      const segments = parsed.pathname.split('/').filter(Boolean);
+      const lastSegment = segments[segments.length - 1];
+      if (lastSegment && lastSegment.includes('.')) {
+        // Remove extension and decode URI components
+        return decodeURIComponent(lastSegment.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' '));
+      }
+      return 'Manual Upload';
+    } catch {
+      return 'Manual Upload';
+    }
+  };
+
+  const title = data.title ?? deriveTitle(data.url);
+  // There is no noticeId or solicitationNumber to key on, so derive the ID from the
+  // URL itself. A hash rather than the trailing path segment: this value is
+  // interpolated into an S3 key by `buildAttachmentS3Key`, and a raw segment can
+  // carry spaces, slashes or percent-escapes.
+  const id = `manual-${sha1(data.url)}`;
+
+  // Note: No deduplication — findOpportunityBySourceId has no URL-keyed lookup.
+  // A URL import will create a new opportunity every time. This matches the
+  // "paste a URL" intent — users can import the same URL to multiple projects.
+
+  const { oppId, item } = await createOpportunity({
+    orgId: data.orgId,
+    projectId: data.projectId,
+    opportunity: {
+      orgId: data.orgId,
+      projectId: data.projectId,
+      source: 'MANUAL_UPLOAD',
+      id,
+      title,
+      type: null,
+      postedDateIso: null,
+      responseDeadlineIso: null,
+      noticeId: null,
+      solicitationNumber: null,
+      naicsCode: null,
+      pscCode: null,
+      organizationName: null,
+      setAside: null,
+      description: null,
+      active: true,
+      baseAndAllOptionsValue: null,
+      sourceUrl: data.url,
+    },
+  });
+
+  // Sync to AWS Partner Central (same as other sources — awaited for consistency)
+  await syncOpportunityToApn({
+    orgId: data.orgId,
+    projectId: data.projectId,
+    oppId,
+    customerName: title,
+    opportunityValue: 0,
+    expectedCloseDate: new Date().toISOString(),
+    proposalStatus: 'PROSPECT',
+    description: `Manual URL import: ${data.url}`,
+  });
+
+  // Import the URL as a single attachment
+  const files = await importAttachments({
+    orgId: data.orgId,
+    projectId: data.projectId,
+    id,
+    attachments: [{ url: data.url }],
+    oppId,
+    sourceDocumentId: data.sourceDocumentId,
+  });
+
+  setAuditContext(event, {
+    action: 'SOLICITATION_IMPORTED',
+    resource: 'opportunity',
+    resourceId: oppId,
+    orgId: data.orgId,
+    changes: {
+      after: {
+        source: 'MANUAL_UPLOAD',
+        url: data.url,
+        projectId: data.projectId,
+        filesImported: files.length,
+      },
+    },
+  });
+
+  const userId = getUserId(event);
+  if (userId) {
+    const nameMap = await resolveUserNames(data.orgId, [userId]).catch(() => ({} as Record<string, string>));
+    const userName = nameMap[userId] ?? 'A user';
+    await sendNotification(buildNotification(
+      'SOLICITATION_IMPORTED',
+      'New solicitation imported',
+      `${userName} imported "${title}" from a manual URL`,
+      { orgId: data.orgId, projectId: data.projectId, entityId: oppId, recipientUserIds: [userId] },
+    ));
+  }
+
+  return apiResponse(202, {
+    ok: true,
+    source: 'MANUAL_UPLOAD',
+    projectId: data.projectId,
+    url: data.url,
+    opportunityId: oppId,
+    imported: files.length,
+    opportunity: item,
+    files,
+    // Flag the reduced guarantee: one document, no provider metadata, no attachment discovery
+    limitedMetadata: true,
   });
 };
 

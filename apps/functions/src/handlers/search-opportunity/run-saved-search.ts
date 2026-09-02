@@ -209,7 +209,10 @@ async function createQuestionFile(args: {
     projectId: args.projectId,
     fileKey: args.fileKey,
     textFileKey: null,
-    status: 'uploaded',
+    // `UPLOADED`, matching QuestionFileStatusSchema and helpers/questionFile.ts.
+    // This local copy wrote lowercase 'uploaded', which no status check matches —
+    // so auto-imported files read as neither pending nor processed.
+    status: 'UPLOADED',
     originalFileName: args.originalFileName ?? null,
     mimeType: args.mimeType ?? null,
     sourceDocumentId: args.sourceDocumentId ?? null,
@@ -326,7 +329,10 @@ async function importNoticeUsingHelpers(args: {
       mimeType: finalContentType,
     });
 
-    await markProcessing(args.projectId, questionFileId, oppId);
+    // (projectId, oppId, questionFileId) — these were transposed, so the status
+    // write targeted a key that does not exist and auto-imported files were left
+    // stuck at 'uploaded' even though their pipeline had started.
+    await markProcessing(args.projectId, oppId, questionFileId);
     await startPipeline(args.orgId, args.projectId, questionFileId, oppId);
 
     imported++;
@@ -344,16 +350,21 @@ async function runForOrg(args: {
 }) {
   const searches = await listSavedSearchesForOrg(args.orgId);
   console.log('searches ', searches);
-  const projectId = await getOrgDefaultProjectId(args.orgId);
-  console.log('projectId ', projectId);
+  // Org-default project is the fallback for older / org-level searches that were
+  // saved before we started recording the originating project on the search.
+  const defaultProjectId = await getOrgDefaultProjectId(args.orgId);
+  console.log('defaultProjectId ', defaultProjectId);
 
   const out: any[] = [];
 
   for (const s of searches) {
     if (!shouldRunNow(s, args.now)) continue;
 
+    // Import into the project the search was saved from; fall back to the org default.
+    const projectId = s.projectId ?? defaultProjectId;
+
     const criteria = buildRuntimeCriteria(s, args.now);
-    console.log('criteria ', criteria, 'source', s.source);
+    console.log('criteria ', criteria, 'source', s.source, 'projectId', projectId);
 
     const source = s.source ?? 'SAM_GOV';
     let found = 0;
@@ -463,7 +474,7 @@ async function runForOrg(args: {
               const ct = a.mimeType || contentType || guessContentType(filename);
               await uploadToS3(DOCUMENTS_BUCKET, fileKey, buf, ct);
               const { questionFileId } = await createQuestionFile({ projectId, fileKey, oppId, originalFileName: filename, mimeType: ct });
-              await markProcessing(projectId, questionFileId, oppId);
+              await markProcessing(projectId, oppId, questionFileId);
               await startPipeline(args.orgId, projectId, questionFileId, oppId);
               importedQuestionFiles++;
             }
@@ -563,7 +574,7 @@ async function runForOrg(args: {
                 const ct = a.mimeType || contentType || guessContentType(filename);
                 await uploadToS3(DOCUMENTS_BUCKET, fileKey, buf, ct);
                 const { questionFileId } = await createQuestionFile({ projectId, fileKey, oppId, originalFileName: filename, mimeType: ct });
-                await markProcessing(projectId, questionFileId, oppId);
+                await markProcessing(projectId, oppId, questionFileId);
                 await startPipeline(args.orgId, projectId, questionFileId, oppId);
                 importedQuestionFiles++;
               } catch (attachErr) {

@@ -1,13 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { Save, Sparkles, MessageSquare, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
-import { AnswerSource, type AnswerResolution, ConfidenceBreakdown, ConfidenceBand, type CommentEntityType } from '@auto-rfp/core';
+import { AnswerSource, type AnswerResolution, ConfidenceBreakdown, ConfidenceBand, type CommentEntityType, type QuestionOption, type QuestionResponseKind } from '@auto-rfp/core';
 import { PermissionButton } from '@/components/ui/permission-button';
 import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { ConfidenceScoreDisplay } from '@/components/confidence/confidence-score-display';
@@ -15,6 +19,7 @@ import { SimilarQuestionsPanel } from './similar-questions-panel';
 import { getToolDisplayName } from './source-details-dialog';
 import { CollaborationPanel, FloatingPanel } from '@/features/collaboration';
 import { useComments } from '@/features/collaboration/hooks/useComments';
+import { AiNotConfiguredNotice } from '@/components/ai-not-configured-notice';
 
 interface AnswerData {
   text: string;
@@ -82,6 +87,112 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   DRAFT:    { label: 'Draft',    className: 'bg-slate-100 text-slate-600 border-slate-200' },
 };
 
+/** Delimiter used to serialize multiple selected options into the answer text. */
+const MULTI_CHOICE_DELIMITER = '\n';
+
+/**
+ * Renders a radio group (SINGLE_CHOICE) or checkbox list (MULTI_CHOICE) for a
+ * question that carries answer options. The selection is serialized back into
+ * the same free-text answer channel every question already uses:
+ *   - SINGLE_CHOICE → the chosen option's label
+ *   - MULTI_CHOICE  → the chosen labels joined by newlines
+ * so downstream storage, generation, and export keep treating the answer as
+ * text. Falls back to a plain textarea when there are no usable options.
+ */
+const ChoiceAnswer = ({
+  responseKind,
+  options,
+  value,
+  onChange,
+  disabled,
+}: {
+  responseKind: QuestionResponseKind;
+  options: QuestionOption[];
+  value: string;
+  onChange: (value: string) => void;
+  disabled: boolean;
+}) => {
+  // Selections serialize into the answer text — anything that isn't an exact
+  // option label (e.g. AI-generated prose written before options were known)
+  // can't survive a single toggle, so we surface it as a replaceable warning
+  // rather than letting the first click silently overwrite invisible text.
+  const optionLabels = new Set(options.map((o) => o.label));
+  const selectedLabels = value
+    .split(MULTI_CHOICE_DELIMITER)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const hasUnmatchedText =
+    value.trim().length > 0 && !selectedLabels.every((s) => optionLabels.has(s));
+
+  const unmatchedNotice = hasUnmatchedText ? (
+    <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-2 text-sm">
+      <p className="font-medium text-amber-900">
+        This answer doesn&apos;t match the available options — selecting one will replace it.
+      </p>
+      <p className="mt-1 whitespace-pre-wrap text-slate-700">{value}</p>
+    </div>
+  ) : null;
+
+  if (responseKind === 'SINGLE_CHOICE') {
+    return (
+      <>
+        {unmatchedNotice}
+        <RadioGroup value={value} onValueChange={onChange} disabled={disabled} className="gap-2">
+          {options.map((opt, i) => {
+            const id = `choice-${i}`;
+            return (
+              <div key={id} className="flex items-center gap-2">
+                <RadioGroupItem value={opt.label} id={id} />
+                <Label htmlFor={id} className="font-normal cursor-pointer">
+                  {opt.label}
+                </Label>
+              </div>
+            );
+          })}
+        </RadioGroup>
+      </>
+    );
+  }
+
+  // MULTI_CHOICE — selected labels are the answer text split on the delimiter.
+  const selected = new Set(selectedLabels);
+
+  const handleToggle = (label: string, checked: boolean) => {
+    // When the stored text is unmatched prose, the first toggle replaces it
+    // entirely (there are no prior valid selections to preserve).
+    const next = new Set(hasUnmatchedText ? [] : selected);
+    if (checked) next.add(label);
+    else next.delete(label);
+    // Preserve the option order rather than Set insertion order.
+    const ordered = options.map((o) => o.label).filter((l) => next.has(l));
+    onChange(ordered.join(MULTI_CHOICE_DELIMITER));
+  };
+
+  return (
+    <>
+      {unmatchedNotice}
+      <div className="grid gap-2">
+        {options.map((opt, i) => {
+          const id = `choice-${i}`;
+          return (
+            <div key={id} className="flex items-center gap-2">
+              <Checkbox
+                id={id}
+                checked={!hasUnmatchedText && selected.has(opt.label)}
+                onCheckedChange={(checked) => handleToggle(opt.label, checked === true)}
+                disabled={disabled}
+              />
+              <Label htmlFor={id} className="font-normal cursor-pointer">
+                {opt.label}
+              </Label>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+};
+
 export function QuestionEditor({
   question,
   section,
@@ -109,6 +220,8 @@ export function QuestionEditor({
   const [showComments, setShowComments] = useState(false);
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const [confidenceExpanded, setConfidenceExpanded] = useState(false);
+  const routeParams = useParams<{ orgId?: string }>();
+  const orgId = collaboration?.orgId ?? routeParams?.orgId ?? '';
 
   // Fetch unresolved comment count for the badge — only when collaboration is available
   const { unresolvedCount } = useComments(
@@ -119,6 +232,12 @@ export function QuestionEditor({
   );
 
   const editors = collaboration?.editingUsers ?? [];
+  // A multiple-choice question renders options instead of a textarea — but only
+  // when it actually carries options; otherwise degrade to free-text.
+  const isChoiceQuestion =
+    (question?.responseKind === 'SINGLE_CHOICE' || question?.responseKind === 'MULTI_CHOICE') &&
+    Array.isArray(question?.options) &&
+    question.options.length > 0;
   const hasSources = answer?.sources && answer.sources.length > 0;
   const hasConfidence = answer?.confidence !== undefined && answer.confidence !== null;
 
@@ -130,6 +249,9 @@ export function QuestionEditor({
   // and found nothing": this one is retryable, so prompt a retry rather than
   // implying the knowledge base lacks the content.
   const showGenerationFailedNotice = answer?.resolution === 'GENERATION_FAILED' && !hasAnswerText;
+  // The org has no valid Bedrock key — generation could not run at all. Distinct
+  // from a generation failure: an admin must add a key, so point them there.
+  const showAiNotConfiguredNotice = answer?.resolution === 'AI_NOT_CONFIGURED' && !hasAnswerText;
 
   // Status derived from answer — someone else editing = "Editing"
   const isBeingEditedByOther = editors.length > 0;
@@ -222,18 +344,39 @@ export function QuestionEditor({
             </div>
           )}
 
-          {/* Textarea — amber ring + disabled when someone else is editing */}
-          <Textarea
-            placeholder="Enter your answer here..."
-            className={`min-h-[200px] transition-shadow ${
-              isLockedByOther
-                ? 'ring-2 ring-amber-400 ring-offset-1 focus-visible:ring-amber-400 opacity-70 cursor-not-allowed'
-                : ''
-            }`}
-            value={answer?.text || ''}
-            onChange={(e) => onAnswerChange(e.target.value)}
-            disabled={isLockedByOther}
-          />
+          {/* AI-not-configured notice — the org has no valid Bedrock key */}
+          {showAiNotConfiguredNotice && <AiNotConfiguredNotice orgId={orgId} />}
+
+          {/* Answer input — a radio group / checkbox list for multiple-choice
+              questions, otherwise the free-text textarea. Choice questions must
+              have usable options; if none arrived, fall back to text. */}
+          {isChoiceQuestion ? (
+            <div
+              className={`rounded-lg border p-3 transition-shadow ${
+                isLockedByOther ? 'ring-2 ring-amber-400 ring-offset-1 opacity-70' : ''
+              }`}
+            >
+              <ChoiceAnswer
+                responseKind={question.responseKind}
+                options={question.options}
+                value={answer?.text || ''}
+                onChange={onAnswerChange}
+                disabled={isLockedByOther}
+              />
+            </div>
+          ) : (
+            <Textarea
+              placeholder="Enter your answer here..."
+              className={`min-h-[200px] transition-shadow ${
+                isLockedByOther
+                  ? 'ring-2 ring-amber-400 ring-offset-1 focus-visible:ring-amber-400 opacity-70 cursor-not-allowed'
+                  : ''
+              }`}
+              value={answer?.text || ''}
+              onChange={(e) => onAnswerChange(e.target.value)}
+              disabled={isLockedByOther}
+            />
+          )}
 
           {/* Live answer preview from collaborator */}
           {liveAnswerText !== undefined && liveAnswerText !== (answer?.text ?? '') && editors.length > 0 && (

@@ -17,6 +17,11 @@ export * from './outcome-detail'
 export * from './project-outcome'
 export * from './debriefing'
 export * from './foia'
+export * from './foia-component'
+export * from './foia-automation'
+export * from './foia-settings'
+export * from './foia-agency-contact'
+export * from './foia-dashboard'
 export * from './analytics'
 export * from './organization';
 export * from './org-contact';
@@ -34,6 +39,8 @@ export * from './notification';
 export * from './audit';
 export * from './clarifying-question';
 export * from './engagement-log';
+export * from './employee';
+export * from './employee-import';
 export * from './apn';
 export * from './proposal-submission';
 export * from './document-approval';
@@ -43,7 +50,16 @@ export * from './extraction-job';
 export * from './opportunity-assistant';
 export * from './compliance-review';
 export * from './required-form';
+export * from './required-form-version';
+export * from './questionnaire-version';
+export * from './package-edit';
 export * from './company-profile';
 export * from './member-detection';
 export * from './rfp-digest';
 export * from './solution-plan';
+export * from './solution-plan-version';
+export * from './service-pricing-cache';
+export * from './related-rfp';
+export * from './kb-coverage';
+export * from './notary';
+export * from './bedrock-config';

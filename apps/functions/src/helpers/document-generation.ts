@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { queryBySkPrefix } from '@/helpers/db';
+import { isAiNotConfiguredError } from '@/helpers/ai-config-error';
 import { updateRFPDocumentMetadata, uploadRFPDocumentHtml, getRFPDocument } from '@/helpers/rfp-document';
 import { loadAllSolicitationTexts } from '@/helpers/executive-opportunity-brief';
 import { getTemplate, findBestTemplate, loadTemplateHtml, replaceMacros } from '@/helpers/template';
@@ -10,7 +11,7 @@ import {
   getLatestVersionNumber,
   saveVersionHtml,
 } from '@/helpers/rfp-document-version';
-import { type RFPDocumentContent } from '@auto-rfp/core';
+import { type RFPDocumentContent, type TemplateFurniture } from '@auto-rfp/core';
 import type { BedrockResponse, QaPair } from '@/types/document-generation';
 
 export type { QaPair };
@@ -168,6 +169,58 @@ export const resolveTemplateHtml = async (
   } catch (err) {
     console.error('Failed to load template HTML from S3:', err);
     return null;
+  }
+};
+
+/**
+ * Resolve the header/footer configuration for a generated document.
+ *
+ * Exports run on documents rather than templates, and an `RFPDocumentItem` has no
+ * link back to the template it came from, so the furniture has to be snapshotted
+ * onto the document at generation time or the export path can never see it.
+ *
+ * Snapshotting (rather than looking the template up at export time) also means a
+ * later template edit cannot retroactively restyle documents already produced.
+ *
+ * Uses the same template resolution as `resolveTemplateHtml` so the furniture
+ * always comes from the template that supplied the body.
+ *
+ * Macros in the header/footer are resolved here, at the same point the body's are.
+ * Without this a `{{COMPANY_NAME}}` in a header reached the renderer verbatim and
+ * printed as literal `{{COMPANY_NAME}}` on every page. The reserved page tokens
+ * are deliberately left intact — `replaceMacros` skips them so each renderer can
+ * map them to a live page-number field.
+ */
+export const resolveTemplateFurniture = async (
+  orgId: string,
+  documentType: string,
+  templateId?: string,
+  macroValues?: Record<string, string>,
+): Promise<{ templateId?: string; furniture?: TemplateFurniture }> => {
+  try {
+    const template = templateId
+      ? await getTemplate(orgId, templateId)
+      : await findBestTemplate(orgId, documentType);
+
+    if (!template) return {};
+    if (!template.furniture) return { templateId: template.id };
+
+    const resolveHtml = (html: string): string =>
+      macroValues ? replaceMacros(html, macroValues) : html;
+
+    return {
+      templateId: template.id,
+      furniture: {
+        ...template.furniture,
+        header: { ...template.furniture.header, html: resolveHtml(template.furniture.header.html) },
+        footer: { ...template.furniture.footer, html: resolveHtml(template.furniture.footer.html) },
+      },
+    };
+  } catch (err) {
+    // Never fail generation over furniture — a document without a header is far
+    // better than no document.
+    console.warn('Failed to resolve template furniture:', (err as Error)?.message);
+    return {};
   }
 };
 
@@ -390,6 +443,60 @@ export const calculateRetryDelay = (retryCount: number): number => {
  * @deprecated Use calculateRetryDelay() for exponential backoff
  */
 export const RETRY_DELAY_SECONDS = 30;
+
+/**
+ * AWS error names that are permanent on the name alone — the request is wrong in
+ * a way no later attempt changes. Retrying one re-runs the whole generation (a
+ * fresh Bedrock invocation) only to be rejected identically, so it fails fast.
+ *
+ * `ValidationException` is deliberately NOT here: AWS reuses that name for
+ * recoverable conditions too, so it needs its message inspected — see
+ * {@link isTerminalGenerationError}.
+ */
+const TERMINAL_AWS_ERROR_NAMES = new Set([
+  'SerializationException',
+  'AccessDeniedException',
+  'ResourceNotFoundException',
+]);
+
+/**
+ * A `ValidationException` message that names a malformed expression, rather than
+ * one of the recoverable conditions AWS reports under the same error name.
+ * Covers `Invalid UpdateExpression` / `ConditionExpression` / `KeyConditionExpression`
+ * and the `ExpressionAttributeNames`/`-Values` complaints.
+ */
+const MALFORMED_EXPRESSION_MESSAGE = /Invalid \w*Expression|ExpressionAttribute/i;
+
+/**
+ * Whether an error is permanent, so the caller should skip its retry budget.
+ *
+ * Deliberately conservative: only errors AWS reports as client-side faults
+ * count. Throttling, timeouts and 5xx stay retryable, and an unrecognised
+ * error is treated as retryable so a transient fault is never turned into a
+ * hard failure by this check.
+ */
+export const isTerminalGenerationError = (err: unknown): boolean => {
+  if (!err || typeof err !== 'object') return false;
+
+  // An org with no Bedrock key fails identically on every attempt — retrying
+  // only burns the budget and buries the real cause. An admin must add a key.
+  if (isAiNotConfiguredError(err)) return true;
+
+  const { name, message } = err as { name?: unknown; message?: unknown };
+  if (typeof name !== 'string') return false;
+
+  // `ValidationException` is not permanent on its own — DynamoDB also raises it
+  // for an item that outgrew the 400 KB limit (see `required-form.ts`, where a
+  // large compliance matrix does exactly that) and for capacity rejections that
+  // `index-document.ts` deliberately counts as throttling. Both clear on their
+  // own, so failing them outright would strand a document that a retry would
+  // have saved. Only a malformed expression is genuinely unretryable.
+  if (name === 'ValidationException') {
+    return typeof message === 'string' && MALFORMED_EXPRESSION_MESSAGE.test(message);
+  }
+
+  return TERMINAL_AWS_ERROR_NAMES.has(name);
+};
 
 export interface DocumentGenerationMessage {
   orgId: string;

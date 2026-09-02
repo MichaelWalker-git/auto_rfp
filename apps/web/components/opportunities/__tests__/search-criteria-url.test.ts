@@ -95,10 +95,46 @@ describe('paramsToCriteria', () => {
   });
 });
 
+describe('legacy source back-compat', () => {
+  // The UI now offers SAM.gov and HigherGov only, but `?source=DIBBS` and
+  // `?source=all` URLs are still bookmarked and still linked from saved searches.
+  // They must degrade to SAM.gov rather than strand the form on an unselectable
+  // provider (or, worse, send an unsupported source to the API).
+  it.each([
+    ['DIBBS', 'DIBBS'],
+    ['the legacy "all" mode', 'all'],
+    ['an unrecognised value', 'GOVWIN'],
+    ['no source at all', null],
+  ])('coerces %s to SAM_GOV', (_label, source) => {
+    const params = new URLSearchParams({ q: 'radar' });
+    if (source !== null) params.set('source', source);
+
+    expect(paramsToFormValues(params)?.source).toBe('SAM_GOV');
+    expect(paramsToCriteria(params)?.sources).toEqual(['SAM_GOV']);
+  });
+
+  it('still honours HIGHER_GOV', () => {
+    const params = new URLSearchParams({ source: 'HIGHER_GOV', hgId: SEARCH_ID });
+
+    expect(paramsToFormValues(params)?.source).toBe('HIGHER_GOV');
+    expect(paramsToCriteria(params)?.sources).toEqual(['HIGHER_GOV']);
+  });
+});
+
 describe('savedSearchToParams', () => {
+  it('reopens a stored DIBBS search against SAM.gov', () => {
+    // DIBBS is no longer selectable; the saved row still exists in DynamoDB.
+    const params = savedSearchToParams({
+      ...makeSavedSearch({ keywords: 'bolts' }),
+      source: 'DIBBS',
+    });
+
+    expect(params.get('source')).toBe('SAM_GOV');
+  });
+
   it('produces a URL the search page can actually parse', () => {
-    // The run button used to push `?search=<json>`, which only the older
-    // samgov-opportunity-search page reads — so it landed on an empty form.
+    // The run button used to push `?search=<json>`, which only a since-deleted
+    // SAM.gov-only search page read — so it landed on an empty form.
     const params = savedSearchToParams(makeSavedSearch({ higherGovSearchId: SEARCH_ID }));
 
     expect(params.get('hgId')).toBe(SEARCH_ID);
@@ -179,5 +215,46 @@ describe('paramsToFormValues', () => {
 
   it('returns null for a bare page visit', () => {
     expect(paramsToFormValues(new URLSearchParams())).toBeNull();
+  });
+});
+
+/**
+ * The "omitted param means the default" trap. `criteriaToParams` deliberately drops
+ * HigherGov params at their default values to keep URLs readable, so `paramsToCriteria`
+ * MUST restore those defaults rather than returning undefined — the backend and
+ * HigherGov both apply their own, different defaults otherwise.
+ *
+ * This bit three times: an absent hgMarket became HigherGov's `federal_contract`
+ * (UI said "All sources" but returned 18 instead of 310), and an absent hgActive
+ * silently read as "off" in the results-bar copy.
+ */
+describe('HigherGov defaults survive a URL round-trip', () => {
+  it('restores market=all when the param was omitted', () => {
+    const params = criteriaToParams({
+      keywords: 'saas', sources: ['HIGHER_GOV'], higherGovMarket: 'all', higherGovActiveOnly: true,
+    });
+
+    expect(params.has('hgMarket')).toBe(false); // omitted for readability
+    expect(paramsToCriteria(params)?.higherGovMarket).toBe('all');
+    expect(paramsToFormValues(params)?.higherGovMarket).toBe('all');
+  });
+
+  it('restores activeOnly=true when the param was omitted', () => {
+    const params = criteriaToParams({
+      keywords: 'saas', sources: ['HIGHER_GOV'], higherGovActiveOnly: true,
+    });
+
+    expect(params.has('hgActive')).toBe(false);
+    expect(paramsToCriteria(params)?.higherGovActiveOnly).toBe(true);
+  });
+
+  it('round-trips a non-default market and an explicit activeOnly=false', () => {
+    const params = criteriaToParams({
+      keywords: 'saas', sources: ['HIGHER_GOV'],
+      higherGovMarket: 'state_local', higherGovActiveOnly: false,
+    });
+
+    expect(paramsToCriteria(params)?.higherGovMarket).toBe('state_local');
+    expect(paramsToCriteria(params)?.higherGovActiveOnly).toBe(false);
   });
 });

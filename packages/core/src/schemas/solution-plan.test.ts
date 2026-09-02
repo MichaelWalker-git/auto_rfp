@@ -9,6 +9,8 @@ import {
   SolutionPlanStatusPatchSchema,
   SolutionPlanUpdateRequestSchema,
   SolutionPlanItemSchema,
+  SolutionPlanCostItemSchema,
+  SolutionPlanCostScheduleSchema,
   SolutionPlanDBItemSchema,
   SolutionPlanListItemSchema,
   GrillingMessageRoleSchema,
@@ -235,6 +237,139 @@ describe('SolutionPlanStatusPatchSchema', () => {
     expect(SolutionPlanStatusPatchSchema.safeParse({ version: -1 }).success).toBe(false);
     expect(SolutionPlanStatusPatchSchema.safeParse({ isStale: 'yes' }).success).toBe(false);
   });
+
+  it('should accept a costSchedule (persisted with the READY patch) and null (cleared)', () => {
+    const { success, data } = SolutionPlanStatusPatchSchema.safeParse({
+      costSchedule: {
+        items: [{ label: 'Hosting', amount: 400, billing: 'MONTHLY' }],
+        oneTimeTotal: 0,
+        ongoingAnnualTotal: 4800,
+      },
+    });
+    expect(success).toBe(true);
+    expect(data?.costSchedule?.items).toHaveLength(1);
+    expect(SolutionPlanStatusPatchSchema.safeParse({ costSchedule: null }).success).toBe(true);
+  });
+});
+
+describe('SolutionPlanCostItemSchema', () => {
+  const validCostItem = {
+    label: 'Managed hosting',
+    category: 'LABOR',
+    amount: 400,
+    billing: 'MONTHLY',
+  };
+
+  it('should accept a valid priced item', () => {
+    const { success, data } = SolutionPlanCostItemSchema.safeParse(validCostItem);
+    expect(success).toBe(true);
+    expect(data?.amount).toBe(400);
+  });
+
+  it('should accept a null amount (vendor quote required)', () => {
+    const { success, data } = SolutionPlanCostItemSchema.safeParse({
+      ...validCostItem,
+      amount: null,
+    });
+    expect(success).toBe(true);
+    expect(data?.amount).toBeNull();
+  });
+
+  it('should reject a negative amount', () => {
+    expect(
+      SolutionPlanCostItemSchema.safeParse({ ...validCostItem, amount: -1 }).success
+    ).toBe(false);
+  });
+
+  it('should default the category to OTHER and catch unknown categories', () => {
+    const { category: _omitted, ...noCategory } = validCostItem;
+    expect(SolutionPlanCostItemSchema.parse(noCategory).category).toBe('OTHER');
+    expect(
+      SolutionPlanCostItemSchema.parse({ ...validCostItem, category: 'CLOUD_STUFF' }).category
+    ).toBe('OTHER');
+  });
+
+  it('should reject an unknown billing period', () => {
+    expect(
+      SolutionPlanCostItemSchema.safeParse({ ...validCostItem, billing: 'QUARTERLY' }).success
+    ).toBe(false);
+  });
+
+  it('should require a non-empty label', () => {
+    expect(
+      SolutionPlanCostItemSchema.safeParse({ ...validCostItem, label: '' }).success
+    ).toBe(false);
+  });
+
+  it('should default optional to false when omitted (legacy items)', () => {
+    expect(SolutionPlanCostItemSchema.parse(validCostItem).optional).toBe(false);
+  });
+
+  it('should accept an explicit optional flag', () => {
+    expect(
+      SolutionPlanCostItemSchema.parse({ ...validCostItem, optional: true }).optional
+    ).toBe(true);
+    expect(
+      SolutionPlanCostItemSchema.parse({ ...validCostItem, optional: false }).optional
+    ).toBe(false);
+  });
+
+  it('should catch a malformed optional value to false', () => {
+    expect(
+      SolutionPlanCostItemSchema.parse({ ...validCostItem, optional: 'yes' }).optional
+    ).toBe(false);
+  });
+});
+
+describe('SolutionPlanCostScheduleSchema', () => {
+  const validSchedule = {
+    items: [{ label: 'Setup', amount: 1000, billing: 'ONE_TIME' }],
+    oneTimeTotal: 1000,
+    ongoingAnnualTotal: 0,
+  };
+
+  it('should accept a valid schedule and default the currency to USD', () => {
+    const { success, data } = SolutionPlanCostScheduleSchema.safeParse(validSchedule);
+    expect(success).toBe(true);
+    expect(data?.currency).toBe('USD');
+  });
+
+  it('should require at least one item', () => {
+    expect(
+      SolutionPlanCostScheduleSchema.safeParse({ ...validSchedule, items: [] }).success
+    ).toBe(false);
+  });
+
+  it('should reject negative totals', () => {
+    expect(
+      SolutionPlanCostScheduleSchema.safeParse({ ...validSchedule, oneTimeTotal: -1 }).success
+    ).toBe(false);
+    expect(
+      SolutionPlanCostScheduleSchema.safeParse({ ...validSchedule, ongoingAnnualTotal: -1 }).success
+    ).toBe(false);
+  });
+
+  it('should accept optional assumptions', () => {
+    const { success, data } = SolutionPlanCostScheduleSchema.safeParse({
+      ...validSchedule,
+      assumptions: ['12-month period of performance'],
+    });
+    expect(success).toBe(true);
+    expect(data?.assumptions).toEqual(['12-month period of performance']);
+  });
+
+  it('should parse a legacy persisted schedule (items without the optional flag)', () => {
+    const { success, data } = SolutionPlanCostScheduleSchema.safeParse({
+      items: [
+        { label: 'Setup', amount: 1000, billing: 'ONE_TIME' },
+        { label: 'Hosting', category: 'LABOR', amount: 400, billing: 'MONTHLY' },
+      ],
+      oneTimeTotal: 1000,
+      ongoingAnnualTotal: 4800,
+    });
+    expect(success).toBe(true);
+    expect(data?.items.map((i) => i.optional)).toEqual([false, false]);
+  });
 });
 
 describe('SolutionPlanItemSchema', () => {
@@ -266,6 +401,24 @@ describe('SolutionPlanItemSchema', () => {
     expect(success).toBe(true);
     expect(data?.staleReason).toBe('Executive brief was regenerated');
     expect(data?.grillingRounds).toBe(4);
+  });
+
+  it('should accept the optional generation-initiator stamp fields (BR6.1)', () => {
+    const { success, data } = SolutionPlanItemSchema.safeParse({
+      ...validItem,
+      generationInitiatedBy: 'user-1',
+      generationInitiatedByName: 'Alice Example',
+    });
+    expect(success).toBe(true);
+    expect(data?.generationInitiatedBy).toBe('user-1');
+    expect(data?.generationInitiatedByName).toBe('Alice Example');
+  });
+
+  it('should parse pre-feature plans without the initiator stamp (BR3.3 fallback input)', () => {
+    const { success, data } = SolutionPlanItemSchema.safeParse(validItem);
+    expect(success).toBe(true);
+    expect(data?.generationInitiatedBy).toBeUndefined();
+    expect(data?.generationInitiatedByName).toBeUndefined();
   });
 
   it('should reject an invalid status', () => {
@@ -304,6 +457,34 @@ describe('SolutionPlanItemSchema', () => {
     });
     expect(success).toBe(true);
     expect(data?.error).toBe('Bedrock invocation timed out');
+  });
+
+  it('should parse a legacy item without a costSchedule', () => {
+    const { success, data } = SolutionPlanItemSchema.safeParse(validItem);
+    expect(success).toBe(true);
+    expect(data?.costSchedule).toBeUndefined();
+  });
+
+  it('should accept a null costSchedule (cleared by a user edit)', () => {
+    const { success, data } = SolutionPlanItemSchema.safeParse({
+      ...validItem,
+      costSchedule: null,
+    });
+    expect(success).toBe(true);
+    expect(data?.costSchedule).toBeNull();
+  });
+
+  it('should accept a populated costSchedule', () => {
+    const { success, data } = SolutionPlanItemSchema.safeParse({
+      ...validItem,
+      costSchedule: {
+        items: [{ label: 'Hosting', amount: 400, billing: 'MONTHLY' }],
+        oneTimeTotal: 0,
+        ongoingAnnualTotal: 4800,
+      },
+    });
+    expect(success).toBe(true);
+    expect(data?.costSchedule?.ongoingAnnualTotal).toBe(4800);
   });
 });
 

@@ -4,22 +4,65 @@
  * exports all use this same HTML so they look identical to the rendered editor.
  */
 
+import { resolveFurnitureVisibility, type TemplateFurniture } from '@auto-rfp/core';
+import {
+  marginForFurniture,
+  splitIntoFurnitureSections,
+} from './export-furniture';
+
 export interface BuildExportHtmlOptions {
   /** Document title for <title> and optional header */
   title?: string;
   /** Page size for print CSS */
   pageSize?: 'letter' | 'a4';
+  /**
+   * Running header/footer configuration, copied forward from the source template.
+   * Absent ⇒ no furniture, and the emitted CSS is byte-identical to before this
+   * feature existed.
+   */
+  furniture?: TemplateFurniture;
 }
 
 /**
- * Wrap raw TipTap editor HTML in a fully styled HTML document.
- * The styles here match the editor's rendering so exports look identical.
+ * Insert zero-height markers at each page-break-delimited section boundary.
+ *
+ * The PDF renderer measures these to learn which printed page a section starts
+ * on, which is how it slices the document into per-section furniture passes.
+ *
+ * Markers rather than wrappers: wrapping each section in a `<div>` introduces a
+ * block box that can absorb margins and shift pagination, and assigning it a CSS
+ * named page forced a spurious extra page (measured: a 3-page document became
+ * 4). An empty inline-block with no size cannot move anything.
+ *
+ * Only applied when overrides exist — otherwise the body HTML passes through
+ * untouched and existing documents stay byte-identical.
  */
+const tagFurnitureSections = (bodyHtml: string, furniture?: TemplateFurniture): string => {
+  if (!furniture?.sectionOverrides.length) return bodyHtml;
+
+  const marker = (i: number) =>
+    `<span data-furniture-section="${i}" style="display:block;height:0;margin:0;padding:0;font-size:0;line-height:0"></span>`;
+
+  const sections = splitIntoFurnitureSections(bodyHtml);
+  if (sections.length <= 1) return `${marker(0)}${bodyHtml}`;
+
+  // Re-emit the page break that splitting consumed, preserving the original layout.
+  return sections
+    .map((section, i) => `${marker(i)}${section}`)
+    .join('<div data-page-break="true" style="break-after: page; page-break-after: always;"></div>');
+};
+
 export const buildExportHtml = (bodyHtml: string, options: BuildExportHtmlOptions = {}): string => {
-  const { title = 'Document', pageSize = 'letter' } = options;
+  const { title = 'Document', pageSize = 'letter', furniture } = options;
   const pageDims = pageSize === 'a4'
     ? { width: '210mm', height: '297mm' }
     : { width: '8.5in', height: '11in' };
+
+  // Section 0 drives the base margins. Margins must grow to reserve the furniture
+  // band, or the running header prints on top of the body text.
+  const baseVisible = resolveFurnitureVisibility(furniture, 0);
+  const { topIn, bottomIn } = marginForFurniture(furniture, baseVisible);
+  const taggedBody = tagFurnitureSections(bodyHtml, furniture);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -30,7 +73,7 @@ export const buildExportHtml = (bodyHtml: string, options: BuildExportHtmlOption
   <style>
     @page {
       size: ${pageDims.width} ${pageDims.height};
-      margin: 1in;
+      margin: ${topIn}in 1in ${bottomIn}in 1in;
     }
     * { box-sizing: border-box; }
     body {
@@ -186,6 +229,35 @@ export const buildExportHtml = (bodyHtml: string, options: BuildExportHtmlOption
     .table-of-contents .toc-entry {
       margin: 2px 0;
     }
+    /* ── Page furniture (running header / footer) ── */
+    .export-furniture {
+      color: #6b7280;
+      font-size: 9pt;
+      line-height: 1.3;
+    }
+    .export-furniture img {
+      display: inline-block;
+      margin: 0;
+      max-height: 100%;
+      border-radius: 0;
+    }
+    .export-furniture p { margin: 0; }
+    .export-furniture--header {
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 6px;
+      margin-bottom: 18px;
+    }
+    .export-furniture--footer {
+      border-top: 1px solid #e5e7eb;
+      padding-top: 6px;
+      margin-top: 18px;
+    }
+    /* Screen-only: in print, the real running furniture comes from the PDF
+       renderer's header/footer templates, so showing this band too would
+       duplicate it on the first and last page. */
+    @media print {
+      .export-furniture { display: none; }
+    }
     /* ── Print overrides ── */
     @media print {
       body {
@@ -200,8 +272,35 @@ export const buildExportHtml = (bodyHtml: string, options: BuildExportHtmlOption
     }
   </style>
 </head>
-<body>${bodyHtml}</body>
+<body>${renderFurnitureBand(furniture, baseVisible, 'header')}${taggedBody}${renderFurnitureBand(furniture, baseVisible, 'footer')}</body>
 </html>`;
+};
+
+/**
+ * Render a static header/footer band for standalone HTML viewing.
+ *
+ * Browsers only materialise `@page` margin boxes when printing, so an HTML export
+ * opened on screen would otherwise show no furniture at all and look inconsistent
+ * with the PDF. Hidden in print (see CSS above) to avoid double-rendering.
+ *
+ * Page tokens are rendered as literals here — a scrolling HTML page has no page
+ * number to report.
+ */
+const renderFurnitureBand = (
+  furniture: TemplateFurniture | undefined,
+  visible: { showHeader: boolean; showFooter: boolean },
+  which: 'header' | 'footer',
+): string => {
+  const show = which === 'header' ? visible.showHeader : visible.showFooter;
+  const part = which === 'header' ? furniture?.header : furniture?.footer;
+  if (!show || !part) return '';
+
+  const align = part.align.toLowerCase();
+  const html = part.html
+    .replace(/\{\{PAGE_NUMBER\}\}/g, '1')
+    .replace(/\{\{TOTAL_PAGES\}\}/g, '1');
+
+  return `<div class="export-furniture export-furniture--${which}" style="text-align: ${align}">${html}</div>`;
 };
 
 const escapeHtml = (text: string): string =>

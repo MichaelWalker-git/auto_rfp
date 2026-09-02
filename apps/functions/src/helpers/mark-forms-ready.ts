@@ -2,10 +2,13 @@ import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 import { docClient, queryAllBySkPrefix, withRetry } from './db';
 import { listRequiredFormsByOpportunity } from './required-form';
+import { rollupOpportunityNotary } from './notary-wiring';
 import { PK_NAME, SK_NAME } from '../constants/common';
 import { QUESTION_FILE_PK } from '../constants/question-file';
 import { requireEnv } from './env';
 import { nowIso } from './date';
+
+import type { NotaryRequirement } from '@auto-rfp/core';
 
 /**
  * After a form transitions to a terminal state (READY/DONE/FAILED), check whether
@@ -30,11 +33,29 @@ export const markFormsReadyIfAllDone = async (
   orgId: string,
   projectId: string,
   opportunityId: string,
+  /**
+   * Unmapped solicitation-instruction notary triggers discovered by the body
+   * scan (WF-A), folded into the opportunity notary rollup (BR10.3). Empty for
+   * callers that don't run a body scan (e.g. the Textract callback).
+   */
+  unmappedNotaryTriggers: NotaryRequirement[] = [],
 ): Promise<void> => {
   try {
     const forms = await listRequiredFormsByOpportunity({ orgId, projectId, opportunityId });
     const anyPending = forms.some((f) => f.status !== 'READY' && f.status !== 'DONE' && f.status !== 'FAILED');
     if (anyPending) return;
+
+    // WF-D — opportunity notary rollup + change-guarded notification. Best-effort:
+    // a failure here is logged inside the helper and never blocks the FORMS_READY
+    // writes below (the rollup recomputes idempotently on the next terminal event).
+    // opportunityId is the opportunity's oppId (same single-table SK segment).
+    await rollupOpportunityNotary({
+      orgId,
+      projectId,
+      oppId: opportunityId,
+      forms,
+      unmappedTriggers: unmappedNotaryTriggers,
+    });
 
     const tableName = requireEnv('DB_TABLE_NAME');
     const skPrefix = `${projectId}#${opportunityId}#`;

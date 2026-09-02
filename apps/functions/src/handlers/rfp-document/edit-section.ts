@@ -21,13 +21,18 @@ import {
   requirePermission,
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
+import type { SolutionPlanCostSchedule } from '@auto-rfp/core';
 import { getRFPDocument } from '@/helpers/rfp-document';
-import { DOCUMENT_TOOLS, executeDocumentTool } from '@/helpers/document-tools';
+import { executeDocumentTool, getDocumentToolsForType, PRICING_TOOL_DOC_TYPES } from '@/helpers/document-tools';
+import { correctPricingTableTotals } from '@/helpers/pricing-table-math';
+import { applyPlanReconciliationSafe } from '@/helpers/plan-cost-reconciliation';
+import { renderCostScheduleBlock } from '@/helpers/cost-schedule';
+import { getSolutionPlanByOpportunity } from '@/helpers/solution-plan';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import type { QaPair } from '@/helpers/document-generation';
 import { loadQaPairs, loadSolicitation } from '@/helpers/document-generation';
 import { gatherAllContext } from '@/helpers/document-context';
-import { getDefaultGuidance } from '@/helpers/document-prompts';
+import { buildPricingRulesBlock, getDefaultGuidance } from '@/helpers/document-prompts';
 import { resolveDocumentPromptFragments } from '@/helpers/document-prompt-overrides';
 import { TEMPERATURE } from '@/constants/document-generation';
 import { requireEnv } from '@/helpers/env';
@@ -43,10 +48,11 @@ const invokeModelWithRetry = async (
   modelId: string,
   body: string,
   maxRetries = 2,
+  orgId: string,
 ): Promise<Uint8Array> => {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await invokeModel(modelId, body);
+      return await invokeModel(modelId, body, orgId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
       const isRetryable = msg.includes('503') || msg.includes('Service Unavailable') || msg.includes('ThrottlingException');
@@ -87,6 +93,8 @@ export const buildSectionEditSystemPrompt = (
   sectionTitle: string,
   documentType: string,
   guidanceOverride?: string | null,
+  /** True when the document was generated from an Approved Solution Plan (Fix A). */
+  hasSolutionPlan = false,
 ): string => {
   const guidance = guidanceOverride ?? getDefaultGuidance(documentType);
 
@@ -97,7 +105,7 @@ You are editing a SINGLE SECTION of an RFP proposal document. The section is tit
 ═══════════════════════════════════════
 DOCUMENT TYPE GUIDANCE
 ═══════════════════════════════════════
-${guidance}
+${guidance}${buildPricingRulesBlock(documentType, hasSolutionPlan)}
 
 CRITICAL OUTPUT FORMAT:
 - Return ONLY the updated HTML for this section
@@ -139,8 +147,10 @@ const buildSectionEditUserPrompt = (args: {
   sectionTitle: string;
   solicitation: string;
   enrichedContext: string;
+  /** Plan cost schedule for pricing doc types — rendered as the AUTHORITATIVE COST SCHEDULE block. */
+  costSchedule?: SolutionPlanCostSchedule | null;
 }): string => {
-  const { instruction, currentSectionHtml, sectionTitle, solicitation, enrichedContext } = args;
+  const { instruction, currentSectionHtml, sectionTitle, solicitation, enrichedContext, costSchedule } = args;
 
   const parts: string[] = [];
 
@@ -153,6 +163,10 @@ ${instruction}`);
 CURRENT SECTION HTML (Section: "${sectionTitle}")
 ═══════════════════════════════════════
 ${currentSectionHtml}`);
+
+  if (costSchedule) {
+    parts.push(renderCostScheduleBlock(costSchedule));
+  }
 
   if (solicitation) {
     const truncatedSolicitation = solicitation.length > MAX_CONTEXT_CHARS
@@ -209,6 +223,11 @@ export const baseHandler = async (
     const doc = await getRFPDocument(projectId, opportunityId, documentId);
     if (!doc) return apiResponse(404, { message: 'Document not found' });
 
+    // ADR-7 stamp: a document generated from an Approved Solution Plan keeps the
+    // plan as its only third-party price source — search_service_pricing is
+    // withheld for its section edits too (Fix A).
+    const hasSolutionPlan = Boolean(doc.solutionPlanId);
+
     // Set audit context early
     setAuditContext(event, {
       action: 'DOCUMENT_SECTION_EDIT_STARTED',
@@ -238,7 +257,17 @@ export const baseHandler = async (
 
     const documentType = doc.documentType ?? 'TECHNICAL_PROPOSAL';
 
-    const [qaPairs, solicitation, enrichedContext, fragments] = await Promise.all([
+    // Plan cost schedule (pricing doc types only): the structured schedule is
+    // the single source of ALL costs for a plan-stamped document. Best-effort —
+    // a failed/slow load falls back to Fix A behavior, never fails the edit.
+    const planPromise = PRICING_TOOL_DOC_TYPES.has(documentType)
+      ? withTimeout(
+          getSolutionPlanByOpportunity({ orgId, projectId, opportunityId }).catch(() => null),
+          null,
+        )
+      : Promise.resolve(null);
+
+    const [qaPairs, solicitation, enrichedContext, fragments, plan] = await Promise.all([
       withTimeout(loadQaPairs(projectId, opportunityId).catch(() => [] as QaPair[]), [] as QaPair[]),
       solicitationPromise,
       withTimeout(
@@ -256,18 +285,26 @@ export const baseHandler = async (
         resolveDocumentPromptFragments(orgId, documentType),
         { guidance: null, task: null },
       ),
+      planPromise,
     ]);
 
-    console.log(`[edit-section] Context loaded: solicitation=${solicitation.length} chars, enriched=${enrichedContext.length} chars, qaPairs=${qaPairs.length}`);
+    // The schedule governs only documents generated FROM the plan (ADR-7
+    // stamp) and only while the plan is READY; legacy/user-edited plans carry
+    // no schedule and fall back to Fix A behavior.
+    const costSchedule =
+      plan?.status === 'READY' && doc.solutionPlanId ? plan.costSchedule ?? null : null;
+
+    console.log(`[edit-section] Context loaded: solicitation=${solicitation.length} chars, enriched=${enrichedContext.length} chars, qaPairs=${qaPairs.length}, costSchedule=${costSchedule ? 'yes' : 'no'}`);
 
     // 4. Build prompts
-    const systemPrompt = buildSectionEditSystemPrompt(sectionTitle, documentType, fragments.guidance);
+    const systemPrompt = buildSectionEditSystemPrompt(sectionTitle, documentType, fragments.guidance, hasSolutionPlan);
     const userPrompt = buildSectionEditUserPrompt({
       instruction,
       currentSectionHtml,
       sectionTitle,
       solicitation,
       enrichedContext,
+      costSchedule,
     });
 
     console.log(`[edit-section] Starting section edit for "${sectionTitle}" in document ${documentId}`);
@@ -326,10 +363,12 @@ export const baseHandler = async (
         messages,
         max_tokens: MAX_TOKENS,
         temperature: TEMPERATURE,
-        tools: DOCUMENT_TOOLS,
+        // search_service_pricing is offered only for COST_PROPOSAL / PRICE_VOLUME (T3),
+        // and withheld when the document was generated from a Solution Plan (Fix A)
+        tools: getDocumentToolsForType(documentType, { hasSolutionPlan }),
       };
 
-      const responseBody = await invokeModelWithRetry(EDIT_SECTION_MODEL_ID, JSON.stringify(requestBody));
+      const responseBody = await invokeModelWithRetry(EDIT_SECTION_MODEL_ID, JSON.stringify(requestBody), 2, orgId);
       const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody));
 
       const stopReason: string = parsed.stop_reason ?? 'end_turn';
@@ -409,7 +448,7 @@ export const baseHandler = async (
           temperature: TEMPERATURE,
           // No tools — force text output
         };
-        const finalResp = await invokeModelWithRetry(EDIT_SECTION_MODEL_ID, JSON.stringify(finalBody));
+        const finalResp = await invokeModelWithRetry(EDIT_SECTION_MODEL_ID, JSON.stringify(finalBody), 2, orgId);
         const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResp));
         const finalContent: Array<{ type: string; text?: string }> = finalParsed.content ?? [];
         resultHtml = finalContent.filter(c => c.type === 'text').map(c => c.text ?? '').join('\n').trim();
@@ -468,6 +507,30 @@ export const baseHandler = async (
         message: resultHtml,
         toolRoundsUsed: toolRounds,
       });
+    }
+
+    // 7b. Deterministic pricing-math pass (Fix B): recompute pricing-table
+    // totals in the regenerated section and auto-correct mismatches.
+    if (PRICING_TOOL_DOC_TYPES.has(documentType)) {
+      const { html: correctedHtml, corrections } = correctPricingTableTotals(resultHtml);
+      if (corrections.length > 0) {
+        console.warn(
+          `[edit-section] Pricing math auto-corrected ${corrections.length} total(s) for documentId=${documentId}: ` +
+          corrections.map((c) => `"${c.rowLabel}": ${c.previousValue} → ${c.correctedValue}`).join('; '),
+        );
+        resultHtml = correctedHtml;
+      }
+
+      // Plan-governed reconciliation — after Fix B (last writer); auto-correct
+      // + warn only, never fails the section edit.
+      if (costSchedule) {
+        resultHtml = applyPlanReconciliationSafe({
+          html: resultHtml,
+          schedule: costSchedule,
+          logPrefix: '[edit-section]',
+          documentId,
+        });
+      }
     }
 
     // 8. Persist chat messages (non-blocking — don't delay the response)

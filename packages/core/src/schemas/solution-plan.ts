@@ -131,6 +131,164 @@ const GATE_EXEMPT_TYPES: ReadonlySet<string> = new Set(
 export const isSolutionPlanGatedDocumentType = (documentType: string): boolean =>
   !GATE_EXEMPT_TYPES.has(documentType);
 
+// ─── Cost schedule (plan-governed cost consistency) ─────────────────────────────
+
+/**
+ * Cost-item classification for the plan's structured cost schedule.
+ * `.catch('OTHER')` on the item field keeps a creative model label from
+ * failing the whole synthesis parse.
+ */
+export const SolutionPlanCostCategorySchema = z.enum(['LABOR', 'THIRD_PARTY', 'ODC', 'OTHER']);
+
+export type SolutionPlanCostCategory = z.infer<typeof SolutionPlanCostCategorySchema>;
+
+/** Billing cadence of one cost item. MONTHLY items roll up as ×12 into the annual total. */
+export const SolutionPlanCostBillingSchema = z.enum(['ONE_TIME', 'MONTHLY', 'ANNUAL']);
+
+export type SolutionPlanCostBilling = z.infer<typeof SolutionPlanCostBillingSchema>;
+
+/** One cost line of the plan's authoritative cost schedule. */
+export const SolutionPlanCostItemSchema = z.object({
+  label: z.string().min(1),
+  description: z.string().optional(),
+  category: SolutionPlanCostCategorySchema.catch('OTHER').default('OTHER'),
+  /** null = vendor quote required (no verified price) */
+  amount: z.number().nonnegative().nullable(),
+  billing: SolutionPlanCostBillingSchema,
+  /** Optional/if-exercised item (option CLIN, optional upgrade) — EXCLUDED from both totals */
+  optional: z.boolean().catch(false).default(false),
+});
+
+export type SolutionPlanCostItem = z.infer<typeof SolutionPlanCostItemSchema>;
+
+/**
+ * The plan's structured cost schedule — the single source of ALL costs
+ * (one-time, ongoing, labor-based) for the pricing documents generated from
+ * the plan. Emitted by synthesis; totals are deterministically recomputed by
+ * the worker before persisting (model-stated totals are never trusted).
+ */
+export const SolutionPlanCostScheduleSchema = z.object({
+  currency: z.string().default('USD'),
+  items: z.array(SolutionPlanCostItemSchema).min(1),
+  /** Deterministically recomputed by the synthesis worker — model-stated values are overwritten */
+  oneTimeTotal: z.number().nonnegative(),
+  ongoingAnnualTotal: z.number().nonnegative(),
+  assumptions: z.array(z.string()).optional(),
+});
+
+export type SolutionPlanCostSchedule = z.infer<typeof SolutionPlanCostScheduleSchema>;
+
+// ─── Plan Team (team-definition U3) ─────────────────────────────────────────────
+
+/** How a team member line came to be — AI matching or a manual edit. */
+export const PlanTeamMemberSourceSchema = z.enum(['AI_RECOMMENDED', 'MANUAL']);
+
+export type PlanTeamMemberSource = z.infer<typeof PlanTeamMemberSourceSchema>;
+
+/**
+ * One line of the plan's team. Exactly three shapes exist (BR1.3, BR3.3):
+ *
+ *   FILLED            — `employeeId` + `nameSnapshot` (rationale on AI lines)
+ *   DELETED-employee  — `nameSnapshot` + `removedEmployee: true`, NO
+ *                       `employeeId` (the referenced employee left the pool;
+ *                       the line renders from its snapshot, rationale retained)
+ *   UNFILLED          — `role` only (+ `staffingPositionRef` where applicable),
+ *                       no employeeId / nameSnapshot / rationale — an open slot
+ *
+ * `removedEmployee` is DERIVED ON READ: whenever the team is served or saved,
+ * the backend checks each referenced employeeId against the org pool and sets
+ * the flag (no U1-side cascade, no batch job).
+ */
+export const PlanTeamMemberSchema = z
+  .object({
+    /** Reference to a U1 Employee — absent on UNFILLED and DELETED lines. */
+    employeeId: z.string().min(1).optional(),
+    /** The person's name, preserved after the employee's deletion (U1 delete policy). */
+    nameSnapshot: z.string().min(1).optional(),
+    /** Staffing plan position name where one exists, free text otherwise (BR2.1). */
+    role: z.string().trim().min(1, 'Role is required').max(200),
+    /** The staffing plan line's position identifier (positions unique per plan, FR3.3). */
+    staffingPositionRef: z.string().min(1).optional(),
+    /** One-or-two-sentence match rationale (BR1.4) — absent on manual/unfilled lines. */
+    rationale: z.string().optional(),
+    /** True when the referenced employee no longer exists in the pool (BR3.3). */
+    removedEmployee: z.boolean().default(false),
+    source: PlanTeamMemberSourceSchema.default('AI_RECOMMENDED'),
+  })
+  .superRefine((member, ctx) => {
+    if (member.employeeId && !member.nameSnapshot) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['nameSnapshot'],
+        message: 'A filled line (employeeId set) requires nameSnapshot',
+      });
+    }
+    if (member.removedEmployee && member.employeeId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['employeeId'],
+        message: 'A removed-employee line must not carry an employeeId',
+      });
+    }
+    if (member.removedEmployee && !member.nameSnapshot) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['nameSnapshot'],
+        message: 'A removed-employee line requires nameSnapshot',
+      });
+    }
+  });
+
+export type PlanTeamMember = z.infer<typeof PlanTeamMemberSchema>;
+
+/**
+ * The team attached to the opportunity's solution plan — AI-recommended,
+ * human-correctable, and the single source downstream documents read (BR3.2).
+ * Embedded on the plan item (ADR-002, the costSchedule precedent) — no
+ * independent storage identity; it lives and versions with the plan.
+ */
+export const PlanTeamSchema = z.object({
+  members: z.array(PlanTeamMemberSchema).default([]),
+  /**
+   * Set true on any human save of an edited team; governs preservation across
+   * plan regenerations (BR1.2 — a user-modified team survives regeneration and
+   * is replaced only by an explicit team regenerate).
+   */
+  userModified: z.boolean().default(false),
+  /** When the current recommendation was produced. */
+  generatedAt: z.string().datetime().optional(),
+  /** When a human last saved the team — cleared by an explicit regenerate. */
+  savedAt: z.string().datetime().optional(),
+});
+
+export type PlanTeam = z.infer<typeof PlanTeamSchema>;
+
+/** PATCH body for saving a user-edited team (identifiers travel separately). */
+export const PlanTeamSaveRequestSchema = z.object({
+  members: z.array(PlanTeamMemberSchema).max(100),
+});
+
+export type PlanTeamSaveRequest = z.infer<typeof PlanTeamSaveRequestSchema>;
+
+/** 200 body of GET /solution-plan/team and PATCH /solution-plan/team/save. */
+export const PlanTeamResponseSchema = z.object({
+  ok: z.boolean(),
+  /** null = no team yet (plan never synthesized with a non-empty pool). */
+  team: PlanTeamSchema.nullable(),
+});
+
+export type PlanTeamResponse = z.infer<typeof PlanTeamResponseSchema>;
+
+/** 200 body of POST /solution-plan/team/regenerate. */
+export const PlanTeamRegenerateResponseSchema = z.object({
+  ok: z.boolean(),
+  team: PlanTeamSchema.nullable(),
+  /** True when the org pool is empty — the prerequisite state, not an error (BR4.1). */
+  emptyPool: z.boolean().optional(),
+});
+
+export type PlanTeamRegenerateResponse = z.infer<typeof PlanTeamRegenerateResponseSchema>;
+
 // ─── Item (pure domain entity) ──────────────────────────────────────────────────
 
 /**
@@ -164,12 +322,35 @@ export const SolutionPlanItemSchema = SolutionPlanCreateRequestSchema.extend({
   isUserEdited: z.boolean().default(false),
   /** User who last manually edited the plan. */
   editedBy: z.string().optional(),
+  /**
+   * User id of whoever started the current generation run (BR6.1, ADR-003).
+   * Stamped by init, overwritten by each new run; read at synthesis capture
+   * to attribute the generated version (BR6.2). Absent on pre-feature runs —
+   * capture falls back to the system sentinel (BR3.3).
+   */
+  generationInitiatedBy: z.string().optional(),
+  /** Display name matching `generationInitiatedBy`. */
+  generationInitiatedByName: z.string().optional(),
   /** Number of grilling rounds completed for the current run. */
   grillingRounds: z.number().int().nonnegative().optional(),
   /** ISO datetime the grilling interview finished (synthesis started). */
   grillingCompletedAt: z.string().datetime().optional(),
   /** Failure message when status is FAILED. */
   error: z.string().optional(),
+  /**
+   * Structured cost schedule emitted by synthesis (totals server-recomputed).
+   * Nullable so a user edit can clear it (documents then fall back to Fix A
+   * behavior); optional so legacy plans parse without it.
+   */
+  costSchedule: SolutionPlanCostScheduleSchema.nullish(),
+  /**
+   * The recommended/edited team embedded in the plan (team-definition U3,
+   * ADR-002 — the costSchedule precedent). Nullable so it can be cleared;
+   * optional so legacy plans parse without it. `removedEmployee` marks are
+   * derived on read — trust the GET /solution-plan/team endpoint, not this
+   * raw field, for display.
+   */
+  planTeam: PlanTeamSchema.nullish(),
   // Audit fields
   createdAt: z.string().datetime().optional(),
   updatedAt: z.string().datetime().optional(),
@@ -196,6 +377,7 @@ export const SolutionPlanStatusPatchSchema = SolutionPlanItemSchema.pick({
   grillingRounds: true,
   grillingCompletedAt: true,
   error: true,
+  costSchedule: true,
   updatedBy: true,
   updatedByName: true,
 }).partial();

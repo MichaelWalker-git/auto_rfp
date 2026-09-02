@@ -427,3 +427,136 @@ describe('SearchOpportunityResultsTable — description disclosure', () => {
     expect(screen.getByRole('button', { name: /import/i })).toBeInTheDocument();
   });
 });
+
+describe('SearchOpportunityResultsTable — empty state vs. pending fetch', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAuthFetcher.mockReset();
+    installIntersectionObserver();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('shows "No opportunities found" when there are no results and nothing is pending', () => {
+    render(
+      <SearchOpportunityResultsTable
+        opportunities={[]}
+        isLoading={false}
+        onImport={jest.fn()}
+        importingId={null}
+        orgId="org-1"
+      />,
+    );
+
+    expect(screen.getByText(/No opportunities found/i)).toBeInTheDocument();
+  });
+
+  it('keeps skeletons up — not "No opportunities found" — while a HigherGov fetch is pending', () => {
+    // The async worker returns immediately with isLoading=false and no results
+    // while it fetches in the background; flashing the empty state would read as
+    // "nothing matched" when results are still on the way.
+    const { container } = render(
+      <SearchOpportunityResultsTable
+        opportunities={[]}
+        isLoading={false}
+        isPending
+        onImport={jest.fn()}
+        importingId={null}
+        orgId="org-1"
+      />,
+    );
+
+    expect(screen.queryByText(/No opportunities found/i)).not.toBeInTheDocument();
+    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('renders results even while pending, once the first page arrives', () => {
+    render(
+      <SearchOpportunityResultsTable
+        opportunities={[makeOpportunity({ source: 'HIGHER_GOV', noticeId: null })]}
+        isLoading={false}
+        isPending
+        onImport={jest.fn()}
+        importingId={null}
+        orgId="org-1"
+      />,
+    );
+
+    expect(screen.queryByText(/No opportunities found/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Test Opportunity')).toBeInTheDocument();
+  });
+});
+
+/**
+ * Bulk import. Previously the only way to import a shortlist was to click Import on
+ * each row and wait for each one, which is the slow path users actually hit after a
+ * search: import is the point of the page, not an afterthought.
+ */
+describe('SearchOpportunityResultsTable — bulk import', () => {
+  const twoOpportunities = [
+    makeOpportunity({ id: 'opp-1', title: 'First Opportunity' }),
+    makeOpportunity({ id: 'opp-2', title: 'Second Opportunity' }),
+  ];
+
+  const renderBulk = (onImportMany = jest.fn().mockResolvedValue(undefined)) => {
+    render(
+      <SearchOpportunityResultsTable
+        opportunities={twoOpportunities}
+        isLoading={false}
+        onImport={jest.fn()}
+        onImportMany={onImportMany}
+        importingId={null}
+        orgId="org-1"
+      />,
+    );
+    return onImportMany;
+  };
+
+  it('hides the selection UI when no bulk handler is supplied', () => {
+    render(
+      <SearchOpportunityResultsTable
+        opportunities={twoOpportunities}
+        isLoading={false}
+        onImport={jest.fn()}
+        importingId={null}
+        orgId="org-1"
+      />,
+    );
+
+    expect(screen.queryByLabelText(/Select all results/i)).not.toBeInTheDocument();
+  });
+
+  it('imports only the selected rows', async () => {
+    const user = userEvent.setup();
+    const onImportMany = renderBulk();
+
+    await user.click(screen.getByLabelText(/Select Second Opportunity/i));
+    await user.click(screen.getByRole('button', { name: /Import 1 selected/i }));
+
+    await waitFor(() => expect(onImportMany).toHaveBeenCalledWith(['opp-2']));
+  });
+
+  it('select-all imports every row, in the order shown', async () => {
+    const user = userEvent.setup();
+    const onImportMany = renderBulk();
+
+    await user.click(screen.getByLabelText(/Select all results/i));
+    await user.click(screen.getByRole('button', { name: /Import 2 selected/i }));
+
+    await waitFor(() => expect(onImportMany).toHaveBeenCalledWith(['opp-1', 'opp-2']));
+  });
+
+  it('clears the selection after a successful bulk import', async () => {
+    const user = userEvent.setup();
+    renderBulk();
+
+    await user.click(screen.getByLabelText(/Select all results/i));
+    await user.click(screen.getByRole('button', { name: /Import 2 selected/i }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /Import 2 selected/i })).not.toBeInTheDocument(),
+    );
+  });
+});

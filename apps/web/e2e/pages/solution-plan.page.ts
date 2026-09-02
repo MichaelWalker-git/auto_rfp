@@ -11,7 +11,11 @@ import { type Locator, type Page, expect } from '@playwright/test';
 export type GateTestDocumentType =
   | 'TECHNICAL_PROPOSAL'
   | 'COST_PROPOSAL'
-  | 'CLARIFYING_QUESTIONS';
+  | 'PRICE_VOLUME'
+  | 'CLARIFYING_QUESTIONS'
+  // KB coverage precheck: the two types with knowledge-base requirements.
+  | 'TEAM_QUALIFICATIONS'
+  | 'CERTIFICATIONS';
 
 export class SolutionPlanPage {
   constructor(private readonly page: Page) {}
@@ -97,6 +101,25 @@ export class SolutionPlanPage {
   }
 
   /**
+   * The dialog row for a document type — the checkbox's parent, which also
+   * holds that row's badges. Anchored off the checkbox id for the same reason:
+   * visible labels are not unique across custom document types.
+   */
+  documentTypeRow(documentTypeKey: GateTestDocumentType): Locator {
+    return this.documentTypeCheckbox(documentTypeKey).locator('xpath=..');
+  }
+
+  /** KB coverage gap badge on a row: "⚠ Missing: personnel bios, …". */
+  kbCoverageGapBadge(documentTypeKey: GateTestDocumentType): Locator {
+    return this.documentTypeRow(documentTypeKey).getByText(/^Missing:/);
+  }
+
+  /** KB coverage "ready" badge on a row. */
+  kbCoverageReadyBadge(documentTypeKey: GateTestDocumentType): Locator {
+    return this.documentTypeRow(documentTypeKey).getByText('KB ready');
+  }
+
+  /**
    * Start a run regardless of current panel state: fresh plans use
    * "Start Solution Plan", READY plans go through Regenerate + confirm,
    * FAILED plans use Retry. Returns once the run is visibly in flight.
@@ -146,6 +169,31 @@ export class SolutionPlanPage {
    * generating/retrying/failed badge remains. The list doesn't live-poll,
    * so reload between checks.
    */
+  /**
+   * Navigate straight to the full-page editor of a generated document (by the
+   * documentId from the generate 202 response — names are not unique across
+   * runs) and wait for the content to hydrate.
+   */
+  async gotoDocumentEditor(
+    opportunityPath: string,
+    documentId: string,
+  ): Promise<Locator> {
+    // opportunityPath: /organizations/{orgId}/projects/{projectId}/opportunities/{oppId}
+    const [, orgId, projectId, opportunityId] =
+      opportunityPath.match(
+        /^\/organizations\/([^/]+)\/projects\/([^/]+)\/opportunities\/([^/]+)/,
+      ) ?? [];
+    await this.page.goto(
+      `/organizations/${orgId}/projects/${projectId}/rfp-documents/${documentId}/edit?opportunityId=${opportunityId}`,
+    );
+    const editorContent = this.page.locator('.ProseMirror').first();
+    await expect(editorContent).toBeVisible({ timeout: 60_000 });
+    // Generated pricing documents always contain at least one table; waiting
+    // for it filters out the pre-hydration empty editor state.
+    await expect(editorContent.locator('table').first()).toBeVisible({ timeout: 60_000 });
+    return editorContent;
+  }
+
   async waitForDocumentGenerated(documentLabel: string, timeoutMs: number): Promise<void> {
     await expect(async () => {
       await this.page.reload();

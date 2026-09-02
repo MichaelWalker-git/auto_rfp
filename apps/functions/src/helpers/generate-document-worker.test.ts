@@ -32,6 +32,9 @@ jest.mock('@/helpers/document-generation', () => ({
   loadQaPairs: jest.fn(),
   loadSolicitation: jest.fn(),
   resolveTemplateHtml: jest.fn(),
+  // Resolves the template's header/footer for snapshotting onto the document.
+  // Defaults to an empty result so these prompt-wiring tests are unaffected.
+  resolveTemplateFurniture: jest.fn().mockResolvedValue({}),
   buildMacroValues: jest.fn(),
   validateGeneratedContent: jest.requireActual('@/helpers/document-generation').validateGeneratedContent,
 }));
@@ -58,9 +61,17 @@ jest.mock('@/helpers/rfp-document-version', () => ({
 }));
 jest.mock('@/helpers/document-tools', () => ({
   DOCUMENT_TOOLS: [],
+  PRICING_TOOL_DOC_TYPES: new Set(['COST_PROPOSAL', 'PRICE_VOLUME']),
+  getDocumentToolsForType: jest.fn(() => []),
   executeDocumentTool: jest.fn(),
 }));
 jest.mock('@/helpers/bedrock-http-client', () => ({ invokeModel: jest.fn() }));
+// Saved-team grounding (U4): mocked as a unit — its import chain reads
+// DOCUMENTS_BUCKET at module load, and the worker's wiring is what's under test.
+jest.mock('@/helpers/team-qualifications-context', () => ({
+  assembleTeamQualificationsContext: jest.fn(),
+  renderTeamContextBlock: jest.fn(),
+}));
 // Use the REAL buildDocumentTitleHtml so the injected title reflects template styling.
 jest.mock('@/helpers/document-section-generator', () => ({
   generateDocumentSectionBySectionHtml: jest.fn(),
@@ -97,6 +108,10 @@ import { buildMacroValues } from './template';
 import { uploadRFPDocumentHtml, updateRFPDocumentMetadata, getRFPDocument } from './rfp-document';
 import { getLatestVersionNumber, saveVersionHtml, createVersion } from './rfp-document-version';
 import { invokeModel } from './bedrock-http-client';
+import {
+  assembleTeamQualificationsContext,
+  renderTeamContextBlock,
+} from './team-qualifications-context';
 
 const mockSectionGen = generateDocumentSectionBySectionHtml as jest.MockedFunction<
   typeof generateDocumentSectionBySectionHtml
@@ -113,6 +128,7 @@ describe('generateWithTemplateSections — empty-output fallback', () => {
     opportunityId: 'opp-1',
     documentId: 'doc-1',
     qaPairs: [],
+    hasSolutionPlan: false,
   };
 
   // A template with an <h2> section that has a real [CONTENT:] placeholder, so
@@ -459,14 +475,15 @@ describe('processJobInner — document prompt override wiring', () => {
     expect(mockResolveFragments).toHaveBeenCalledTimes(1);
     expect(mockResolveFragments).toHaveBeenCalledWith('org-1', 'TECHNICAL_PROPOSAL');
 
-    expect(mockBuildSystem).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', templateHtml, 'G-OVERRIDE');
-    expect(mockBuildSection).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', 'G-OVERRIDE');
+    expect(mockBuildSystem).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', templateHtml, 'G-OVERRIDE', false);
+    expect(mockBuildSection).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', 'G-OVERRIDE', false);
     expect(mockBuildUser).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', {
       solicitation: 'solicitation text',
       qaText: '[]',
       enrichedKbText: 'kb text',
       taskOverride: 'T-OVERRIDE',
       solutionPlanText: null,
+      solutionPlanCostSchedule: null,
     });
   });
 
@@ -492,12 +509,18 @@ describe('processJobInner — document prompt override wiring', () => {
     for (const call of mockBuildSystem.mock.calls) {
       expect(call[2]).toBe('G-OVERRIDE');
     }
+    // The job's orgId must reach the single-shot Bedrock invoke as the 3rd arg
+    // (per-org Bedrock key routing).
+    for (const call of (invokeModel as jest.Mock).mock.calls) {
+      expect(call[2]).toBe('org-1');
+    }
     expect(mockBuildUser).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', {
       solicitation: 'solicitation text',
       qaText: '[]',
       enrichedKbText: 'kb text',
       taskOverride: 'T-OVERRIDE',
       solutionPlanText: null,
+      solutionPlanCostSchedule: null,
     });
   });
 
@@ -519,13 +542,14 @@ describe('processJobInner — document prompt override wiring', () => {
 
     await processJobInner(job);
 
-    expect(mockBuildSystem).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', null, null);
+    expect(mockBuildSystem).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', null, null, false);
     expect(mockBuildUser).toHaveBeenCalledWith('TECHNICAL_PROPOSAL', {
       solicitation: 'solicitation text',
       qaText: '[]',
       enrichedKbText: 'kb text',
       taskOverride: null,
       solutionPlanText: null,
+      solutionPlanCostSchedule: null,
     });
   });
 });
@@ -721,6 +745,7 @@ describe('processJobInner — Solution Plan injection & version stamp (ADR-7)', 
       enrichedKbText: 'kb text',
       taskOverride: null,
       solutionPlanText: 'Approved plan body',
+      solutionPlanCostSchedule: null,
     });
 
     expect(updateRFPDocumentMetadata).toHaveBeenCalledWith(
@@ -767,6 +792,7 @@ describe('processJobInner — Solution Plan injection & version stamp (ADR-7)', 
       enrichedKbText: 'kb text',
       taskOverride: null,
       solutionPlanText: null,
+      solutionPlanCostSchedule: null,
     });
 
     const saveCall = (updateRFPDocumentMetadata as jest.Mock).mock.calls.find(
@@ -793,6 +819,437 @@ describe('processJobInner — Solution Plan injection & version stamp (ADR-7)', 
       enrichedKbText: 'kb text',
       taskOverride: null,
       solutionPlanText: null,
+      solutionPlanCostSchedule: null,
     });
+  });
+
+  it('threads the plan costSchedule into the user prompt when the plan carries one', async () => {
+    const costSchedule = {
+      currency: 'USD',
+      items: [{ label: 'Hosting', category: 'LABOR', amount: 400, billing: 'MONTHLY' }],
+      oneTimeTotal: 0,
+      ongoingAnnualTotal: 4800,
+    };
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue({ ...readyPlan, costSchedule });
+    (loadSolutionPlanHtml as jest.Mock).mockResolvedValue('<p>Approved plan body</p>');
+    setupSingleShotSuccess();
+
+    await processJobInner(job);
+
+    expect(mockBuildUser).toHaveBeenCalledWith(
+      'TECHNICAL_PROPOSAL',
+      expect.objectContaining({ solutionPlanCostSchedule: costSchedule }),
+    );
+  });
+});
+
+describe('processJobInner — Solution Plan pricing-tool gating (Fix A)', () => {
+  const job: Job = {
+    orgId: 'org-1',
+    projectId: 'proj-1',
+    opportunityId: 'opp-1',
+    documentType: 'COST_PROPOSAL',
+    documentId: 'doc-1',
+  };
+
+  const readyPlan = {
+    id: 'plan-1',
+    orgId: 'org-1',
+    projectId: 'proj-1',
+    opportunityId: 'opp-1',
+    status: 'READY',
+    isStale: false,
+    runId: 'run-1',
+    contentKey: 'org-1/proj-1/opp-1/solution-plan/v3/solution-plan.html',
+    version: 3,
+    isUserEdited: false,
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    (resolveDocumentPromptFragments as jest.Mock).mockResolvedValue({ guidance: null, task: null });
+    (buildSystemPromptForDocumentType as jest.Mock).mockReturnValue('sys prompt');
+    (buildSectionSystemPrompt as jest.Mock).mockReturnValue('section sys prompt');
+    (buildUserPromptForDocumentType as jest.Mock).mockReturnValue('user prompt');
+
+    (loadQaPairs as jest.Mock).mockResolvedValue([]);
+    (loadSolicitation as jest.Mock).mockResolvedValue('solicitation text');
+    (buildMacroValues as jest.Mock).mockResolvedValue({});
+    (gatherAllContext as jest.Mock).mockResolvedValue('kb text');
+
+    (uploadRFPDocumentHtml as jest.Mock).mockResolvedValue('html-key');
+    (updateRFPDocumentMetadata as jest.Mock).mockResolvedValue(undefined);
+    (getRFPDocument as jest.Mock).mockResolvedValue(null);
+    (getLatestVersionNumber as jest.Mock).mockResolvedValue(0);
+    (saveVersionHtml as jest.Mock).mockResolvedValue('version-key');
+    (createVersion as jest.Mock).mockResolvedValue(undefined);
+
+    (resolveTemplateHtml as jest.Mock).mockResolvedValue(null);
+    (safeParseJsonFromModel as jest.Mock).mockReturnValue({
+      title: 'Cost Proposal',
+      htmlContent: '<h2>Pricing</h2><p>Generated single-shot content body.</p>',
+    });
+    (invokeModel as jest.Mock).mockResolvedValue(
+      new TextEncoder().encode(
+        JSON.stringify({
+          stop_reason: 'end_turn',
+          content: [{ type: 'text', text: '{"title":"Cost Proposal"}' }],
+        }),
+      ),
+    );
+  });
+
+  it('threads hasSolutionPlan=true into the prompt builders when a READY plan exists', async () => {
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(readyPlan);
+    (loadSolutionPlanHtml as jest.Mock).mockResolvedValue('<p>Approved plan body</p>');
+
+    await processJobInner(job);
+
+    for (const call of (buildSystemPromptForDocumentType as jest.Mock).mock.calls) {
+      expect(call[3]).toBe(true);
+    }
+  });
+
+  it('threads hasSolutionPlan into section-by-section generation', async () => {
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(readyPlan);
+    (loadSolutionPlanHtml as jest.Mock).mockResolvedValue('<p>Approved plan body</p>');
+    (resolveTemplateHtml as jest.Mock).mockResolvedValue(
+      '<h1>Cost Proposal</h1><h2>Pricing</h2><p>[CONTENT: write the pricing]</p>',
+    );
+    const realBody = `<h2>Pricing</h2><p>${'Our pricing approach is comprehensive. '.repeat(10)}</p>`;
+    mockSectionGen.mockResolvedValue(['<p>Intro paragraph with substance.</p>', realBody]);
+
+    await processJobInner(job);
+
+    expect(mockSectionGen).toHaveBeenCalledWith(
+      expect.objectContaining({ hasSolutionPlan: true }),
+    );
+    expect(buildSectionSystemPrompt as jest.Mock).toHaveBeenCalledWith('COST_PROPOSAL', null, true);
+  });
+
+  it('threads hasSolutionPlan=false when no plan exists', async () => {
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(null);
+
+    await processJobInner(job);
+
+    for (const call of (buildSystemPromptForDocumentType as jest.Mock).mock.calls) {
+      expect(call[3]).toBe(false);
+    }
+  });
+});
+
+describe('processJobInner — pricing-table math auto-correction (Fix B)', () => {
+  const WRONG_TOTAL_HTML =
+    '<h1>Cost Proposal</h1><table>' +
+    '<tr><th>Service</th><th>Price</th></tr>' +
+    '<tr><td>Datadog Pro</td><td>$100.00</td></tr>' +
+    '<tr><td>GitHub Enterprise</td><td>$250.00</td></tr>' +
+    '<tr><td>Total</td><td>$275.00</td></tr>' +
+    '</table>';
+
+  const jobFor = (documentType: string): Job => ({
+    orgId: 'org-1',
+    projectId: 'proj-1',
+    opportunityId: 'opp-1',
+    documentType,
+    documentId: 'doc-1',
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    (resolveDocumentPromptFragments as jest.Mock).mockResolvedValue({ guidance: null, task: null });
+    (buildSystemPromptForDocumentType as jest.Mock).mockReturnValue('sys prompt');
+    (buildSectionSystemPrompt as jest.Mock).mockReturnValue('section sys prompt');
+    (buildUserPromptForDocumentType as jest.Mock).mockReturnValue('user prompt');
+
+    (loadQaPairs as jest.Mock).mockResolvedValue([]);
+    (loadSolicitation as jest.Mock).mockResolvedValue('solicitation text');
+    (buildMacroValues as jest.Mock).mockResolvedValue({});
+    (gatherAllContext as jest.Mock).mockResolvedValue('kb text');
+
+    (uploadRFPDocumentHtml as jest.Mock).mockResolvedValue('html-key');
+    (updateRFPDocumentMetadata as jest.Mock).mockResolvedValue(undefined);
+    (getRFPDocument as jest.Mock).mockResolvedValue(null);
+    (getLatestVersionNumber as jest.Mock).mockResolvedValue(0);
+    (saveVersionHtml as jest.Mock).mockResolvedValue('version-key');
+    (createVersion as jest.Mock).mockResolvedValue(undefined);
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(null);
+
+    (resolveTemplateHtml as jest.Mock).mockResolvedValue(null);
+    (safeParseJsonFromModel as jest.Mock).mockReturnValue({
+      title: 'Doc',
+      htmlContent: WRONG_TOTAL_HTML,
+    });
+    (invokeModel as jest.Mock).mockResolvedValue(
+      new TextEncoder().encode(
+        JSON.stringify({
+          stop_reason: 'end_turn',
+          content: [{ type: 'text', text: '{"title":"Doc"}' }],
+        }),
+      ),
+    );
+  });
+
+  it.each(['COST_PROPOSAL', 'PRICE_VOLUME'])(
+    'auto-corrects a wrong table total before the S3 upload for %s',
+    async (documentType) => {
+      await processJobInner(jobFor(documentType));
+
+      const uploadedHtml = (uploadRFPDocumentHtml as jest.Mock).mock.calls[0]![0].html as string;
+      expect(uploadedHtml).toContain('$350.00');
+      expect(uploadedHtml).not.toContain('$275.00');
+    },
+  );
+
+  it('leaves non-pricing document types untouched', async () => {
+    await processJobInner(jobFor('TECHNICAL_PROPOSAL'));
+
+    const uploadedHtml = (uploadRFPDocumentHtml as jest.Mock).mock.calls[0]![0].html as string;
+    expect(uploadedHtml).toContain('$275.00');
+  });
+});
+
+describe('processJobInner — plan-governed totals reconciliation (runs after Fix B, last writer)', () => {
+  // Fix B corrects the internal sum ($275 → $350); the plan reconciliation then
+  // forces the bucket-labeled total to the schedule value — proving hook order.
+  const WRONG_TOTAL_HTML =
+    '<h1>Cost Proposal</h1><table>' +
+    '<tr><th>Item</th><th>Price</th></tr>' +
+    '<tr><td>Setup</td><td>$100.00</td></tr>' +
+    '<tr><td>Migration</td><td>$250.00</td></tr>' +
+    '<tr><td>Total One-Time Costs</td><td>$275.00</td></tr>' +
+    '</table>';
+
+  const costSchedule = {
+    currency: 'USD',
+    items: [{ label: 'Implementation', category: 'LABOR', amount: 34720, billing: 'ONE_TIME' }],
+    oneTimeTotal: 34720,
+    ongoingAnnualTotal: 0,
+  };
+
+  const readyPlan = {
+    id: 'plan-1',
+    orgId: 'org-1',
+    projectId: 'proj-1',
+    opportunityId: 'opp-1',
+    status: 'READY',
+    isStale: false,
+    runId: 'run-1',
+    contentKey: 'org-1/proj-1/opp-1/solution-plan/v3/solution-plan.html',
+    version: 3,
+    isUserEdited: false,
+    costSchedule,
+  };
+
+  const jobFor = (documentType: string): Job => ({
+    orgId: 'org-1',
+    projectId: 'proj-1',
+    opportunityId: 'opp-1',
+    documentType,
+    documentId: 'doc-1',
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    (resolveDocumentPromptFragments as jest.Mock).mockResolvedValue({ guidance: null, task: null });
+    (buildSystemPromptForDocumentType as jest.Mock).mockReturnValue('sys prompt');
+    (buildSectionSystemPrompt as jest.Mock).mockReturnValue('section sys prompt');
+    (buildUserPromptForDocumentType as jest.Mock).mockReturnValue('user prompt');
+
+    (loadQaPairs as jest.Mock).mockResolvedValue([]);
+    (loadSolicitation as jest.Mock).mockResolvedValue('solicitation text');
+    (buildMacroValues as jest.Mock).mockResolvedValue({});
+    (gatherAllContext as jest.Mock).mockResolvedValue('kb text');
+
+    (uploadRFPDocumentHtml as jest.Mock).mockResolvedValue('html-key');
+    (updateRFPDocumentMetadata as jest.Mock).mockResolvedValue(undefined);
+    (getRFPDocument as jest.Mock).mockResolvedValue(null);
+    (getLatestVersionNumber as jest.Mock).mockResolvedValue(0);
+    (saveVersionHtml as jest.Mock).mockResolvedValue('version-key');
+    (createVersion as jest.Mock).mockResolvedValue(undefined);
+
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(readyPlan);
+    (loadSolutionPlanHtml as jest.Mock).mockResolvedValue('<p>Approved plan body</p>');
+
+    (resolveTemplateHtml as jest.Mock).mockResolvedValue(null);
+    (safeParseJsonFromModel as jest.Mock).mockReturnValue({
+      title: 'Doc',
+      htmlContent: WRONG_TOTAL_HTML,
+    });
+    (invokeModel as jest.Mock).mockResolvedValue(
+      new TextEncoder().encode(
+        JSON.stringify({
+          stop_reason: 'end_turn',
+          content: [{ type: 'text', text: '{"title":"Doc"}' }],
+        }),
+      ),
+    );
+  });
+
+  it.each(['COST_PROPOSAL', 'PRICE_VOLUME'])(
+    'forces the plan totals AFTER the Fix B pass for %s',
+    async (documentType) => {
+      await processJobInner(jobFor(documentType));
+
+      const uploadedHtml = (uploadRFPDocumentHtml as jest.Mock).mock.calls[0]![0].html as string;
+      // The plan value wins over both the LLM total ($275) and Fix B's sum ($350)
+      expect(uploadedHtml).toContain('$34,720.00');
+      expect(uploadedHtml).not.toContain('$275.00');
+      expect(uploadedHtml).not.toContain('>$350.00');
+    },
+  );
+
+  it('skips reconciliation when the plan has no costSchedule (Fix A fallback)', async () => {
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue({
+      ...readyPlan,
+      costSchedule: null,
+    });
+
+    await processJobInner(jobFor('COST_PROPOSAL'));
+
+    const uploadedHtml = (uploadRFPDocumentHtml as jest.Mock).mock.calls[0]![0].html as string;
+    // Fix B still corrects the internal sum, but nothing is forced to the plan
+    expect(uploadedHtml).toContain('$350.00');
+    expect(uploadedHtml).not.toContain('$34,720.00');
+  });
+
+  it('does not reconcile non-pricing document types', async () => {
+    await processJobInner(jobFor('TECHNICAL_PROPOSAL'));
+
+    const uploadedHtml = (uploadRFPDocumentHtml as jest.Mock).mock.calls[0]![0].html as string;
+    expect(uploadedHtml).toContain('$275.00');
+  });
+});
+
+describe('processJobInner — TEAM_QUALIFICATIONS saved-team grounding (U4)', () => {
+  const job: Job = {
+    orgId: 'org-1',
+    projectId: 'proj-1',
+    opportunityId: 'opp-1',
+    documentType: 'TEAM_QUALIFICATIONS',
+    documentId: 'doc-tq-1',
+  };
+
+  const teamContext = {
+    opportunityId: 'opp-1',
+    members: [
+      {
+        nameSnapshot: 'Jane Doe',
+        role: 'Project Manager',
+        certifications: ['PMP'],
+        cvText: 'Federal PM background.',
+      },
+    ],
+    openRoles: ['Cloud Architect'],
+    pendingReplacements: [],
+  };
+
+  const mockAssemble = assembleTeamQualificationsContext as jest.MockedFunction<
+    typeof assembleTeamQualificationsContext
+  >;
+  const mockRenderBlock = renderTeamContextBlock as jest.MockedFunction<
+    typeof renderTeamContextBlock
+  >;
+  const mockBuildUser = buildUserPromptForDocumentType as jest.MockedFunction<
+    typeof buildUserPromptForDocumentType
+  >;
+
+  const setupSingleShotSuccess = () => {
+    (resolveTemplateHtml as jest.Mock).mockResolvedValue(null);
+    (safeParseJsonFromModel as jest.Mock).mockReturnValue({
+      title: 'Team Qualifications',
+      htmlContent: '<h2>Our Team</h2><p>Grounded personnel content body.</p>',
+    });
+    (invokeModel as jest.Mock).mockResolvedValue(
+      new TextEncoder().encode(
+        JSON.stringify({
+          stop_reason: 'end_turn',
+          content: [{ type: 'text', text: '{"title":"Team Qualifications"}' }],
+        }),
+      ),
+    );
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+
+    (resolveDocumentPromptFragments as jest.Mock).mockResolvedValue({ guidance: null, task: null });
+    (buildSystemPromptForDocumentType as jest.Mock).mockReturnValue('sys prompt');
+    (buildSectionSystemPrompt as jest.Mock).mockReturnValue('section sys prompt');
+    mockBuildUser.mockReturnValue('user prompt');
+
+    (loadQaPairs as jest.Mock).mockResolvedValue([]);
+    (loadSolicitation as jest.Mock).mockResolvedValue('solicitation text');
+    (buildMacroValues as jest.Mock).mockResolvedValue({});
+    (gatherAllContext as jest.Mock).mockResolvedValue('kb text');
+    (getSolutionPlanByOpportunity as jest.Mock).mockResolvedValue(null);
+
+    (uploadRFPDocumentHtml as jest.Mock).mockResolvedValue('html-key');
+    (updateRFPDocumentMetadata as jest.Mock).mockResolvedValue(undefined);
+    (getRFPDocument as jest.Mock).mockResolvedValue(null);
+    (getLatestVersionNumber as jest.Mock).mockResolvedValue(0);
+    (saveVersionHtml as jest.Mock).mockResolvedValue('version-key');
+    (createVersion as jest.Mock).mockResolvedValue(undefined);
+
+    mockAssemble.mockResolvedValue(teamContext);
+    mockRenderBlock.mockReturnValue('RENDERED TEAM BLOCK');
+  });
+
+  it('assembles the saved team and injects the rendered block into the user prompt', async () => {
+    setupSingleShotSuccess();
+
+    await processJobInner(job);
+
+    expect(mockAssemble).toHaveBeenCalledWith({
+      orgId: 'org-1',
+      projectId: 'proj-1',
+      opportunityId: 'opp-1',
+    });
+    expect(mockRenderBlock).toHaveBeenCalledWith(teamContext);
+    expect(mockBuildUser).toHaveBeenCalledWith(
+      'TEAM_QUALIFICATIONS',
+      expect.objectContaining({ teamContext: 'RENDERED TEAM BLOCK' }),
+    );
+    // The run completes normally — content uploaded, no FAILED write
+    expect(uploadRFPDocumentHtml).toHaveBeenCalled();
+    const failedWrites = (updateRFPDocumentMetadata as jest.Mock).mock.calls.filter(
+      ([args]) => args.updates.status === 'FAILED',
+    );
+    expect(failedWrites).toHaveLength(0);
+  });
+
+  it('marks the run FAILED with a clear generationError when the team vanished by worker time', async () => {
+    mockAssemble.mockResolvedValue(null);
+    setupSingleShotSuccess();
+
+    await processJobInner(job);
+
+    expect(updateRFPDocumentMetadata).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentId: 'doc-tq-1',
+        updates: expect.objectContaining({
+          status: 'FAILED',
+          generationError: expect.stringMatching(/no saved team/i),
+        }),
+      }),
+    );
+    // Never generates ungrounded personnel content
+    expect(mockBuildUser).not.toHaveBeenCalled();
+    expect(invokeModel).not.toHaveBeenCalled();
+    expect(uploadRFPDocumentHtml).not.toHaveBeenCalled();
+  });
+
+  it('skips team assembly entirely for other document types and keeps their prompt-context shape', async () => {
+    setupSingleShotSuccess();
+
+    await processJobInner({ ...job, documentType: 'TECHNICAL_PROPOSAL' });
+
+    expect(mockAssemble).not.toHaveBeenCalled();
+    expect(mockRenderBlock).not.toHaveBeenCalled();
+    const [, promptContext] = mockBuildUser.mock.calls[0]!;
+    expect(promptContext).not.toHaveProperty('teamContext');
   });
 });

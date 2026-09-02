@@ -19,6 +19,14 @@ interface Props extends StackProps {
   sentryDNS: string;
   pineconeApiKey: string;
   answerGenerationStateMachineArn?: string;
+  /**
+   * Name of the shared notification SQS queue (owned by the storage stack).
+   * Passed as a NAME and turned into a URL/ARN by convention — same pattern as
+   * api-orchestrator-stack — to avoid a cross-stack token reference. Needed by
+   * the notary rollup (WF-D) fired from detect-required-forms and
+   * textract-forms-callback; without it sendNotification silently skips.
+   */
+  notificationQueueName?: string;
 }
 
 export class QuestionExtractionPipelineStack extends Stack {
@@ -29,9 +37,23 @@ export class QuestionExtractionPipelineStack extends Stack {
   constructor(scope: Construct, id: string, props: Props) {
     super(scope, id, props);
 
-    const { stage, documentsBucket, mainTable, sentryDNS } = props;
+    const { stage, documentsBucket, mainTable, sentryDNS, notificationQueueName } = props;
     // Note: pineconeApiKey is in Props but not used in this stack (moved to answer-generation-step-function)
     const prefix = `AutoRfp-${stage}-Question`;
+
+    // Notification queue URL/ARN derived by name convention (no cross-stack token).
+    const notificationQueueEnv: Record<string, string> = notificationQueueName
+      ? { NOTIFICATION_QUEUE_URL: `https://sqs.${this.region}.amazonaws.com/${this.account}/${notificationQueueName}` }
+      : {};
+    const grantNotificationQueueSend = (fn: lambdaNode.NodejsFunction) => {
+      if (!notificationQueueName) return;
+      fn.addToRolePolicy(
+        new iam.PolicyStatement({
+          actions: ['sqs:SendMessage'],
+          resources: [`arn:aws:sqs:${this.region}:${this.account}:${notificationQueueName}`],
+        }),
+      );
+    };
 
     const sfLogGroup = new logs.LogGroup(this, `${prefix}-LogGroup`, {
       logGroupName: `/aws/stepfunctions/${prefix}-Pipeline`,
@@ -197,11 +219,12 @@ export class QuestionExtractionPipelineStack extends Stack {
       }),
     );
 
-    const bedrockApiKeyParamArn = `arn:aws:ssm:us-east-1:${this.account}:parameter/auto-rfp/bedrock/api-key`;
+    // Per-org Bedrock keys live in Secrets Manager as `bedrock-api-key-<orgId>`.
+    const bedrockApiKeySecretArn = `arn:aws:secretsmanager:${this.region}:${this.account}:secret:bedrock-api-key-*`;
     extractQuestionsLambda.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['ssm:GetParameter'],
-        resources: [bedrockApiKeyParamArn],
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [bedrockApiKeySecretArn],
       }),
     );
 
@@ -234,8 +257,8 @@ export class QuestionExtractionPipelineStack extends Stack {
 
     fulfillOpportunityFieldsLambda.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['ssm:GetParameter'],
-        resources: [bedrockApiKeyParamArn],
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [bedrockApiKeySecretArn],
       }),
     );
 
@@ -312,10 +335,13 @@ export class QuestionExtractionPipelineStack extends Stack {
         PINECONE_INDEX: 'documents',
         TEXTRACT_FORMS_SNS_TOPIC_ARN: textractFormsTopic.topicArn,
         TEXTRACT_FORMS_ROLE_ARN: textractFormsRole.roleArn,
+        // Notary rollup (WF-D) fires a change-guarded NOTARY_REQUIRED notification.
+        ...notificationQueueEnv,
       },
     });
     documentsBucket.grantReadWrite(detectRequiredFormsLambda);
     mainTable.grantReadWriteData(detectRequiredFormsLambda);
+    grantNotificationQueueSend(detectRequiredFormsLambda);
 
     detectRequiredFormsLambda.addToRolePolicy(
       new iam.PolicyStatement({
@@ -340,8 +366,8 @@ export class QuestionExtractionPipelineStack extends Stack {
 
     detectRequiredFormsLambda.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['ssm:GetParameter'],
-        resources: [bedrockApiKeyParamArn],
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [bedrockApiKeySecretArn],
       }),
     );
 
@@ -364,10 +390,14 @@ export class QuestionExtractionPipelineStack extends Stack {
         ...commonLambdaEnv,
         BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
         BEDROCK_REGION: 'us-east-1',
+        // Notary rollup (WF-D) fires from markFormsReadyIfAllDone here too — the
+        // LAST terminal form on a mixed opportunity is usually a Textract callback.
+        ...notificationQueueEnv,
       },
     });
     mainTable.grantReadWriteData(textractFormsCallbackLambda);
     documentsBucket.grantRead(textractFormsCallbackLambda);
+    grantNotificationQueueSend(textractFormsCallbackLambda);
 
     textractFormsCallbackLambda.addToRolePolicy(
       new iam.PolicyStatement({
@@ -385,8 +415,8 @@ export class QuestionExtractionPipelineStack extends Stack {
 
     textractFormsCallbackLambda.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['ssm:GetParameter'],
-        resources: [bedrockApiKeyParamArn],
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [bedrockApiKeySecretArn],
       }),
     );
 
@@ -417,11 +447,11 @@ export class QuestionExtractionPipelineStack extends Stack {
       }),
     );
 
-    // Allow reading Bedrock API key from SSM Parameter Store
+    // Allow reading the per-org Bedrock API key from Secrets Manager
     indexSolicitationLambda.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['ssm:GetParameter'],
-        resources: [bedrockApiKeyParamArn],
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [bedrockApiKeySecretArn],
       }),
     );
 
@@ -483,10 +513,25 @@ export class QuestionExtractionPipelineStack extends Stack {
 
     classifyDocumentLambda.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['ssm:GetParameter'],
-        resources: [bedrockApiKeyParamArn],
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [bedrockApiKeySecretArn],
       }),
     );
+
+    // Mark QuestionFile FAILED Lambda — shared catch target for the pipeline.
+    // When any processing stage throws (Bedrock outage, AI-not-configured for
+    // the org, malformed input, etc.), the state's `.addCatch(...)` routes the
+    // execution here so the file is marked FAILED with a readable errorMessage
+    // instead of being left stuck in an in-progress status.
+    const markFailedLambda = new lambdaNode.NodejsFunction(this, 'MarkQuestionFileFailedLambda', {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      logGroup: mkFnLogGroup('MarkQuestionFileFailed'),
+      entry: path.join(__dirname, '../../apps/functions/src/handlers/question-pipeline/mark-question-file-failed.ts'),
+      handler: 'handler',
+      timeout: Duration.seconds(30),
+      environment: commonLambdaEnv,
+    });
+    mainTable.grantReadWriteData(markFailedLambda);
 
     const startTextract = new tasks.LambdaInvoke(this, 'Start Textract', {
       lambdaFunction: startTextractLambda,
@@ -566,6 +611,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
         mimeType: sfn.JsonPath.stringAt('$.mimeType'),
@@ -580,6 +626,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
         mimeType: sfn.JsonPath.stringAt('$.mimeType'),
@@ -594,6 +641,7 @@ export class QuestionExtractionPipelineStack extends Stack {
         questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
         projectId: sfn.JsonPath.stringAt('$.projectId'),
         opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        orgId: sfn.JsonPath.stringAt('$.orgId'),
         textFileKey: sfn.JsonPath.stringAt('$.process.textFileKey'),
         sourceFileKey: sfn.JsonPath.stringAt('$.sourceFileKey'),
         mimeType: sfn.JsonPath.stringAt('$.mimeType'),
@@ -849,6 +897,64 @@ export class QuestionExtractionPipelineStack extends Stack {
     });
 
     const done = new sfn.Succeed(this, 'Done');
+
+    // Shared failure path: mark the QuestionFile FAILED, then fail the execution.
+    // The Step Functions catcher writes the error to `$.error` (with `Error` and
+    // `Cause`), which the Lambda maps to a readable errorMessage on the file.
+    const markFailed = new tasks.LambdaInvoke(this, 'Mark Question File Failed', {
+      lambdaFunction: markFailedLambda,
+      payload: sfn.TaskInput.fromObject({
+        questionFileId: sfn.JsonPath.stringAt('$.questionFileId'),
+        projectId: sfn.JsonPath.stringAt('$.projectId'),
+        opportunityId: sfn.JsonPath.stringAt('$.oppId'),
+        errorName: sfn.JsonPath.stringAt('$.error.Error'),
+        errorCause: sfn.JsonPath.stringAt('$.error.Cause'),
+      }),
+      resultPath: sfn.JsonPath.DISCARD,
+      payloadResponseOnly: true,
+    });
+
+    const failPipeline = new sfn.Fail(this, 'Fail - Question pipeline error', {
+      error: 'QuestionPipelineError',
+      cause: 'A pipeline stage failed; the question file was marked FAILED.',
+    });
+
+    markFailed.next(failPipeline);
+
+    // Route every processing stage's failures to the shared markFailed target.
+    // A single state instance can be the catch target of many states in CDK.
+    // startTextract/processResult and the DOCX/XLSX text extractors also self-mark
+    // FAILED, but catching them here is harmless and closes any remaining gaps.
+    const stagesToGuard: tasks.LambdaInvoke[] = [
+      startTextract,
+      processResult,
+      extractXlsxText,
+      extractDocxText,
+      classifyAfterPdf,
+      classifyAfterXlsx,
+      classifyAfterDocx,
+      detectAttachmentsAfterPdf,
+      detectAttachmentsAfterXlsx,
+      detectAttachmentsAfterDocx,
+      detectFormsAfterPdf,
+      detectFormsAfterXlsx,
+      detectFormsAfterDocx,
+      fulfillOppAfterPdf,
+      fulfillOppAfterXlsx,
+      fulfillOppAfterDocx,
+      indexSolicitationAfterPdf,
+      indexSolicitationAfterXlsx,
+      indexSolicitationAfterDocx,
+      extractQuestionsAfterPdf,
+      extractQuestionsAfterXlsx,
+      extractQuestionsAfterDocx,
+      checkAndTriggerAfterPdf,
+      checkAndTriggerAfterXlsx,
+      checkAndTriggerAfterDocx,
+    ];
+    for (const stage of stagesToGuard) {
+      stage.addCatch(markFailed, { resultPath: '$.error' });
+    }
 
     const isXlsx = sfn.Condition.or(
       sfn.Condition.stringEquals(

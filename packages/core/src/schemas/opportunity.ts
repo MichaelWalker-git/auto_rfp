@@ -11,7 +11,10 @@
 import { z } from 'zod';
 import { PK_NAME, SK_NAME } from '../constants';
 import { JurisdictionSchema } from './foia';
+import { FoiaAutomationStateSchema } from './foia-automation';
 import { WinDataSchema, LossDataSchema } from './outcome-detail';
+import { NotarySummarySchema, NotaryClassificationSourceSchema, NotaryRequirementSchema } from './notary';
+import { FoiaComponentAddressSchema } from './foia-component';
 
 const flexibleDateSchema = z
   .string()
@@ -29,6 +32,16 @@ export type OpportunitySource = z.infer<typeof OpportunitySourceSchema>;
 /** Whether the solicitation permits offshore/non-US delivery. */
 export const DeliveryLocationConstraintSchema = z.enum(['US_ONLY', 'OFFSHORE_ALLOWED', 'UNKNOWN']);
 export type DeliveryLocationConstraint = z.infer<typeof DeliveryLocationConstraintSchema>;
+
+// ─── Physical submission detection ──────────────────────────────────────────────
+
+/**
+ * How the solicitation requires proposals to be submitted.
+ * "Detected" in the name distinguishes this from SubmissionMethodSchema in
+ * proposal-submission.ts, which records how a proposal *was* submitted.
+ */
+export const SubmissionMethodDetectedSchema = z.enum(['ELECTRONIC', 'PHYSICAL', 'BOTH', 'UNKNOWN']);
+export type SubmissionMethodDetected = z.infer<typeof SubmissionMethodDetectedSchema>;
 
 // ─── Pipeline Stage ───────────────────────────────────────────────────────────
 
@@ -288,8 +301,35 @@ export const OpportunityItemSchema = z.object({
   jurisdiction: JurisdictionSchema.optional(),
   /** Full state name — required when jurisdiction === 'STATE'. */
   state: z.string().nullish(),
-  /** ISO datetime the terminal outcome was recorded. */
+  /**
+   * ISO datetime the terminal outcome was **recorded** — i.e. when someone moved
+   * the opportunity to a terminal status, not when the agency acted.
+   *
+   * `opportunity-status.ts` stamps this with `now` on every terminal transition
+   * (84 of the 85 populated values in dev are such stamps). It is therefore NOT
+   * evidence of an award date, and `resolveAwardDate` ranks it accordingly. For
+   * the date an agency actually stated, see `agencyStatedAwardDate`.
+   */
   outcomeDate: z.string().datetime().nullish(),
+  /**
+   * The award date an AGENCY stated, in its own words, as a date-only value.
+   *
+   * Separate from `outcomeDate` because the two answer different questions and
+   * conflating them produced a real 132-day error: the inbound-mail pipeline wrote
+   * an agency-stated 2026-01-29 to `outcomeDate`, where it was outranked on read by
+   * a `lossData.lossDate` click timestamp of 2026-06-10 — and the letter would have
+   * asserted the later date as verified. This field is the only one that may carry
+   * `RECORDED_AWARD` provenance from mail, so it must never be written from a
+   * receipt date or a UI interaction. See `awardDateFromMail`, which only returns
+   * `RECORDED_AWARD` when the message itself stated a date.
+   *
+   * Date-only (`YYYY-MM-DD`) on purpose: an agency states a day, not an instant,
+   * and inventing a time would imply precision we do not have.
+   */
+  agencyStatedAwardDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be a date-only YYYY-MM-DD value')
+    .nullish(),
   /** User who recorded the outcome. */
   outcomeSetBy: z.string().nullish(),
   // Audit fields
@@ -342,6 +382,13 @@ export const OpportunityItemSchema = z.object({
   sourceUrl: z.string().nullish(),
   /** HigherGov unique opportunity key (used for dedup and re-fetch) */
   higherGovOppKey: z.string().nullish(),
+  /**
+   * HigherGov agency key for the issuing office. Present in the import payload
+   * and previously discarded; retained so the FOIA recipient resolver can walk
+   * the agency hierarchy — HigherGov stores a leaf office ("NPS Midwest Region")
+   * that is not itself a FOIA component, but its parent department is.
+   */
+  higherGovAgencyKey: z.string().nullish(),
   /** HigherGov AI-generated summary — proprietary enrichment */
   higherGovAiSummary: z.string().nullish(),
   /** Decision/award date — when the awarding agency will announce the winner */
@@ -354,6 +401,64 @@ export const OpportunityItemSchema = z.object({
   deliveryConstraintSource: z.enum(['AI_DETECTED', 'USER_SET']).nullish(),
   /** Short rationale for the detected constraint (quote/keyword from solicitation). */
   deliveryConstraintRationale: z.string().max(500).nullish(),
+
+  // ── Physical submission detection ──
+  /** How the solicitation requires proposals to be submitted. AI-detected; user-editable. */
+  submissionMethod: SubmissionMethodDetectedSchema.nullish(),
+  /** Mailing address for physical proposal submission. AI-detected from solicitation. */
+  submissionMailingAddress: FoiaComponentAddressSchema.nullish(),
+  /** Short rationale for the detected submission method (quote/keyword from solicitation). */
+  submissionMethodRationale: z.string().max(500).nullish(),
+
+  // ── Notary detection rollup (u2-notary-backend-wiring) ──
+  /**
+   * Opportunity-level notary rollup, computed by mark-forms-ready once every
+   * required form reaches a terminal state. Absent/null until then. `.nullish()`
+   * (optional, like the sibling deliveryConstraintSource) so existing opportunity
+   * records and construction sites read cleanly with no migration.
+   */
+  notarySummary: NotarySummarySchema.nullish(),
+  /**
+   * Provenance of notarySummary. AI_DETECTED is recomputed by the rollup on every
+   * terminal event; a USER_SET summary is never overwritten (enforced by the
+   * rollup's atomic conditional write, BR10.2). Absent is treated as AI_DETECTED
+   * by the guard condition.
+   */
+  notarySummarySource: NotaryClassificationSourceSchema.nullish(),
+  /**
+   * Opportunity-level store of UNMAPPED solicitation-instruction notary triggers —
+   * generic body mentions ("all certifications must be notarized") that the body
+   * scan could not attribute to a specific form (BR10.3). Persisted here at scan
+   * time so a generic trigger survives the async gap on a MIXED opportunity (inline
+   * forms READY, PDF forms still pending): the FINAL rollup — whichever
+   * markFormsReadyIfAllDone call fires last, including the Textract callback with no
+   * passed-in triggers — reads this store and folds it into the summary counts, so
+   * the mention is never silently dropped (NFR1 zero-miss). AI-detected evidence,
+   * recomputed wholesale (merge/union, deduped by natural key) on every re-scan.
+   * `.nullish()` (like the sibling notarySummarySource) so legacy records and
+   * construction sites read cleanly with no migration.
+   */
+  notaryUnmappedTriggers: z.array(NotaryRequirementSchema).nullish(),
+
+  // ── FOIA automation ──
+  /**
+   * Denormalized mirror of the FOIA automation state, for badges in list and
+   * board views. The authoritative record is the FOIA_AUTOMATION item; this is
+   * written only by the backend and re-synced by the scanner on every pass.
+   * Omitted from OpportunityUpdateRequestSchema so clients cannot patch it.
+   */
+  foiaAutomationState: FoiaAutomationStateSchema.nullish(),
+  /**
+   * Explicit FOIA-office email for this solicitation. Tier 1 of the recipient
+   * fallback chain, and deliberately separate from `contactEmail` — the
+   * contracting officer is frequently not the FOIA office, and overloading one
+   * field would mean editing the CO contact silently redirects legal mail.
+   */
+  foiaContactEmail: z.string().nullish(),
+  /** Mailing address for the FOIA office, used in the letter header. */
+  foiaContactAddress: z.string().nullish(),
+  /** Name or office title of the FOIA contact. */
+  foiaContactName: z.string().nullish(),
 });
 
 export type OpportunityItem = z.infer<typeof OpportunityItemSchema>;
@@ -403,10 +508,14 @@ export type OpportunityCreateRequest = z.infer<typeof OpportunityCreateRequestSc
 
 /**
  * Partial patch for updating an opportunity. Identifiers are not patchable.
+ *
+ * `foiaAutomationState` is also omitted: it mirrors the FOIA_AUTOMATION record
+ * and is written only by the backend. Leaving it patchable would let any client
+ * with `opportunity:edit` fake "FOIA sent" on an opportunity.
  */
 export const OpportunityUpdateRequestSchema = OpportunityItemSchema
   .partial()
-  .omit({ orgId: true, projectId: true, oppId: true });
+  .omit({ orgId: true, projectId: true, oppId: true, foiaAutomationState: true });
 
 export type OpportunityUpdateRequest = z.infer<typeof OpportunityUpdateRequestSchema>;
 
@@ -437,6 +546,15 @@ export const OpportunityListItemSchema = z.object({
   createdAt:            z.string().nullish(),
   assigneeId:           z.string().nullish(),
   assigneeName:         z.string().nullish(),
+  /** Drives the FOIA badge in list/board views. */
+  foiaAutomationState:  FoiaAutomationStateSchema.nullish(),
+  /**
+   * Mirrored from OpportunityItem so the list/card notary badge can read it — a
+   * field added only to the full item would never reach the card projection.
+   */
+  notarySummary:        NotarySummarySchema.nullable().default(null),
+  /** Mirrored so physical-submission badges can render on cards without fetching the full opportunity. */
+  submissionMethod:     SubmissionMethodDetectedSchema.nullish(),
 });
 
 export type OpportunityListItem = z.infer<typeof OpportunityListItemSchema>;
@@ -474,3 +592,46 @@ export const AssignOpportunityDTOSchema = z.object({
 });
 
 export type AssignOpportunityDTO = z.infer<typeof AssignOpportunityDTOSchema>;
+
+// ─── Physical submission helpers ─────────────────────────────────────────────
+
+/**
+ * Returns true when the solicitation requires physical (mailed) submission —
+ * i.e., PHYSICAL or BOTH. False for ELECTRONIC, UNKNOWN, null, or undefined.
+ */
+export const isPhysicalSubmission = (method: SubmissionMethodDetected | null | undefined): boolean =>
+  method === 'PHYSICAL' || method === 'BOTH';
+
+/** Number of business days subtracted from the response deadline to get the mail-by date. */
+export const DEFAULT_MAIL_TRANSIT_BUSINESS_DAYS = 5;
+
+/**
+ * Subtracts `transitDays` business days (Mon–Fri only) from `responseDeadlineIso`.
+ * Returns an ISO date string (YYYY-MM-DD) or null when the input is absent.
+ */
+export const computeMailDeadline = (
+  responseDeadlineIso: string | null | undefined,
+  transitDays: number = DEFAULT_MAIL_TRANSIT_BUSINESS_DAYS,
+): string | null => {
+  if (!responseDeadlineIso) return null;
+
+  const deadline = new Date(responseDeadlineIso);
+  if (isNaN(deadline.getTime())) return null;
+
+  const todayUtc = new Date();
+  todayUtc.setUTCHours(0, 0, 0, 0);
+  if (deadline <= todayUtc) return null;
+
+  let remaining = transitDays;
+  const current = new Date(deadline);
+
+  while (remaining > 0) {
+    current.setUTCDate(current.getUTCDate() - 1);
+    const day = current.getUTCDay();
+    if (day !== 0 && day !== 6) {
+      remaining--;
+    }
+  }
+
+  return current.toISOString().slice(0, 10);
+};

@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  NotaryStatusSchema,
+  NotaryRequirementSchema,
+  NotaryClassificationSourceSchema,
+} from './notary';
 
 // ─── Form Field Status ───
 
@@ -188,6 +193,15 @@ export const RequiredFormItemSchema = z.object({
   // RFP document id created when the form was attached to the proposal.
   // Cleared when the form is detached.
   proposalDocumentId: z.string().nullable().default(null),
+  // ── Notary detection (u2-notary-backend-wiring) ──
+  // Per-form notary state, stored as TOP-LEVEL attributes (BR9.1) so the UI label
+  // reads them without decompressing fieldsGz. Defaults keep legacy records clean.
+  // notaryStatus is the strongest-signal status across this form's triggers;
+  // notaryRequirements is the evidence array; notarySource guards user overrides
+  // (AI_DETECTED is recomputed wholesale, USER_SET survives detection re-runs).
+  notaryStatus: NotaryStatusSchema.default('NOT_REQUIRED'),
+  notaryRequirements: z.array(NotaryRequirementSchema).default([]),
+  notarySource: NotaryClassificationSourceSchema.default('AI_DETECTED'),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -227,6 +241,11 @@ export const UpdateRequiredFormDTOSchema = z.object({
   attachedToProposal: z.boolean().optional(),
   attachedAt: z.string().nullable().optional(),
   proposalDocumentId: z.string().nullable().optional(),
+  // Notary fields — patchable by the detection/callback wiring and by a user edit
+  // (a user-originated patch sets notarySource to USER_SET, BR12.1).
+  notaryStatus: NotaryStatusSchema.optional(),
+  notaryRequirements: z.array(NotaryRequirementSchema).optional(),
+  notarySource: NotaryClassificationSourceSchema.optional(),
 });
 
 export type UpdateRequiredFormDTO = z.infer<typeof UpdateRequiredFormDTOSchema>;

@@ -55,12 +55,13 @@ const buildFieldExtractionPrompt = (docText: string) => {
  * caller runs company-profile autofill (autofillFieldsWithTools) over the
  * result, which decides AUTO_FILLED / MANUAL_REQUIRED per field.
  */
-export const parseDocxForms = async (docText: string): Promise<DetectedFormField[]> => {
+export const parseDocxForms = async (docText: string, orgId: string): Promise<DetectedFormField[]> => {
   if (!docText || docText.trim().length === 0) return [];
 
   const responseBody = await invokeModel(
     getBedrockModelId(),
     JSON.stringify(buildFieldExtractionPrompt(docText)),
+    orgId,
   );
   const responseJson = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as Record<string, unknown>;
   const contentBlocks = (responseJson?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
@@ -183,13 +184,13 @@ export const extractAndAutofillDocxForm = async (
     const anchored = buildStructuredFields(structuredFields);
     fields = anchored.length > 0
       ? anchored.slice(0, MAX_FIELDS)
-      : (await parseDocxForms(docText)).slice(0, MAX_FIELDS);
+      : (await parseDocxForms(docText, orgId)).slice(0, MAX_FIELDS);
   }
 
   if (fields.length > 0) {
     const profile = await getCompanyProfile(orgId);
     if (profile) {
-      fields = await autofillFieldsWithTools(fields, profile);
+      fields = await autofillFieldsWithTools(fields, profile, orgId);
     }
   }
 

@@ -41,6 +41,26 @@ export const PastProjectContactInfoSchema = z.object({
 export type PastProjectContactInfo = z.infer<typeof PastProjectContactInfoSchema>;
 
 // ================================
+// Disclosure classification (NDA / permission gating)
+// ================================
+
+export const DisclosureLevelSchema = z.enum([
+  'NAMEABLE',            // client may be named freely in generated output
+  'ANONYMIZED_ONLY',     // may be used, but client name must be withheld
+  'PERMISSION_REQUIRED', // fail-closed default; treat as anonymized until cleared
+  'DO_NOT_USE',          // never surface in matching or generation
+]);
+export type DisclosureLevel = z.infer<typeof DisclosureLevelSchema>;
+
+/** Order used to render badge severity and to sort the review table. */
+export const DISCLOSURE_ORDER: Record<DisclosureLevel, number> = {
+  NAMEABLE: 0,
+  ANONYMIZED_ONLY: 1,
+  PERMISSION_REQUIRED: 2,
+  DO_NOT_USE: 3,
+} as const;
+
+// ================================
 // Past Project Entity
 // ================================
 
@@ -82,6 +102,22 @@ export const PastProjectSchema = z.object({
   lastFreshnessCheck: z.string().datetime().nullable().optional(),
   reactivatedAt: z.string().datetime().nullable().optional(),
   reactivatedBy: z.string().uuid().nullable().optional(),
+
+  // ── Disclosure / NDA gating ──────────────────────────────
+  // Effective (authoritative) classification. Fail-closed default.
+  disclosure: DisclosureLevelSchema.default('PERMISSION_REQUIRED'),
+  // Effective value is only trusted once a human confirms the row.
+  disclosureConfirmed: z.boolean().default(false),
+  disclosureContactNote: z.string().max(1000).nullable().optional(),
+  disclosureReviewedBy: z.string().uuid().nullable().optional(),
+  disclosureReviewedAt: z.string().datetime().nullable().optional(),
+
+  // AI proposal — kept SEPARATE from the effective value above.
+  disclosureProposed: DisclosureLevelSchema.nullable().optional(),
+  disclosureRationale: z.string().max(2000).nullable().optional(),
+  disclosureSignals: z.array(z.string()).default([]),
+  disclosureConfidence: z.number().min(0).max(100).nullable().optional(),
+  disclosureClassifiedAt: z.string().datetime().nullable().optional(),
 
   // Metadata
   createdAt: z.string().datetime(),
@@ -216,6 +252,9 @@ export const CreatePastProjectDTOSchema = z.object({
   durationMonths: z.number().int().positive().optional(),
   // Optional extraction source for items created from document extraction
   extractionSource: ExtractionSourceSchema.optional(),
+  // Optional initial disclosure (still unconfirmed unless cleared via review)
+  disclosure: DisclosureLevelSchema.optional(),
+  disclosureContactNote: z.string().max(1000).optional(),
 });
 
 export type CreatePastProjectDTO = z.infer<typeof CreatePastProjectDTOSchema>;
@@ -240,6 +279,10 @@ export const UpdatePastProjectDTOSchema = z.object({
   teamSize: z.number().int().positive().optional().nullable(),
   durationMonths: z.number().int().positive().optional().nullable(),
   isArchived: z.boolean().optional(),
+  // Disclosure note + level are editable here; confirmation happens only via
+  // the dedicated review endpoint, so disclosureConfirmed is intentionally omitted.
+  disclosure: DisclosureLevelSchema.optional(),
+  disclosureContactNote: z.string().max(1000).optional().nullable(),
 });
 
 export type UpdatePastProjectDTO = z.infer<typeof UpdatePastProjectDTOSchema>;
@@ -446,3 +489,54 @@ export interface PastProjectDraftsResponse {
   total: number;
   nextToken?: string;
 }
+
+// ================================
+// Disclosure classification & review DTOs
+// ================================
+
+// ── AI classification (backfill) ──
+export const ClassifyDisclosureRequestSchema = z.object({
+  orgId: z.string().uuid(),
+  projectIds: z.array(z.string().uuid()).optional(), // omit → classify all not-yet-proposed
+  force: z.boolean().optional().default(false),      // re-propose even if already classified
+});
+export type ClassifyDisclosureRequest = z.infer<typeof ClassifyDisclosureRequestSchema>;
+
+export const DisclosureProposalSchema = z.object({
+  projectId: z.string().uuid(),
+  proposed: DisclosureLevelSchema,
+  rationale: z.string(),
+  signals: z.array(z.string()).default([]),
+  confidence: z.number().min(0).max(100),
+});
+export type DisclosureProposal = z.infer<typeof DisclosureProposalSchema>;
+
+export const ClassifyDisclosureResponseSchema = z.object({
+  proposals: z.array(DisclosureProposalSchema),
+  classified: z.number().int().nonnegative(),
+  failed: z.array(z.string()).default([]),
+});
+export type ClassifyDisclosureResponse = z.infer<typeof ClassifyDisclosureResponseSchema>;
+
+// ── Human review (confirm/override, batch) ──
+export const ConfirmDisclosureRowSchema = z.object({
+  projectId: z.string().uuid(),
+  disclosure: DisclosureLevelSchema,
+  disclosureContactNote: z.string().max(1000).optional().nullable(),
+});
+export type ConfirmDisclosureRow = z.infer<typeof ConfirmDisclosureRowSchema>;
+
+export const ConfirmDisclosureRequestSchema = z.object({
+  orgId: z.string().uuid(),
+  rows: z.array(ConfirmDisclosureRowSchema).min(1).max(200),
+});
+export type ConfirmDisclosureRequest = z.infer<typeof ConfirmDisclosureRequestSchema>;
+
+// Model output contract for the classification pass (one object per project).
+export const ExtractedDisclosureSchema = z.object({
+  proposed: DisclosureLevelSchema,
+  rationale: z.string().min(1),
+  signals: z.array(z.string()).default([]),
+  confidence: z.number().min(0).max(100),
+});
+export type ExtractedDisclosure = z.infer<typeof ExtractedDisclosureSchema>;

@@ -12,6 +12,7 @@ import {
   Paperclip,
   FileEdit,
   Sparkles,
+  Link2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -22,11 +23,12 @@ import { AssigneeSelector } from './AssigneeSelector';
 import { OpportunitySolicitationDocuments } from './opportunity-attachments';
 import { OpportunityRFPDocuments } from './opportunity-rfp-documents';
 import { OpportunityChatDialog } from './OpportunityChatDialog';
+import { PhysicalSubmissionBanner } from './PhysicalSubmissionBanner';
 import { ExecutiveBriefView } from '@/components/brief/ExecutiveBriefView';
 import { QuestionsProvider } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components';
 import { OpportunityOutcomeSummary } from './opportunity-outcome-summary';
 import { DebriefingCard } from '@/components/debriefing';
-import { FOIARequestCard } from '@/components/foia/FOIARequestCard';
+import { FOIARequestCard, FoiaAutomationCard } from '@/components/foia';
 import { OpportunityContextPanel } from './opportunity-context-panel';
 import { useCurrentOrganization } from '@/context/organization-context';
 import { saveSelectedOpportunity } from '@/lib/utils/opportunity-selection';
@@ -39,6 +41,7 @@ import { RequiredFormsList } from '@/features/required-forms';
 import { ComplianceReviewPanel } from '@/features/compliance-review';
 import { SolutionPlanPanel } from '@/features/solution-plan';
 import { OpportunityApprovalPanel } from '@/features/opportunity-approval';
+import { RelatedRfpsSection } from '@/features/related-rfp';
 import PermissionWrapper from '@/components/permission-wrapper';
 
 interface OpportunityViewProps {
@@ -87,6 +90,7 @@ const SECTION_NAV_ITEMS: SectionNavItem[] = [
   { id: 'solicitation-documents', label: 'Solicitations', icon: <Paperclip className="h-3.5 w-3.5" /> },
   { id: 'required-forms', label: 'Required Forms', icon: <FileEdit className="h-3.5 w-3.5" /> },
   { id: 'rfp-documents', label: 'RFP Documents', icon: <FileEdit className="h-3.5 w-3.5" /> },
+  { id: 'related-rfps', label: 'Related RFPs', icon: <Link2 className="h-3.5 w-3.5" /> },
   { id: 'ai-compliance-review', label: 'AI Review', icon: <Sparkles className="h-3.5 w-3.5" /> },
   { id: 'submission-compliance', label: 'Submission', icon: <ShieldCheck className="h-3.5 w-3.5" /> },
   { id: 'post-award', label: 'Post-Award', icon: <Trophy className="h-3.5 w-3.5" /> },
@@ -215,7 +219,7 @@ const useSmartPolling = (orgId: string, projectId: string, oppId: string) => {
 // ─── Main Content Component ──────────────────────────────────────────────
 
 const OpportunityContent = ({ className }: { className?: string }) => {
-  const { projectId, oppId, orgId, opportunity, refetch } = useOpportunityContext();
+  const { projectId, oppId, orgId, opportunity, isLoading, refetch } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id;
   // AI Compliance Review is a single-org (Horus Technology) feature, gated by the
@@ -224,9 +228,12 @@ const OpportunityContent = ({ className }: { className?: string }) => {
   // Solution Plan ("Source of Truth") ships behind the org-level
   // enableSolutionPlan flag until Release 3 flips gating on per org.
   const solutionPlanEnabled = !!currentOrganization?.enableSolutionPlan;
+  // Related RFPs (HOR-2610) auto-discover from the issuing agency — HigherGov opps only.
+  const isHigherGov = !!opportunity?.higherGovOppKey;
   const hiddenSectionIds = [
     ...(complianceReviewEnabled ? [] : ['ai-compliance-review']),
     ...(solutionPlanEnabled ? [] : ['solution-plan']),
+    ...(isHigherGov ? [] : ['related-rfps']),
   ];
   const [isChatOpen, setIsChatOpen] = useState(false);
 
@@ -315,6 +322,13 @@ const OpportunityContent = ({ className }: { className?: string }) => {
         <OpportunityRFPDocuments />
       </section>
 
+      {/* ── Related RFPs (HigherGov-sourced opps only) ─────────────────── */}
+      {isHigherGov && (
+        <section id="related-rfps" className="scroll-mt-4">
+          <RelatedRfpsSection orgId={orgId} projectId={projectId} oppId={oppId} />
+        </section>
+      )}
+
       {/* ── Context & Knowledge Base ───────────────────────────────────── */}
       <section className="scroll-mt-4">
         <OpportunityContextPanel />
@@ -336,6 +350,14 @@ const OpportunityContent = ({ className }: { className?: string }) => {
         <SectionDivider
           icon={<ShieldCheck className="h-4 w-4" />}
           title="Submission & Compliance"
+        />
+        <PhysicalSubmissionBanner
+          orgId={orgId}
+          projectId={projectId}
+          oppId={oppId}
+          opportunity={opportunity}
+          isLoading={isLoading}
+          refetch={refetch}
         />
         <ComplianceReport orgId={orgId} projectId={projectId} oppId={oppId} />
         <div className="flex justify-end">
@@ -377,6 +399,12 @@ const OpportunityContent = ({ className }: { className?: string }) => {
             contractTitle={opportunity?.title ?? undefined}
           />
         )}
+        <FoiaAutomationCard
+          orgId={orgId}
+          projectId={projectId}
+          opportunityId={oppId}
+          opportunityStatus={outcome?.status}
+        />
         <FOIARequestCard
           projectId={projectId}
           orgId={orgId}
