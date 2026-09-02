@@ -49,6 +49,7 @@ import { useCurrentOrganization } from '@/context/organization-context';
 import { AiNotConfiguredNotice } from '@/components/ai-not-configured-notice';
 import { isAiNotConfiguredError } from '@/lib/ai-not-configured';
 import { PermissionButton } from '@/components/ui/permission-button';
+import { DisabledReasonTooltip } from '@/components/ui/disabled-reason-tooltip';
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { isExtractedQuestionFile } from '@/lib/utils/question-file-status';
 import type { OpportunityItem } from '@auto-rfp/core';
@@ -262,10 +263,13 @@ export function ExecutiveBriefView({
   const autoGenerateTriggeredRef = useRef(false);
   const [briefFetchDone, setBriefFetchDone] = useState(false);
 
-  // Track solicitation file status for auto-generation
-  const { items: questionFiles } = useQuestionFiles(
-    fixedOpportunityId ? projectId : null,
-    { oppId: fixedOpportunityId ?? undefined, refreshInterval: 10_000 },
+  // Track solicitation file status for auto-generation and generation gating.
+  // Uses the fixed opportunity (opportunity page) or the one picked in the
+  // selector (brief page) so both surfaces know the documents.
+  const effectiveOpportunityId = fixedOpportunityId ?? selectedOpportunityId;
+  const { items: questionFiles, isLoading: isLoadingQuestionFiles } = useQuestionFiles(
+    effectiveOpportunityId ? projectId : null,
+    { oppId: effectiveOpportunityId ?? undefined, refreshInterval: 10_000 },
   );
 
   const sectionsState = useMemo(() => buildSectionsState(briefItem), [briefItem]);
@@ -282,6 +286,15 @@ export function ExecutiveBriefView({
   );
 
   const prereq = briefItem ? scoringPrereqsComplete(briefItem) : ({ ok: false, missing: [] as string[] });
+
+  // Generation needs at least one solicitation document. While the file list
+  // is loading, treat documents as present so buttons don't flash disabled —
+  // the click-time guard in generateBrief() catches the race anyway.
+  const docsMissing =
+    !!effectiveOpportunityId &&
+    !isLoadingQuestionFiles &&
+    !questionFiles.some((f) => f.status !== 'DELETED');
+  const docsMissingReason = docsMissing ? 'Upload solicitation documents first' : null;
 
   const progressText = useMemo(() => {
     if (!briefItem) return null;
@@ -952,21 +965,28 @@ export function ExecutiveBriefView({
             <CardContent className="py-8 text-center">
               <Briefcase className="h-10 w-10 mx-auto text-muted-foreground mb-3"/>
               <p className="text-sm text-muted-foreground mb-4">
-                Generate a brief with scoring, risks, requirements, and more.
+                {docsMissing
+                  ? 'Upload solicitation documents first — the analysis is generated from them.'
+                  : 'Generate a brief with scoring, risks, requirements, and more.'}
               </p>
-              <Button onClick={() => generateBrief(false)} disabled={anySectionInProgress || isFetchingBrief || isGeneratingBrief}>
-                {anySectionInProgress || isGeneratingBrief ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2"/>
-                    {generateLabel}
-                  </>
-                )}
-              </Button>
+              <DisabledReasonTooltip reason={docsMissingReason}>
+                <Button
+                  onClick={() => generateBrief(false)}
+                  disabled={docsMissing || anySectionInProgress || isFetchingBrief || isGeneratingBrief}
+                >
+                  {anySectionInProgress || isGeneratingBrief ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2"/>
+                      {generateLabel}
+                    </>
+                  )}
+                </Button>
+              </DisabledReasonTooltip>
             </CardContent>
           </Card>
         </div>
@@ -1006,24 +1026,30 @@ export function ExecutiveBriefView({
                       Generating...
                     </Button>
                   ) : completedSections < totalSections ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => generateBrief(true)}
-                    >
-                      <RefreshCw className="h-4 w-4 mr-2"/>
-                      {completedSections === 0 ? 'Generate All' : 'Generate Missing'}
-                    </Button>
+                    <DisabledReasonTooltip reason={docsMissingReason}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={docsMissing}
+                        onClick={() => generateBrief(true)}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2"/>
+                        {completedSections === 0 ? 'Generate All' : 'Generate Missing'}
+                      </Button>
+                    </DisabledReasonTooltip>
                   ) : (
-                    <PermissionButton
-                      requiredPermission="brief:edit"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => generateBrief(false)}
-                    >
-                      <RefreshCw className="h-4 w-4 mr-2"/>
-                      Regenerate All
-                    </PermissionButton>
+                    <DisabledReasonTooltip reason={docsMissingReason}>
+                      <PermissionButton
+                        requiredPermission="brief:edit"
+                        variant="outline"
+                        size="sm"
+                        disabled={docsMissing}
+                        onClick={() => generateBrief(false)}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2"/>
+                        Regenerate All
+                      </PermissionButton>
+                    </DisabledReasonTooltip>
                   )}
                 </div>
               </div>

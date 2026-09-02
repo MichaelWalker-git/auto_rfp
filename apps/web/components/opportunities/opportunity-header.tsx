@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { DisabledReasonTooltip } from '@/components/ui/disabled-reason-tooltip';
 import { useOpportunityContext } from './opportunity-context';
 import { useCurrentOrganization } from '@/context/organization-context';
 import {
@@ -30,7 +31,15 @@ import { RequestOpportunityApprovalButton, OpportunityReviewStatusSection } from
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export const OpportunityHeader = () => {
+interface OpportunityHeaderProps {
+  /**
+   * When explicitly false, the Generate POC button is disabled with an
+   * "upload solicitation documents first" explanation.
+   */
+  hasSolicitationDocs?: boolean;
+}
+
+export const OpportunityHeader = ({ hasSolicitationDocs }: OpportunityHeaderProps = {}) => {
   const { projectId, oppId, opportunity, isLoading, error, refetch } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
   const orgId = currentOrganization?.id;
@@ -212,10 +221,19 @@ export const OpportunityHeader = () => {
                         <span className="hidden sm:inline">Retry POC</span>
                       </Button>
                     ) : (
-                      <Button variant="outline" size="sm" onClick={() => handleEmitEvent()}>
-                        <Send className="h-4 w-4 sm:mr-1" />
-                        <span className="hidden sm:inline">Generate POC</span>
-                      </Button>
+                      <DisabledReasonTooltip
+                        reason={hasSolicitationDocs === false ? 'Upload solicitation documents first' : null}
+                      >
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={hasSolicitationDocs === false}
+                          onClick={() => handleEmitEvent()}
+                        >
+                          <Send className="h-4 w-4 sm:mr-1" />
+                          <span className="hidden sm:inline">Generate POC</span>
+                        </Button>
+                      </DisabledReasonTooltip>
                     )
                   )}
                   <PermissionButton
