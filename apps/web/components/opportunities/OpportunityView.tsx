@@ -250,15 +250,17 @@ const OpportunityContent = ({ className }: { className?: string }) => {
       <OpportunityHeader />
 
       {/* TabBar */}
-      <TabBar
-        tabs={TAB_DATA}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        className="max-w-screen-lg mx-auto"
-      />
+      <div className="max-w-screen-lg mx-auto">
+        <TabBar
+          tabs={TAB_DATA}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          className="border-b pb-2"
+        />
+      </div>
 
       {/* Central Tab Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="max-w-screen-lg mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content Area */}
         <div className="lg:col-span-2">
           <div className="flex flex-col gap-6">
@@ -336,7 +338,7 @@ const OpportunityContent = ({ className }: { className?: string }) => {
 
                 {/* Opportunity Description - This should be part of Details tab */}
                 <section className="scroll-mt-4">
-                  <div className="prose prose-sm max-w-none text-sm text-muted-foreground leading-relaxed">
+                  <div className="prose prose-sm max-w-none text-sm text-muted-foreground leading-relaxed p-2 bg-muted/30 rounded-md">
                     <p className="mb-2">{opportunity?.description || 'No description available.'}</p>
                   </div>
                 </section>
