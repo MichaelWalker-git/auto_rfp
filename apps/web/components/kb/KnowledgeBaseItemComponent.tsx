@@ -104,7 +104,12 @@ export default function KnowledgeBaseItemComponent() {
       try {
         const result = await downloadDocument({ documentId: doc.id, kbId: doc.knowledgeBaseId });
         if (result?.url) {
-          window.open(result.url, '_blank');
+          const link = window.document.createElement('a');
+          link.href = result.url;
+          link.download = result.fileName || doc.name;
+          window.document.body.appendChild(link);
+          link.click();
+          link.remove();
         }
       } catch {
         // Error is handled by the downloadError state from the hook

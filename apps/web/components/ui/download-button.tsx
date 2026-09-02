@@ -3,6 +3,8 @@
 import React from 'react';
 import { Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { usePermission } from '@/components/permission-wrapper';
+import type { Permission } from '@auto-rfp/core';
 
 export interface DownloadButtonProps {
   /** Whether the download is in progress */
@@ -57,5 +59,43 @@ export function DownloadButton({
       )}
       {showLabel && <span className="ml-2">{label}</span>}
     </Button>
+  );
+}
+
+export interface PermissionDownloadButtonProps extends Omit<DownloadButtonProps, 'disabled'> {
+  /** The permission required to see the button */
+  requiredPermission: Permission;
+}
+
+/**
+ * Download button that renders nothing when the user lacks the required
+ * permission — unlike PermissionDeleteButton, there is no disabled/tooltip
+ * fallback here by design.
+ */
+export function PermissionDownloadButton({
+  requiredPermission,
+  isLoading = false,
+  onClick,
+  size = 'sm',
+  variant = 'outline',
+  ariaLabel = 'Download',
+  className,
+  showLabel = false,
+  label = 'Download',
+}: PermissionDownloadButtonProps) {
+  const hasPermission = usePermission(requiredPermission);
+  if (!hasPermission) return null;
+
+  return (
+    <DownloadButton
+      isLoading={isLoading}
+      onClick={onClick}
+      size={size}
+      variant={variant}
+      ariaLabel={ariaLabel}
+      className={className}
+      showLabel={showLabel}
+      label={label}
+    />
   );
 }

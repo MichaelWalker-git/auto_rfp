@@ -4,7 +4,7 @@ import { DocumentItem } from '@auto-rfp/core';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileText } from 'lucide-react';
-import { DownloadButton } from '@/components/ui/download-button';
+import { PermissionDownloadButton } from '@/components/ui/download-button';
 import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { FreshnessStatusBadge } from '@/components/content-library/FreshnessStatusBadge';
 import { getStatusVariant, getStatusLabel } from '../lib/formatting';
@@ -93,16 +93,15 @@ export function DocumentCard({
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
-        {(!doc.createdBy || doc.createdBy === userSub) && (
-          <DownloadButton
-            isLoading={isDownloading}
-            onClick={() => onDownload(doc)}
-            ariaLabel={`Download ${doc.name}`}
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9"
-          />
-        )}
+        <PermissionDownloadButton
+          requiredPermission="document:read"
+          isLoading={isDownloading}
+          onClick={() => onDownload(doc)}
+          ariaLabel={`Download ${doc.name}`}
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9"
+        />
         <PermissionDeleteButton
           requiredPermission="document:delete"
           isLoading={isDeleting}
