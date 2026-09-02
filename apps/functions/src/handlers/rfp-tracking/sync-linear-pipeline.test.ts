@@ -508,3 +508,47 @@ describe('syncLinearPipeline — history reconstruction (backfill)', () => {
     expect(approvalHistory[1]).toMatchObject({ changedAt: '2026-07-04T10:00:00.000Z' });
   });
 });
+
+describe('syncLinearPipeline — physical-submission field preservation', () => {
+  it('carries submissionMethod/address/rationale/foiaContactAddress over from the existing record', async () => {
+    // This sync neither detects nor toggles these fields, but putFullItem replaces
+    // the whole item on every run — regression coverage for the bug where a
+    // Linear-synced opportunity's banner disappeared a few minutes after the
+    // physical-submission detection ran, because the next 15-minute re-sync wiped it.
+    mockRawRequest.mockResolvedValue(linearPage([issueNode({ identifier: 'HOR-100' })]));
+    mockQueryAllBySkPrefix.mockResolvedValue([
+      existingRecord('linear-hor-100', {
+        submissionMethod: 'PHYSICAL',
+        submissionMailingAddress: { addressLine1: '123 Main St', locality: 'Springfield', administrativeArea: 'IL', postalCode: '62701' },
+        submissionMethodRationale: 'Proposals must be mailed in triplicate.',
+        foiaContactAddress: '123 Main St, Springfield, IL 62701',
+      }),
+    ]);
+
+    await syncLinearPipeline();
+
+    const rec = putRecordFor('linear-hor-100');
+    expect(rec?.submissionMethod).toBe('PHYSICAL');
+    expect(rec?.submissionMailingAddress).toEqual({
+      addressLine1: '123 Main St',
+      locality: 'Springfield',
+      administrativeArea: 'IL',
+      postalCode: '62701',
+    });
+    expect(rec?.submissionMethodRationale).toBe('Proposals must be mailed in triplicate.');
+    expect(rec?.foiaContactAddress).toBe('123 Main St, Springfield, IL 62701');
+  });
+
+  it('defaults physical-submission fields to null for a brand-new record', async () => {
+    mockRawRequest.mockResolvedValue(linearPage([issueNode({ identifier: 'HOR-100' })]));
+    mockQueryAllBySkPrefix.mockResolvedValue([]);
+
+    await syncLinearPipeline();
+
+    const rec = putRecordFor('linear-hor-100');
+    expect(rec?.submissionMethod).toBeNull();
+    expect(rec?.submissionMailingAddress).toBeNull();
+    expect(rec?.submissionMethodRationale).toBeNull();
+    expect(rec?.foiaContactAddress).toBeNull();
+  });
+});
