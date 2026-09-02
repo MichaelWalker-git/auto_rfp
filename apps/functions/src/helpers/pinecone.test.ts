@@ -20,6 +20,7 @@ const mockUpsert = jest.fn().mockResolvedValue({});
 const mockQuery = jest.fn();
 const mockDeleteMany = jest.fn().mockResolvedValue({});
 const mockDeleteAll = jest.fn().mockResolvedValue({});
+const mockUpdate = jest.fn().mockResolvedValue({});
 
 // Track every namespace(...) call so we can assert which namespaces were touched
 const namespaceCalls: string[] = [];
@@ -30,6 +31,7 @@ const mockNamespace = jest.fn((ns: string) => {
     query: mockQuery,
     deleteMany: mockDeleteMany,
     deleteAll: mockDeleteAll,
+    update: mockUpdate,
   };
 });
 
@@ -51,6 +53,7 @@ import {
   deleteOpportunitySolicitationVectors,
   deleteSolicitationFile,
   deleteFromPinecone,
+  updateChunkDocumentNameInPinecone,
 } from './pinecone';
 
 describe('pinecone — solicitation RAG helpers', () => {
@@ -59,6 +62,7 @@ describe('pinecone — solicitation RAG helpers', () => {
     mockQuery.mockReset();
     mockDeleteMany.mockClear();
     mockDeleteAll.mockClear();
+    mockUpdate.mockClear();
     mockNamespace.mockClear();
     namespaceCalls.length = 0;
   });
@@ -343,6 +347,48 @@ describe('pinecone — solicitation RAG helpers', () => {
       mockQuery.mockRejectedValueOnce(new Error('network error'));
 
       await expect(deleteFromPinecone('org-123', sk)).rejects.toThrow('Pinecone delete failed');
+    });
+  });
+
+  describe('updateChunkDocumentNameInPinecone', () => {
+    const sk = 'KB#kb-1#DOC#doc-1';
+    const textFileKey = 'orgs/org-123/kb-1/doc-1.txt';
+
+    it('builds chunk IDs deterministically from chunkCount and updates each one\'s documentName metadata', async () => {
+      await updateChunkDocumentNameInPinecone('org-123', sk, 3, textFileKey, 'New Name.pdf');
+
+      expect(mockQuery).not.toHaveBeenCalled();
+      expect(namespaceCalls).toContain('org-123');
+      expect(mockUpdate).toHaveBeenCalledTimes(3);
+      expect(mockUpdate).toHaveBeenCalledWith({
+        id: `${sk}#orgs/org-123/kb-1/chunks/1.txt`,
+        metadata: { documentName: 'New Name.pdf' },
+      });
+      expect(mockUpdate).toHaveBeenCalledWith({
+        id: `${sk}#orgs/org-123/kb-1/chunks/3.txt`,
+        metadata: { documentName: 'New Name.pdf' },
+      });
+    });
+
+    it('does nothing when chunkCount is 0', async () => {
+      await updateChunkDocumentNameInPinecone('org-123', sk, 0, textFileKey, 'New Name.pdf');
+
+      expect(mockUpdate).not.toHaveBeenCalled();
+      expect(mockNamespace).not.toHaveBeenCalled();
+    });
+
+    it('batches updates in groups of 50', async () => {
+      await updateChunkDocumentNameInPinecone('org-123', sk, 120, textFileKey, 'New Name.pdf');
+
+      expect(mockUpdate).toHaveBeenCalledTimes(120);
+    });
+
+    it('rethrows when a chunk update fails, so the caller can log and swallow it', async () => {
+      mockUpdate.mockRejectedValueOnce(new Error('pinecone down'));
+
+      await expect(
+        updateChunkDocumentNameInPinecone('org-123', sk, 3, textFileKey, 'New Name.pdf'),
+      ).rejects.toThrow('pinecone down');
     });
   });
 });

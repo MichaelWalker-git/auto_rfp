@@ -1,16 +1,37 @@
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
 import { DOCUMENT_PK } from '@/constants/document';
+import { SK_NAME } from '@/constants/common';
 
-import { CreateDocumentDTO, DeleteDocumentDTO, DocumentItem } from '@auto-rfp/core';
+import { CreateDocumentDTO, DeleteDocumentDTO, DocumentItem, UpdateDocumentDTO } from '@auto-rfp/core';
 import { requireEnv } from './env';
-import { createItem, deleteItem, getItem, queryByPkAndSkContains } from './db';
-import { deleteFromPinecone } from './pinecone';
+import { createItem, deleteItem, getItem, queryAllBySkPrefix, queryByPkAndSkContains, updateItem } from './db';
+import { deleteFromPinecone, updateChunkDocumentNameInPinecone } from './pinecone';
 import { buildDocumentSK } from 'helpers/document-keys';
 
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 
 const s3Client = new S3Client({});
+
+/** A document with this (case-insensitive) name already exists in the KB. */
+export class DuplicateDocumentNameError extends Error {
+  constructor() {
+    super('A document with this name already exists in this knowledge base.');
+    this.name = 'DuplicateDocumentNameError';
+  }
+}
+
+/** The document being updated no longer exists. */
+export class DocumentNotFoundError extends Error {
+  constructor() {
+    super('Document not found');
+    this.name = 'DocumentNotFoundError';
+  }
+}
+
+// Inline Pinecone chunk-metadata propagation is only attempted for documents at
+// or under this size; larger documents wait for the async worker (ticket 04).
+const MAX_INLINE_PROPAGATION_CHUNK_COUNT = 1000;
 
 export async function createDocument(
   dto: CreateDocumentDTO,
@@ -35,6 +56,60 @@ export async function createDocument(
     } as any
   );
 }
+
+export interface UpdateDocumentResult {
+  document: DocumentItem;
+  /** Whether the name actually changed (vs. e.g. a no-op rename to the current name). */
+  hasNameChanged: boolean;
+}
+
+export const updateDocument = async (dto: UpdateDocumentDTO): Promise<UpdateDocumentResult> => {
+  const sk = buildDocumentSK(dto.knowledgeBaseId, dto.id);
+
+  const current = await getItem<DocumentItem>(DOCUMENT_PK, sk);
+  if (!current) throw new DocumentNotFoundError();
+
+  const newName = dto.name;
+  const hasNameChanged = newName !== undefined && newName !== current.name;
+
+  if (hasNameChanged && newName !== undefined) {
+    const siblings = await queryAllBySkPrefix<DocumentItem & { [SK_NAME]: string }>(
+      DOCUMENT_PK,
+      `KB#${dto.knowledgeBaseId}#DOC#`,
+    );
+    const lowerName = newName.toLowerCase();
+    const isDuplicate = siblings.some(
+      (doc) => doc[SK_NAME] !== sk && doc.name.toLowerCase() === lowerName,
+    );
+    if (isDuplicate) throw new DuplicateDocumentNameError();
+  }
+
+  const updates: Partial<DocumentItem> = {};
+  if (newName !== undefined) updates.name = newName;
+  if (dto.indexStatus !== undefined) updates.indexStatus = dto.indexStatus;
+  if (dto.indexVectorKey !== undefined) updates.indexVectorKey = dto.indexVectorKey;
+
+  const updated = await updateItem<DocumentItem>(DOCUMENT_PK, sk, updates);
+
+  if (
+    hasNameChanged &&
+    newName !== undefined &&
+    dto.orgId &&
+    typeof current.chunkCount === 'number' &&
+    current.chunkCount <= MAX_INLINE_PROPAGATION_CHUNK_COUNT &&
+    current.textFileKey
+  ) {
+    try {
+      await updateChunkDocumentNameInPinecone(dto.orgId, sk, current.chunkCount, current.textFileKey, newName);
+    } catch (err) {
+      // The DDB write already committed and the list is correct; citations may
+      // lag until the next reindex. Never let a Pinecone outage fail the rename.
+      console.error(`Pinecone chunk-metadata propagation failed for ${SK_NAME}=${sk}:`, err);
+    }
+  }
+
+  return { document: updated, hasNameChanged };
+};
 
 export async function deleteDocument(dto: DeleteDocumentDTO): Promise<void> {
   const sk = buildDocumentSK(dto.knowledgeBaseId, dto.id);

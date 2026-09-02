@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DocumentItemSchema } from './document';
+import { DocumentItemSchema, UpdateDocumentDTOSchema } from './document';
 
 const baseDocument = {
   id: 'doc-1',
@@ -31,6 +31,42 @@ describe('DocumentItemSchema.chunkCount', () => {
 
   it('rejects non-integers', () => {
     const result = DocumentItemSchema.safeParse({ ...baseDocument, chunkCount: 1.5 });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('UpdateDocumentDTOSchema.name', () => {
+  const base = { id: 'doc-1', knowledgeBaseId: 'kb-1' };
+
+  it('is optional when absent', () => {
+    const { success, data } = UpdateDocumentDTOSchema.safeParse(base);
+    expect(success).toBe(true);
+    expect(data?.name).toBeUndefined();
+  });
+
+  it('trims surrounding whitespace', () => {
+    const { success, data } = UpdateDocumentDTOSchema.safeParse({ ...base, name: '  My Document.pdf  ' });
+    expect(success).toBe(true);
+    expect(data?.name).toBe('My Document.pdf');
+  });
+
+  it('rejects an empty string', () => {
+    const result = UpdateDocumentDTOSchema.safeParse({ ...base, name: '' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a whitespace-only string (trimmed to empty)', () => {
+    const result = UpdateDocumentDTOSchema.safeParse({ ...base, name: '   ' });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts a name at the 255-character limit', () => {
+    const result = UpdateDocumentDTOSchema.safeParse({ ...base, name: 'a'.repeat(255) });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a name over 255 characters', () => {
+    const result = UpdateDocumentDTOSchema.safeParse({ ...base, name: 'a'.repeat(256) });
     expect(result.success).toBe(false);
   });
 });

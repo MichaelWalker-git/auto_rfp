@@ -1,13 +1,8 @@
-import { APIGatewayProxyEventV2, APIGatewayProxyResultV2, } from 'aws-lambda';
+import { APIGatewayProxyResultV2, } from 'aws-lambda';
 
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, UpdateCommand, } from '@aws-sdk/lib-dynamodb';
-
-import { apiResponse, getUserId } from '@/helpers/api';
-import { PK_NAME, SK_NAME } from '@/constants/common';
+import { apiResponse } from '@/helpers/api';
 
 import { UpdateDocumentDTO, UpdateDocumentDTOSchema, } from '@auto-rfp/core';
-import { DOCUMENT_PK } from '@/constants/document';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
@@ -18,16 +13,7 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import middy from '@middy/core';
-import { requireEnv } from '@/helpers/env';
-import { nowIso } from '@/helpers/date';
-import { buildDocumentSK } from '@/helpers/document-keys';
-
-const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
-
-const ddbClient = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(ddbClient, {
-  marshallOptions: { removeUndefinedValues: true },
-});
+import { DocumentNotFoundError, DuplicateDocumentNameError, updateDocument } from '@/helpers/document';
 
 export const baseHandler = async (
   event: AuthedEvent,
@@ -59,16 +45,26 @@ export const baseHandler = async (
 
     const dto: UpdateDocumentDTO = parsed.data;
 
-    const updated = await updateDocument(dto);
+    let result;
+    try {
+      result = await updateDocument(dto);
+    } catch (err) {
+      if (err instanceof DuplicateDocumentNameError) {
+        return apiResponse(409, { message: err.message });
+      }
+      if (err instanceof DocumentNotFoundError) {
+        return apiResponse(404, { message: err.message });
+      }
+      throw err;
+    }
 
-    
     setAuditContext(event, {
-      action: 'DOCUMENT_VIEWED',
+      action: result.hasNameChanged ? 'DOCUMENT_RENAMED' : 'DOCUMENT_UPDATED',
       resource: 'document',
-      resourceId: event.pathParameters?.id ?? event.queryStringParameters?.id ?? 'unknown',
+      resourceId: dto.id,
     });
 
-    return apiResponse(200, updated);
+    return apiResponse(200, result.document);
   } catch (err) {
     console.error('Error in edit-document handler:', err);
 
@@ -78,48 +74,6 @@ export const baseHandler = async (
     });
   }
 };
-
-// -------------------------------------------------------------
-// Core: Update document
-// -------------------------------------------------------------
-async function updateDocument(dto: UpdateDocumentDTO) {
-  const now = nowIso();
-  const sk = buildDocumentSK(dto.knowledgeBaseId, dto.id)
-
-  // Build dynamic update expression
-  const updates: string[] = [];
-  const values: Record<string, any> = {
-    ':updatedAt': now,
-  };
-
-  if (dto.name !== undefined) {
-    updates.push('#name = :name');
-    values[':name'] = dto.name;
-  }
-
-  if (updates.length === 0) {
-    return { message: 'Nothing to update' };
-  }
-
-  updates.push('updatedAt = :updatedAt');
-
-  const command = new UpdateCommand({
-    TableName: DB_TABLE_NAME,
-    Key: {
-      [PK_NAME]: DOCUMENT_PK,
-      [SK_NAME]: sk,
-    },
-    UpdateExpression: `SET ${updates.join(', ')}`,
-    ExpressionAttributeNames: {
-      '#name': 'name',
-    },
-    ExpressionAttributeValues: values,
-    ReturnValues: 'ALL_NEW',
-  });
-
-  const res = await docClient.send(command);
-  return res.Attributes;
-}
 
 export const handler = withSentryLambda(
   middy(baseHandler)

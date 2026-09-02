@@ -136,6 +136,7 @@ export async function indexChunkToPinecone(
           [PK_NAME]: docDBItem[PK_NAME],
           [SK_NAME]: docDBItem[SK_NAME],
           kbId,
+          documentName: docDBItem.name,
           chunkKey,
           bucket,
           createdAt: nowIso(),
@@ -182,6 +183,18 @@ export async function deleteFromPinecone(
   await deleteFromPineconeByQuery(orgId, sk);
 }
 
+/**
+ * Deterministically reconstructs a document's chunk vector IDs from its
+ * persisted `chunkCount`, with no Pinecone query round-trip. Shared by the
+ * delete path (`deleteFromPineconeDeterministic`) and the rename-propagation
+ * path (`updateChunkDocumentNameInPinecone`) so the ID scheme only lives in
+ * one place.
+ */
+const buildDeterministicChunkIds = (sk: string, chunkCount: number, textFileKey: string): string[] => {
+  const chunksPrefix = buildChunksPrefixFromTxtKey(textFileKey);
+  return Array.from({ length: chunkCount }, (_, i) => `${sk}#${buildChunkKey(chunksPrefix, i)}`);
+};
+
 async function deleteFromPineconeDeterministic(
   orgId: string,
   sk: string,
@@ -193,11 +206,7 @@ async function deleteFromPineconeDeterministic(
     return;
   }
 
-  const chunksPrefix = buildChunksPrefixFromTxtKey(textFileKey);
-  const idsToDelete = Array.from(
-    { length: chunkCount },
-    (_, i) => `${sk}#${buildChunkKey(chunksPrefix, i)}`,
-  );
+  const idsToDelete = buildDeterministicChunkIds(sk, chunkCount, textFileKey);
 
   try {
     const index = await getPineconeIndex();
@@ -251,6 +260,43 @@ async function deleteFromPineconeByQuery(orgId: string, sk: string): Promise<voi
     );
   }
 }
+
+/**
+ * Propagate a document rename to every chunk's `documentName` metadata, inline.
+ * Chunk IDs are reconstructed deterministically (same scheme as
+ * `deleteFromPineconeDeterministic`) — no query round-trip. Metadata-only
+ * (`namespace.update`), so it never re-embeds.
+ *
+ * Batched via `Promise.all` in groups of 50 rather than the delete path's
+ * sequential batches of 100 — an `update` per ID (vs. one `deleteMany` call
+ * per batch) is many more round-trips, so a smaller, parallelized batch size
+ * bounds in-flight requests without serializing the whole document.
+ *
+ * Callers gate this to bounded chunk counts (ticket: chunkCount <= 1000) and
+ * must catch and swallow failures themselves — a Pinecone outage must not
+ * block the rename, which has already committed to DynamoDB.
+ */
+export const updateChunkDocumentNameInPinecone = async (
+  orgId: string,
+  sk: string,
+  chunkCount: number,
+  textFileKey: string,
+  documentName: string,
+): Promise<void> => {
+  if (chunkCount === 0) return;
+
+  const ids = buildDeterministicChunkIds(sk, chunkCount, textFileKey);
+
+  const index = await getPineconeIndex();
+  const namespace = index.namespace(orgId);
+  const BATCH_SIZE = 50;
+  for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+    const batch = ids.slice(i, i + BATCH_SIZE);
+    await Promise.all(batch.map((id) => namespace.update({ id, metadata: { documentName } })));
+  }
+
+  console.log(`Pinecone: propagated documentName to ${ids.length} chunks for ${SK_NAME}=${sk}`);
+};
 
 /**
  * Delete a specific vector by ID

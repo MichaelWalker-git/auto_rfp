@@ -1,20 +1,25 @@
 'use client';
 
+import { useState } from 'react';
 import { DocumentItem } from '@auto-rfp/core';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { FileText, Pencil } from 'lucide-react';
 import { PermissionDownloadButton } from '@/components/ui/download-button';
 import { PermissionDeleteButton } from '@/components/ui/delete-button';
 import { FreshnessStatusBadge } from '@/components/content-library/FreshnessStatusBadge';
 import { getStatusVariant, getStatusLabel } from '../lib/formatting';
 import { formatFileSize } from '@/lib/format-file-size';
+import { usePermission } from '@/components/permission-wrapper';
+import { DocumentNameEditor, type DocumentRenameResult } from './DocumentNameEditor';
 
 interface DocumentCardProps {
   doc: DocumentItem;
   userSub?: string;
   onDelete: (doc: DocumentItem) => void;
   onDownload: (doc: DocumentItem) => Promise<void>;
+  onRename: (doc: DocumentItem, newName: string) => Promise<DocumentRenameResult>;
   isDeleting: boolean;
   isDownloading: boolean;
 }
@@ -24,9 +29,13 @@ export function DocumentCard({
   userSub,
   onDelete,
   onDownload,
+  onRename,
   isDeleting,
   isDownloading,
 }: DocumentCardProps) {
+  const canRename = usePermission('document:edit');
+  const [isRenaming, setIsRenaming] = useState(false);
+
   return (
     <Card className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 hover:bg-muted/60 transition-colors">
       <div className="flex items-start gap-3 min-w-0 flex-1">
@@ -36,7 +45,28 @@ export function DocumentCard({
 
         <div className="space-y-1 min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium truncate">{doc.name}</span>
+            {isRenaming ? (
+              <DocumentNameEditor
+                initialValue={doc.name}
+                onSave={(newName) => onRename(doc, newName)}
+                onDone={() => setIsRenaming(false)}
+              />
+            ) : (
+              <>
+                <span className="font-medium truncate">{doc.name}</span>
+                {canRename && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                    aria-label={`Rename ${doc.name}`}
+                    onClick={() => setIsRenaming(true)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </>
+            )}
 
             <Badge
               variant={getStatusVariant(doc.indexStatus)}

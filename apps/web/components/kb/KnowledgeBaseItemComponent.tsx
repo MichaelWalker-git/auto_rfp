@@ -18,13 +18,16 @@ import {
   useDocumentsByKb,
   useDownloadDocument,
   useStartDocumentPipeline,
+  useUpdateDocument,
 } from '@/lib/hooks/use-document';
+import { ApiError } from '@/lib/hooks/api-helpers';
 import { useAuth } from '@/components/AuthProvider';
 import { useCanManageKBAccess } from './hooks/useCanManageKBAccess';
 import { DocumentItem } from '@auto-rfp/core';
 
 import { useDocumentUpload } from './hooks/useDocumentUpload';
 import { DocumentCard } from './components/DocumentCard';
+import type { DocumentRenameResult } from './components/DocumentNameEditor';
 import { UploadDialog } from './components/UploadDialog';
 import { DeleteConfirmDialog } from './components/DeleteConfirmDialog';
 
@@ -36,6 +39,7 @@ export default function KnowledgeBaseItemComponent() {
   const { trigger: startPipeline } = useStartDocumentPipeline();
   const { trigger: deleteDocument, isMutating: isDeleting } = useDeleteDocument();
   const { trigger: downloadDocument, isMutating: isDownloading, error: downloadError } = useDownloadDocument();
+  const { trigger: updateDocument } = useUpdateDocument();
   const { userSub } = useAuth();
   const { canManage: canManageKBAccess } = useCanManageKBAccess(kbId, orgId);
 
@@ -118,6 +122,28 @@ export default function KnowledgeBaseItemComponent() {
     [downloadDocument]
   );
 
+  const handleRename = useCallback(
+    async (doc: DocumentItem, newName: string): Promise<DocumentRenameResult> => {
+      const optimisticData = (documents ?? []).map((d) => (d.id === doc.id ? { ...d, name: newName } : d));
+
+      try {
+        await refreshDocuments(
+          updateDocument({ id: doc.id, knowledgeBaseId: doc.knowledgeBaseId, orgId, name: newName }).then(
+            () => optimisticData,
+          ),
+          { optimisticData, rollbackOnError: true, revalidate: true },
+        );
+        return { outcome: 'saved' };
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 409) {
+          return { outcome: 'duplicate', message: err.message };
+        }
+        return { outcome: 'error', message: err instanceof Error ? err.message : 'Failed to rename document' };
+      }
+    },
+    [documents, refreshDocuments, updateDocument, orgId]
+  );
+
   const handleCloseUpload = useCallback(() => {
     uploadHook.resetUploadState();
     setShowUpload(false);
@@ -178,6 +204,7 @@ export default function KnowledgeBaseItemComponent() {
             userSub={userSub ?? ''}
             onDelete={handleDeleteClick}
             onDownload={handleDownload}
+            onRename={handleRename}
             isDeleting={isDeleting}
             isDownloading={isDownloading}
           />
