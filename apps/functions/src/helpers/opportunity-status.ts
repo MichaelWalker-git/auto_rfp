@@ -19,7 +19,6 @@ import { requireEnv } from '@/helpers/env';
 import { nowIso } from '@/helpers/date';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { OPPORTUNITY_PK } from '@/constants/opportunity';
-import { STAGE_TO_APN_STATUS_MAP } from '@/constants/apn';
 import { buildOpportunitySk, getOpportunity } from '@/helpers/opportunity';
 import type {
   OpportunityItem,
@@ -178,8 +177,6 @@ export const transitionOpportunityStatus = async (
   // Sync to AWS Partner Central for SUBMITTED + terminal statuses.
   const apnSyncStatuses: OpportunityStatus[] = ['SUBMITTED', 'WON', 'LOST', 'NO_BID', 'WITHDRAWN'];
   if (apnSyncStatuses.includes(toStatus)) {
-    const proposalStatus = STAGE_TO_APN_STATUS_MAP[toStatus];
-
     const { syncOpportunityToApn } = await import('@/helpers/apn-db');
     await syncOpportunityToApn({
       orgId,
@@ -189,7 +186,7 @@ export const transitionOpportunityStatus = async (
       opportunityTitle:  (res.Attributes?.title as string | undefined) ?? 'Untitled Opportunity',
       opportunityValue:  (res.Attributes?.baseAndAllOptionsValue as number | undefined) ?? 0,
       expectedCloseDate: (res.Attributes?.responseDeadlineIso as string | undefined) ?? new Date().toISOString(),
-      proposalStatus,
+      status:            toStatus,
       description:       typeof res.Attributes?.description === 'string'
         ? res.Attributes.description.substring(0, 500)
         : undefined,

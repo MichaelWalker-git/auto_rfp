@@ -144,7 +144,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
         customerName: item.organizationName ?? item.title ?? 'Unknown Customer',
         opportunityValue: item.baseAndAllOptionsValue ?? 0,
         expectedCloseDate: item.responseDeadlineIso ?? new Date().toISOString(),
-        proposalStatus: 'PROSPECT',
+        status: 'IDENTIFIED',
         description: typeof item.description === 'string' ? item.description.substring(0, 500) : undefined,
       });
 

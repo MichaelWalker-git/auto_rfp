@@ -83,6 +83,7 @@ export const CONTENT_LIBRARY_PERMISSIONS = [
 export const APN_PERMISSIONS = [
   'apn:read',
   'apn:retry',
+  'apn:sync',
 ] as const;
 
 export const PRICING_PERMISSIONS = [
@@ -185,6 +186,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'notification:read',
     'apn:read',
     'apn:retry',
+    'apn:sync',
     'pricing:create', 'pricing:read', 'pricing:edit', 'pricing:calculate',
     'foia:send',
   ],
