@@ -89,7 +89,7 @@ export const SolutionPlanEditorPage = ({
     setEditorKey((key) => key + 1);
   }, [content, editorVersion]);
 
-  const backUrl = `/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}`;
+  const backUrl = `/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}?tab=solution-plan`;
 
   const handleSave = useCallback(async () => {
     try {

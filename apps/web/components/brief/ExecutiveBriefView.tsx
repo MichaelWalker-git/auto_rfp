@@ -297,7 +297,10 @@ export function ExecutiveBriefView({
   const [isPastPerfRegenerating, setIsPastPerfRegenerating] = useState(false);
   const [isFetchingBrief, setIsFetchingBrief] = useState(false);
   const [isGeneratingBrief, setIsGeneratingBrief] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabId | undefined>(fixedOpportunityId ? undefined : 'overview');
+  // Overview opens by default in both modes — on the opportunity Analysis tab
+  // (fixedOpportunityId set) it's the first thing a reviewer expects to see,
+  // rather than an all-collapsed accordion.
+  const [activeTab, setActiveTab] = useState<TabId | undefined>('overview');
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(fixedOpportunityId ?? initialOpportunityId ?? null);
   const [selectedOpportunity, setSelectedOpportunity] = useState<OpportunityItem | null>(null);
   const localBusySectionsRef = useRef<Set<SectionKey>>(new Set());

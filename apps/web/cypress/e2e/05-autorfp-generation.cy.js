@@ -4,14 +4,17 @@ const PROJECT_ID = '51651b52-8c6f-4489-806e-7e2605481e83'
 const OPP_ID = '60f2607b-526b-46a0-b26e-b9c97c7ee6c4'
 const OPP_URL = `/organizations/${ORG_ID}/projects/${PROJECT_ID}/opportunities/${OPP_ID}/`
 
+// This spec only exercises the RFP Documents panel, so open its tab directly via
+// the ?tab= deep link (ADR 0001 tabbed layout) — the panel then mounts active.
 const goToOpportunity = () => {
-  cy.visit(OPP_URL, { failOnStatusCode: false })
+  cy.visit(`${OPP_URL}?tab=rfp-documents`, { failOnStatusCode: false })
   cy.get('main', { timeout: 15000 }).should('be.visible')
+  cy.get('#tabpanel-rfp-documents', { timeout: 15000 }).should('be.visible')
 }
 
 const openGenerateDialog = () => {
-  cy.get('#rfp-documents', { timeout: 15000 }).scrollIntoView()
-  cy.get('#rfp-documents').contains('button', /^Generate$/).should('be.visible').click({ force: true })
+  cy.get('#tabpanel-rfp-documents', { timeout: 15000 })
+    .contains('button', /^Generate$/).should('be.visible').click({ force: true })
   cy.get('[role="dialog"]', { timeout: 10000 }).should('be.visible')
   cy.get('[role="dialog"]').contains('Generate Documents').should('be.visible')
   // Wait for the dialog's action buttons to render so subsequent .click()
@@ -26,8 +29,8 @@ describe('AutoRFP Generation', () => {
 
   describe('Happy Path', () => {
     it('shows a Generate button on the opportunity', () => {
-      cy.get('#rfp-documents', { timeout: 15000 }).scrollIntoView()
-      cy.get('#rfp-documents').contains('button', /^Generate$/).should('be.visible')
+      cy.get('#tabpanel-rfp-documents', { timeout: 15000 })
+        .contains('button', /^Generate$/).should('be.visible')
     })
   })
 
@@ -50,7 +53,7 @@ describe('AutoRFP Generation', () => {
       openGenerateDialog()
       cy.get('[role="dialog"]').contains('button', 'Cancel').click()
       cy.get('[role="dialog"]').should('not.exist')
-      cy.get('#rfp-documents').should('be.visible')
+      cy.get('#tabpanel-rfp-documents').should('be.visible')
     })
   })
 

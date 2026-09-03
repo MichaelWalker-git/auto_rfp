@@ -15,6 +15,7 @@ import { useComplianceReport, useSubmissionHistory } from '@/features/proposal-s
 
 import { STEP_META } from '../lib/steps';
 import { newestTimestamp } from '../lib/timestamps';
+import { evaluateOutcomeStatus, type OutcomeEvaluation } from '../lib/outcome';
 import {
   evaluateSolicitations,
   evaluateAnalysis,
@@ -56,6 +57,9 @@ interface StepSnapshots {
 interface UseOpportunityProgressResult {
   steps: ProgressStep[];
   isLoading: boolean;
+  /** Post-award disposition label for the Outcome tab header (ticket 05). Not one
+   *  of the seven completeness steps — a status label, never an "X of Y" metric. */
+  outcome: OutcomeEvaluation;
 }
 
 /** Wrap a rule call so a single failing rule/slice degrades only that step to
@@ -79,7 +83,7 @@ const safeEvaluate = (
  */
 export const useOpportunityProgress = (): UseOpportunityProgressResult => {
   const { currentOrganization } = useCurrentOrganization();
-  const { projectId, oppId, orgId } = useOpportunityContext();
+  const { projectId, oppId, orgId, opportunity } = useOpportunityContext();
 
   const solutionPlanEnabled = !!currentOrganization?.enableSolutionPlan;
   const complianceReviewEnabled = !!currentOrganization?.enableComplianceReview;
@@ -287,7 +291,7 @@ export const useOpportunityProgress = (): UseOpportunityProgressResult => {
         latestTimestamp: snapshot.latestTimestamp,
         newestUploadTimestamp,
       });
-      const navigation: NavigationDescriptor = { kind: 'anchor', sectionId: meta.sectionId };
+      const navigation: NavigationDescriptor = { kind: 'route', href: meta.tabKey };
       return {
         ...evaluation,
         label: meta.label,
@@ -331,5 +335,7 @@ export const useOpportunityProgress = (): UseOpportunityProgressResult => {
   const isLoading =
     isLoadingSolicitations || (!!orgId && !!projectId && !!oppId && !briefLoaded);
 
-  return { steps, isLoading };
+  const outcome = evaluateOutcomeStatus(opportunity?.status);
+
+  return { steps, isLoading, outcome };
 };

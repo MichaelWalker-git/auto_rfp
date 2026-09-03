@@ -189,13 +189,13 @@ export default function SubmitProposalPage() {
         document.body.removeChild(link);
       }
 
-      router.push(`/organizations/${orgId}/projects/${projectId}/opportunities/${oppId}`);
+      router.push(`/organizations/${orgId}/projects/${projectId}/opportunities/${oppId}?tab=compliance`);
     } else {
       toast({ title: 'Submission Failed', description: 'Could not submit. Check compliance.', variant: 'destructive' });
     }
   };
 
-  const backUrl = `/organizations/${orgId}/projects/${projectId}/opportunities/${oppId}`;
+  const backUrl = `/organizations/${orgId}/projects/${projectId}/opportunities/${oppId}?tab=compliance`;
 
   if (isLoadingOpp) {
     return (

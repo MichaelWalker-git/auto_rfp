@@ -541,7 +541,7 @@ export const OpportunityDocumentEditorPage = ({
   const isEditorReady = isReady && !isInGeneration && !isHtmlLoading && htmlInitialized;
   const isBusy = isMutating || isInGeneration;
   const isEditingDisabled = isBusy || isApproved;
-  const backUrl = `/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}`;
+  const backUrl = `/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}?tab=rfp-documents`;
 
   // Compliance-review deep-link: when opened with ?highlightSection / ?findSnippet,
   // ephemerally scroll to + flash the referenced spot once the editor is ready.

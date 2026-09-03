@@ -1,10 +1,9 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { CalendarClock, ChevronDown, ChevronUp, FolderOpen, Tag, UserCircle2 } from 'lucide-react';
+import { CalendarClock, ChevronDown, ChevronUp, Tag, UserCircle2 } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { cn } from '@/lib/utils';
-import { CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { OpportunityStatusBadge } from '../opportunity-status-badge';
 import { FoiaAutomationBadge } from '@/components/foia';
@@ -21,16 +20,12 @@ export const OpportunityHeaderView = ({
 }: OpportunityHeaderViewProps) => {
   return (
     <>
-      <CardTitle className="flex items-start gap-2">
-        <FolderOpen className="h-5 w-5 shrink-0 mt-0.5" />
-        <span className="break-words">{opportunity.title}</span>
-      </CardTitle>
-      <CardDescription className="break-words">
-        {opportunity.organizationName ?? '—'}
-      </CardDescription>
+      {/* Title + agency are shown once in the always-visible persistent header
+          of OpportunityView (opportunity-page-tabs ADR 0001); intentionally not
+          repeated on this Details-tab card so the fact is stated once. */}
 
       {/* Badges */}
-      <div className="mt-3 flex flex-wrap gap-1.5 items-center overflow-hidden">
+      <div className="flex flex-wrap gap-1.5 items-center overflow-hidden">
         <OpportunityStatusBadge
           status={(opportunity.status as OpportunityStatus | undefined) ?? 'IDENTIFIED'}
         />
@@ -48,9 +43,9 @@ export const OpportunityHeaderView = ({
         {opportunity.deliveryLocationConstraint === 'OFFSHORE_ALLOWED' && (
           <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Offshore delivery allowed</Badge>
         )}
-        {opportunity.deliveryLocationConstraint === 'US_ONLY' && (
-          <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">US-based team required</Badge>
-        )}
+        {/* US-based team requirement now surfaces only as a requirement flag chip in
+            the persistent header (see RequirementFlagRow); intentionally not repeated
+            here so the fact is stated once (opportunity-page-tabs story 47). */}
         {opportunity.solicitationNumber && (
           <Badge variant="outline">Solicitation {opportunity.solicitationNumber}</Badge>
         )}
