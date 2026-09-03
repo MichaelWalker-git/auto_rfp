@@ -57,6 +57,18 @@ interface PageDimensions {
   label: string;
 }
 
+/**
+ * Visible grey gap painted between consecutive page sheets, in px.
+ *
+ * Sheets are one page pitch tall and stacked edge to edge, so without this the
+ * two margins that meet at a page break (144px for Letter) are one unbroken
+ * white band that reads as blank document space. Users tried to delete it —
+ * "cannot delete big spaces" — but it is the page break itself. The gutter is
+ * painted inside the margin band, so no content position changes; each margin
+ * merely loses half the gutter of white paint.
+ */
+const PAGE_GUTTER_PX = 24;
+
 const PAGE_SIZES: Record<PageSize, PageDimensions> = {
   letter: {
     width: 816,   // 8.5" × 96 DPI
@@ -836,6 +848,23 @@ const PageSheets = ({
             </span>
           </div>
         </div>
+      ))}
+
+      {/*
+        Gutter between sheets, as Word and Google Docs draw it. Centred on the
+        sheet edge, so it sits entirely inside the two margins and never touches
+        the content area or the page number. Painted after the sheets so it
+        covers their shared edge; content is z-[1] above it but never lands here.
+      */}
+      {Array.from({ length: Math.max(0, pageCount - 1) }, (_, i) => (
+        <div
+          key={`gutter-${i}`}
+          className="page-gutter pointer-events-none absolute left-0 right-0"
+          style={{
+            top: `${getPageTop(i + 1) - PAGE_GUTTER_PX / 2}px`,
+            height: `${PAGE_GUTTER_PX}px`,
+          }}
+        />
       ))}
 
       {/* Page boundary indicators — thin dashed line at content area boundaries */}
@@ -1663,6 +1692,14 @@ export const RichTextEditor = ({
           border-radius: 2px;
         }
 
+        /* Grey gap between sheets; inset shadows read as the two sheet edges. */
+        .editor-page-wrapper .page-gutter {
+          background: #e2e8f0;
+          box-shadow:
+            inset 0 8px 8px -8px rgba(0, 0, 0, 0.18),
+            inset 0 -8px 8px -8px rgba(0, 0, 0, 0.18);
+        }
+
         /* First page gets top border radius */
         .editor-page-wrapper .page-sheet:first-of-type {
           border-top-left-radius: 4px;
@@ -1783,7 +1820,8 @@ export const RichTextEditor = ({
             background: white !important;
             box-shadow: none !important;
           }
-          .page-boundary {
+          .page-boundary,
+          .page-gutter {
             display: none;
           }
         }
