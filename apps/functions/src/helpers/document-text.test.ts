@@ -72,7 +72,7 @@ describe('loadDocumentText', () => {
     expect(mockLoadTextFromS3).not.toHaveBeenCalled();
   });
 
-  it('retries the recorded key when every candidate comes back empty', async () => {
+  it('retries the last candidate key when every candidate comes back empty', async () => {
     mockTryLoadTextFromS3.mockResolvedValue(null);
     mockLoadTextFromS3.mockResolvedValue('CV text');
 
@@ -82,7 +82,8 @@ describe('loadDocumentText', () => {
     });
 
     expect(text).toBe('CV text');
-    expect(mockLoadTextFromS3).toHaveBeenCalledWith(BUCKET, 'org/kb/doc/CV.docx.txt');
+    // Should retry the last key tried (fileKey-derived), not the first
+    expect(mockLoadTextFromS3).toHaveBeenCalledWith(BUCKET, 'org/kb/doc/CV.txt');
   });
 
   it('propagates the S3 error when the text genuinely cannot be read', async () => {

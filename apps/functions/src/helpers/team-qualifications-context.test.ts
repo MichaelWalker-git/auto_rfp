@@ -204,6 +204,22 @@ describe('assembleTeamQualificationsContext', () => {
     warnSpy.mockRestore();
   });
 
+  it('degrades when the document pipeline has not completed (BR2.2)', async () => {
+    mockGetDocumentItemByDocumentId.mockResolvedValue({
+      id: 'doc-cv-1',
+      textFileKey: 'text/cv-1.txt',
+      indexStatus: 'pending',
+    });
+
+    const context = await assembleTeamQualificationsContext(key);
+
+    expect(context?.members[0]).toMatchObject({
+      cvText: null,
+      cvMissingReason: 'resume document is still being processed',
+    });
+    expect(mockTryLoadTextFromS3).not.toHaveBeenCalled();
+  });
+
   it('notes a missing bio source when the employee has no resumeRef (BR2.2)', async () => {
     mockListEmployeesByOrg.mockResolvedValue([employee({ resumeRef: undefined })]);
 

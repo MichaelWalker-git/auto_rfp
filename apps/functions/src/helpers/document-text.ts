@@ -29,9 +29,9 @@ export const buildTextKeyCandidates = (doc: DocumentTextSource): string[] => {
 
 /**
  * Load a document's extracted text, trying each candidate key once before
- * falling back to a retrying read of the primary key — so a transient S3
- * failure still gets the usual retries and a genuinely missing object still
- * throws with the primary key named.
+ * falling back to a retrying read of the last candidate tried — so a transient
+ * S3 failure still gets the usual retries and a genuinely missing object still
+ * throws with a candidate key named.
  *
  * Returns `''` when the document has no key to read from at all.
  */
@@ -42,10 +42,12 @@ export const loadDocumentText = async (
   const candidates = buildTextKeyCandidates(doc);
   if (candidates.length === 0) return '';
 
+  let lastKey = candidates[0];
   for (const key of candidates) {
+    lastKey = key;
     const text = await tryLoadTextFromS3(bucket, key);
     if (text?.trim()) return text;
   }
 
-  return await loadTextFromS3(bucket, candidates[0]);
+  return await loadTextFromS3(bucket, lastKey);
 };

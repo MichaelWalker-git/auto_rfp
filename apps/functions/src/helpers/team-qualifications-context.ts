@@ -114,6 +114,8 @@ export const hasSavedTeam = (
 
 // ─── CV text loading (BR2.2) ──────────────────────────────────────────────────
 
+const TEXT_READY_STATUSES = new Set(['TEXT_EXTRACTED', 'CHUNKED', 'INDEXED', 'ready']);
+
 /**
  * Resolve a member's CV text via `resumeRef` → org document → `textFileKey` →
  * S3. Every failure degrades to structured-fields-only with the missing bio
@@ -131,6 +133,14 @@ const loadCvText = async (
       return {
         cvText: null,
         cvMissingReason: 'resume reference does not resolve to a document with extracted text',
+      };
+    }
+    // Only attempt to load text if the pipeline has run.
+    const isTextReady = !document.indexStatus || TEXT_READY_STATUSES.has(document.indexStatus);
+    if (!isTextReady) {
+      return {
+        cvText: null,
+        cvMissingReason: 'resume document is still being processed',
       };
     }
     const text = await loadDocumentText(requireEnv('DOCUMENTS_BUCKET'), document);
