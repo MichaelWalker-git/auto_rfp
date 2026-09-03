@@ -13,8 +13,12 @@ export interface DeleteButtonProps {
   isLoading?: boolean;
   /** Whether the button is disabled */
   disabled?: boolean;
-  /** Callback when delete is clicked */
-  onClick: () => void | Promise<void>;
+  /**
+   * Callback when delete is clicked. The click event is forwarded so callers
+   * rendered inside a link or clickable card can stop it from bubbling into
+   * the parent's navigation.
+   */
+  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void | Promise<void>;
   /** Button size */
   size?: 'sm' | 'icon' | 'default' | 'lg';
   /** Button variant */

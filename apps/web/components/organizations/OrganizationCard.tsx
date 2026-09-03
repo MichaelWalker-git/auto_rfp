@@ -46,6 +46,15 @@ export function OrganizationCard({ organization, onDelete, onUpdate }: Organizat
     setIsEditDialogOpen(true);
   };
 
+  // The card is wrapped in a Link. Without stopping the event here the click
+  // bubbles up to handleOpen, which navigates into the organization and
+  // unmounts the delete dialog before it can be confirmed.
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDelete?.(organization);
+  };
+
   return (
     <>
       <Link href={href} className="block" onClick={handleOpen}>
@@ -70,7 +79,7 @@ export function OrganizationCard({ organization, onDelete, onUpdate }: Organizat
                 variant="ghost"
                 size="icon"
                 className="rounded-xl hover:bg-destructive/10 hover:text-destructive"
-                onClick={() => onDelete?.(organization)}
+                onClick={handleDeleteClick}
                 ariaLabel="Remove organization"
               />
             </>
