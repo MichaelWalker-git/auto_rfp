@@ -5,7 +5,6 @@ import { OpportunityCreateRequestSchema } from '@auto-rfp/core';
 import { apiResponse, getUserId } from '@/helpers/api';
 import { createOpportunity } from '@/helpers/opportunity';
 import { syncOpportunityToApn } from '@/helpers/apn-db';
-import { STAGE_TO_APN_STATUS_MAP } from '@/constants/apn';
 import { withSentryLambda } from '@/sentry-lambda';
 import {
   authContextMiddleware,
@@ -52,10 +51,6 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
       userContext: { userId, userName },
     });
 
-    // Map opportunity status to APN proposal status
-    const opportunityStatus = item.status ?? 'IDENTIFIED';
-    const proposalStatus = STAGE_TO_APN_STATUS_MAP[opportunityStatus] ?? 'PROSPECT';
-
     // Sync to AWS Partner Central (awaited to prevent Lambda termination before completion)
     await syncOpportunityToApn({
       orgId,
@@ -65,7 +60,7 @@ export const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyRe
       opportunityTitle:  item.title ?? 'Untitled Opportunity',
       opportunityValue:  item.baseAndAllOptionsValue ?? 0,
       expectedCloseDate: item.responseDeadlineIso ?? new Date().toISOString(),
-      proposalStatus,
+      status:            item.status ?? 'IDENTIFIED',
       description:       item?.description?.substring(0, 500),
     });
 

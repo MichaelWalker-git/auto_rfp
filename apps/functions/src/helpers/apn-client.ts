@@ -1,11 +1,13 @@
 import {
-  PartnerCentralSellingClient,
+  CountryCode,
   CreateOpportunityCommand,
-  UpdateOpportunityCommand,
   GetOpportunityCommand,
-  SubmitOpportunityCommand,
-  Stage,
+  Industry,
   MarketingSource,
+  PartnerCentralSellingClient,
+  Stage,
+  SubmitOpportunityCommand,
+  UpdateOpportunityCommand,
 } from '@aws-sdk/client-partnercentral-selling';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient } from '@/helpers/db';
@@ -14,6 +16,7 @@ import { APN_CATALOG } from '@/constants/apn';
 import { PK_NAME, SK_NAME } from '@/constants/common';
 import { OPPORTUNITY_PK } from '@/constants/opportunity';
 import { buildOpportunitySk } from '@/helpers/opportunity';
+import { SyncToApnRequest } from '@auto-rfp/core';
 
 const DB_TABLE_NAME = requireEnv('DB_TABLE_NAME');
 
@@ -32,11 +35,29 @@ const getClient = (): PartnerCentralSellingClient => {
   });
 };
 
+/**
+ * Partner Central rejects a Target Close Date that isn't strictly in the future.
+ * `expectedCloseDate` is often derived from a past deadline (e.g. the RFP
+ * response deadline) by the time an opportunity gets synced, so fall back to a
+ * placeholder future date rather than let the API reject the whole sync.
+ */
+const resolveTargetCloseDate = (expectedCloseDate: string): string => {
+  const parsed = new Date(expectedCloseDate);
+  const now = new Date();
+  if (Number.isNaN(parsed.getTime()) || parsed <= now) {
+    const fallback = new Date(now);
+    fallback.setUTCDate(fallback.getUTCDate() + 90);
+    return fallback.toISOString().split('T')[0]!;
+  }
+  return expectedCloseDate.split('T')[0]!;
+};
+
 const stageMap: Record<string, (typeof Stage)[keyof typeof Stage]> = {
-  PROSPECT:  Stage.PROSPECT,
+  IDENTIFIED: Stage.PROSPECT,
+  PURSUING: Stage.PROSPECT,
   SUBMITTED: Stage.QUALIFIED,
-  WON:       Stage.COMMITTED,
-  LOST:      Stage.CLOSED_LOST,
+  WON: Stage.COMMITTED,
+  LOST: Stage.CLOSED_LOST,
 };
 
 // ─── Update opportunity's APN fields in DynamoDB ──────────────────────────────
@@ -66,42 +87,33 @@ const setApnFields = async (
   }));
 };
 
-// ─── Partner Central API Operations ───────────────────────────────────────────
-
-export interface SyncToApnArgs {
-  orgId:             string;
-  projectId:         string;
-  oppId:             string;
-  customerName:      string;
-  opportunityTitle?: string;
-  opportunityValue:  number;
-  expectedCloseDate: string;
-  proposalStatus:    string;
-  description?:      string;
-  /** Existing APN opportunity ID — if set, updates instead of creating */
-  existingApnId?:    string | null;
+export interface ApnSyncResult {
+  apnOpportunityId: string | null;
+  apnSyncError: string | null;
 }
 
 /**
  * Sync an opportunity to AWS Partner Central.
  * Simplified approach with better error handling and timeout management.
  */
-export const syncToPartnerCentral = async (args: SyncToApnArgs): Promise<void> => {
+export const syncToPartnerCentral = async (req: SyncToApnRequest): Promise<ApnSyncResult> => {
   const {
-    orgId, projectId, oppId, customerName, opportunityTitle,
-    opportunityValue, expectedCloseDate, proposalStatus, description, existingApnId,
-  } = args;
+    orgId, projectId, oppId,
+    customer,
+    opportunity,
+    existingApnId
+  } = req;
 
-  console.log(`[APN] Starting sync for oppId=${oppId}, proposalStatus=${proposalStatus}, existingApnId=${existingApnId}`);
+  console.log(`[APN] Starting sync for oppId=${oppId}, proposalStatus=${opportunity.status}, existingApnId=${existingApnId}`);
 
   // Map proposal status to APN stage
-  const stage = stageMap[proposalStatus] ?? Stage.PROSPECT;
-  console.log(`[APN] Mapped '${proposalStatus}' to stage '${stage}'`);
+  const stage = stageMap[opportunity.status] ?? Stage.PROSPECT;
+  console.log(`[APN] Mapped '${opportunity.status}' to stage '${stage}'`);
 
   // Prepare LifeCycle with conditional closedLostReason
   const lifecycle: any = {
     Stage: stage,
-    TargetCloseDate: expectedCloseDate.split('T')[0],
+    TargetCloseDate: resolveTargetCloseDate(opportunity.expectedCloseDate),
   };
 
   // Add closedLostReason when stage is CLOSED_LOST
@@ -114,18 +126,18 @@ export const syncToPartnerCentral = async (args: SyncToApnArgs): Promise<void> =
     Catalog: APN_CATALOG,
     Customer: {
       Account: {
-        CompanyName: customerName,
-        Industry: 'Government' as const,
-        WebsiteUrl: 'https://unknown.gov',
-        Address: { CountryCode: 'US' as const },
+        CompanyName: customer?.name || 'Unknown',
+        Industry: customer?.industry || Industry.GOVERNMENT,
+        WebsiteUrl: customer?.websiteUrl || 'https://unknown.gov',
+        Address: { CountryCode: customer?.countryCode || CountryCode.US },
       },
     },
     Project: {
-      Title: opportunityTitle || customerName,
+      Title: opportunity?.title || customer?.name,
       CustomerUseCase: 'Business Applications & Contact Center' as const,
       DeliveryModels: ['SaaS or PaaS' as const],
       ExpectedCustomerSpend: [{
-        Amount: String(Math.max(opportunityValue, 1)),
+        Amount: String(Math.max(opportunity?.value, 1)),
         CurrencyCode: 'USD' as const,
         Frequency: 'Monthly' as const,
         TargetCompany: 'AWS',
@@ -133,160 +145,181 @@ export const syncToPartnerCentral = async (args: SyncToApnArgs): Promise<void> =
     },
     LifeCycle: lifecycle,
     Marketing: {
-      Source: MarketingSource.MARKETING_ACTIVITY,
+      Source: MarketingSource.NONE,
     },
   };
 
   const client = getClient();
-  let apnId: string;
 
-  try {
-    if (existingApnId) {
-      // UPDATE existing opportunity
-      console.log(`[APN] Updating opportunity ${existingApnId} to stage ${stage}`);
+  // Transition an existing (already-created) opportunity to `stage`/`lifecycle`.
+  // Returns `{ skipped: true }` for transient states Partner Central won't let us
+  // touch right now (pending review, revision fetch failure) — not an error, just
+  // a no-op for this sync attempt.
+  const transitionOpportunity = async (
+    idToUpdate: string,
+  ): Promise<{ skipped: true } | { skipped: false; apnId: string }> => {
+    console.log(`[APN] Updating opportunity ${idToUpdate} to stage ${stage}`);
 
-      // Step 1: Fetch latest opportunity to get RevisionId
-      console.log(`[APN] Fetching latest opportunity to get RevisionId...`);
-      const getCommand = new GetOpportunityCommand({
-        Catalog: APN_CATALOG,
-        Identifier: existingApnId,
-      });
+    // Step 1: Fetch latest opportunity to get RevisionId
+    console.log(`[APN] Fetching latest opportunity to get RevisionId...`);
+    const getCommand = new GetOpportunityCommand({
+      Catalog: APN_CATALOG,
+      Identifier: idToUpdate,
+    });
 
-      const getResponse = await client.send(getCommand);
-      console.log(`[APN] GetOpportunity response keys:`, Object.keys(getResponse));
+    const getResponse = await client.send(getCommand);
+    console.log(`[APN] GetOpportunity response keys:`, Object.keys(getResponse));
 
-      // Try multiple potential locations for RevisionId in the response
-      const currentRevisionId = (getResponse as any).RevisionId
-        || (getResponse as any).Opportunity?.RevisionId
-        || (getResponse as any).LastModifiedDate; // Fallback to LastModifiedDate as some APIs use this
+    // Try multiple potential locations for RevisionId in the response
+    const currentRevisionId = (getResponse as any).RevisionId
+      || (getResponse as any).Opportunity?.RevisionId
+      || (getResponse as any).LastModifiedDate; // Fallback to LastModifiedDate as some APIs use this
 
-      const lifecycleStage = (getResponse as any).LifeCycle?.Stage
-        || (getResponse as any).Opportunity?.LifeCycle?.Stage;
+    const lifecycleStage = (getResponse as any).LifeCycle?.Stage
+      || (getResponse as any).Opportunity?.LifeCycle?.Stage;
 
-      if (!currentRevisionId) {
-        console.error(`[APN] GetOpportunity response missing RevisionId. Available keys:`, Object.keys(getResponse));
-        console.error(`[APN] Full response structure:`, JSON.stringify(getResponse, null, 2));
+    if (!currentRevisionId) {
+      console.error(`[APN] GetOpportunity response missing RevisionId. Available keys:`, Object.keys(getResponse));
+      console.error(`[APN] Full response structure:`, JSON.stringify(getResponse, null, 2));
 
-        // If opportunity doesn't exist or can't be retrieved, skip update
-        console.warn(`[APN] Cannot update opportunity ${existingApnId} - skipping APN sync`);
-        return; // Exit early instead of throwing
+      // If opportunity doesn't exist or can't be retrieved, skip update
+      console.warn(`[APN] Cannot update opportunity ${idToUpdate} - skipping APN sync`);
+      return { skipped: true }; // Exit early instead of throwing
+    }
+
+    console.log(`[APN] Current RevisionId: ${currentRevisionId}, LifeCycle.Stage: ${lifecycleStage}`);
+
+    // Step 2: Check opportunity status (Pending Submission means it's locked for review)
+    const opportunityStatus = (getResponse as any).OpportunityStatus;
+    console.log(`[APN] Current OpportunityStatus: ${opportunityStatus}`);
+
+    if (opportunityStatus === 'Pending Submission') {
+      console.warn(`[APN] Opportunity ${idToUpdate} is pending submission review - cannot update until reviewed`);
+      // Don't throw - this is a transient state, just skip the update
+      return { skipped: true };
+    }
+
+    // Step 3: Validate opportunity is still editable
+    const closedStages = ['CLOSED_LOST', 'CLOSED_INCOMPLETE'];
+    if (closedStages.includes(lifecycleStage)) {
+      console.warn(`[APN] Opportunity ${idToUpdate} is in non-editable state: ${lifecycleStage}`);
+      throw new Error(`Cannot update opportunity in ${lifecycleStage} state`);
+    }
+
+    // Step 4: Send update with RevisionId
+    const updatePayload = {
+      Catalog: APN_CATALOG,
+      Identifier: idToUpdate,
+      RevisionId: currentRevisionId,
+      LastModifiedDate: (getResponse as any).LastModifiedDate ?? new Date(),
+      Customer: payload.Customer,
+      Project: payload.Project,
+      LifeCycle: payload.LifeCycle,
+      Marketing: payload.Marketing,
+    };
+
+    console.log(`[APN] Sending UpdateOpportunityCommand with RevisionId ${currentRevisionId}...`);
+    console.log(`[APN] Update payload:`, JSON.stringify(updatePayload, null, 2));
+
+    try {
+      const response = await client.send(new UpdateOpportunityCommand(updatePayload));
+
+      console.log(`[APN] Update successful:`, response);
+
+      // If updating to SUBMITTED status (QUALIFIED in APN), submit for review
+      if (opportunity.status === 'SUBMITTED' && stage === Stage.QUALIFIED) {
+        try {
+          console.log(`[APN] Opportunity updated to SUBMITTED - submitting for review`);
+          await client.send(new SubmitOpportunityCommand({
+            Catalog: APN_CATALOG,
+            Identifier: idToUpdate,
+            InvolvementType: 'For Visibility Only',
+          }));
+          console.log(`[APN] Submit for review successful`);
+        } catch (submitErr) {
+          console.warn(`[APN] Submit failed (non-blocking):`, (submitErr as Error).message);
+        }
       }
 
-      console.log(`[APN] Current RevisionId: ${currentRevisionId}, LifeCycle.Stage: ${lifecycleStage}`);
-
-      // Step 2: Check opportunity status (Pending Submission means it's locked for review)
-      const opportunityStatus = (getResponse as any).OpportunityStatus;
-      console.log(`[APN] Current OpportunityStatus: ${opportunityStatus}`);
-
-      if (opportunityStatus === 'Pending Submission') {
-        console.warn(`[APN] Opportunity ${existingApnId} is pending submission review - cannot update until reviewed`);
-        // Don't throw - this is a transient state, just skip the update
-        return;
+      return { skipped: false, apnId: idToUpdate };
+    } catch (updateErr) {
+      // Step 5: Handle specific error cases
+      // ACTION_NOT_PERMITTED: Opportunity is in a locked state (e.g., Pending Submission)
+      if (updateErr instanceof Error && updateErr.message?.includes('ACTION_NOT_PERMITTED')) {
+        console.warn(`[APN] Update not permitted (opportunity may be pending submission):`, updateErr.message);
+        // Don't save error to DB - this is a transient state
+        return { skipped: true };
       }
 
-      // Step 3: Validate opportunity is still editable
-      const closedStages = ['CLOSED_LOST', 'CLOSED_INCOMPLETE'];
-      if (closedStages.includes(lifecycleStage)) {
-        console.warn(`[APN] Opportunity ${existingApnId} is in non-editable state: ${lifecycleStage}`);
-        throw new Error(`Cannot update opportunity in ${lifecycleStage} state`);
-      }
+      // Step 6: Handle revision conflict with retry
+      if (updateErr instanceof Error && updateErr.name === 'RevisionConflictException') {
+        console.warn(`[APN] RevisionConflictException - refetching and retrying once...`);
 
-      // Step 4: Send update with RevisionId
-      const updatePayload = {
-        Catalog: APN_CATALOG,
-        Identifier: existingApnId,
-        RevisionId: currentRevisionId,
-        LastModifiedDate: (getResponse as any).LastModifiedDate ?? new Date(),
-        Customer: payload.Customer,
-        Project: payload.Project,
-        LifeCycle: payload.LifeCycle,
-        Marketing: payload.Marketing,
-      };
+        const retryGetResponse = await client.send(getCommand);
+        const latestRevisionId = (retryGetResponse as any).RevisionId
+          || (retryGetResponse as any).Opportunity?.RevisionId
+          || (retryGetResponse as any).LastModifiedDate;
 
-      console.log(`[APN] Sending UpdateOpportunityCommand with RevisionId ${currentRevisionId}...`);
-      console.log(`[APN] Update payload:`, JSON.stringify(updatePayload, null, 2));
+        const latestLastModifiedDate = (retryGetResponse as any).LastModifiedDate
+          || (retryGetResponse as any).Opportunity?.LastModifiedDate;
 
-      try {
-        const response = await client.send(new UpdateOpportunityCommand(updatePayload));
+        if (!latestRevisionId) {
+          console.error(`[APN] Retry failed - missing RevisionId. Response keys:`, Object.keys(retryGetResponse));
+          console.warn(`[APN] Cannot update opportunity ${idToUpdate} on retry - skipping APN sync`);
+          return { skipped: true }; // Exit early instead of throwing
+        }
 
-        console.log(`[APN] Update successful:`, response);
-        apnId = existingApnId;
+        console.log(`[APN] Retry with latest RevisionId: ${latestRevisionId}`);
+        updatePayload.RevisionId = latestRevisionId;
+        updatePayload.LastModifiedDate = latestLastModifiedDate ?? new Date();
+
+        const retryResponse = await client.send(new UpdateOpportunityCommand(updatePayload));
+
+        console.log(`[APN] Retry successful:`, retryResponse);
 
         // If updating to SUBMITTED status (QUALIFIED in APN), submit for review
-        if (proposalStatus === 'SUBMITTED' && stage === Stage.QUALIFIED) {
+        if (opportunity.status === 'SUBMITTED' && stage === Stage.QUALIFIED) {
           try {
-            console.log(`[APN] Opportunity updated to SUBMITTED - submitting for review`);
+            console.log(`[APN] Opportunity updated to SUBMITTED - submitting for review (retry path)`);
             await client.send(new SubmitOpportunityCommand({
               Catalog: APN_CATALOG,
-              Identifier: apnId,
+              Identifier: idToUpdate,
               InvolvementType: 'For Visibility Only',
             }));
-            console.log(`[APN] Submit for review successful`);
+            console.log(`[APN] Submit for review successful (retry path)`);
           } catch (submitErr) {
             console.warn(`[APN] Submit failed (non-blocking):`, (submitErr as Error).message);
           }
         }
 
-      } catch (updateErr) {
-        // Step 5: Handle specific error cases
-        // ACTION_NOT_PERMITTED: Opportunity is in a locked state (e.g., Pending Submission)
-        if (updateErr instanceof Error && updateErr.message?.includes('ACTION_NOT_PERMITTED')) {
-          console.warn(`[APN] Update not permitted (opportunity may be pending submission):`, updateErr.message);
-          // Don't save error to DB - this is a transient state
-          return;
-        }
-
-        // Step 6: Handle revision conflict with retry
-        if (updateErr instanceof Error && updateErr.name === 'RevisionConflictException') {
-          console.warn(`[APN] RevisionConflictException - refetching and retrying once...`);
-
-          const retryGetResponse = await client.send(getCommand);
-          const latestRevisionId = (retryGetResponse as any).RevisionId
-            || (retryGetResponse as any).Opportunity?.RevisionId
-            || (retryGetResponse as any).LastModifiedDate;
-
-          const latestLastModifiedDate = (retryGetResponse as any).LastModifiedDate
-            || (retryGetResponse as any).Opportunity?.LastModifiedDate;
-
-          if (!latestRevisionId) {
-            console.error(`[APN] Retry failed - missing RevisionId. Response keys:`, Object.keys(retryGetResponse));
-            console.warn(`[APN] Cannot update opportunity ${existingApnId} on retry - skipping APN sync`);
-            return; // Exit early instead of throwing
-          }
-
-          console.log(`[APN] Retry with latest RevisionId: ${latestRevisionId}`);
-          updatePayload.RevisionId = latestRevisionId;
-          updatePayload.LastModifiedDate = latestLastModifiedDate ?? new Date();
-
-          const retryResponse = await client.send(new UpdateOpportunityCommand(updatePayload));
-
-          console.log(`[APN] Retry successful:`, retryResponse);
-          apnId = existingApnId;
-
-          // If updating to SUBMITTED status (QUALIFIED in APN), submit for review
-          if (proposalStatus === 'SUBMITTED' && stage === Stage.QUALIFIED) {
-            try {
-              console.log(`[APN] Opportunity updated to SUBMITTED - submitting for review (retry path)`);
-              await client.send(new SubmitOpportunityCommand({
-                Catalog: APN_CATALOG,
-                Identifier: apnId,
-                InvolvementType: 'For Visibility Only',
-              }));
-              console.log(`[APN] Submit for review successful (retry path)`);
-            } catch (submitErr) {
-              console.warn(`[APN] Submit failed (non-blocking):`, (submitErr as Error).message);
-            }
-          }
-        } else {
-          throw updateErr;
-        }
+        return { skipped: false, apnId: idToUpdate };
       }
+
+      throw updateErr;
+    }
+  };
+
+  let apnId: string;
+
+  try {
+    if (existingApnId) {
+      const outcome = await transitionOpportunity(existingApnId);
+      if (outcome.skipped) {
+        return { apnOpportunityId: existingApnId, apnSyncError: null };
+      }
+      apnId = outcome.apnId;
     } else {
-      // CREATE new opportunity
-      console.log(`[APN] Creating new opportunity with stage ${stage}`);
-      
+      // CREATE new opportunity. Partner Central rejects creating directly into a
+      // stage that requires extra fields (e.g. Closed Lost + ClosedLostReason),
+      // so always create at Prospect, then transition to the real target stage.
+      console.log(`[APN] Creating new opportunity at stage ${Stage.PROSPECT} (target stage: ${stage})`);
+
       const createCommand = new CreateOpportunityCommand({
-        ...payload,
+        Catalog: APN_CATALOG,
+        Customer: payload.Customer,
+        Project: payload.Project,
+        Marketing: payload.Marketing,
+        LifeCycle: { Stage: Stage.PROSPECT, TargetCloseDate: lifecycle.TargetCloseDate },
         ClientToken: `${orgId}-${oppId}`,
       });
 
@@ -296,8 +329,8 @@ export const syncToPartnerCentral = async (args: SyncToApnArgs): Promise<void> =
       apnId = response.Id ?? '';
       console.log(`[APN] Create successful, APN ID: ${apnId}`);
 
-      // Submit for review
-      if (apnId) {
+      if (apnId && stage === Stage.PROSPECT) {
+        // Submit for review — matches the target stage, nothing further to do.
         try {
           console.log(`[APN] Submitting opportunity ${apnId} for review`);
           await client.send(new SubmitOpportunityCommand({
@@ -309,6 +342,13 @@ export const syncToPartnerCentral = async (args: SyncToApnArgs): Promise<void> =
         } catch (submitErr) {
           console.warn(`[APN] Submit failed (non-blocking):`, (submitErr as Error).message);
         }
+      } else if (apnId) {
+        // Target stage differs from the safe creation default — transition now.
+        console.log(`[APN] Transitioning newly created opportunity ${apnId} to target stage ${stage}`);
+        const outcome = await transitionOpportunity(apnId);
+        if (!outcome.skipped) {
+          apnId = outcome.apnId;
+        }
       }
     }
 
@@ -317,6 +357,7 @@ export const syncToPartnerCentral = async (args: SyncToApnArgs): Promise<void> =
     await setApnFields(orgId, projectId, oppId, apnId, null);
     console.log(`[APN] Sync completed successfully for oppId=${oppId}`);
 
+    return { apnOpportunityId: apnId, apnSyncError: null };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error(`[APN] Sync failed for oppId=${oppId}:`, errorMessage);
@@ -324,8 +365,10 @@ export const syncToPartnerCentral = async (args: SyncToApnArgs): Promise<void> =
 
     // Save error to DynamoDB
     await setApnFields(orgId, projectId, oppId, existingApnId ?? null, errorMessage.substring(0, 500));
-    
+
     // Don't throw - make it non-blocking
     console.warn(`[APN] Sync failed but continuing (non-blocking): ${errorMessage}`);
+
+    return { apnOpportunityId: existingApnId ?? null, apnSyncError: errorMessage };
   }
 };

@@ -283,7 +283,7 @@ const importSamGov = async (
     customerName:      item.organizationName ?? item.title ?? 'Unknown Customer',
     opportunityValue:  item.baseAndAllOptionsValue ?? 0,
     expectedCloseDate: item.responseDeadlineIso ?? new Date().toISOString(),
-    proposalStatus:    'PROSPECT',
+    status:            'IDENTIFIED',
     description:       typeof item.description === 'string' ? item.description.substring(0, 500) : undefined,
   });
 
@@ -399,7 +399,7 @@ const importDibbs = async (
     customerName:      item.organizationName ?? item.title ?? 'Unknown Customer',
     opportunityValue:  item.baseAndAllOptionsValue ?? 0,
     expectedCloseDate: item.responseDeadlineIso ?? new Date().toISOString(),
-    proposalStatus:    'PROSPECT',
+    status:            'IDENTIFIED',
     description:       typeof item.description === 'string' ? item.description.substring(0, 500) : undefined,
   });
 
@@ -531,7 +531,7 @@ const importHigherGov = async (
     customerName: item.organizationName ?? item.title ?? 'Unknown Customer',
     opportunityValue: item.baseAndAllOptionsValue ?? 0,
     expectedCloseDate: item.responseDeadlineIso ?? new Date().toISOString(),
-    proposalStatus: 'PROSPECT',
+    status: 'IDENTIFIED',
     description: typeof item.description === 'string' ? item.description.substring(0, 500) : undefined,
   });
 
@@ -652,7 +652,7 @@ const importFromUrl = async (
     customerName: title,
     opportunityValue: 0,
     expectedCloseDate: new Date().toISOString(),
-    proposalStatus: 'PROSPECT',
+    status: 'IDENTIFIED',
     description: `Manual URL import: ${data.url}`,
   });
 

@@ -9,4 +9,3 @@
 
 export { syncOpportunityToApn } from '@/helpers/apn-db';
 export { syncToPartnerCentral } from '@/helpers/apn-client';
-export type { SyncToApnArgs } from '@/helpers/apn-client';
