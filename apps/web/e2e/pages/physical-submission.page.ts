@@ -4,7 +4,7 @@ import type { OpportunityItem } from '@auto-rfp/core';
 /**
  * Page object for the Physical Submission Detection feature:
  * - warning banner on the opportunity detail page
- *   (OpportunityView `<section id="submission-compliance">` →
+ *   (OpportunityView Compliance details tab, `#tabpanel-compliance` →
  *   `PhysicalSubmissionBanner`)
  * - "Physical Mail" chip (`PhysicalSubmissionChip`) reused on opportunity
  *   list cards and RFP-tracking pipeline cards
@@ -18,9 +18,9 @@ export class PhysicalSubmissionPage {
 
   constructor(private readonly page: Page) {}
 
-  /** The `<section id="submission-compliance">` mount from OpportunityView. */
+  /** The Compliance details tab body (`#tabpanel-compliance`) from OpportunityView. */
   get section(): Locator {
-    return this.page.locator('section#submission-compliance');
+    return this.page.locator('#tabpanel-compliance');
   }
 
   get banner(): Locator {
@@ -56,9 +56,14 @@ export class PhysicalSubmissionPage {
     return response;
   }
 
-  /** Navigate to an opportunity detail page and wait for it to render. */
+  /** Navigate to an opportunity detail page (Compliance details tab) and wait for
+   *  it to render. The banner now lives in a lazily-mounted tab body, so deep-link
+   *  straight to `?tab=compliance` to mount + reveal it. */
   async gotoOpportunity(opportunityPath: string): Promise<void> {
-    await this.waitForOpportunityResponse(() => this.page.goto(opportunityPath).then(() => undefined));
+    const url = opportunityPath.includes('?')
+      ? `${opportunityPath}&tab=compliance`
+      : `${opportunityPath}?tab=compliance`;
+    await this.waitForOpportunityResponse(() => this.page.goto(url).then(() => undefined));
     await expect(this.section).toBeVisible({ timeout: 30_000 });
   }
 

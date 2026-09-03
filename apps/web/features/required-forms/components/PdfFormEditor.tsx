@@ -291,7 +291,7 @@ export const PdfFormEditor = ({ doc, orgId, pdfUrl, onFieldUpdated }: PdfFormEdi
   const { confirm, ConfirmDialog } = useConfirmDialog();
   const { width: sidebarWidth, onResizeStart: handleSidebarResizeStart } = useResizableSidebar({ initial: 320 });
 
-  const backUrl = `/organizations/${orgId}/projects/${doc.projectId}/opportunities/${doc.opportunityId}`;
+  const backUrl = `/organizations/${orgId}/projects/${doc.projectId}/opportunities/${doc.opportunityId}?tab=required-forms`;
 
   // Stable lookup map — built once per fields reference, not per render row.
   const fieldsById = useMemo(() => {

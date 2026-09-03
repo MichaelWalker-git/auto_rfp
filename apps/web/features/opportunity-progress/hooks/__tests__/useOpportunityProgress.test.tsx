@@ -49,7 +49,12 @@ const defaults = () => {
   mockUseCurrentOrganization.mockReturnValue({
     currentOrganization: { id: 'org1', enableSolutionPlan: true, enableComplianceReview: true },
   });
-  mockUseOpportunityContext.mockReturnValue({ projectId: 'p1', oppId: 'o1', orgId: 'org1' });
+  mockUseOpportunityContext.mockReturnValue({
+    projectId: 'p1',
+    oppId: 'o1',
+    orgId: 'org1',
+    opportunity: { status: 'PURSUING' },
+  });
   mockUseQuestionFiles.mockReturnValue({
     items: [{ status: 'PROCESSED', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' }],
     isLoading: false,
@@ -105,14 +110,14 @@ describe('useOpportunityProgress — visible step set (FR1.5/FR1.6)', () => {
 });
 
 describe('useOpportunityProgress — navigation + assembly', () => {
-  it('gives every step an anchor navigation descriptor', async () => {
+  it('gives every step a route navigation descriptor pointing at its owning tab', async () => {
     const { result } = renderHook(() => useOpportunityProgress());
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     for (const step of result.current.steps) {
-      expect(step.navigation.kind).toBe('anchor');
+      expect(step.navigation.kind).toBe('route');
     }
     const solicitations = result.current.steps.find((s) => s.stepId === 'solicitations');
-    expect(solicitations?.navigation).toEqual({ kind: 'anchor', sectionId: 'solicitation-documents' });
+    expect(solicitations?.navigation).toEqual({ kind: 'route', href: 'details' });
   });
 
   it('computes the Solicitations step complete from processed files', async () => {
@@ -121,6 +126,26 @@ describe('useOpportunityProgress — navigation + assembly', () => {
     const solicitations = result.current.steps.find((s) => s.stepId === 'solicitations');
     expect(solicitations?.status).toBe('complete');
     expect(solicitations?.detailText).toBe('1 of 1 processed');
+  });
+});
+
+describe('useOpportunityProgress — outcome disposition (ticket 05)', () => {
+  it('reports "Awaiting outcome" for a non-terminal status', async () => {
+    const { result } = renderHook(() => useOpportunityProgress());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.outcome).toEqual({ label: 'Awaiting outcome', isTerminal: false });
+  });
+
+  it('maps a terminal status to its disposition label', async () => {
+    mockUseOpportunityContext.mockReturnValue({
+      projectId: 'p1',
+      oppId: 'o1',
+      orgId: 'org1',
+      opportunity: { status: 'WON' },
+    });
+    const { result } = renderHook(() => useOpportunityProgress());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.outcome).toEqual({ label: 'Won', isTerminal: true });
   });
 });
 

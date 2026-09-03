@@ -77,7 +77,7 @@ export default function RequiredFormEditorPage() {
       <div className="flex flex-col h-screen">
         <div className="flex items-center gap-3 px-4 py-3 border-b bg-background">
           <Button variant="ghost" size="sm" asChild className="gap-1.5">
-            <Link href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${opportunityId}`}>
+            <Link href={`/organizations/${navOrgId}/projects/${projectId}/opportunities/${opportunityId}?tab=required-forms`}>
               <ArrowLeft className="h-4 w-4" />
               Back
             </Link>

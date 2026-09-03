@@ -93,7 +93,7 @@ describe('GenerateDocumentDialog — Solution Plan gate', () => {
     expect(screen.getByTestId('solution-plan-gate-callout')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /go to solution plan/i })).toHaveAttribute(
       'href',
-      '/organizations/org-1/projects/proj-1/opportunities/opp-1#solution-plan',
+      '/organizations/org-1/projects/proj-1/opportunities/opp-1?tab=solution-plan',
     );
 
     // Gated rows are disabled…
@@ -146,7 +146,7 @@ describe('GenerateDocumentDialog — Solution Plan gate', () => {
     expect(screen.queryByTestId('solution-plan-gate-callout')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /create a solution plan/i })).toHaveAttribute(
       'href',
-      '/organizations/org-1/projects/proj-1/opportunities/opp-1#solution-plan',
+      '/organizations/org-1/projects/proj-1/opportunities/opp-1?tab=solution-plan',
     );
     expect(checkboxFor('TECHNICAL_PROPOSAL')).not.toBeDisabled();
   });

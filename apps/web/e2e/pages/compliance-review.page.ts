@@ -7,7 +7,7 @@ import type {
 
 /**
  * Page object for the AI Compliance Review panel mounted on the opportunity page
- * (OpportunityView `<section id="ai-compliance-review">`, gated behind the
+ * (OpportunityView Review tab, `#tabpanel-review`, gated behind the
  * single-org `complianceReviewEnabled` flag).
  *
  * Opportunity paths look like:
@@ -43,9 +43,9 @@ export class ComplianceReviewPage {
 
   constructor(private readonly page: Page) {}
 
-  /** The gated `<section id="ai-compliance-review">` mount from OpportunityView. */
+  /** The gated Review tab body (`#tabpanel-review`) from OpportunityView. */
   get panel(): Locator {
-    return this.page.locator('section#ai-compliance-review');
+    return this.page.locator('#tabpanel-review');
   }
 
   get fullReviewTab(): Locator {
@@ -152,7 +152,11 @@ export class ComplianceReviewPage {
 
   async gotoOpportunity(opportunityPath: string): Promise<void> {
     this.startCapturingRuns();
-    await this.page.goto(opportunityPath);
+    // The panel now lives in a lazily-mounted tab body — deep-link to the Review tab.
+    const url = opportunityPath.includes('?')
+      ? `${opportunityPath}&tab=review`
+      : `${opportunityPath}?tab=review`;
+    await this.page.goto(url);
     // Fail loudly if the single-org flag is off — the panel simply won't mount.
     await expect(
       this.panel,

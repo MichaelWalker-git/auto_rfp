@@ -71,7 +71,7 @@ export const DocxFormEditor = ({ doc, orgId, onFieldUpdated }: DocxFormEditorPro
   const fieldRowRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const fields = (doc.fields ?? []) as DetectedFormField[];
-  const backUrl = `/organizations/${orgId}/projects/${doc.projectId}/opportunities/${doc.opportunityId}`;
+  const backUrl = `/organizations/${orgId}/projects/${doc.projectId}/opportunities/${doc.opportunityId}?tab=required-forms`;
 
   // marker index → sidebar fieldId (so a doc marker knows which field it shows).
   const markerFieldId = useMemo(() => {
