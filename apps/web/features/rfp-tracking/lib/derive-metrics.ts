@@ -3,8 +3,15 @@ import type {
   RfpPipelineStage,
   OpportunityApprovalStatus,
   OpportunityStatus,
+  FoiaAutomationState,
 } from '@auto-rfp/core';
-import { RFP_STAGE_LABELS } from '@auto-rfp/core';
+import {
+  RFP_STAGE_LABELS,
+  FOIA_AUTOMATION_STATE_COLORS,
+  FOIA_ELIGIBLE_OPPORTUNITY_STATUSES,
+  isFoiaFailureState,
+  isFoiaPendingState,
+} from '@auto-rfp/core';
 import { entryIntoCurrentStageIso, resolveStage } from './derive-board';
 
 /**
@@ -549,6 +556,91 @@ export const outcomeBreakdown = (
     color: OUTCOME_META[key].color,
   }));
 };
+
+// ─── 5. FOIA coverage — sent vs not sent across FOIA-eligible RFPs ───────────
+
+export type FoiaCoverageKey = 'sent' | 'pending' | 'blocked' | 'suppressed' | 'notStarted';
+
+export interface FoiaCoverageSlice {
+  key: FoiaCoverageKey;
+  label: string;
+  count: number;
+  color: string;
+}
+
+/**
+ * The `bg-*` half of the Tailwind class string in `FOIA_AUTOMATION_STATE_COLORS`,
+ * converted to a hex fill for the recharts donut. Kept in lockstep with the
+ * badge palette so the donut, the board-card badge and any future FOIA panel
+ * read as one visual system.
+ */
+const FOIA_BUCKET_COLOR: Record<FoiaCoverageKey, string> = {
+  sent:       '#10b981', // emerald-500  — mirrors SENT / MANUAL_COMPLETED badge
+  pending:    '#6366f1', // indigo-500   — mirrors SCHEDULED / AWAITING_APPROVAL
+  blocked:    '#f59e0b', // amber-500    — mirrors BLOCKED / STALLED / BOUNCED / FAILED
+  suppressed: '#94a3b8', // slate-400    — mirrors SUPPRESSED
+  notStarted: '#cbd5e1', // slate-300    — no automation record yet
+};
+
+const FOIA_BUCKET_LABEL: Record<FoiaCoverageKey, string> = {
+  sent:       'Sent',
+  pending:    'Pending',
+  blocked:    'Blocked / failed',
+  suppressed: 'Suppressed',
+  notStarted: 'Not started',
+};
+
+/** Bucket a single automation state (or nullish) into its coverage bucket. */
+const foiaBucket = (state: FoiaAutomationState | null | undefined): FoiaCoverageKey => {
+  if (!state || state === 'NOT_APPLICABLE') return 'notStarted';
+  if (state === 'SENT' || state === 'MANUAL_COMPLETED') return 'sent';
+  if (state === 'SUPPRESSED') return 'suppressed';
+  if (isFoiaFailureState(state)) return 'blocked';
+  if (isFoiaPendingState(state)) return 'pending';
+  return 'notStarted';
+};
+
+/**
+ * FOIA request coverage across the FOIA-eligible RFP set (WON + LOST — the
+ * same set the automation record is created for; see
+ * FOIA_ELIGIBLE_OPPORTUNITY_STATUSES in core). Buckets:
+ *   - Sent            : SENT or MANUAL_COMPLETED — the request is out.
+ *   - Pending         : automation is still working toward a send.
+ *   - Blocked/failed  : needs user action.
+ *   - Suppressed      : explicitly not needed for this opportunity.
+ *   - Not started     : no automation record yet (or NOT_APPLICABLE).
+ *
+ * This is a SNAPSHOT across the passed items, not a windowed count. Callers
+ * scope `items` by owner (etc) upstream; the metrics tab passes its filtered
+ * working set so the donut moves with the owner filter.
+ */
+export const foiaCoverage = (items: RfpPipelineItem[]): FoiaCoverageSlice[] => {
+  const counts: Record<FoiaCoverageKey, number> = {
+    sent: 0,
+    pending: 0,
+    blocked: 0,
+    suppressed: 0,
+    notStarted: 0,
+  };
+
+  const eligible = FOIA_ELIGIBLE_OPPORTUNITY_STATUSES as readonly string[];
+  for (const item of items) {
+    if (!item.status || !eligible.includes(item.status)) continue;
+    counts[foiaBucket(item.foiaAutomationState)] += 1;
+  }
+
+  // Stable order — Sent first (the desired-state), tail with Not started.
+  const order: FoiaCoverageKey[] = ['sent', 'pending', 'blocked', 'suppressed', 'notStarted'];
+  return order.map((key) => ({
+    key,
+    label: FOIA_BUCKET_LABEL[key],
+    count: counts[key],
+    color: FOIA_BUCKET_COLOR[key],
+  }));
+};
+
+// Re-export so tests / callers don't reach into core for the palette source.
+export { FOIA_AUTOMATION_STATE_COLORS };
 
 // ─── 6. Aging — items stuck in one stage beyond a threshold ──────────────────
 

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { CalendarClock, User, Clock, Send } from 'lucide-react';
 import { RFP_STAGE_LABELS, RFP_STAGE_COLORS } from '@auto-rfp/core';
+import { FoiaAutomationBadge } from '@/components/foia/FoiaAutomationBadge';
 import { PhysicalSubmissionChip } from '@/components/opportunities/PhysicalSubmissionChip';
 import type { BoardCard } from '../lib/derive-board';
 import { useApprovalAdvance } from '../hooks/use-approval-advance';
@@ -98,6 +99,7 @@ export function PipelineCard({ card, orgId, canAdvance }: PipelineCardProps) {
                   {daysInCurrentStage}d in stage
                 </Badge>
               )}
+              <FoiaAutomationBadge state={item.foiaAutomationState} />
               <PhysicalSubmissionChip submissionMethod={item.submissionMethod} />
             </div>
 
