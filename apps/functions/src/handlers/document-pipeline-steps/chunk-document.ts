@@ -9,7 +9,7 @@ import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
 import { nowIso } from '@/helpers/date';
 import { DOCUMENT_PK } from '@/constants/document';
-import { buildDocumentSK } from '@/helpers/document-keys';
+import { buildChunkKey, buildChunksPrefixFromTxtKey, buildDocumentSK } from '@/helpers/document-keys';
 
 const REGION = requireEnv('REGION', 'us-east-1');
 const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
@@ -38,12 +38,6 @@ type ChunkResponse = {
   chunksPrefix: string;
   chunksCount: number;
   items: Array<{ bucket: string; chunkKey: string; index: number }>;
-}
-
-function buildChunksPrefixFromTxtKey(txtKey: string): string {
-  const lastSlash = txtKey.lastIndexOf('/');
-  const dir = lastSlash >= 0 ? txtKey.slice(0, lastSlash) : '';
-  return (dir ? `${dir}/` : '') + 'chunks/';
 }
 
 export function chunkText(text: string, opts: { maxChars: number; overlapChars: number; minChars: number }): string[] {
@@ -117,7 +111,7 @@ export const baseHandler = async (event: ChunkingEvent, _ctx: Context): Promise<
   const items: Array<{ bucket: string; chunkKey: string; index: number }> = [];
 
   for (let i = 0; i < chunks.length; i++) {
-    const chunkKey = `${chunksPrefix}${i + 1}.txt`;
+    const chunkKey = buildChunkKey(chunksPrefix, i);
     const body = chunks[i]!; // Safe: iterating within bounds
 
     await s3.send(
@@ -132,6 +126,11 @@ export const baseHandler = async (event: ChunkingEvent, _ctx: Context): Promise<
     items.push({ bucket, chunkKey, index: i + 1 });
   }
 
+  // A document with zero chunks has nothing for the Step Functions Map state
+  // to index — it finishes indexing right here, so chunkCount must be
+  // persisted now rather than waiting on markIndexed() in index-document.ts.
+  const isImmediatelyIndexed = chunks.length === 0;
+
   await docClient.send(
     new UpdateCommand({
       TableName: DB_TABLE_NAME,
@@ -139,19 +138,22 @@ export const baseHandler = async (event: ChunkingEvent, _ctx: Context): Promise<
         [PK_NAME]: DOCUMENT_PK,
         [SK_NAME]: buildDocumentSK(knowledgeBaseId, documentId),
       },
-      UpdateExpression:
-        'SET #indexStatus = :s, #chunksPrefix = :p, #chunksCount = :c, #updatedAt = :u',
+      UpdateExpression: isImmediatelyIndexed
+        ? 'SET #indexStatus = :s, #chunksPrefix = :p, #chunksCount = :c, #chunkCount = :cc, #updatedAt = :u'
+        : 'SET #indexStatus = :s, #chunksPrefix = :p, #chunksCount = :c, #updatedAt = :u',
       ExpressionAttributeNames: {
         '#indexStatus': 'indexStatus',
         '#chunksPrefix': 'chunksPrefix',
         '#chunksCount': 'chunksCount',
         '#updatedAt': 'updatedAt',
+        ...(isImmediatelyIndexed ? { '#chunkCount': 'chunkCount' } : {}),
       },
       ExpressionAttributeValues: {
-        ':s': chunks.length ? 'CHUNKED' : 'INDEXED',
+        ':s': isImmediatelyIndexed ? 'INDEXED' : 'CHUNKED',
         ':p': chunksPrefix,
         ':c': chunks.length,
         ':u': nowIso(),
+        ...(isImmediatelyIndexed ? { ':cc': 0 } : {}),
       },
     }),
   );

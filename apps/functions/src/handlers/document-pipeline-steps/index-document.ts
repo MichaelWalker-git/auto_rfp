@@ -92,7 +92,7 @@ export const baseHandler = async (
 
   // NOTE: some pipelines use 1-based indexing; keep the same logic you used before
   if (idx != null && total != null && idx === total) {
-    await markIndexed(documentId, knowledgeBaseId);
+    await markIndexed(documentId, knowledgeBaseId, total);
     markedIndexed = true;
   }
 
@@ -168,6 +168,7 @@ function isThrottlingError(error: any): boolean {
 async function updateItemWithRetry(
   key: Record<string, any>,
   now: string,
+  chunkCount: number,
   attemptNumber: number = 0,
 ): Promise<void> {
   try {
@@ -178,13 +179,15 @@ async function updateItemWithRetry(
           [PK_NAME]: key[PK_NAME],
           [SK_NAME]: key[SK_NAME],
         },
-        UpdateExpression: 'SET #indexStatus = :s, #updatedAt = :u',
+        UpdateExpression: 'SET #indexStatus = :s, #chunkCount = :c, #updatedAt = :u',
         ExpressionAttributeNames: {
           '#indexStatus': 'indexStatus',
+          '#chunkCount': 'chunkCount',
           '#updatedAt': 'updatedAt',
         },
         ExpressionAttributeValues: {
           ':s': 'INDEXED',
+          ':c': chunkCount,
           ':u': now,
         },
       }),
@@ -196,13 +199,13 @@ async function updateItemWithRetry(
         `Throttling detected for item ${key[SK_NAME]}, retrying after ${backoffMs.toFixed(0)}ms (attempt ${attemptNumber + 1}/${RETRY_CONFIG.maxRetries})`,
       );
       await delay(backoffMs);
-      return updateItemWithRetry(key, now, attemptNumber + 1);
+      return updateItemWithRetry(key, now, chunkCount, attemptNumber + 1);
     }
     throw error;
   }
 }
 
-async function markIndexed(documentId: string, knowledgeBaseId?: string): Promise<void> {
+async function markIndexed(documentId: string, knowledgeBaseId: string | undefined, chunkCount: number): Promise<void> {
   if (!documentId) throw new Error('documentId is required');
 
   const pk = DOCUMENT_PK;
@@ -231,7 +234,7 @@ async function markIndexed(documentId: string, knowledgeBaseId?: string): Promis
       );
 
       for (const item of res.Items ?? []) {
-        await updateItemWithRetry(item, now);
+        await updateItemWithRetry(item, now, chunkCount);
       }
       return;
     } catch (error: unknown) {
@@ -267,7 +270,7 @@ async function markIndexed(documentId: string, knowledgeBaseId?: string): Promis
 
     // Process updates sequentially with retry logic to avoid overwhelming the table
     for (const item of items) {
-      await updateItemWithRetry(item, now);
+      await updateItemWithRetry(item, now, chunkCount);
     }
 
     lastEvaluatedKey = res.LastEvaluatedKey;

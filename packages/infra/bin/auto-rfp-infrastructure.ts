@@ -181,6 +181,7 @@ const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {
   documentGenerationQueue: storage.documentGenerationQueue,
   clarifyingQuestionQueue: storage.clarifyingQuestionQueue,
   extractionQueue: storage.extractionQueue,
+  renameChunksQueue: storage.renameChunksQueue,
   // Pass the queue name (plain string) — not the queue object — to avoid a cross-stack token cycle
   notificationQueueName: `auto-rfp-notifications-${stage.toLowerCase()}`,
   auditLogQueueName: `auto-rfp-audit-log-${stage.toLowerCase()}`,

@@ -47,7 +47,7 @@ export function useCreateDocument() {
 
 export function useUpdateDocument() {
   return useSWRMutation<DocumentItem, ApiError, string, UpdateDocumentDTO>(
-    buildApiUrl('document/update-document'),
+    buildApiUrl('document/edit-document'),
     async (url, { arg }) => apiMutate<DocumentItem>(url, 'PATCH', arg),
   );
 }

@@ -36,7 +36,10 @@ jest.mock('@/helpers/s3', () => ({
   loadTextFromS3: jest.fn(),
 }));
 
-import { chunkText } from './chunk-document';
+import { baseHandler, chunkText } from './chunk-document';
+import { loadTextFromS3 } from '@/helpers/s3';
+import { docClient } from '@/helpers/db';
+import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 const OPTS = { maxChars: 2500, overlapChars: 250, minChars: 200 };
 
@@ -91,5 +94,43 @@ describe('chunkText', () => {
   it('drops chunks below minChars', () => {
     const chunks = chunkText('short', { maxChars: 2500, overlapChars: 250, minChars: 200 });
     expect(chunks).toEqual([]);
+  });
+});
+
+describe('baseHandler — chunkCount persistence', () => {
+  const event = {
+    orgId: 'org-1',
+    knowledgeBaseId: 'kb-1',
+    documentId: 'doc-1',
+    txtKey: 'orgs/org-1/kb-1/doc-1.txt',
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('persists chunkCount=0 and marks INDEXED when there are no chunks (ticket 02)', async () => {
+    (loadTextFromS3 as jest.Mock).mockResolvedValue('short');
+
+    await baseHandler(event, {} as any);
+
+    expect(docClient.send).toHaveBeenCalledTimes(1);
+    expect(UpdateCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        UpdateExpression: expect.stringContaining('#chunkCount'),
+        ExpressionAttributeValues: expect.objectContaining({ ':s': 'INDEXED', ':cc': 0 }),
+      }),
+    );
+  });
+
+  it('defers chunkCount (does not write it) when chunks exist, leaving it for markIndexed', async () => {
+    (loadTextFromS3 as jest.Mock).mockResolvedValue('a'.repeat(5000));
+
+    await baseHandler(event, {} as any);
+
+    const call = (UpdateCommand as unknown as jest.Mock).mock.calls[0][0];
+    expect(call.ExpressionAttributeValues[':s']).toBe('CHUNKED');
+    expect(call.UpdateExpression).not.toContain('#chunkCount');
+    expect(call.ExpressionAttributeValues[':cc']).toBeUndefined();
   });
 });

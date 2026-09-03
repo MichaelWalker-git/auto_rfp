@@ -18,6 +18,10 @@ export const DocumentItemSchema = z.object({
 
   fileSize: z.number().int().min(0).optional(),  // file size in bytes
 
+  // Set once indexing completes; used to reconstruct Pinecone chunk IDs deterministically on delete.
+  // Distinct from the raw `chunksCount` attribute the chunking step writes ahead of indexing.
+  chunkCount: z.number().int().nonnegative().optional(),
+
   // Freshness tracking fields
   freshnessStatus: z.enum(['ACTIVE', 'WARNING', 'STALE', 'ARCHIVED']).optional(),
   staleReason: z.string().optional(),
@@ -40,7 +44,10 @@ export type CreateDocumentDTO = z.infer<typeof CreateDocumentDTOSchema>;
 export const UpdateDocumentDTOSchema = z.object({
   id: z.string(),
   knowledgeBaseId: z.string(),  // required for locating the SK
-  name: z.string().optional(),
+  // Required to propagate a rename to Pinecone chunk metadata (namespace = orgId);
+  // omitted, the rename still persists to DDB but chunk metadata propagation is skipped.
+  orgId: z.string().optional(),
+  name: z.string().trim().min(1).max(255).optional(),
   indexStatus: z.enum(['pending', 'TEXT_EXTRACTED', 'TEXT_EXTRACTION_FAILED', 'CHUNKED', 'INDEXED', 'ready', 'failed']).optional(),
   indexVectorKey: z.string().optional(),
 });
