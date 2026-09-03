@@ -263,7 +263,7 @@ describe('OpportunityView — tab shell', () => {
     expect(tab(/^Details,/)).toBeInTheDocument();
     expect(tab(/^Analysis,/)).toBeInTheDocument();
     expect(tab(/^RFP docs,/)).toBeInTheDocument();
-    expect(tab(/^Compliance details,/)).toBeInTheDocument();
+    expect(tab(/^Compliance,/)).toBeInTheDocument();
     expect(tab(/^Outcome,/)).toBeInTheDocument();
   });
 
@@ -282,7 +282,7 @@ describe('OpportunityView — tab shell', () => {
   it('hides Required forms when there is no required-forms step', () => {
     setup({ steps: allSteps().filter((s) => s.stepId !== 'required-forms') });
     renderView();
-    expect(screen.queryByRole('tab', { name: /^Required forms,/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /^Forms,/ })).not.toBeInTheDocument();
   });
 
   it('shows Related only for a HigherGov opportunity with related items', () => {
@@ -350,7 +350,7 @@ describe('OpportunityView — requirement flag chips', () => {
     renderView();
 
     fireEvent.click(screen.getByRole('button', { name: 'Physical submission required' }));
-    expect(tab(/^Compliance details,/)).toHaveAttribute('aria-selected', 'true');
+    expect(tab(/^Compliance,/)).toHaveAttribute('aria-selected', 'true');
   });
 
   it('shows the Notary chip only when a summary exists and jumps to Required forms', () => {
@@ -359,7 +359,7 @@ describe('OpportunityView — requirement flag chips', () => {
     renderView();
 
     fireEvent.click(screen.getByRole('button', { name: 'Notary required' }));
-    expect(tab(/^Required forms,/)).toHaveAttribute('aria-selected', 'true');
+    expect(tab(/^Forms,/)).toHaveAttribute('aria-selected', 'true');
   });
 
   it('hides the Notary chip when there is no Required forms tab to jump to', () => {
@@ -371,7 +371,7 @@ describe('OpportunityView — requirement flag chips', () => {
     });
     renderView();
 
-    expect(screen.queryByRole('tab', { name: /^Required forms,/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /^Forms,/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Notary required' })).not.toBeInTheDocument();
   });
 
