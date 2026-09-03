@@ -6,7 +6,6 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sns from 'aws-cdk-lib/aws-sns';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as sfn from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
@@ -18,8 +17,6 @@ interface DocumentPipelineStackProps extends StackProps {
   stage: string;
   documentsBucket: s3.IBucket;
   documentsTable: dynamodb.ITable;
-  vpc: ec2.IVpc;
-  vpcSecurityGroup: ec2.ISecurityGroup;
   sentryDNS: string;
   pineconeApiKey: string;
 }
@@ -34,8 +31,6 @@ export class DocumentPipelineStack extends Stack {
       stage,
       documentsBucket,
       documentsTable,
-      vpc,
-      vpcSecurityGroup,
       sentryDNS,
       pineconeApiKey,
     } = props;
@@ -230,8 +225,6 @@ export class DocumentPipelineStack extends Stack {
         memorySize: 2048,
         timeout: Duration.minutes(2),
         functionName: `${namePrefix}-IndexDocumentChunk`,
-        vpc,
-        securityGroups: [vpcSecurityGroup],
         environment: {
           DB_TABLE_NAME: documentsTable.tableName,
           DOCUMENTS_BUCKET: documentsBucket.bucketName,
@@ -248,12 +241,6 @@ export class DocumentPipelineStack extends Stack {
 
     documentsBucket.grantRead(indexDocumentLambda);
     documentsTable.grantReadWriteData(indexDocumentLambda);
-
-    indexDocumentLambda.role?.addManagedPolicy(
-      iam.ManagedPolicy.fromAwsManagedPolicyName(
-        'service-role/AWSLambdaVPCAccessExecutionRole',
-      ),
-    );
 
     indexDocumentLambda.addToRolePolicy(
       new iam.PolicyStatement({

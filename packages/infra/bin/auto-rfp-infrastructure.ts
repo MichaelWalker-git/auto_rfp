@@ -56,7 +56,7 @@ if (awsMarketplaceProductCode) {
   cdk.Tags.of(app).add('aws-apn-id', `pc:${awsMarketplaceProductCode}`);
 }
 
-const network = new NetworkStack(app, `AutoRfp-Network-${stage}`, {
+new NetworkStack(app, `AutoRfp-Network-${stage}`, {
   env,
   existingVpcId: 'vpc-0e8bca582530ec949', // blueprint-checker-vpc-dev (has NAT Gateway)
 });
@@ -129,8 +129,6 @@ const pipelineStack = new DocumentPipelineStack(app, `AutoRfp-DocumentPipeline-$
   stage,
   documentsBucket: storage.documentsBucket,
   documentsTable: db.tableName,
-  vpc: network.vpc,
-  vpcSecurityGroup: network.lambdaSecurityGroup,
   sentryDNS,
   pineconeApiKey
 });
