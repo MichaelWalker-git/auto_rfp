@@ -19,7 +19,6 @@ interface UseDocumentUploadProps {
     knowledgeBaseId: string;
     name: string;
     fileKey: string;
-    textFileKey: string;
     fileSize?: number;
   }) => Promise<{ id: string }>;
   startPipeline: (data: {
@@ -89,7 +88,6 @@ export function useDocumentUpload({
           knowledgeBaseId: kbId,
           name: fileName,
           fileKey,
-          textFileKey: `${fileKey}.txt`,
           fileSize: item.file.size,
         });
 

@@ -24,8 +24,10 @@ jest.mock('@/helpers/document', () => ({
 }));
 
 const mockLoadTextFromS3 = jest.fn();
+const mockTryLoadTextFromS3 = jest.fn();
 jest.mock('@/helpers/s3', () => ({
   loadTextFromS3: (...a: unknown[]) => mockLoadTextFromS3(...a),
+  tryLoadTextFromS3: (...a: unknown[]) => mockTryLoadTextFromS3(...a),
 }));
 
 process.env.DB_TABLE_NAME = 'test-table';
@@ -96,7 +98,7 @@ beforeEach(() => {
   mockGetSolutionPlanByOpportunity.mockResolvedValue(planWith([filledLine()]));
   mockListEmployeesByOrg.mockResolvedValue([employee()]);
   mockGetDocumentItemByDocumentId.mockResolvedValue({ id: 'doc-cv-1', textFileKey: 'text/cv-1.txt' });
-  mockLoadTextFromS3.mockResolvedValue('Jane has 12 years of federal PM experience.');
+  mockTryLoadTextFromS3.mockResolvedValue('Jane has 12 years of federal PM experience.');
 });
 
 // ─── classifyTeamLine (BR2.5) ─────────────────────────────────────────────────
@@ -171,7 +173,7 @@ describe('assembleTeamQualificationsContext', () => {
       pendingReplacements: [],
     });
     expect(mockListEmployeesByOrg).toHaveBeenCalledTimes(1);
-    expect(mockLoadTextFromS3).toHaveBeenCalledWith('test-documents-bucket', 'text/cv-1.txt');
+    expect(mockTryLoadTextFromS3).toHaveBeenCalledWith('test-documents-bucket', 'text/cv-1.txt');
   });
 
   it('degrades to structured fields with a noted reason when the CV does not resolve (BR2.2)', async () => {
@@ -184,11 +186,12 @@ describe('assembleTeamQualificationsContext', () => {
       cvText: null,
       cvMissingReason: expect.stringContaining('does not resolve'),
     });
-    expect(mockLoadTextFromS3).not.toHaveBeenCalled();
+    expect(mockTryLoadTextFromS3).not.toHaveBeenCalled();
   });
 
   it('degrades to structured fields when the S3 read fails — assembly never fails (BR2.2)', async () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    mockTryLoadTextFromS3.mockResolvedValue(null);
     mockLoadTextFromS3.mockRejectedValue(new Error('S3 unavailable'));
 
     const context = await assembleTeamQualificationsContext(key);
@@ -214,7 +217,7 @@ describe('assembleTeamQualificationsContext', () => {
   });
 
   it('applies the per-member CV budget to oversized resumes', async () => {
-    mockLoadTextFromS3.mockResolvedValue('x'.repeat(TEAM_MEMBER_CV_TEXT_BUDGET + 500));
+    mockTryLoadTextFromS3.mockResolvedValue('x'.repeat(TEAM_MEMBER_CV_TEXT_BUDGET + 500));
 
     const context = await assembleTeamQualificationsContext(key);
 

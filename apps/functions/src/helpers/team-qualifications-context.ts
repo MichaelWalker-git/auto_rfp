@@ -29,7 +29,7 @@ import { requireEnv } from './env';
 import { getSolutionPlanByOpportunity } from './solution-plan';
 import { listEmployeesByOrg } from './employee';
 import { getDocumentItemByDocumentId } from './document';
-import { loadTextFromS3 } from './s3';
+import { buildTextKeyCandidates, loadDocumentText } from './document-text';
 import { errorMessageOf } from './error';
 
 // ─── Budgets ──────────────────────────────────────────────────────────────────
@@ -127,13 +127,13 @@ const loadCvText = async (
   }
   try {
     const document = await getDocumentItemByDocumentId(employee.resumeRef);
-    if (!document?.textFileKey) {
+    if (!document || buildTextKeyCandidates(document).length === 0) {
       return {
         cvText: null,
         cvMissingReason: 'resume reference does not resolve to a document with extracted text',
       };
     }
-    const text = await loadTextFromS3(requireEnv('DOCUMENTS_BUCKET'), document.textFileKey);
+    const text = await loadDocumentText(requireEnv('DOCUMENTS_BUCKET'), document);
     if (!text.trim()) {
       return { cvText: null, cvMissingReason: 'resume document text is empty' };
     }

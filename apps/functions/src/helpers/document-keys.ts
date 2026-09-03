@@ -13,6 +13,17 @@ export const buildDocumentSK = (kbId: string, docId: string): string => {
 };
 
 /**
+ * The S3 key the pipeline stores extracted text under: the original key with
+ * its extension swapped for `.txt`, so the text sits next to the original
+ * (`…/CV.docx` → `…/CV.txt`). Any query string is dropped first.
+ */
+export const buildTxtKeyNextToOriginal = (originalKey: string): string => {
+  const clean = originalKey.split('?')[0] ?? originalKey;
+  const idx = clean.lastIndexOf('.');
+  return idx === -1 ? `${clean}.txt` : `${clean.slice(0, idx)}.txt`;
+};
+
+/**
  * Derives the S3 "chunks/" prefix from a document's extracted-text key.
  * Chunks for `some/dir/doc.txt` live at `some/dir/chunks/`.
  */

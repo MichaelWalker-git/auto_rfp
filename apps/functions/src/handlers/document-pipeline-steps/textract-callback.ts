@@ -9,6 +9,7 @@ import { withSentryLambda } from '@/sentry-lambda';
 import { requireEnv } from '@/helpers/env';
 import { docClient } from '@/helpers/db';
 import { getDocumentItemByDocumentId } from '@/helpers/document';
+import { buildTxtKeyNextToOriginal } from '@/helpers/document-keys';
 import { nowIso } from '@/helpers/date';
 import { DocumentDBItem } from '@/types/document';
 
@@ -19,13 +20,6 @@ const DOCUMENTS_BUCKET = requireEnv('DOCUMENTS_BUCKET');
 const textractClient = new TextractClient({ region: REGION });
 const s3Client = new S3Client({ region: REGION });
 const stepFunctionsClient = new SFNClient({ region: REGION });
-
-function buildTxtKeyNextToOriginal(originalKey: string): string {
-  const clean = originalKey.split('?')[0] ?? originalKey;
-  const idx = clean.lastIndexOf('.');
-  if (idx === -1) return `${clean}.txt`;
-  return `${clean.slice(0, idx)}.txt`;
-}
 
 function buildTextFromBlocks(blocks: Block[]): string {
   return blocks

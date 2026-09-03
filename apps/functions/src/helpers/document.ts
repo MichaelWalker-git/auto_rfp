@@ -41,7 +41,7 @@ export async function createDocument(
   userId: string = 'system',
 ): Promise<DocumentItem> {
   const docId = uuidv4();
-  const { knowledgeBaseId, name, fileKey, textFileKey, fileSize } = dto;
+  const { knowledgeBaseId, name, fileKey, fileSize } = dto;
 
   return await createItem<DocumentItem>(
     DOCUMENT_PK,
@@ -51,7 +51,8 @@ export async function createDocument(
       knowledgeBaseId,
       name,
       fileKey,
-      textFileKey,
+      // `textFileKey` is intentionally not set here — the pipeline writes it
+      // once the text exists, so it can never point at a missing object.
       indexStatus: 'pending',
       createdBy: userId,
       updatedBy: userId,
