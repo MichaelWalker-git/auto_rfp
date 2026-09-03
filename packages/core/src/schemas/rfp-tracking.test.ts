@@ -6,9 +6,14 @@ import {
   RfpApprovalAdvanceSchema,
   resolveRfpStage,
   linearGateLabelSwap,
+  linearStageWrite,
   RFP_BOARD_STAGE_ORDER,
   RFP_GATE_LABELS,
+  RFP_SELECTABLE_STAGES,
+  RFP_STAGE_OPTIONS,
+  RFP_STAGE_LABELS,
 } from './rfp-tracking';
+import type { RfpSelectableStage } from './rfp-tracking';
 import {
   OpportunityApprovalStatusSchema,
   OpportunityApprovalTransitionSchema,
@@ -259,5 +264,65 @@ describe('linearGateLabelSwap', () => {
 describe('RFP_BOARD_STAGE_ORDER', () => {
   it('includes a Not approved column', () => {
     expect(RFP_BOARD_STAGE_ORDER).toContain('notApproved');
+  });
+});
+
+describe('RFP_STAGE_OPTIONS / RFP_SELECTABLE_STAGES', () => {
+  it('offers exactly the nine board statuses, in board order', () => {
+    expect(RFP_STAGE_OPTIONS.map((o) => o.label)).toEqual([
+      'Initial Approval',
+      'First approved',
+      'In progress',
+      'Pre-submission review',
+      'Second approved',
+      'Submitted',
+      'Not approved',
+      'Awarded',
+      'Lost',
+    ]);
+  });
+
+  it('excludes the non-selectable intake/auto stages (found, expired)', () => {
+    expect(RFP_SELECTABLE_STAGES).not.toContain('found');
+    expect(RFP_SELECTABLE_STAGES).not.toContain('expired');
+  });
+
+  it('labels match the shared RFP_STAGE_LABELS map', () => {
+    for (const opt of RFP_STAGE_OPTIONS) {
+      expect(opt.label).toBe(RFP_STAGE_LABELS[opt.stage]);
+    }
+  });
+});
+
+describe('linearStageWrite', () => {
+  it('gate stages add their one gate label and remove the others + dnw', () => {
+    const w = linearStageWrite('secondApproved');
+    expect(w.status).toBe('In Progress');
+    expect(w.addLabels).toEqual(['II Approved']);
+    expect(w.removeLabels).toContain('Initial Approval');
+    expect(w.removeLabels).toContain('dnw');
+    expect(w.removeLabels).not.toContain('II Approved');
+  });
+
+  it('submitted is status-driven with no gate label added', () => {
+    const w = linearStageWrite('submitted');
+    expect(w.status).toBe('Submitted');
+    expect(w.addLabels).toEqual([]);
+  });
+
+  it('lost is Awarded status + the dnw label', () => {
+    const w = linearStageWrite('lost');
+    expect(w.status).toBe('Awarded');
+    expect(w.addLabels).toEqual(['dnw']);
+  });
+
+  it('round-trips through resolveRfpStage for every selectable stage', () => {
+    for (const stage of RFP_SELECTABLE_STAGES) {
+      const w = linearStageWrite(stage as RfpSelectableStage);
+      // Simulate the board's read model after the write: status + surviving labels.
+      const labels = w.addLabels;
+      const resolved = resolveRfpStage({ identifier: 'HOR-1', status: w.status, labels });
+      expect(resolved).toBe(stage);
+    }
   });
 });

@@ -10,6 +10,7 @@ import {
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 import { withSentryLambda } from '@/sentry-lambda';
 import { getRFPDocument, softDeleteRFPDocument } from '@/helpers/rfp-document';
+import { deleteDocumentFromDriveIfConfigured } from '@/helpers/google-drive-document-sync';
 import { deleteS3ObjectsFromKeys } from '@/helpers/s3';
 import { listApprovalsByDocument } from '@/helpers/document-approval';
 import { deleteItem } from '@/helpers/db';
@@ -82,6 +83,14 @@ export const baseHandler = async (
     } else {
       console.log(`S3 cleanup: deleted=${deleted}, skipped=${skipped} for documentId=${documentId}`);
     }
+
+    // ── Mirror the delete into Google Drive (best-effort) ──
+    // Keeps the Proposal Materials folder in sync with the app: an in-app delete
+    // trashes the linked Google Doc too. Non-blocking, like the S3 cleanup above.
+    await deleteDocumentFromDriveIfConfigured({
+      orgId,
+      googleDriveFileId: existing.googleDriveFileId,
+    });
 
     setAuditContext(event, {
       action: 'DOCUMENT_DELETED',

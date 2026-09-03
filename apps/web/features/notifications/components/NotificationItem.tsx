@@ -47,6 +47,9 @@ const TYPE_CONFIG: Record<NotificationType, { icon: React.ElementType; color: st
   DECISION_DATE_3_DAYS: { icon: Clock,        color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-100 dark:bg-orange-900/50' },
   DECISION_DATE_1_DAY:  { icon: AlertCircle,  color: 'text-red-500 dark:text-red-400',    bg: 'bg-red-100 dark:bg-red-900/50' },
   DOCUMENT_GENERATION_FAILED: { icon: AlertCircle, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-100 dark:bg-red-900/50' },
+  DRIVE_EDIT_BLOCKED_APPROVED: { icon: AlertTriangle, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/50' },
+  // Amber, not muted: a reviewer seeing this needs to re-read before approving.
+  DRIVE_EDIT_DURING_REVIEW: { icon: AlertTriangle, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/50' },
   FOIA_SCHEDULED:          { icon: Clock,          color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-100 dark:bg-indigo-900/50' },
   FOIA_BLOCKED:            { icon: AlertTriangle,  color: 'text-amber-600 dark:text-amber-400',  bg: 'bg-amber-100 dark:bg-amber-900/50' },
   FOIA_APPROVAL_REQUESTED: { icon: ClipboardCheck, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-100 dark:bg-indigo-900/50' },

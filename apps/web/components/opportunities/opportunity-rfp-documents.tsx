@@ -461,10 +461,6 @@ export function OpportunityRFPDocuments() {
                         <span>·</span>
                         {doc.fileSizeBytes > 0 && <><span>{formatFileSize(doc.fileSizeBytes)}</span><span>·</span></>}
                         <span>{formatDateTime(doc.createdAt)}</span>
-                        {doc.createdByName && <><span>·</span><span>by {doc.createdByName}</span></>}
-                        {doc.updatedBy && doc.updatedBy !== doc.createdBy && doc.updatedByName && (
-                          <><span>·</span><span>edited by {doc.updatedByName}</span></>
-                        )}
                       </div>
                     </div>
 

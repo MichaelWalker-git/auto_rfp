@@ -8,6 +8,7 @@ import { getRFPDocument, updateRFPDocumentMetadata } from '@/helpers/rfp-documen
 import { getUserByOrgAndId } from '@/helpers/user';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
 import { reassignLinearTicket } from '@/helpers/linear';
+import { captureApprovedSnapshotIfConfigured } from '@/helpers/google-drive-document-sync';
 import { writeAuditLog } from '@/helpers/audit-log';
 import { getHmacSecret } from '@/helpers/secret';
 import { nowIso } from '@/helpers/date';
@@ -75,6 +76,21 @@ const baseHandler = async (event: AuthedEvent): Promise<APIGatewayProxyResultV2>
     });
   } catch (err) {
     console.error('[submit-review] CRITICAL: Failed to update document signatureStatus:', err);
+  }
+
+  // ── Freeze a Drive copy of what was just approved (non-blocking) ──
+  // Deliberately after the signatureStatus write and deliberately not awaited into the
+  // response: this is a record-keeping artefact, and approval must not fail or slow down
+  // because Google is unavailable. No-ops when the org has no Drive credential.
+  if (data.decision === 'APPROVED') {
+    captureApprovedSnapshotIfConfigured({
+      orgId,
+      projectId: data.projectId,
+      opportunityId: data.opportunityId,
+      documentId: data.documentId,
+    }).catch((err: unknown) =>
+      console.warn('[submit-review] Approved-snapshot capture failed:', (err as Error)?.message),
+    );
   }
 
   // ── Reassign Linear ticket back to the requester (non-blocking) ──
