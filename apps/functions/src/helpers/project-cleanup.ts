@@ -14,7 +14,6 @@ import {
   deleteItemWithRetry,
   getItem,
   queryAllBySkPrefix,
-  scanByPkWithFilter,
 } from './db';
 import { deleteS3ObjectsFromKeys, safeS3Key } from './s3';
 
@@ -97,26 +96,30 @@ export async function deleteProjectAndRelatedEntities(
   // Delete opportunities (SK format: orgId#projectId#oppId)
   result.opportunities = await deleteAllBySkPrefix(OPPORTUNITY_PK, `${orgId}#${projectId}#`);
 
-  // Delete executive briefs
-  const execBriefIds = collectExecBriefIds(project, questionFiles);
-  if (execBriefIds.length > 0) {
-    result.executiveBriefs = await batchDeleteItems(
-      execBriefIds.map((id) => ({ pk: EXEC_BRIEF_PK, sk: id })),
-    );
-  }
-
-  // Scan for any remaining exec briefs with projectId
-  const scannedBriefs = await scanByPkWithFilter<{ [PK_NAME]: string; [SK_NAME]: string }>(
+  // Delete executive briefs.
+  //
+  // Briefs are keyed `EXEC_BRIEF / ${projectId}#${opportunityId}` (see
+  // executiveBriefSKByOpportunity), so a begins_with Query finds every brief
+  // for the project. Legacy briefs referenced by a bare `executiveBriefId` on
+  // the project or its question files are added explicitly.
+  //
+  // This used to fall back to a full-table Scan filtered on `projectId`. The
+  // single table is shared across every org, so that Scan scaled with total
+  // table size rather than with the project and can push delete-project and
+  // delete-organization past the 30-second API Gateway limit as the table
+  // grows. Never reintroduce a Scan here.
+  const execBriefKeys = await queryAllBySkPrefix<ProjectCleanupItem>(
     EXEC_BRIEF_PK,
-    'projectId',
-    projectId,
+    `${projectId}#`,
   );
-  if (scannedBriefs.length > 0) {
-    const scanned = await batchDeleteItems(
-      scannedBriefs.map((item) => ({ pk: item[PK_NAME], sk: item[SK_NAME] })),
+  const execBriefSks = new Set<string>(execBriefKeys.map((item) => item[SK_NAME]));
+  for (const id of collectExecBriefIds(project, questionFiles)) {
+    execBriefSks.add(id);
+  }
+  if (execBriefSks.size > 0) {
+    result.executiveBriefs = await batchDeleteItems(
+      Array.from(execBriefSks).map((sk) => ({ pk: EXEC_BRIEF_PK, sk })),
     );
-    result.executiveBriefs.deleted += scanned.deleted;
-    result.executiveBriefs.failed += scanned.failed;
   }
 
   // Delete deadline and project

@@ -20,6 +20,8 @@ import {
 } from '@/middleware/rbac-middleware';
 import { auditMiddleware, setAuditContext } from '@/middleware/audit-middleware';
 
+const PROJECT_DELETE_CONCURRENCY = 4;
+
 interface DeleteOrgResult {
   projects: {
     total: number;
@@ -39,13 +41,21 @@ async function deleteOrganizationWithCleanup(orgId: string): Promise<DeleteOrgRe
   const projects = await getProjectsByOrgId(orgId);
   result.projects.total = projects.length;
 
+  const projectIds: string[] = [];
   for (const project of projects) {
     const projectId = project.projectId || extractProjectIdFromSk(project[SK_NAME], orgId);
-    if (!projectId) {
+    if (projectId) {
+      projectIds.push(projectId);
+    } else {
       result.projects.failed++;
-      continue;
     }
+  }
 
+  // Each project cleanup is a handful of Queries plus batched deletes. The whole
+  // org delete has to finish inside one 30-second API Gateway request, so run
+  // the cleanups through a small pool rather than strictly one after another.
+  // The pool stays small to keep DynamoDB write throttling in check.
+  const deleteOne = async (projectId: string): Promise<void> => {
     try {
       await deleteProjectAndRelatedEntities(orgId, projectId);
       result.projects.deleted++;
@@ -53,7 +63,17 @@ async function deleteOrganizationWithCleanup(orgId: string): Promise<DeleteOrgRe
       console.error(`Failed to delete project ${projectId}:`, err);
       result.projects.failed++;
     }
-  }
+  };
+
+  const queue = [...projectIds];
+  const worker = async (): Promise<void> => {
+    for (let next = queue.shift(); next !== undefined; next = queue.shift()) {
+      await deleteOne(next);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(PROJECT_DELETE_CONCURRENCY, projectIds.length) }, worker),
+  );
 
   // Delete organization
   result.organization = await deleteItemWithRetry(ORG_PK, `ORG#${orgId}`);
@@ -73,11 +93,10 @@ export const baseHandler = async (
 
     const cleanup = await deleteOrganizationWithCleanup(orgId);
 
-    
     setAuditContext(event, {
       action: 'ORG_SETTINGS_CHANGED',
       resource: 'organization',
-      resourceId: event.pathParameters?.orgId ?? event.queryStringParameters?.orgId ?? 'unknown',
+      resourceId: orgId,
     });
 
     return apiResponse(200, {
