@@ -188,7 +188,7 @@ const executeKbSearch = async (
 ): Promise<ToolSearchResult> => {
   const topK = Math.min(Math.max(limit, 1), 10);
   try {
-    const embedding = await getEmbedding(query);
+    const embedding = await getEmbedding(query, orgId);
     const hits = await semanticSearchChunks(orgId, embedding, topK * 2);
     if (!hits.length) return emptySearchResult('No knowledge base content found for that query.');
 
@@ -280,7 +280,7 @@ const executePastPerfSearch = async (
 ): Promise<ToolSearchResult> => {
   const topK = Math.min(Math.max(limit, 1), 5);
   try {
-    const embedding = await getEmbedding(keywords);
+    const embedding = await getEmbedding(keywords, orgId);
     const hits = await semanticSearchPastPerformance(orgId, embedding, topK * 2);
     if (!hits.length) return emptySearchResult('No past performance projects found matching those keywords.');
 

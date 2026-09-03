@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { queryAllBySkPrefix, queryBySkPrefix } from '@/helpers/db';
-import { loadTextFromS3 } from '@/helpers/s3';
+import { loadDocumentText, type DocumentTextSource } from '@/helpers/document-text';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import { requireEnv } from '@/helpers/env';
 import {
@@ -84,10 +84,9 @@ interface PendingCertification {
 
 /* ── Org document listing ───────────────────────────────── */
 
-interface OrgDocument {
+interface OrgDocument extends DocumentTextSource {
   id: string;
   name: string;
-  textFileKey?: string;
   indexStatus?: string;
 }
 
@@ -118,6 +117,7 @@ export const listOrgDocuments = async (orgId: string): Promise<OrgDocument[]> =>
         id: doc.id,
         name: doc.name,
         textFileKey: doc.textFileKey,
+        fileKey: doc.fileKey,
         indexStatus: doc.indexStatus,
       });
     }
@@ -150,7 +150,7 @@ const parseExtractedCv = (textContent: string): ExtractedCv | null => {
  * handling, so a combined call keeps the failure semantics identical).
  * Throws on call failure or an unparseable response.
  */
-export const classifyAndExtractCv = async (documentText: string): Promise<ExtractedCv> => {
+export const classifyAndExtractCv = async (documentText: string, orgId: string): Promise<ExtractedCv> => {
   const requestBody = {
     anthropic_version: 'bedrock-2023-05-31',
     max_tokens: 2048,
@@ -158,7 +158,7 @@ export const classifyAndExtractCv = async (documentText: string): Promise<Extrac
     messages: [{ role: 'user', content: createCvExtractionUserPrompt(documentText) }],
   };
 
-  const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody));
+  const responseBody = await invokeModel(BEDROCK_MODEL_ID, JSON.stringify(requestBody), orgId);
   const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as {
     content?: Array<{ type: string; text?: string }>;
   };
@@ -303,13 +303,11 @@ export const runEmployeeImport = async (
       counters.documentsScanned++;
 
       // BR2.1 — no extracted text → UNREADABLE.
-      const hasText =
-        !!document.textFileKey &&
-        (!document.indexStatus || TEXT_READY_STATUSES.has(document.indexStatus));
+      const isTextReady = !document.indexStatus || TEXT_READY_STATUSES.has(document.indexStatus);
       let documentText = '';
-      if (hasText && document.textFileKey) {
+      if (isTextReady) {
         try {
-          documentText = await loadTextFromS3(documentsBucket, document.textFileKey);
+          documentText = await loadDocumentText(documentsBucket, document);
         } catch (err) {
           console.warn(
             `[employee-import] failed to load text for ${document.name}:`,
@@ -327,14 +325,14 @@ export const runEmployeeImport = async (
       // BR2.1/BR2.2 — classify + extract with one retry, then EXTRACTION_FAILED.
       let extracted: ExtractedCv | null = null;
       try {
-        extracted = await classifyAndExtractCv(documentText);
+        extracted = await classifyAndExtractCv(documentText, orgId);
       } catch (firstErr) {
         console.warn(
           `[employee-import] extraction attempt 1 failed for ${document.name}:`,
           firstErr instanceof Error ? firstErr.message : firstErr,
         );
         try {
-          extracted = await classifyAndExtractCv(documentText);
+          extracted = await classifyAndExtractCv(documentText, orgId);
         } catch (secondErr) {
           console.error(
             `[employee-import] extraction failed for ${document.name} after retry:`,

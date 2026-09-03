@@ -17,6 +17,7 @@ export class StorageStack extends cdk.Stack {
   public readonly notificationQueue: sqs.Queue;
   public readonly clarifyingQuestionQueue: sqs.Queue;
   public readonly extractionQueue: sqs.Queue;
+  public readonly renameChunksQueue: sqs.Queue;
 
   constructor(scope: Construct, id: string, props: StorageStackProps) {
     super(scope, id, props);
@@ -168,6 +169,22 @@ export class StorageStack extends cdk.Stack {
           encryption: sqs.QueueEncryption.SQS_MANAGED,
         }),
         maxReceiveCount: 2,
+      },
+    });
+
+    // Create SQS queue for async rename chunk-metadata updates (documents > 1 000 chunks)
+    this.renameChunksQueue = new sqs.Queue(this, 'RenameChunksQueue', {
+      queueName: `auto-rfp-rename-chunks-${stage}`,
+      visibilityTimeout: cdk.Duration.minutes(5), // Match the worker Lambda's timeout
+      retentionPeriod: cdk.Duration.days(14),
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+      deadLetterQueue: {
+        queue: new sqs.Queue(this, 'RenameChunksDLQ', {
+          queueName: `auto-rfp-rename-chunks-dlq-${stage}`,
+          retentionPeriod: cdk.Duration.days(14),
+          encryption: sqs.QueueEncryption.SQS_MANAGED,
+        }),
+        maxReceiveCount: 3,
       },
     });
 

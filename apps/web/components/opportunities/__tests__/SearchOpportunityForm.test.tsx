@@ -55,6 +55,7 @@ const saveAndReadBody = async () => {
     autoImport: boolean;
     projectId?: string;
     frequency: string;
+    criteria: Record<string, unknown>;
   };
 };
 
@@ -140,10 +141,20 @@ describe('SearchOpportunityForm — filters are provider-aware', () => {
     expect(screen.getByRole('button', { name: /Closing date/i })).toBeTruthy();
   });
 
-  it('hides NAICS, set-aside and closing date for HigherGov, whose API has no such filters', () => {
+  // Keyword and NAICS are real filters for HigherGov now that search goes through their
+  // MCP server. Set-aside and closing date remain unsupported there.
+  it('offers keyword, NAICS, market and active-only for HigherGov', () => {
     renderForm({ source: 'HIGHER_GOV' });
 
-    expect(screen.queryByRole('button', { name: /NAICS/i })).toBeNull();
+    expect(screen.getByPlaceholderText(/close match/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /NAICS/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /All sources/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Active only/i })).toBeTruthy();
+  });
+
+  it('still hides set-aside and closing date for HigherGov — MCP exposes neither', () => {
+    renderForm({ source: 'HIGHER_GOV' });
+
     expect(screen.queryByRole('button', { name: /Set-aside/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /Closing date/i })).toBeNull();
   });
@@ -169,7 +180,7 @@ describe('SearchOpportunityForm — filters are provider-aware', () => {
     expect(criteria.higherGovSourceType).toBeUndefined();
   });
 
-  it('drops keyword/NAICS/set-aside when HigherGov is selected, since its API cannot honour them', async () => {
+  it('sends keyword and NAICS for HigherGov, but not set-aside or closing dates', async () => {
     const onSearch = renderForm({
       source: 'HIGHER_GOV',
       keywords: 'radar',
@@ -181,14 +192,59 @@ describe('SearchOpportunityForm — filters are provider-aware', () => {
     const criteria = await submit(onSearch);
 
     expect(criteria.sources).toEqual(['HIGHER_GOV']);
+    expect(criteria.keywords).toBe('radar');
+    expect(criteria.naics).toEqual(['541512']);
     expect(criteria.higherGovSearchId).toBe('BWr0PdG39B6mX8cG47AQ8');
-    expect(criteria.keywords).toBeUndefined();
-    expect(criteria.naics).toBeUndefined();
+    expect(criteria.higherGovMarket).toBe('all');
+    expect(criteria.higherGovActiveOnly).toBe(true);
+    // MCP's search_opportunities exposes neither of these.
     expect(criteria.setAsideCode).toBeUndefined();
-    // HigherGov takes a single `posted_date`, so there is no range upper bound.
     expect(criteria.closingFrom).toBeUndefined();
     expect(criteria.closingTo).toBeUndefined();
+    // posted_date is a single day, so there is no range upper bound.
     expect(criteria.postedTo).toBeUndefined();
+  });
+
+  // Regression: the form seeds postedFrom to "30 days ago" for SAM.gov's range, but
+  // HigherGov's `posted_date` is a SINGLE DAY. Forwarding it asked HigherGov for
+  // opportunities posted on exactly that one day and reliably returned 0 — measured live:
+  // `keyword=saas` alone gives 310, the same plus posted_date=<30 days ago> gives 0.
+  it('does not send SAM.gov\'s seeded date range as a HigherGov single-day filter', async () => {
+    const onSearch = renderForm({
+      source: 'HIGHER_GOV',
+      keywords: 'saas',
+      postedFrom: new Date(2026, 6, 26),
+      postedTo: new Date(2026, 7, 25),
+    });
+
+    const criteria = await submit(onSearch);
+
+    expect(criteria.keywords).toBe('saas');
+    expect(criteria.postedFrom).toBeUndefined();
+    expect(criteria.postedTo).toBeUndefined();
+  });
+
+  it('sends a posted date only when picked on the HigherGov single-day picker', async () => {
+    const onSearch = renderForm({
+      source: 'HIGHER_GOV',
+      keywords: 'saas',
+      higherGovPostedOn: new Date(2026, 7, 1),
+    });
+
+    const criteria = await submit(onSearch);
+
+    expect(criteria.postedFrom).toBe('2026-08-01');
+  });
+
+  it('passes HigherGov query operators through verbatim', async () => {
+    // Sanitising any of this would break their documented query language — quoting alone
+    // is the difference between 40 and 1593 results for "Document Management".
+    const query = '("data dashboard" or "data center") -Subscription';
+    const onSearch = renderForm({ source: 'HIGHER_GOV', keywords: query });
+
+    const criteria = await submit(onSearch);
+
+    expect(criteria.keywords).toBe(query);
   });
 
   it('extracts a HigherGov search ID from a pasted URL', async () => {
@@ -196,7 +252,7 @@ describe('SearchOpportunityForm — filters are provider-aware', () => {
     const onSearch = renderForm({ source: 'HIGHER_GOV' });
 
     await user.type(
-      screen.getByPlaceholderText(/HigherGov search URL or Search ID/i),
+      screen.getByPlaceholderText(/paste a HigherGov Search ID/i),
       'https://www.highergov.com/contract-opportunity/?searchID=BWr0PdG39B6mX8cG47AQ8',
     );
 
@@ -234,5 +290,45 @@ describe('SearchOpportunityForm — restoring from a URL keeps the default date 
     const criteria = onSearch.mock.calls[0][0] as { postedFrom?: string; postedTo?: string };
     expect(criteria.postedFrom).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(criteria.postedTo).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+/**
+ * The market and active-only filters have to be PERSISTED, not just sent.
+ *
+ * Both are "omitted means default" params on MCP's side — an absent
+ * `opportunity_type` means federal_contract and an absent `active_opportunity`
+ * means all history. Leaving them out of the saved-search body meant a saved
+ * "State & Local, active only" search reopened as federal-only, all-time.
+ */
+describe('SearchOpportunityForm — saved searches persist market and active-only', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAuthFetcher.mockResolvedValue({ ok: true, json: async () => ({}) } as unknown as Response);
+  });
+
+  it('writes a non-default market and active flag into the saved criteria', async () => {
+    renderForm({
+      source: 'HIGHER_GOV',
+      higherGovSearchId: 'BWr0PdG39B6mX8cG47AQ8',
+      higherGovMarket: 'state_local',
+      higherGovActiveOnly: false,
+    });
+
+    const { criteria } = await saveAndReadBody();
+
+    expect(criteria.higherGovMarket).toBe('state_local');
+    expect(criteria.higherGovActiveOnly).toBe(false);
+  });
+
+  it('writes the defaults explicitly rather than omitting them', async () => {
+    // 'all' and true must be on the wire: omitted, HigherGov would apply
+    // federal_contract and return all history instead.
+    renderForm({ source: 'HIGHER_GOV', higherGovSearchId: 'BWr0PdG39B6mX8cG47AQ8' });
+
+    const { criteria } = await saveAndReadBody();
+
+    expect(criteria.higherGovMarket).toBe('all');
+    expect(criteria.higherGovActiveOnly).toBe(true);
   });
 });

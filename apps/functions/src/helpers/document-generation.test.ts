@@ -749,6 +749,11 @@ describe('isTerminalGenerationError', () => {
   const awsError = (name: string, message = 'boom') =>
     Object.assign(new Error(message), { name });
 
+  it('treats an AiNotConfiguredError as terminal (retrying without a key is pointless)', () => {
+    const { AiNotConfiguredError } = jest.requireActual('@/helpers/ai-config-error');
+    expect(isTerminalGenerationError(new AiNotConfiguredError('org-1'))).toBe(true);
+  });
+
   it('treats a malformed UpdateExpression as terminal', () => {
     // The exact error a duplicated document path produces.
     const err = awsError(

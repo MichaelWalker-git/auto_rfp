@@ -1,5 +1,5 @@
 import { LinearClient } from '@linear/sdk';
-import type { RfpDigestIssue } from '@auto-rfp/core';
+import { isPhysicalSubmission, type RfpDigestIssue, type SubmissionMethodDetected } from '@auto-rfp/core';
 import { getApiKey } from './api-key-storage';
 import { LINEAR_SECRET_PREFIX } from '../constants/linear';
 
@@ -123,6 +123,58 @@ export const listProjectIssues = async (
   return issues;
 };
 
+export interface LinearTeamMember {
+  id: string;
+  name: string;
+  email: string;
+}
+
+const TEAM_MEMBERS_QUERY = `
+  query TeamMembers($teamId: String!) {
+    team(id: $teamId) {
+      members(first: 250) {
+        nodes { id name email active }
+      }
+    }
+  }
+`;
+
+interface TeamMembersResponse {
+  team: {
+    members: {
+      nodes: Array<{ id: string; name: string; email: string; active: boolean }>;
+    };
+  } | null;
+}
+
+/**
+ * Lists the active members of a Linear team so the UI can offer them as
+ * assignees. Falls back to the LINEAR_TEAM_ID env when no team is passed —
+ * mirrors createLinearTicket, which files into that same team by default.
+ */
+export const listTeamMembers = async (
+  orgId: string,
+  teamId?: string,
+): Promise<LinearTeamMember[]> => {
+  const resolvedTeamId = teamId || LINEAR_TEAM_ID;
+  if (!resolvedTeamId) {
+    throw new Error('Linear team ID not configured');
+  }
+
+  const apiKey = await getLinearApiKey(orgId);
+  const client = new LinearClient({ apiKey });
+
+  const response: { data?: TeamMembersResponse } = await client.client.rawRequest(
+    TEAM_MEMBERS_QUERY,
+    { teamId: resolvedTeamId },
+  );
+
+  const nodes = response.data?.team?.members.nodes ?? [];
+  return nodes
+    .filter((node) => node.active)
+    .map((node) => ({ id: node.id, name: node.name, email: node.email }));
+};
+
 export interface CreateLinearTicketParams {
   orgId: string;
   title: string;
@@ -130,6 +182,12 @@ export interface CreateLinearTicketParams {
   priority?: number;
   dueDate?: string;
   assigneeId?: string;
+  /**
+   * Workflow status NAME to start the issue in (resolved to a state id on the
+   * team). Omit for the team default. Paired with `labels` so the RFP board
+   * reads the intended stage back.
+   */
+  statusName?: string;
   teamId?: string;
   projectId?: string;
   labels?: string[];
@@ -153,22 +211,38 @@ export async function createLinearTicket(params: CreateLinearTicketParams): Prom
 
     const projectId = params.projectId || LINEAR_PROJECT_ID;
 
+    // Resolve label names and (optionally) the status name against the team in
+    // one fetch, so the created issue lands in the intended RFP board stage.
     let labelIds: string[] | undefined;
-    if (params.labels && params.labels.length > 0) {
+    let stateId: string | undefined;
+    if ((params.labels && params.labels.length > 0) || params.statusName) {
       const team = await client.team(teamId);
-      const allLabels = await team.labels();
 
-      labelIds = params.labels
-        .map(labelName => {
-          const found = allLabels.nodes.find(
-            l => l.name.toLowerCase() === labelName.toLowerCase()
-          );
-          if (!found) {
-            console.warn(`⚠️ Label not found: "${labelName}"`);
-          }
-          return found?.id;
-        })
-        .filter((id): id is string => !!id);
+      if (params.labels && params.labels.length > 0) {
+        const allLabels = await team.labels();
+        labelIds = params.labels
+          .map(labelName => {
+            const found = allLabels.nodes.find(
+              l => l.name.toLowerCase() === labelName.toLowerCase()
+            );
+            if (!found) {
+              console.warn(`⚠️ Label not found: "${labelName}"`);
+            }
+            return found?.id;
+          })
+          .filter((id): id is string => !!id);
+      }
+
+      if (params.statusName) {
+        const states = await team.states();
+        const found = states.nodes.find(
+          s => s.name.toLowerCase() === params.statusName!.toLowerCase(),
+        );
+        if (!found) {
+          console.warn(`⚠️ Status not found: "${params.statusName}"`);
+        }
+        stateId = found?.id;
+      }
     }
 
     const issuePayload = await client.createIssue({
@@ -179,6 +253,8 @@ export async function createLinearTicket(params: CreateLinearTicketParams): Prom
       priority: params.priority ?? 3,
       dueDate: params.dueDate,
       assigneeId: params.assigneeId || LINEAR_DEFAULT_ASSIGNEE_ID,
+      // Undefined lets Linear apply the team's default state; a value pins the column.
+      stateId,
       labelIds,
     });
 
@@ -196,6 +272,10 @@ export async function createLinearTicket(params: CreateLinearTicketParams): Prom
       url: createdIssue.url,
     };
   } catch (error) {
+    // Returning null is the contract (callers treat it as "not created"), but the
+    // cause must reach the logs — a swallowed 'Linear team ID not configured' here
+    // otherwise looks identical to a Linear API hiccup in production.
+    console.error('createLinearTicket failed:', error instanceof Error ? error.message : error);
     return null;
   }
 }
@@ -307,6 +387,197 @@ export async function swapLinearGateLabelByIdentifier(
   console.log(`[linear] ${identifier}: +"${addLabel}" −[${removeLabels.join(', ')}]`);
   return true;
 }
+
+/**
+ * Move an issue into an RFP board stage: set the workflow status (resolved from
+ * its name on the issue's team) and swap labels (add the stage's gate label,
+ * remove the others). This is the inverse of resolveRfpStage, so the board reads
+ * the same stage back on the next 15-min sync. Non-gate labels are preserved.
+ *
+ * Returns true on success; false if the target status name doesn't exist on the
+ * team (logged — the caller surfaces it).
+ */
+export async function setLinearIssueStage(
+  orgId: string,
+  issueId: string,
+  params: { status: string; addLabels: string[]; removeLabels: string[] },
+): Promise<boolean> {
+  const apiKey = await getLinearApiKey(orgId);
+  const client = new LinearClient({ apiKey });
+
+  const issue = await client.issue(issueId);
+  const team = await issue.team;
+  const teamId = team?.id;
+  if (!teamId) {
+    console.warn(`[linear] No team for issue ${issueId}`);
+    return false;
+  }
+
+  const teamObj = await client.team(teamId);
+
+  // Resolve the target workflow state by name.
+  const states = await teamObj.states();
+  const targetState = states.nodes.find(
+    (s) => s.name.toLowerCase() === params.status.toLowerCase(),
+  );
+  if (!targetState) {
+    console.warn(`[linear] Status "${params.status}" not found on team ${teamId}`);
+    return false;
+  }
+
+  // Resolve label names → ids on this team.
+  const allLabels = await teamObj.labels();
+  const labelIdByName = new Map(allLabels.nodes.map((l) => [l.name.toLowerCase(), l.id]));
+
+  const addIds = params.addLabels
+    .map((name) => {
+      const id = labelIdByName.get(name.toLowerCase());
+      if (!id) console.warn(`[linear] Label to add not found: "${name}"`);
+      return id;
+    })
+    .filter((id): id is string => !!id);
+
+  const removeIds = new Set(
+    params.removeLabels
+      .map((name) => labelIdByName.get(name.toLowerCase()))
+      .filter((id): id is string => !!id),
+  );
+
+  const current = await issue.labels();
+  const currentIds = current.nodes.map((l) => l.id);
+
+  // Preserve everything except the labels we're removing, then add the stage labels.
+  const nextIds = Array.from(
+    new Set([...currentIds.filter((id) => !removeIds.has(id)), ...addIds]),
+  );
+
+  await client.updateIssue(issueId, { stateId: targetState.id, labelIds: nextIds });
+  console.log(
+    `[linear] ${issueId} → status "${params.status}", +[${params.addLabels.join(', ')}] −[${params.removeLabels.join(', ')}]`,
+  );
+  return true;
+}
+
+export const PHYSICAL_SUBMISSION_LABEL = 'physical submission';
+
+interface ResolvedIssueContext {
+  client: LinearClient;
+  issue: { id: string; identifier: string; labels: () => Promise<{ nodes: Array<{ id: string }> }> };
+  currentIds: string[];
+  labelIdByName: Map<string, string>;
+}
+
+const resolveIssueContext = async (
+  orgId: string,
+  identifier: string,
+  logPrefix: string,
+): Promise<ResolvedIssueContext | null> => {
+  const apiKey = await getLinearApiKey(orgId);
+  const client = new LinearClient({ apiKey });
+
+  const search = await client.issues({
+    filter: { number: { eq: Number(identifier.split('-')[1]) } },
+    first: 50,
+  });
+  const issue = search.nodes.find((n) => n.identifier === identifier);
+  if (!issue) {
+    console.warn(`[linear] ${logPrefix}: issue not found for identifier ${identifier}`);
+    return null;
+  }
+
+  const team = await issue.team;
+  const teamId = team?.id;
+  if (!teamId) {
+    console.warn(`[linear] ${logPrefix}: no team for issue ${identifier}`);
+    return null;
+  }
+
+  const teamObj = await client.team(teamId);
+  const allLabels = await teamObj.labels();
+  const labelIdByName = new Map(allLabels.nodes.map((l) => [l.name.toLowerCase(), l.id]));
+
+  const current = await issue.labels();
+  const currentIds = current.nodes.map((l) => l.id);
+
+  return { client, issue, currentIds, labelIdByName };
+};
+
+export const addLinearLabelByIdentifier = async (
+  orgId: string,
+  identifier: string,
+  labelName: string,
+): Promise<void> => {
+  try {
+    const ctx = await resolveIssueContext(orgId, identifier, 'addLabel');
+    if (!ctx) return;
+
+    const addLabelId = ctx.labelIdByName.get(labelName.toLowerCase());
+    if (!addLabelId) {
+      console.warn(`[linear] addLabel: label "${labelName}" not found for ${identifier}`);
+      return;
+    }
+
+    const nextIds = Array.from(new Set([...ctx.currentIds, addLabelId]));
+    await ctx.client.updateIssue(ctx.issue.id, { labelIds: nextIds });
+    console.log(`[linear] ${identifier}: +"${labelName}"`);
+  } catch (err) {
+    console.warn(`[linear] addLabel failed for ${identifier}:`, (err as Error).message);
+  }
+};
+
+export const removeLinearLabelByIdentifier = async (
+  orgId: string,
+  identifier: string,
+  labelName: string,
+): Promise<void> => {
+  try {
+    const ctx = await resolveIssueContext(orgId, identifier, 'removeLabel');
+    if (!ctx) return;
+
+    const removeLabelId = ctx.labelIdByName.get(labelName.toLowerCase());
+    if (!removeLabelId) {
+      console.warn(`[linear] removeLabel: label "${labelName}" not found for ${identifier}`);
+      return;
+    }
+
+    const nextIds = ctx.currentIds.filter((id) => id !== removeLabelId);
+    await ctx.client.updateIssue(ctx.issue.id, { labelIds: nextIds });
+    console.log(`[linear] ${identifier}: -"${labelName}"`);
+  } catch (err) {
+    console.warn(`[linear] removeLabel failed for ${identifier}:`, (err as Error).message);
+  }
+};
+
+/**
+ * Keep the "physical submission" Linear label in sync with a detected/toggled
+ * submission method. No-ops for opportunities that aren't Linear-synced or that
+ * don't carry a Linear identifier (`noticeId`).
+ *
+ * Like `writeBackApprovalToLinear`, the Linear API key lives in Secrets Manager
+ * under the *Linear* org id (`RFP_SYNC_LINEAR_ORG_ID`) — not the AutoRFP org id
+ * of the caller — so it is read here rather than accepted as a parameter.
+ */
+export const syncPhysicalSubmissionLabel = async (
+  oppId: string,
+  noticeId: string | null | undefined,
+  submissionMethod: SubmissionMethodDetected | null | undefined,
+): Promise<void> => {
+  if (!oppId.startsWith('linear-') || !noticeId) {
+    return;
+  }
+
+  const linearOrgId = process.env.RFP_SYNC_LINEAR_ORG_ID;
+  if (!linearOrgId) {
+    console.warn('[linear] Skipping physical-submission label sync: RFP_SYNC_LINEAR_ORG_ID not configured');
+    return;
+  }
+
+  if (isPhysicalSubmission(submissionMethod)) {
+    await addLinearLabelByIdentifier(linearOrgId, noticeId, PHYSICAL_SUBMISSION_LABEL);
+  } else {
+    await removeLinearLabelByIdentifier(linearOrgId, noticeId, PHYSICAL_SUBMISSION_LABEL);
+  }
+};
 
 export async function updateLinearTicket(
   orgId: string,

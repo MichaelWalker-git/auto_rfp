@@ -18,6 +18,7 @@ import { RfpLinearSyncStack } from '../rfp-linear-sync-stack';
 import { FoiaAutomationStack } from '../foia-automation-stack';
 import { FoiaInboundStack } from '../foia-inbound-stack';
 import { RfpDigestStack } from '../rfp-digest-stack';
+import { GoogleDriveSyncStack } from '../google-drive-sync-stack';
 import { RFP_SYNC_PROJECT_ID } from '@auto-rfp/core';
 import { AwsSolutionsChecks } from 'cdk-nag';
 import {
@@ -55,7 +56,7 @@ if (awsMarketplaceProductCode) {
   cdk.Tags.of(app).add('aws-apn-id', `pc:${awsMarketplaceProductCode}`);
 }
 
-const network = new NetworkStack(app, `AutoRfp-Network-${stage}`, {
+new NetworkStack(app, `AutoRfp-Network-${stage}`, {
   env,
   existingVpcId: 'vpc-0e8bca582530ec949', // blueprint-checker-vpc-dev (has NAT Gateway)
 });
@@ -128,8 +129,6 @@ const pipelineStack = new DocumentPipelineStack(app, `AutoRfp-DocumentPipeline-$
   stage,
   documentsBucket: storage.documentsBucket,
   documentsTable: db.tableName,
-  vpc: network.vpc,
-  vpcSecurityGroup: network.lambdaSecurityGroup,
   sentryDNS,
   pineconeApiKey
 });
@@ -180,6 +179,7 @@ const api = new ApiOrchestratorStack(app, `ApiOrchestrator-${stage}`, {
   documentGenerationQueue: storage.documentGenerationQueue,
   clarifyingQuestionQueue: storage.clarifyingQuestionQueue,
   extractionQueue: storage.extractionQueue,
+  renameChunksQueue: storage.renameChunksQueue,
   // Pass the queue name (plain string) — not the queue object — to avoid a cross-stack token cycle
   notificationQueueName: `auto-rfp-notifications-${stage.toLowerCase()}`,
   auditLogQueueName: `auto-rfp-audit-log-${stage.toLowerCase()}`,
@@ -275,6 +275,28 @@ const rfpLinearSyncStack = new RfpLinearSyncStack(app, `AutoRfp-RfpLinearSync-${
 });
 
 rfpLinearSyncStack.addDependency(db);
+
+// Scheduled import of Google Drive document edits. Depends on both db (for the
+// byDriveSync index it queries — deploy the table stack first) and storage (for the
+// documents bucket its DOCUMENTS_BUCKET env var and S3 grant point at).
+const googleDriveSyncStack = new GoogleDriveSyncStack(app, `AutoRfp-GoogleDriveSync-${stage}`, {
+  env,
+  stage,
+  mainTable: db.tableName,
+  documentsBucketName: storage.documentsBucket.bucketName,
+  notificationQueueName,
+  commonEnv: {
+    STAGE: stage,
+    DB_TABLE_NAME: db.tableName.tableName,
+    REGION: env.region ?? 'us-east-1',
+    SENTRY_DSN: sentryDNS,
+    SENTRY_ENVIRONMENT: stage,
+    NODE_ENV: 'production',
+  },
+});
+
+googleDriveSyncStack.addDependency(db);
+googleDriveSyncStack.addDependency(storage);
 
 // Daily reconcile of automatic FOIA request scheduling (Level 2). Recomputes
 // the intended state for every eligible opportunity, so a missed run or a
@@ -479,6 +501,9 @@ addLambdaSuppressions(auditStack, isProduction);
 
 addLambdaSuppressions(rfpLinearSyncStack, isProduction);
 addDynamoDBSuppressions(rfpLinearSyncStack, isProduction);
+
+addLambdaSuppressions(googleDriveSyncStack, isProduction);
+addDynamoDBSuppressions(googleDriveSyncStack, isProduction);
 
 addLambdaSuppressions(foiaAutomationStack, isProduction);
 addDynamoDBSuppressions(foiaAutomationStack, isProduction);

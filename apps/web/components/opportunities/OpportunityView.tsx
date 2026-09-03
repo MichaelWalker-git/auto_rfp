@@ -1,28 +1,27 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSWRConfig } from 'swr';
-import {
-  ArrowLeft,
-  ClipboardList,
-  HelpCircle,
-  Trophy,
-  ShieldCheck,
-  Paperclip,
-  FileEdit,
-  Sparkles,
-  Link2,
-} from 'lucide-react';
+import { useQueryState, parseAsStringLiteral } from 'nuqs';
+import { ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
 import { OpportunityProvider, useOpportunityContext } from './opportunity-context';
 import { OpportunityHeader } from './opportunity-header';
 import { AssigneeSelector } from './AssigneeSelector';
+import { RequirementFlagRow } from './RequirementFlagRow';
+import {
+  OPPORTUNITY_TAB_VALUES,
+  OPPORTUNITY_TAB_LABELS,
+  DEFAULT_OPPORTUNITY_TAB,
+  type OpportunityTabKey,
+} from './opportunity-tabs';
 import { OpportunitySolicitationDocuments } from './opportunity-attachments';
 import { OpportunityRFPDocuments } from './opportunity-rfp-documents';
 import { OpportunityChatDialog } from './OpportunityChatDialog';
+import { PhysicalSubmissionBanner } from './PhysicalSubmissionBanner';
 import { ExecutiveBriefView } from '@/components/brief/ExecutiveBriefView';
 import { QuestionsProvider } from '@/app/organizations/[orgId]/projects/[projectId]/questions/components';
 import { OpportunityOutcomeSummary } from './opportunity-outcome-summary';
@@ -30,6 +29,7 @@ import { DebriefingCard } from '@/components/debriefing';
 import { FOIARequestCard, FoiaAutomationCard } from '@/components/foia';
 import { OpportunityContextPanel } from './opportunity-context-panel';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { saveSelectedOpportunity } from '@/lib/utils/opportunity-selection';
 import {
   SubmitProposalButton,
@@ -40,7 +40,18 @@ import { RequiredFormsList } from '@/features/required-forms';
 import { ComplianceReviewPanel } from '@/features/compliance-review';
 import { SolutionPlanPanel } from '@/features/solution-plan';
 import { OpportunityApprovalPanel } from '@/features/opportunity-approval';
-import { RelatedRfpsSection } from '@/features/related-rfp';
+import { RelatedRfpsSection, useRelatedRfps } from '@/features/related-rfp';
+import {
+  ProgressTabStrip,
+  navigateToStep,
+  useOpportunityProgress,
+  evaluateRelated,
+  type TabHeaderModel,
+  type ProgressStep,
+  type NavigationDescriptor,
+  type OutcomeEvaluation,
+  type RelatedEvaluation,
+} from '@/features/opportunity-progress';
 import PermissionWrapper from '@/components/permission-wrapper';
 
 interface OpportunityViewProps {
@@ -49,97 +60,6 @@ interface OpportunityViewProps {
   className?: string;
 }
 
-// ─── Section Divider ──────────────────────────────────────────────────────────
-
-interface SectionDividerProps {
-  icon: React.ReactNode;
-  title: string;
-  muted?: boolean;
-}
-
-const SectionDivider = ({ icon, title, muted = false }: SectionDividerProps) => (
-  <div className="flex items-center gap-3 pt-2">
-    <div className={cn(
-      'flex items-center gap-2',
-      muted ? 'text-muted-foreground' : 'text-foreground',
-    )}>
-      {icon}
-      <h2 className={cn(
-        'text-base font-semibold whitespace-nowrap',
-        muted ? 'text-muted-foreground' : 'text-foreground',
-      )}>
-        {title}
-      </h2>
-    </div>
-    <div className="h-px flex-1 bg-border" />
-  </div>
-);
-
-// ─── Section Navigation ───────────────────────────────────────────────────────
-
-interface SectionNavItem {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-}
-
-const SECTION_NAV_ITEMS: SectionNavItem[] = [
-  { id: 'executive-brief', label: 'Analysis', icon: <HelpCircle className="h-3.5 w-3.5" /> },
-  { id: 'solution-plan', label: 'Solution Plan', icon: <ClipboardList className="h-3.5 w-3.5" /> },
-  { id: 'solicitation-documents', label: 'Solicitations', icon: <Paperclip className="h-3.5 w-3.5" /> },
-  { id: 'required-forms', label: 'Required Forms', icon: <FileEdit className="h-3.5 w-3.5" /> },
-  { id: 'rfp-documents', label: 'RFP Documents', icon: <FileEdit className="h-3.5 w-3.5" /> },
-  { id: 'related-rfps', label: 'Related RFPs', icon: <Link2 className="h-3.5 w-3.5" /> },
-  { id: 'ai-compliance-review', label: 'AI Review', icon: <Sparkles className="h-3.5 w-3.5" /> },
-  { id: 'submission-compliance', label: 'Submission', icon: <ShieldCheck className="h-3.5 w-3.5" /> },
-  { id: 'post-award', label: 'Post-Award', icon: <Trophy className="h-3.5 w-3.5" /> },
-];
-
-const SectionNavigation = ({ hiddenIds }: { hiddenIds?: string[] }) => {
-  const handleScrollTo = (id: string) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
-  const items = hiddenIds?.length
-    ? SECTION_NAV_ITEMS.filter((item) => !hiddenIds.includes(item.id))
-    : SECTION_NAV_ITEMS;
-
-  return (
-    <div className="flex flex-wrap items-center gap-2 py-2">
-      <span className="text-xs font-medium text-muted-foreground mr-1">Jump to:</span>
-      {items.map((item) => (
-        <Button
-          key={item.id}
-          variant="outline"
-          size="sm"
-          className="h-7 gap-1.5 px-2 text-xs"
-          onClick={() => handleScrollTo(item.id)}
-        >
-          {item.icon}
-          <span className="hidden sm:inline">{item.label}</span>
-        </Button>
-      ))}
-    </div>
-  );
-};
-
-// ─── Main Content ─────────────────────────────────────────────────────────────
-
-/**
- * Opportunity page content — composed of focused, self-contained Card sections.
- * Each section reads shared data from OpportunityContext.
- *
- * Layout:
- * 1. Header — opportunity details, badges, dates
- * 2. Quick Actions — questions, Q&A engagement
- * 3. Documents — solicitation + RFP response documents
- * 4. Context & Knowledge Base
- * 5. Submission — compliance report, submit button, history
- * 6. Post-Award — outcome, debriefing, FOIA
- */
 // ─── Smart Polling ────────────────────────────────────────────────────────
 
 const PENDING_STATUSES = new Set([
@@ -206,43 +126,102 @@ const useSmartPolling = (orgId: string, projectId: string, oppId: string) => {
     return () => clearTimeout(timeoutId);
   }, [isPolling, orgId, projectId, oppId, revalidateAll]);
 
-  const resumePolling = useCallback(() => {
-    unchangedCountRef.current = 0;
-    lastSnapshotRef.current = '';
-    setIsPolling(true);
-  }, []);
+  return { isPolling };
+};
 
-  return { isPolling, resumePolling };
+// ─── Non-step tab popovers ────────────────────────────────────────────────
+
+const OutcomePopover = ({ outcome }: { outcome: OutcomeEvaluation }) => (
+  <div className="space-y-1">
+    <p className="text-sm font-semibold text-foreground">Outcome</p>
+    <p className="text-xs text-muted-foreground">
+      {outcome.isTerminal
+        ? `This opportunity is marked ${outcome.label}.`
+        : 'No final decision has been recorded yet.'}
+    </p>
+  </div>
+);
+
+const RelatedPopover = ({ related }: { related: RelatedEvaluation }) => (
+  <div className="space-y-1">
+    <p className="text-sm font-semibold text-foreground">Related opportunities</p>
+    <p className="text-xs text-muted-foreground">
+      {related.count === 0
+        ? 'No related opportunities found.'
+        : `${related.label} to this solicitation.`}
+    </p>
+  </div>
+);
+
+// ─── Tab panel (lazy keep-alive) ──────────────────────────────────────────
+
+interface TabPanelProps {
+  tabKey: OpportunityTabKey;
+  activeKey: OpportunityTabKey;
+  opened: boolean;
+  children: React.ReactNode;
+}
+
+/**
+ * A tab body that mounts on first open and stays mounted (CSS-hidden) for the
+ * rest of the visit — not Radix's default unmount, not `forceMount` of every tab.
+ */
+const TabPanel = ({ tabKey, activeKey, opened, children }: TabPanelProps) => {
+  const isActive = tabKey === activeKey;
+  return (
+    <div
+      role="tabpanel"
+      id={`tabpanel-${tabKey}`}
+      aria-labelledby={`tab-${tabKey}`}
+      hidden={!isActive}
+      className="space-y-6 pt-6"
+    >
+      {opened ? children : null}
+    </div>
+  );
 };
 
 // ─── Main Content Component ──────────────────────────────────────────────
 
+/**
+ * Opportunity detail page (ADR 0001) — a persistent header (title/agency, back
+ * button, assignee, requirement flag chips), the approval banner, a progress-driven
+ * tab strip, and lazily-mounted tab bodies. Existing panels are moved into tab
+ * bodies unchanged; `OpportunityProvider` and smart polling are retained.
+ */
 const OpportunityContent = ({ className }: { className?: string }) => {
-  const { projectId, oppId, orgId, opportunity, refetch } = useOpportunityContext();
+  const { projectId, oppId, orgId, opportunity, isLoading, refetch } = useOpportunityContext();
   const { currentOrganization } = useCurrentOrganization();
   const navOrgId = currentOrganization?.id;
-  // AI Compliance Review is a single-org (Horus Technology) feature, gated by the
-  // org-level enableComplianceReview flag — same pattern as Generate POC.
+  // AI Compliance Review + Solution Plan are org-flagged features.
   const complianceReviewEnabled = !!currentOrganization?.enableComplianceReview;
-  // Solution Plan ("Source of Truth") ships behind the org-level
-  // enableSolutionPlan flag until Release 3 flips gating on per org.
   const solutionPlanEnabled = !!currentOrganization?.enableSolutionPlan;
   // Related RFPs (HOR-2610) auto-discover from the issuing agency — HigherGov opps only.
   const isHigherGov = !!opportunity?.higherGovOppKey;
-  const hiddenSectionIds = [
-    ...(complianceReviewEnabled ? [] : ['ai-compliance-review']),
-    ...(solutionPlanEnabled ? [] : ['solution-plan']),
-    ...(isHigherGov ? [] : ['related-rfps']),
-  ];
   const [isChatOpen, setIsChatOpen] = useState(false);
+
+  // Generation actions need at least one solicitation document; treat "loading"
+  // as present so buttons don't flash disabled.
+  const { items: solicitationFiles, isLoading: isLoadingSolicitationFiles } =
+    useQuestionFiles(projectId, { oppId });
+  const hasSolicitationDocs =
+    isLoadingSolicitationFiles || solicitationFiles.some((f) => f.status !== 'DELETED');
 
   // Smart auto-reload: 5s if pending items, 30s if stable, stops after 3 unchanged
   useSmartPolling(orgId, projectId, oppId);
-  // Outcome now lives on the opportunity itself (status + jurisdiction/state).
-  const outcome = opportunity;
 
-  // Save oppId to session storage so other pages (Questions, Brief, etc.)
-  // use this opportunity by default when navigating from this page
+  // Progress engine drives the tab headers (metric + status icon + popover).
+  const { steps, isLoading: isProgressLoading, outcome } = useOpportunityProgress();
+
+  // Related count gates + labels the Related tab; only fetched for HigherGov opps.
+  const { items: relatedItems } = useRelatedRfps({
+    orgId,
+    projectId,
+    oppId: isHigherGov ? oppId : '',
+  });
+  const related = useMemo(() => evaluateRelated(relatedItems), [relatedItems]);
+
+  // Save oppId to session storage so other pages default to this opportunity.
   useEffect(() => {
     if (projectId && oppId) {
       saveSelectedOpportunity(projectId, oppId);
@@ -253,166 +232,267 @@ const OpportunityContent = ({ className }: { className?: string }) => {
     ? `/organizations/${navOrgId}/projects/${projectId}/opportunities`
     : '#';
 
-  return (
-    <div className={cn('space-y-6', className)}>
-      {/* Back Navigation + Assignee Selector */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Button variant="ghost" size="sm" asChild className="gap-2 -ml-2">
-          <Link href={backUrl}>
-            <ArrowLeft className="h-4 w-4" />
-            Back to Opportunities
-          </Link>
-        </Button>
-        
-        {orgId && projectId && oppId && (
-          <AssigneeSelector
+  // ── URL tab state (nuqs) ──────────────────────────────────────────────────
+  const [tab, setTab] = useQueryState(
+    'tab',
+    parseAsStringLiteral(OPPORTUNITY_TAB_VALUES).withDefault(DEFAULT_OPPORTUNITY_TAB),
+  );
+
+  // A step navigates to its owning tab via `navigation.href` (the tab key).
+  const stepByTab = useMemo(() => {
+    const map = new Map<string, ProgressStep>();
+    for (const step of steps) {
+      if (step.navigation.kind === 'route') map.set(step.navigation.href, step);
+    }
+    return map;
+  }, [steps]);
+
+  // Visible tab set (FR1.5/FR1.6): always-on tabs plus the conditionally-shown
+  // ones. Solution plan / Required forms / Review track their progress step's
+  // presence (the engine hides those steps under the same conditions); Related is
+  // HigherGov + non-empty. Progress steps are not 1:1 with tabs.
+  const visibleTabs = useMemo<OpportunityTabKey[]>(
+    () =>
+      OPPORTUNITY_TAB_VALUES.filter((key) => {
+        switch (key) {
+          case 'solution-plan':
+            return stepByTab.has('solution-plan');
+          case 'required-forms':
+            return stepByTab.has('required-forms');
+          case 'review':
+            return stepByTab.has('review');
+          case 'related':
+            return isHigherGov && related.count > 0;
+          default:
+            return true;
+        }
+      }),
+    [stepByTab, isHigherGov, related.count],
+  );
+
+  // A `?tab=` pointing at a hidden/gated tab falls back to Details (validate
+  // against the *visible* set, not just the literal union).
+  const effectiveTab = visibleTabs.includes(tab) ? tab : DEFAULT_OPPORTUNITY_TAB;
+
+  // Lazy keep-alive: a body mounts on first open and stays mounted afterwards.
+  const [opened, setOpened] = useState<Set<OpportunityTabKey>>(() => new Set([effectiveTab]));
+  useEffect(() => {
+    setOpened((prev) => {
+      if (prev.has(effectiveTab)) return prev;
+      const next = new Set(prev);
+      next.add(effectiveTab);
+      return next;
+    });
+  }, [effectiveTab]);
+
+  const selectTab = useCallback(
+    (key: string) => {
+      void setTab(key as OpportunityTabKey);
+    },
+    [setTab],
+  );
+
+  const handleNavigate = useCallback(
+    (nav: NavigationDescriptor) => navigateToStep(nav, selectTab),
+    [selectTab],
+  );
+
+  // Build the tab-strip header models (label + metric + popover) for visible tabs.
+  const tabModels = useMemo<TabHeaderModel[]>(
+    () =>
+      visibleTabs.map((key) => {
+        const base = {
+          key,
+          label: OPPORTUNITY_TAB_LABELS[key],
+          navigation: { kind: 'route', href: key } as NavigationDescriptor,
+        };
+        if (key === 'outcome') {
+          return { ...base, metricText: outcome.label, popover: <OutcomePopover outcome={outcome} /> };
+        }
+        if (key === 'related') {
+          return { ...base, metricText: related.label, popover: <RelatedPopover related={related} /> };
+        }
+        return { ...base, step: stepByTab.get(key) };
+      }),
+    [visibleTabs, stepByTab, outcome, related],
+  );
+
+  const renderBody = (key: OpportunityTabKey): React.ReactNode => {
+    switch (key) {
+      case 'details':
+        return (
+          <>
+            <OpportunityHeader hasSolicitationDocs={hasSolicitationDocs} />
+            <OpportunityContextPanel />
+            <OpportunitySolicitationDocuments onAskAI={() => setIsChatOpen(true)} />
+          </>
+        );
+      case 'analysis':
+        return (
+          <QuestionsProvider projectId={projectId} opportunityId={oppId}>
+            <ExecutiveBriefView
+              projectId={projectId}
+              opportunityId={oppId}
+              title="Opportunity Analysis"
+              generateLabel="Analyze Opportunity"
+            />
+          </QuestionsProvider>
+        );
+      case 'solution-plan':
+        return (
+          <SolutionPlanPanel
             orgId={orgId}
             projectId={projectId}
-            oppId={oppId}
-            currentAssigneeId={opportunity?.assigneeId ?? undefined}
-            currentAssigneeName={opportunity?.assigneeName ?? undefined}
-            onAssigned={refetch}
-            showLabel
-            size="sm"
-          />
-        )}
-      </div>
-
-      {/* Opportunity Header */}
-      <OpportunityHeader />
-
-      {/* Reviewer approve/reject panel — only renders for the assigned reviewer */}
-      <OpportunityApprovalPanel orgId={orgId} projectId={projectId} opportunityId={oppId} onResolved={refetch} />
-
-      {/* Section Navigation */}
-      <SectionNavigation hiddenIds={hiddenSectionIds} />
-
-      {/* ── Opportunity Analysis ─────────────────────────────────────── */}
-      <section id="executive-brief" className="scroll-mt-4">
-        <QuestionsProvider projectId={projectId} opportunityId={oppId}>
-          <ExecutiveBriefView
-            projectId={projectId}
             opportunityId={oppId}
-            title="Opportunity Analysis"
-            generateLabel="Analyze Opportunity"
+            hasSolicitationDocs={hasSolicitationDocs}
           />
-        </QuestionsProvider>
-      </section>
-
-      {/* ── Solution Plan (Source of Truth, org-flagged) ──────────────── */}
-      {solutionPlanEnabled && (
-        <section id="solution-plan" className="scroll-mt-4">
-          <SolutionPlanPanel orgId={orgId} projectId={projectId} opportunityId={oppId} />
-        </section>
-      )}
-
-      {/* ── Solicitation Documents ────────────────────────────────────── */}
-      <section id="solicitation-documents" className="scroll-mt-4">
-        <OpportunitySolicitationDocuments onAskAI={() => setIsChatOpen(true)} />
-      </section>
-
-      {/* ── Required Forms (separated from solicitation docs) ────────── */}
-      <section id="required-forms" className="scroll-mt-4">
-        <RequiredFormsList orgId={orgId} projectId={projectId} opportunityId={oppId} />
-      </section>
-
-      {/* ── RFP Documents ─────────────────────────────────────────────── */}
-      <section id="rfp-documents" className="scroll-mt-4">
-        <OpportunityRFPDocuments />
-      </section>
-
-      {/* ── Related RFPs (HigherGov-sourced opps only) ─────────────────── */}
-      {isHigherGov && (
-        <section id="related-rfps" className="scroll-mt-4">
-          <RelatedRfpsSection orgId={orgId} projectId={projectId} oppId={oppId} />
-        </section>
-      )}
-
-      {/* ── Context & Knowledge Base ───────────────────────────────────── */}
-      <section className="scroll-mt-4">
-        <OpportunityContextPanel />
-      </section>
-
-      {/* ── AI Compliance Review (single-org feature) ──────────────────── */}
-      {complianceReviewEnabled && (
-        <section id="ai-compliance-review" className="space-y-4 scroll-mt-4">
-          <SectionDivider
-            icon={<Sparkles className="h-4 w-4" />}
-            title="AI Compliance Review"
-          />
-          <ComplianceReviewPanel orgId={orgId} projectId={projectId} oppId={oppId} />
-        </section>
-      )}
-
-      {/* ── Submission & Compliance ────────────────────────────────────── */}
-      <section id="submission-compliance" className="space-y-4 scroll-mt-4">
-        <SectionDivider
-          icon={<ShieldCheck className="h-4 w-4" />}
-          title="Submission & Compliance"
-        />
-        <ComplianceReport orgId={orgId} projectId={projectId} oppId={oppId} />
-        <div className="flex justify-end">
-          <PermissionWrapper requiredPermission="proposal:create">
-            <SubmitProposalButton
+        );
+      case 'required-forms':
+        return <RequiredFormsList orgId={orgId} projectId={projectId} opportunityId={oppId} />;
+      case 'rfp-documents':
+        return <OpportunityRFPDocuments />;
+      case 'review':
+        return <ComplianceReviewPanel orgId={orgId} projectId={projectId} oppId={oppId} />;
+      case 'compliance':
+        return (
+          <>
+            <PhysicalSubmissionBanner
               orgId={orgId}
               projectId={projectId}
               oppId={oppId}
+              opportunity={opportunity}
+              isLoading={isLoading}
+              refetch={refetch}
             />
-          </PermissionWrapper>
+            <ComplianceReport orgId={orgId} projectId={projectId} oppId={oppId} />
+            <div className="flex justify-end">
+              <PermissionWrapper requiredPermission="proposal:create">
+                <SubmitProposalButton orgId={orgId} projectId={projectId} oppId={oppId} />
+              </PermissionWrapper>
+            </div>
+            <SubmissionHistoryCard orgId={orgId} projectId={projectId} oppId={oppId} />
+          </>
+        );
+      case 'outcome':
+        return (
+          <>
+            {opportunity && (
+              <OpportunityOutcomeSummary
+                opportunity={opportunity}
+                orgId={orgId}
+                projectId={projectId}
+                oppId={oppId}
+                onOutcomeChange={refetch}
+              />
+            )}
+            {/* Debriefs apply to federal awards only. */}
+            {opportunity?.jurisdiction === 'FEDERAL' && (
+              <DebriefingCard
+                projectId={projectId}
+                orgId={orgId}
+                opportunityId={oppId}
+                projectOutcomeStatus={opportunity?.status}
+                solicitationNumber={opportunity?.solicitationNumber ?? undefined}
+                contractTitle={opportunity?.title ?? undefined}
+              />
+            )}
+            <FoiaAutomationCard
+              orgId={orgId}
+              projectId={projectId}
+              opportunityId={oppId}
+              opportunityStatus={opportunity?.status}
+            />
+            <FOIARequestCard
+              projectId={projectId}
+              orgId={orgId}
+              opportunityId={oppId}
+              projectOutcomeStatus={opportunity?.status}
+              jurisdiction={opportunity?.jurisdiction}
+              state={opportunity?.state ?? undefined}
+              agencyName={opportunity?.organizationName ?? undefined}
+              solicitationNumber={opportunity?.solicitationNumber ?? undefined}
+              contractTitle={opportunity?.title ?? undefined}
+            />
+          </>
+        );
+      case 'related':
+        return <RelatedRfpsSection orgId={orgId} projectId={projectId} oppId={oppId} />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className={cn('space-y-4', className)}>
+      {/* ── Persistent header (visible on every tab) ─────────────────────────── */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Button variant="ghost" size="sm" asChild className="-ml-2 gap-2">
+            <Link href={backUrl}>
+              <ArrowLeft className="h-4 w-4" />
+              Back to Opportunities
+            </Link>
+          </Button>
+
+          {orgId && projectId && oppId && (
+            <AssigneeSelector
+              orgId={orgId}
+              projectId={projectId}
+              oppId={oppId}
+              currentAssigneeId={opportunity?.assigneeId ?? undefined}
+              currentAssigneeName={opportunity?.assigneeName ?? undefined}
+              onAssigned={refetch}
+              showLabel
+              size="sm"
+            />
+          )}
         </div>
-        <SubmissionHistoryCard orgId={orgId} projectId={projectId} oppId={oppId} />
-      </section>
 
-      {/* ── Post-Award ─────────────────────────────────────────────────── */}
-      <section id="post-award" className="space-y-4 scroll-mt-4">
-        <SectionDivider
-          icon={<Trophy className="h-4 w-4" />}
-          title="Post-Award"
-          muted
-        />
         {opportunity && (
-          <OpportunityOutcomeSummary
-            opportunity={opportunity}
-            orgId={orgId}
-            projectId={projectId}
-            oppId={oppId}
-            onOutcomeChange={refetch}
-          />
+          <div>
+            <h1 className="text-lg font-semibold leading-tight text-foreground break-words">
+              {opportunity.title}
+            </h1>
+            <p className="text-sm text-muted-foreground break-words">
+              {opportunity.organizationName ?? '—'}
+            </p>
+          </div>
         )}
-        {/* Debriefs apply to federal awards only. */}
-        {outcome?.jurisdiction === 'FEDERAL' && (
-          <DebriefingCard
-            projectId={projectId}
-            orgId={orgId}
-            opportunityId={oppId}
-            projectOutcomeStatus={outcome?.status}
-            solicitationNumber={opportunity?.solicitationNumber ?? undefined}
-            contractTitle={opportunity?.title ?? undefined}
-          />
-        )}
-        <FoiaAutomationCard
-          orgId={orgId}
-          projectId={projectId}
-          opportunityId={oppId}
-          opportunityStatus={outcome?.status}
-        />
-        <FOIARequestCard
-          projectId={projectId}
-          orgId={orgId}
-          opportunityId={oppId}
-          projectOutcomeStatus={outcome?.status}
-          jurisdiction={outcome?.jurisdiction}
-          state={outcome?.state ?? undefined}
-          agencyName={opportunity?.organizationName ?? undefined}
-          solicitationNumber={opportunity?.solicitationNumber ?? undefined}
-          contractTitle={opportunity?.title ?? undefined}
-        />
-      </section>
 
-      {/* ── Floating AI Assistant ─────────────────────────────────────── */}
-      <OpportunityChatDialog 
-        opportunityId={oppId} 
-        orgId={orgId} 
+        <RequirementFlagRow
+          opportunity={opportunity}
+          onSelectTab={selectTab}
+          visibleTabs={visibleTabs}
+        />
+      </div>
+
+      {/* ── Approval banner (self-gates to the assigned reviewer) ────────────── */}
+      <OpportunityApprovalPanel
+        orgId={orgId}
+        projectId={projectId}
+        opportunityId={oppId}
+        onResolved={refetch}
+      />
+
+      {/* ── Progress-driven tab strip ────────────────────────────────────────── */}
+      <ProgressTabStrip
+        tabs={tabModels}
+        activeKey={effectiveTab}
+        onNavigate={handleNavigate}
+        isLoading={isProgressLoading}
+      />
+
+      {/* ── Tab bodies (lazy keep-alive) ─────────────────────────────────────── */}
+      {visibleTabs.map((key) => (
+        <TabPanel key={key} tabKey={key} activeKey={effectiveTab} opened={opened.has(key)}>
+          {renderBody(key)}
+        </TabPanel>
+      ))}
+
+      {/* ── Floating AI Assistant (available from every tab) ─────────────────── */}
+      <OpportunityChatDialog
+        opportunityId={oppId}
+        orgId={orgId}
         projectId={projectId}
         open={isChatOpen}
         onOpenChange={setIsChatOpen}

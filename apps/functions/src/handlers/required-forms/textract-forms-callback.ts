@@ -84,7 +84,7 @@ export const baseHandler = async (event: SNSEvent, _context: Context): Promise<v
       if (detected.length > 0) {
         const profile = await getCompanyProfile(form.orgId);
         if (profile) {
-          fields = await autofillFieldsWithTools(detected, profile);
+          fields = await autofillFieldsWithTools(detected, profile, form.orgId);
         }
       }
 

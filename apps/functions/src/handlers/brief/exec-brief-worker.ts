@@ -41,10 +41,9 @@ import {
   smartTruncate,
   truncateText,
 } from '@/helpers/executive-opportunity-brief';
+import { detectAndPersistPhysicalSubmission } from '@/helpers/physical-submission-detection';
 import { syncRequiredDocumentsToCustomTypes } from '@/helpers/custom-document-types';
 import type { RequiredOutputDocument } from '@auto-rfp/core';
-import { enqueueGoogleDriveSync } from '@/helpers/google-drive-queue';
-import { getProjectById } from '@/helpers/project';
 import { getOpportunity, updateOpportunity } from '@/helpers/opportunity';
 import { requireEnv } from '@/helpers/env';
 import { loadTextFromS3 } from '@/helpers/s3';
@@ -167,7 +166,7 @@ const MinimalSummarySchema = z.object({
 
 // ─── Section Handlers ─────────────────────────────────────────────────────────
 
-async function runSummary(job: Job): Promise<void> {
+export async function runSummary(job: Job): Promise<void> {
   const { orgId, executiveBriefId, inputHash: inputHashFromJob } = job;
 
   try {
@@ -198,6 +197,7 @@ async function runSummary(job: Job): Promise<void> {
       // Summary is pure extraction from solicitation — no KB or tools needed
       data = await invokeClaudeJson({
         modelId: BEDROCK_MODEL_ID,
+      orgId,
         system: await getSummarySystemPrompt(orgId),
         user: await useSummaryUserPrompt(
           orgId,
@@ -233,6 +233,7 @@ async function runSummary(job: Job): Promise<void> {
       try {
         const fallbackData = await invokeClaudeJson({
           modelId: BEDROCK_MODEL_ID,
+      orgId,
           system: await getSummarySystemPrompt(orgId),
           user: await useSummaryUserPrompt(
             orgId,
@@ -310,6 +311,18 @@ async function runSummary(job: Job): Promise<void> {
     } catch (constraintErr) {
       console.warn('[SUMMARY] Failed to persist delivery-location constraint:', (constraintErr as Error)?.message);
     }
+
+    // Detect + persist the physical-submission method (regex scan, LLM fallback,
+    // FOIA auto-fill, Linear label sync). Self-contained fail-open contract —
+    // never blocks the brief. See `detectAndPersistPhysicalSubmission`.
+    await detectAndPersistPhysicalSubmission({
+      orgId,
+      projectId,
+      oppId: opportunityId,
+      rawText,
+      llmSubmissionMethod: (data as { submissionMethod?: unknown })?.submissionMethod,
+      llmSubmissionRationale: (data as { submissionMethodRationale?: unknown })?.submissionMethodRationale,
+    });
   } catch (err) {
     await markSectionFailed({ executiveBriefId, section: 'summary', error: err });
     throw err;
@@ -340,6 +353,7 @@ async function runDeadlines(job: Job): Promise<void> {
     // Deadlines: pure extraction from solicitation — no tools needed
     const data = await invokeClaudeJson({
       modelId: BEDROCK_MODEL_ID,
+      orgId,
       system: await useDeadlineSystemPrompt(orgId),
       user: await useDeadlineUserPrompt(orgId, solicitationText),
       outputSchema: DeadlinesSectionSchema,
@@ -394,6 +408,7 @@ async function runRequirements(job: Job): Promise<void> {
 
     const data = await invokeClaudeJson({
       modelId: BEDROCK_MODEL_ID,
+      orgId,
       system: await useRequirementsSystemPrompt(orgId),
       user: await useRequirementsUserPrompt(orgId, solicitationText),
       outputSchema: RequirementsSectionSchema,
@@ -448,6 +463,7 @@ async function runContacts(job: Job): Promise<void> {
     // Contacts: pure extraction from solicitation — no tools needed
     const data = await invokeClaudeJson({
       modelId: BEDROCK_MODEL_ID,
+      orgId,
       system: await useContactsSystemPrompt(orgId),
       user: await useContactsUserPrompt(orgId, solicitationText),
       outputSchema: ContactsSectionSchema,
@@ -502,6 +518,7 @@ async function runRisks(job: Job): Promise<void> {
 
     const data = await invokeClaudeWithTools({
       modelId: BEDROCK_MODEL_ID,
+      orgId,
       system: await useRiskSystemPrompt(orgId),
       user: await useRiskUserPrompt(orgId, solicitationText),
       tools: BRIEF_TOOLS,
@@ -614,6 +631,7 @@ async function runPricing(job: Job): Promise<void> {
 
     const data = await invokeClaudeWithTools({
       modelId: BEDROCK_MODEL_ID,
+      orgId,
       system: await usePricingSystemPrompt(orgId),
       user: await usePricingUserPrompt(
         orgId,
@@ -730,6 +748,7 @@ async function runScoring(job: Job): Promise<void> {
 
     const data = await invokeClaudeWithTools({
       modelId: BEDROCK_MODEL_ID,
+      orgId,
       system: await useScoringSystemPrompt(orgId),
       user: await useScoringUserPrompt(
         orgId,
@@ -798,28 +817,9 @@ async function runScoring(job: Job): Promise<void> {
       compositeScore: normalized.compositeScore,
     });
 
-    // Google Drive Sync on GO Decision (async via SQS)
-    if (normalized.decision === 'GO') {
-      try {
-        console.log(`GO decision detected for brief ${executiveBriefId} — enqueuing Google Drive sync`);
-        const updatedBrief = await getExecutiveBrief(executiveBriefId);
-        const project = await getProjectById(brief.projectId);
-        const projectName = (project as Record<string, unknown>)?.name || brief.projectId;
-
-        await enqueueGoogleDriveSync({
-          orgId,
-          projectId: brief.projectId,
-          opportunityId,
-          executiveBriefId,
-          linearTicketId: updatedBrief.linearTicketId as string | undefined,
-          linearTicketIdentifier: updatedBrief.linearTicketIdentifier as string | undefined,
-          agencyName: summaryData?.agency as string | undefined,
-          projectTitle: (summaryData?.title as string | undefined) || String(projectName),
-        });
-      } catch (enqueueErr) {
-        console.error('Failed to enqueue Google Drive sync (non-blocking):', (enqueueErr as Error)?.message);
-      }
-    }
+    // Google Drive folder creation is now user-initiated only — triggered by the
+    // "Create Drive Folder" button on the brief (POST /brief/sync-to-google-drive),
+    // never automatically on a GO decision.
   } catch (err) {
     await markSectionFailed({ executiveBriefId, section: 'scoring', error: err });
     throw err;

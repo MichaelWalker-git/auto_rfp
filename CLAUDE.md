@@ -138,7 +138,7 @@ All domain types are Zod schemas in `src/schemas/`. Types are always inferred vi
 
 ## Key Conventions
 
-Detailed rules are in `.claude/rules/`. The most critical ones:
+The most critical ones:
 
 - **No `any` type.** Use `unknown` with type guards, or specific type assertions.
 - **All types from Zod.** `type Foo = z.infer<typeof FooSchema>` — never manual interfaces for domain types.

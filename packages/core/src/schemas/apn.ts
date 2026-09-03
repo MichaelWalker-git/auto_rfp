@@ -1,6 +1,6 @@
 import { z } from 'zod';
-
-// ─── APN Registration Status ──────────────────────────────────────────────────
+import { OpportunityStatusSchema } from './opportunity';
+import type { Industry, CountryCode } from '@aws-sdk/client-partnercentral-selling';
 
 export const ApnRegistrationStatusSchema = z.enum([
   'PENDING',       // Registration queued but not yet attempted
@@ -9,8 +9,6 @@ export const ApnRegistrationStatusSchema = z.enum([
   'RETRYING',      // Manual retry in progress
 ]);
 export type ApnRegistrationStatus = z.infer<typeof ApnRegistrationStatusSchema>;
-
-// ─── AWS Services Involved ────────────────────────────────────────────────────
 
 export const AwsServiceSchema = z.enum([
   'EC2', 'S3', 'RDS', 'Lambda', 'ECS', 'EKS', 'SageMaker',
@@ -21,37 +19,35 @@ export const AwsServiceSchema = z.enum([
 ]);
 export type AwsService = z.infer<typeof AwsServiceSchema>;
 
-// ─── APN Registration Item (stored in DynamoDB) ───────────────────────────────
-
 export const ApnRegistrationItemSchema = z.object({
   // Identity
   registrationId: z.string().uuid(),
-  orgId:          z.string().min(1),
-  projectId:      z.string().min(1),
-  oppId:          z.string().min(1),
+  orgId: z.string().min(1),
+  projectId: z.string().min(1),
+  oppId: z.string().min(1),
 
   // Registration status
-  status:         ApnRegistrationStatusSchema,
+  status: ApnRegistrationStatusSchema,
   apnOpportunityId: z.string().optional(),   // ID returned by Partner Central API
   apnOpportunityUrl: z.string().url().optional(), // Deep-link into Partner Portal
 
   // Opportunity fields sent to APN
-  customerName:       z.string().min(1),
-  opportunityValue:   z.number().nonnegative(),
-  awsServices:        z.array(AwsServiceSchema).min(1),
-  expectedCloseDate:  z.string().datetime(),
-  proposalStatus:     z.enum(['PROSPECT', 'SUBMITTED', 'WON', 'LOST']),
-  description:        z.string().max(2000).optional(),
+  customerName: z.string().min(1),
+  opportunityValue: z.number().nonnegative(),
+  awsServices: z.array(AwsServiceSchema).min(1),
+  expectedCloseDate: z.string().datetime(),
+  proposalStatus: z.enum(['PROSPECT', 'SUBMITTED', 'WON', 'LOST']),
+  description: z.string().max(2000).optional(),
 
   // Error tracking
-  lastError:          z.string().optional(),
-  retryCount:         z.number().int().nonnegative().default(0),
-  lastAttemptAt:      z.string().datetime().optional(),
+  lastError: z.string().optional(),
+  retryCount: z.number().int().nonnegative().default(0),
+  lastAttemptAt: z.string().datetime().optional(),
 
   // Audit
-  registeredBy:       z.string().min(1),   // userId or 'system'
-  createdAt:          z.string().datetime(),
-  updatedAt:          z.string().datetime(),
+  registeredBy: z.string().min(1),   // userId or 'system'
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
 });
 export type ApnRegistrationItem = z.infer<typeof ApnRegistrationItemSchema>;
 
@@ -70,12 +66,10 @@ export const CreateApnRegistrationSchema = ApnRegistrationItemSchema.omit({
 });
 export type CreateApnRegistration = z.infer<typeof CreateApnRegistrationSchema>;
 
-// ─── Retry DTO ────────────────────────────────────────────────────────────────
-
 export const RetryApnRegistrationSchema = z.object({
-  orgId:          z.string().min(1),
-  projectId:      z.string().min(1),
-  oppId:          z.string().min(1),
+  orgId: z.string().min(1),
+  projectId: z.string().min(1),
+  oppId: z.string().min(1),
   registrationId: z.string().uuid(),
 });
 export type RetryApnRegistration = z.infer<typeof RetryApnRegistrationSchema>;
@@ -88,7 +82,7 @@ export const ApnRegistrationResponseSchema = z.object({
 export type ApnRegistrationResponse = z.infer<typeof ApnRegistrationResponseSchema>;
 
 export const RetryApnRegistrationResponseSchema = z.object({
-  ok:           z.boolean(),
+  ok: z.boolean(),
   registration: ApnRegistrationItemSchema,
 });
 export type RetryApnRegistrationResponse = z.infer<typeof RetryApnRegistrationResponseSchema>;
@@ -98,3 +92,50 @@ export const ApnRegistrationsListResponseSchema = z.object({
   count: z.number(),
 });
 export type ApnRegistrationsListResponse = z.infer<typeof ApnRegistrationsListResponseSchema>;
+
+export const SyncToApnRequestSchema = z.object({
+  orgId: z.string().min(1),
+  projectId: z.string().min(1),
+  oppId: z.string().min(1),
+
+  existingApnId: z
+    .string()
+    .regex(/^O[0-9]{1,19}$/)
+    .optional(),
+
+  opportunity: z.object({
+    title: z.string().min(1),
+    value: z.number().nonnegative(),
+    expectedCloseDate: z.string().datetime(),
+    status: OpportunityStatusSchema,
+    description: z.string().optional(),
+  }),
+
+  customer: z.object({
+    name: z.string().min(1),
+    websiteUrl: z.string().url().optional(),
+    industry: z.custom<Industry>().optional(),
+    countryCode: z.custom<CountryCode>().optional(),
+  }),
+
+  apn: z.object({
+    opportunityType: z
+      .enum(['Net New Business', 'Flat Renewal', 'Expansion'])
+      .optional(),
+
+    marketing: z
+      .object({
+        source: z.enum(['Marketing Activity', 'None']),
+        awsFundingUsed: z.enum(['Yes', 'No']).optional(),
+        campaignName: z.string().optional(),
+        channels: z.array(z.string()).optional(),
+        useCases: z.array(z.string()).optional(),
+      })
+      .optional(),
+
+    primaryNeedsFromAws: z.array(z.string()).optional(),
+    nationalSecurity: z.enum(['Yes', 'No']).optional(),
+  }).optional(),
+});
+
+export type SyncToApnRequest = z.infer<typeof SyncToApnRequestSchema>

@@ -48,10 +48,11 @@ const invokeModelWithRetry = async (
   modelId: string,
   body: string,
   maxRetries = 2,
+  orgId: string,
 ): Promise<Uint8Array> => {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      return await invokeModel(modelId, body);
+      return await invokeModel(modelId, body, orgId);
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
       const isRetryable = msg.includes('503') || msg.includes('Service Unavailable') || msg.includes('ThrottlingException');
@@ -367,7 +368,7 @@ export const baseHandler = async (
         tools: getDocumentToolsForType(documentType, { hasSolutionPlan }),
       };
 
-      const responseBody = await invokeModelWithRetry(EDIT_SECTION_MODEL_ID, JSON.stringify(requestBody));
+      const responseBody = await invokeModelWithRetry(EDIT_SECTION_MODEL_ID, JSON.stringify(requestBody), 2, orgId);
       const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody));
 
       const stopReason: string = parsed.stop_reason ?? 'end_turn';
@@ -447,7 +448,7 @@ export const baseHandler = async (
           temperature: TEMPERATURE,
           // No tools — force text output
         };
-        const finalResp = await invokeModelWithRetry(EDIT_SECTION_MODEL_ID, JSON.stringify(finalBody));
+        const finalResp = await invokeModelWithRetry(EDIT_SECTION_MODEL_ID, JSON.stringify(finalBody), 2, orgId);
         const finalParsed = JSON.parse(new TextDecoder('utf-8').decode(finalResp));
         const finalContent: Array<{ type: string; text?: string }> = finalParsed.content ?? [];
         resultHtml = finalContent.filter(c => c.type === 'text').map(c => c.text ?? '').join('\n').trim();

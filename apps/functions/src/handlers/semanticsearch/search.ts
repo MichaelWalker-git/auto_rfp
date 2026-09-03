@@ -112,7 +112,7 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
     }
 
     // 1) Embed the question once — reuse for all searches
-    const embedding = await getEmbedding(question);
+    const embedding = await getEmbedding(question, orgId);
 
     // 2) Run all searches in parallel
     const [questions_hits, chunk_hits, past_perf_hits] = await Promise.all([

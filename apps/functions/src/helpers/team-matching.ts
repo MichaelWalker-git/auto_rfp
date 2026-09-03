@@ -314,7 +314,7 @@ const dropRationaleLessToUnfilled = (members: PlanTeamMember[]): PlanTeamMember[
 
 // ─── Bedrock call ───────────────────────────────────────────────────────────────
 
-const invokeMatchingModel = async (userPrompt: string): Promise<MatchingModelSlot[]> => {
+const invokeMatchingModel = async (userPrompt: string, orgId: string): Promise<MatchingModelSlot[]> => {
   const requestBody = {
     anthropic_version: 'bedrock-2023-05-31',
     max_tokens: MATCHING_MAX_TOKENS,
@@ -323,7 +323,7 @@ const invokeMatchingModel = async (userPrompt: string): Promise<MatchingModelSlo
     messages: [{ role: 'user', content: userPrompt }],
   };
 
-  const responseBody = await invokeModel(resolveModelId(), JSON.stringify(requestBody));
+  const responseBody = await invokeModel(resolveModelId(), JSON.stringify(requestBody), orgId);
   const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as {
     content?: Array<{ type: string; text?: string }>;
   };
@@ -383,11 +383,11 @@ export const generateTeamRecommendation = async (
       requirementTokens,
     });
 
-    let members = toTeamMembers(await invokeMatchingModel(userPrompt), employeesById, slots);
+    let members = toTeamMembers(await invokeMatchingModel(userPrompt, key.orgId), employeesById, slots);
     if (hasMissingRationale(members)) {
       // BR1.4 — a recommendation without rationale is invalid output: regenerate once…
       console.warn('[team-matching] recommendation(s) missing rationale — regenerating once (BR1.4)');
-      members = toTeamMembers(await invokeMatchingModel(userPrompt), employeesById, slots);
+      members = toTeamMembers(await invokeMatchingModel(userPrompt, key.orgId), employeesById, slots);
     }
     // …then drop whatever is still rationale-less to an unfilled slot.
     members = dropRationaleLessToUnfilled(members);

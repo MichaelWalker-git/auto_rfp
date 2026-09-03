@@ -160,6 +160,7 @@ describe('executeDocumentTool — search_service_pricing', () => {
         { serviceName: 'Datadog Pro', billingPeriod: 'MONTHLY' },
         { serviceName: 'Obscure Tool X' },
       ],
+      orgId: 'org-1',
     });
     expect(result.tool_use_id).toBe('tu-1');
     expect(result.content).toContain('1 of 2 service(s) priced');
@@ -234,7 +235,7 @@ describe('executeDocumentTool — search_service_pricing', () => {
       toolInput: { services },
     });
 
-    expect(mockSearchServicePricing).toHaveBeenCalledWith({ services });
+    expect(mockSearchServicePricing).toHaveBeenCalledWith({ services, orgId: 'org-1' });
     expect(content).not.toContain('Invalid search_service_pricing input');
     expect(content).toContain('10 of 12 service(s) priced');
     expect(content).toContain('| Service 11 | UNKNOWN | vendor quote required | — | — | — | — |');

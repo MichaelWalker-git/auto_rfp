@@ -276,11 +276,13 @@ export function OpportunitiesList({ projectId, limit = 25, className }: Props) {
         <div className={getGridClasses(columns)}>
           {filteredAndSortedItems.map((it) => {
             const oppId = it.oppId ?? it.id;
+            const base = (pathname ?? '').replace(/\/$/, '');
             return (
               <OpportunityItemCard
                 key={`${it.source}#${oppId}`}
                 item={it}
                 onOpen={() => handleOpen(it)}
+                href={`${base}/${encodeURIComponent(oppId)}`}
                 onUpdated={() => refresh()}
                 onDeleted={() => refresh()}
                 showDescription={false}

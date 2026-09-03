@@ -31,9 +31,17 @@ const mockWithSourceTimeout = jest.fn();
 jest.mock('@/helpers/search-opportunity', () => ({
   searchSamOpportunities: (...args: unknown[]) => mockSearchSam(...args),
   searchDibbsOpportunities: (...args: unknown[]) => mockSearchDibbs(...args),
-  searchHigherGovOpportunities: (...args: unknown[]) => mockSearchHigherGov(...args),
   withSourceTimeout: (...args: unknown[]) => mockWithSourceTimeout(...args),
   HIGHERGOV_TIMEOUT_MS: 22_000,
+}));
+
+// HigherGov keyword/NAICS search runs through their MCP server: the REST endpoint
+// silently ignores those params, while MCP honours HigherGov's full query language.
+jest.mock('@/helpers/highergov-mcp', () => ({
+  searchHigherGovViaMcp: (...args: unknown[]) => mockSearchHigherGov(...args),
+  // Real value, not a stand-in: the handler divides `offset` by this to derive a
+  // page number, so a mocked-away constant would make the paging assertions vacuous.
+  HIGHERGOV_MCP_PAGE_SIZE: 100,
 }));
 
 // HigherGov saved-search (search_id) requests now flow through an async cache +
@@ -257,50 +265,96 @@ describe('search handler', () => {
     expect(body.higherGovPending).toBeUndefined();
   });
 
-  it('short-circuits a HigherGov keyword search with no search_id', async () => {
-    // HigherGov has no keyword filter — a bare keyword search would time out and
-    // return nothing, so we skip the call and return actionable guidance instead.
+  // A HigherGov keyword search used to be refused outright, because the REST endpoint
+  // silently ignores `keywords`. It now runs against their MCP server, which supports it.
+  it('runs a HigherGov keyword search instead of refusing it', async () => {
+    mockSearchHigherGov.mockResolvedValue({ totalCount: 3, results: [], pages: 1 });
+
     const result = await baseHandler(makeEvent({ source: 'HIGHER_GOV', keywords: 'document processing' }));
     const body = JSON.parse((result as { body: string }).body);
 
-    expect(mockSearchHigherGov).not.toHaveBeenCalled();
-    expect(mockLambdaSend).not.toHaveBeenCalled();
-    expect(body.opportunities).toEqual([]);
-    expect(body.totalHigherGov).toBe(0);
-    expect(body.errors.HIGHER_GOV).toMatch(/requires a saved search/i);
-  });
-
-  it('short-circuits a HigherGov NAICS/set-aside search with no search_id', async () => {
-    const result = await baseHandler(makeEvent({ source: 'HIGHER_GOV', naics: ['541511'] }));
-    const body = JSON.parse((result as { body: string }).body);
-
-    expect(mockSearchHigherGov).not.toHaveBeenCalled();
-    expect(body.errors.HIGHER_GOV).toMatch(/requires a saved search/i);
-  });
-
-  it('runs HigherGov inline without a search_id when no keyword filters are set', async () => {
-    // A date-only / unfiltered HigherGov search is still valid against the API.
-    mockSearchHigherGov.mockResolvedValue({ totalCount: 0, results: [] });
-
-    const result = await baseHandler(makeEvent({ source: 'HIGHER_GOV' }));
-    const body = JSON.parse((result as { body: string }).body);
-
     expect(mockSearchHigherGov).toHaveBeenCalledTimes(1);
-    expect(mockLambdaSend).not.toHaveBeenCalled();
     expect(body.errors).toBeUndefined();
+    expect(body.totalHigherGov).toBe(3);
   });
 
-  it('does not flag guidance for a bare keyword search in ALL mode', async () => {
-    // SAM/DIBBS carry the keyword search; HigherGov silently skips without a banner.
+  it('forwards the query string verbatim, preserving HigherGov query operators', async () => {
+    // Sanitising this would break their documented syntax: quoting alone is the
+    // difference between 40 and 1593 results for "Document Management".
+    mockSearchHigherGov.mockResolvedValue({ totalCount: 0, results: [], pages: 1 });
+    const query = '("data dashboard" or "data center") -Subscription';
+
+    await baseHandler(makeEvent({ source: 'HIGHER_GOV', keywords: query }));
+
+    expect(mockSearchHigherGov).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ keyword: query }),
+    );
+  });
+
+  it('forwards market and active-only to MCP', async () => {
+    mockSearchHigherGov.mockResolvedValue({ totalCount: 0, results: [], pages: 1 });
+
+    await baseHandler(makeEvent({
+      source: 'HIGHER_GOV', keywords: 'saas',
+      higherGovMarket: 'state_local', higherGovActiveOnly: true, naics: ['541511'],
+    }));
+
+    expect(mockSearchHigherGov).toHaveBeenCalledWith(
+      expect.anything(),
+      // MCP takes a single NAICS code, so only the first is sent.
+      expect.objectContaining({ opportunityType: 'state_local', activeOnly: true, naicsCode: '541511' }),
+    );
+  });
+
+  it('searches HigherGov alongside SAM in ALL mode', async () => {
+    // Previously HigherGov was silently skipped here, contributing nothing.
     mockSearchSam.mockResolvedValue({ totalRecords: 1, opportunities: [{ id: '1' }] });
     mockSearchDibbs.mockResolvedValue({ totalRecords: 0, opportunities: [] });
+    mockSearchHigherGov.mockResolvedValue({ totalCount: 2, results: [], pages: 1 });
 
     const result = await baseHandler(makeEvent({ source: 'ALL', keywords: 'document processing' }));
     const body = JSON.parse((result as { body: string }).body);
 
-    expect(mockSearchHigherGov).not.toHaveBeenCalled();
+    expect(mockSearchHigherGov).toHaveBeenCalledTimes(1);
     expect(body.errors).toBeUndefined();
-    expect(body.opportunities.length).toBe(1);
+    expect(body.totalHigherGov).toBe(2);
+  });
+
+  // MCP ignores `limit` and always returns 100 rows, and the frontend advances
+  // `offset` by rows actually RECEIVED. Converting that offset with the caller's
+  // 25-row limit jumped straight to page 5 on the first "show more", so records
+  // 100-399 were never fetched and had no way to be reached.
+  describe('MCP paging uses MCP\'s own page size, not the caller\'s limit', () => {
+    beforeEach(() => {
+      mockSearchHigherGov.mockResolvedValue({ totalCount: 631, results: [], pages: 7 });
+    });
+
+    const pageNumberFor = async (offset?: number, limit = 25): Promise<number | undefined> => {
+      mockSearchHigherGov.mockClear();
+      await baseHandler(makeEvent({ source: 'HIGHER_GOV', keywords: 'saas', limit, offset }));
+      const [, params] = mockSearchHigherGov.mock.calls[0] as [unknown, { pageNumber?: number }];
+      return params.pageNumber;
+    };
+
+    it('asks for page 1 on the initial search', async () => {
+      expect(await pageNumberFor(undefined)).toBe(1);
+    });
+
+    it('asks for page 2 after one page of 100 has loaded', async () => {
+      // The bug asked for page 5 here, skipping records 100-399.
+      expect(await pageNumberFor(100)).toBe(2);
+    });
+
+    it('walks consecutive pages as more rows load', async () => {
+      expect(await pageNumberFor(200)).toBe(3);
+      expect(await pageNumberFor(300)).toBe(4);
+    });
+
+    it('ignores the caller\'s limit, which MCP does not honour', async () => {
+      expect(await pageNumberFor(100, 100)).toBe(2);
+      expect(await pageNumberFor(100, 10)).toBe(2);
+    });
   });
 
   it('skips source when no API key is configured', async () => {

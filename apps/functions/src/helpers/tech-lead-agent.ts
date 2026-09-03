@@ -77,6 +77,7 @@ export class TechLeadAgent {
     const toolCalls: GrillingToolCallSummary[] = [];
     const { answer } = await invokeClaudeWithTools({
       modelId: this.modelId,
+      orgId: toolContext.orgId,
       system: buildTechLeadSystemPrompt(),
       user: buildTechLeadUserPrompt({ opportunityPrimer, transcript, currentQuestions, round }),
       tools: SOLUTION_PLAN_TOOLS,

@@ -71,8 +71,20 @@ export function briefDomain(args: {
 
       {
         method: 'POST',
+        path: 'update-linear-ticket-status',
+        entry: lambdaEntry('brief/update-linear-ticket-status.ts'),
+      },
+
+      {
+        method: 'POST',
         path: 'update-decision',
         entry: lambdaEntry('brief/update-decision.ts'),
+        extraEnv: { GOOGLE_DRIVE_SYNC_QUEUE_URL: googleDriveSyncQueueUrl },
+      },
+      {
+        method: 'POST',
+        path: 'sync-to-google-drive',
+        entry: lambdaEntry('brief/sync-to-google-drive.ts'),
         extraEnv: { GOOGLE_DRIVE_SYNC_QUEUE_URL: googleDriveSyncQueueUrl },
       },
       {

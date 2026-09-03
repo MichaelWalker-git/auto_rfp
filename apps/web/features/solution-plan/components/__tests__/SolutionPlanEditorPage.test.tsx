@@ -190,7 +190,7 @@ describe('SolutionPlanEditorPage', () => {
     expect(screen.getByText(/no solution plan exists/i)).toBeTruthy();
     const backLink = screen.getByRole('link', { name: /back to opportunity/i });
     expect(backLink.getAttribute('href')).toBe(
-      '/organizations/org-1/projects/proj-1/opportunities/opp-1',
+      '/organizations/org-1/projects/proj-1/opportunities/opp-1?tab=solution-plan',
     );
   });
 

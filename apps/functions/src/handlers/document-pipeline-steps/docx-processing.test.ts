@@ -184,20 +184,22 @@ describe('docx-processing', () => {
     ).rejects.toThrow('Document doc-1 has no fileKey in DynamoDB');
   });
 
-  it('continues even if DynamoDB update fails', async () => {
+  // `textFileKey` is the only pointer to the extracted text: swallowing this
+  // failure leaves a document that looks processed but reads back empty, so the
+  // step must fail loudly instead.
+  it('throws when the DynamoDB textFileKey update fails', async () => {
     mockS3Send.mockResolvedValueOnce({ Body: makeReadableStream('content') });
     mockMammoth.extractRawText.mockResolvedValueOnce({ value: 'Some text', messages: [] });
     mockS3Send.mockResolvedValueOnce({});
     // updateItem throws
     mockSend.mockRejectedValueOnce(new Error('DynamoDB error'));
 
-    // Should not throw — DynamoDB update failure is swallowed
-    const result = await baseHandler(
-      { orgId: 'org-1', knowledgeBaseId: 'kb-1', documentId: 'doc-1', fileKey: 'rfp.docx', bucket: 'test-bucket' },
-      mockCtx,
-    );
-
-    expect(result.status).toBe('TEXT_EXTRACTED');
+    await expect(
+      baseHandler(
+        { orgId: 'org-1', knowledgeBaseId: 'kb-1', documentId: 'doc-1', fileKey: 'rfp.docx', bucket: 'test-bucket' },
+        mockCtx,
+      ),
+    ).rejects.toThrow('DynamoDB error');
   });
 
   it('uses DOCUMENTS_BUCKET env var when bucket not in event', async () => {

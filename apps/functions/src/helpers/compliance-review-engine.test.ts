@@ -15,7 +15,14 @@ jest.mock('@/helpers/compliance-review-validate', () => ({ validateAndTagFinding
 process.env.DB_TABLE_NAME = 'test-table';
 process.env.REGION = 'us-east-1';
 
-import { ReviewOutputSchema } from './compliance-review-engine';
+import { ReviewOutputSchema, runChatReview } from './compliance-review-engine';
+import { invokeClaudeWithTools } from '@/helpers/bedrock-tool-loop';
+import { buildPackageInventory } from '@/helpers/compliance-review-tools';
+import { validateAndTagFindings } from '@/helpers/compliance-review-validate';
+
+const mockInvokeClaudeWithTools = invokeClaudeWithTools as jest.Mock;
+const mockBuildInventory = buildPackageInventory as jest.Mock;
+const mockValidate = validateAndTagFindings as jest.Mock;
 
 const rawFinding = (over: Record<string, unknown> = {}) => ({
   findingId: 'F-1',
@@ -73,5 +80,21 @@ describe('ReviewOutputSchema resilience', () => {
   it('defaults answer to empty string when missing', () => {
     const parsed = ReviewOutputSchema.parse({ findings: [] });
     expect(parsed.answer).toBe('');
+  });
+});
+
+describe('runChatReview — orgId propagation', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockBuildInventory.mockResolvedValue({ documents: [], forms: [] });
+    mockInvokeClaudeWithTools.mockResolvedValue({ answer: 'ok', findings: [] });
+    mockValidate.mockResolvedValue([]);
+  });
+
+  it('threads orgId through to invokeClaudeWithTools', async () => {
+    await runChatReview({ orgId: 'o', projectId: 'p', oppId: 'opp', modelId: 'm', message: 'hi' });
+    expect(mockInvokeClaudeWithTools).toHaveBeenCalledWith(
+      expect.objectContaining({ orgId: 'o' }),
+    );
   });
 });

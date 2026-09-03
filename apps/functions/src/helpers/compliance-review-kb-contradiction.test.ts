@@ -87,6 +87,8 @@ describe('computeKbContradictionFindings', () => {
     // The heading comes from CODE, not the model echo.
     expect(findings[0].anchor).toEqual({ kind: 'heading', text: 'Support Model' });
     expect(findings[0].snippet).toContain('We do not offer 24/7 support');
+    // orgId threads through to the Bedrock contradiction-check call as the 3rd arg.
+    expect(mockInvokeModel).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'o');
   });
 
   it('skips sections with no surviving (gated) KB hit — no model call', async () => {

@@ -329,6 +329,44 @@ describe('index-document Lambda - Chunk Indexing', () => {
     const result = await baseHandler(event, mockContext);
     expect(result.markedIndexed).toBe(false);
   });
+
+  it('persists chunkCount alongside indexStatus when the last chunk finishes (ticket 02)', async () => {
+    const mockSend = jest.fn()
+      .mockResolvedValueOnce({ Items: [{ partition_key: 'DOCUMENT', sort_key: 'KB#kb-123#DOC#doc-123' }] })
+      .mockResolvedValueOnce({});
+
+    jest.doMock('@/helpers/db', () => ({
+      docClient: { send: mockSend },
+      getItem: jest.fn().mockResolvedValue({
+        documentId: 'doc-123',
+        name: 'Test Document',
+        orgId: 'org-123',
+        knowledgeBaseId: 'kb-123',
+      }),
+    }));
+
+    const { baseHandler } = await import('./index-document');
+    const { UpdateCommand } = await import('@aws-sdk/lib-dynamodb');
+    const event = {
+      orgId: 'org-123',
+      knowledgeBaseId: 'kb-123',
+      documentId: 'doc-123',
+      chunkKey: 'chunks/doc-123/chunk-4.txt',
+      text: 'Final chunk content',
+      index: 5,
+      totalChunks: 5,
+    };
+
+    const result = await baseHandler(event, mockContext);
+
+    expect(result.markedIndexed).toBe(true);
+    expect(UpdateCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        UpdateExpression: expect.stringContaining('#chunkCount'),
+        ExpressionAttributeValues: expect.objectContaining({ ':c': 5, ':s': 'INDEXED' }),
+      }),
+    );
+  });
 });
 
 describe('index-document Lambda - Document Deleted Mid-Pipeline (Sentry: AUTO-RFP-6F)', () => {

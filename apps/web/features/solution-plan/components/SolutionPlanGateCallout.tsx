@@ -12,7 +12,7 @@ export const buildSolutionPlanSectionHref = (
   projectId: string,
   opportunityId: string,
 ): string =>
-  `/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}#solution-plan`;
+  `/organizations/${orgId}/projects/${projectId}/opportunities/${opportunityId}?tab=solution-plan`;
 
 interface SolutionPlanGateCalloutProps {
   orgId: string;

@@ -4,9 +4,12 @@ const PROJECT_ID = '51651b52-8c6f-4489-806e-7e2605481e83'
 const OPP_ID = '486e75f6-ef80-4500-9b74-b4f04bad0723'
 const OPP_URL = `/organizations/${ORG_ID}/projects/${PROJECT_ID}/opportunities/${OPP_ID}/`
 
+// Export lives in the RFP Documents panel, so open its tab directly via the
+// ?tab= deep link (ADR 0001 tabbed layout) — the panel then mounts active.
 const goToOpportunity = () => {
-  cy.visit(OPP_URL, { failOnStatusCode: false })
+  cy.visit(`${OPP_URL}?tab=rfp-documents`, { failOnStatusCode: false })
   cy.get('main', { timeout: 20000 }).should('be.visible')
+  cy.get('#tabpanel-rfp-documents', { timeout: 20000 }).should('be.visible')
 }
 
 const openExportModal = () => {

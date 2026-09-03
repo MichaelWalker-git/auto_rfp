@@ -1,3 +1,5 @@
+import type { OpportunityStatus } from '@auto-rfp/core';
+
 /**
  * High-level helper to sync an opportunity to AWS Partner Central.
  * Uses dynamic import to avoid pulling in @aws-sdk/client-partnercentral-selling
@@ -14,13 +16,13 @@ export const syncOpportunityToApn = async (args: {
   opportunityTitle?: string;
   opportunityValue: number;
   expectedCloseDate: string;
-  proposalStatus: string;
+  status: OpportunityStatus;
   description?: string;
   /** Pass the existing apnOpportunityId to update instead of create */
   existingApnId?: string | null;
 }): Promise<void> => {
-  console.log(`[syncOpportunityToApn] Starting sync for oppId=${args.oppId} with proposalStatus=${args.proposalStatus}`);
-  
+  console.log(`[syncOpportunityToApn] Starting sync for oppId=${args.oppId} with status=${args.status}`);
+
   try {
     // Resolve org name for the Partner Central customer company name
     let customerName = args.customerName;
@@ -35,13 +37,25 @@ export const syncOpportunityToApn = async (args: {
     }
 
     const { syncToPartnerCentral } = await import('@/helpers/apn-client');
-    console.log(`[syncOpportunityToApn] Calling syncToPartnerCentral with proposalStatus=${args.proposalStatus}`);
-    
+    console.log(`[syncOpportunityToApn] Calling syncToPartnerCentral with status=${args.status}`);
+
     await syncToPartnerCentral({
-      ...args,
-      customerName,
+      orgId: args.orgId,
+      projectId: args.projectId,
+      oppId: args.oppId,
+      existingApnId: args.existingApnId ?? undefined,
+      opportunity: {
+        title: args.opportunityTitle ?? customerName,
+        value: args.opportunityValue,
+        expectedCloseDate: args.expectedCloseDate,
+        status: args.status,
+        description: args.description,
+      },
+      customer: {
+        name: customerName,
+      },
     });
-    
+
     console.log(`[syncOpportunityToApn] Successfully completed sync for oppId=${args.oppId}`);
   } catch (err) {
     console.error(`[syncOpportunityToApn] Failed for oppId=${args.oppId}:`, (err as Error).message);

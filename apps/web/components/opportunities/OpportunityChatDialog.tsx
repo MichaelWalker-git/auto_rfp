@@ -10,6 +10,11 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
 import { useOpportunityAssistant } from '@/lib/hooks/use-opportunity-assistant';
+import {
+  isAiNotConfiguredError,
+  AI_NOT_CONFIGURED_TITLE,
+  AI_NOT_CONFIGURED_DESCRIPTION,
+} from '@/lib/ai-not-configured';
 import { usePresignDownload } from '@/lib/hooks/use-presign';
 import type { OpportunityAssistantMessage, ChatSourceCitation } from '@auto-rfp/core';
 
@@ -244,11 +249,19 @@ export const OpportunityChatDialog = ({ opportunityId, orgId, projectId, open, o
     try {
       await sendMessage(message);
     } catch (err) {
-      toast({
-        title: 'Failed to send message',
-        description: err instanceof Error ? err.message : 'Please try again',
-        variant: 'destructive',
-      });
+      if (isAiNotConfiguredError(err)) {
+        toast({
+          title: AI_NOT_CONFIGURED_TITLE,
+          description: AI_NOT_CONFIGURED_DESCRIPTION,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Failed to send message',
+          description: err instanceof Error ? err.message : 'Please try again',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setPendingMessage(null);
     }

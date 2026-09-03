@@ -41,6 +41,7 @@ import { projectsDomain } from './routes/projects.routes';
 import { promptDomain } from './routes/prompt.routes';
 import { searchOpportunityDomain } from './routes/search-opportunity.routes';
 import { linearRoutes } from './routes/linear.routes';
+import { bedrockRoutes } from './routes/bedrock.routes';
 import { briefDomain } from './routes/brief.routes';
 import { pastperfDomain } from './routes/pastperf.routes';
 import { rfpDocumentDomain } from './routes/rfp-document.routes';
@@ -83,6 +84,7 @@ export interface ApiOrchestratorStackProps extends cdk.StackProps {
   documentGenerationQueue?: sqs.IQueue;
   clarifyingQuestionQueue?: sqs.IQueue;
   extractionQueue?: sqs.IQueue;
+  renameChunksQueue?: sqs.IQueue;
   notificationQueueName?: string;
   auditLogQueueName?: string;
   documentPipelineStateMachineArn: string;
@@ -294,6 +296,12 @@ export class ApiOrchestratorStack extends cdk.Stack {
       BEDROCK_REGION: 'us-east-1',
       BEDROCK_EMBEDDING_MODEL_ID: 'amazon.titan-embed-text-v2:0',
       BEDROCK_MODEL_ID: 'us.anthropic.claude-opus-4-6-v1',
+      // Canonical pinned text-model IDs (ADR-003). Haiku (chat) and Sonnet
+      // (worker) previously had only per-domain vars; these give the save-time
+      // probe (ticket 04) and per-org invoke resolution (ticket 09) one
+      // authoritative role→model map to probe/select against.
+      BEDROCK_CHAT_MODEL_ID: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+      BEDROCK_WORKER_MODEL_ID: 'us.anthropic.claude-sonnet-4-6',
       // Web-search provider for the search_service_pricing tool (T3/T15).
       // 'tavily' (default) or 'brave' — deploy with WEB_SEARCH_PROVIDER=brave on a
       // stage that should keep using an existing Brave key. API keys are created
@@ -318,6 +326,15 @@ export class ApiOrchestratorStack extends cdk.Stack {
       // Linear org id whose Secrets Manager entry (linear-api-key-<id>) holds the
       // key used to write RFP-tracking approval decisions back onto the Linear board.
       RFP_SYNC_LINEAR_ORG_ID: '6fbf749f-7173-489c-be0a-564f97ebf8b0',
+      // Where createLinearTicket (brief handle-linear-ticket) files new tickets:
+      // the Horustech team's "Government Contracting" project, assigned to its lead.
+      // These were previously only set by hand in the Lambda console, so every CDK
+      // redeploy silently wiped them and ticket creation failed with a 200. Keep
+      // them overridable per stage like DRIVE_ROOT_PARENT_FOLDER_ID below.
+      LINEAR_TEAM_ID: process.env.LINEAR_TEAM_ID || '014ad7fc-6875-4a34-973b-61d029c37116',
+      LINEAR_PROJECT_ID: process.env.LINEAR_PROJECT_ID || '823d8281-c41e-4e00-b541-f31a5c91af46',
+      LINEAR_DEFAULT_ASSIGNEE_ID:
+        process.env.LINEAR_DEFAULT_ASSIGNEE_ID || '74c2dcce-9583-4065-b86f-ff4cb98d3da9',
       // Server-side allowlist for the RFP-tracking dashboard (get-rfp-pipeline).
       // Mirrors the per-stage rfpTrackingOrgId used for the frontend feature gate,
       // but enforced in the Lambda so a caller cannot bypass the client check by
@@ -342,6 +359,12 @@ export class ApiOrchestratorStack extends cdk.Stack {
       ...(auditLogQueueName ? {
         AUDIT_LOG_QUEUE_URL: `https://sqs.${cdk.Aws.REGION}.amazonaws.com/${cdk.Aws.ACCOUNT_ID}/${auditLogQueueName}`,
       } : {}),
+      // Google Drive intake folder — every opportunity's synced folder is nested
+      // under this Shared-Drive folder ("00 To be approved"). Overridable per stage
+      // via DRIVE_ROOT_PARENT_FOLDER_ID; the helper treats blank as "root at Drive
+      // top level" (legacy behaviour), so an unset value is safe.
+      DRIVE_ROOT_PARENT_FOLDER_ID:
+        process.env.DRIVE_ROOT_PARENT_FOLDER_ID || '1rxIWATfhgnMp2NXUy7jZHRQjDW74ei9-',
     };
 
     const sharedInfraStack = new ApiSharedInfraStack(this, 'SharedInfra', {
@@ -745,6 +768,48 @@ export class ApiOrchestratorStack extends cdk.Stack {
       });
     }
 
+    // Rename Chunks worker — processes async Pinecone chunk-metadata updates for
+    // document renames on documents with more than 1 000 chunks (ticket 04)
+    const renameChunksQueue = props.renameChunksQueue;
+    const renameChunksQueueUrl = renameChunksQueue?.queueUrl || '';
+    if (renameChunksQueue) {
+      renameChunksQueue.grantSendMessages(sharedInfraStack.commonLambdaRole);
+
+      const renameChunksWorker = new lambdaNodejs.NodejsFunction(this, `RenameChunksWorker-${stage}`, {
+        functionName: `auto-rfp-rename-chunks-worker-${stage}`,
+        entry: path.join(__dirname, '../../../apps/functions/src/handlers/document/rename-chunks-worker.ts'),
+        handler: 'handler',
+        runtime: lambda.Runtime.NODEJS_20_X,
+        timeout: cdk.Duration.minutes(5), // Match SQS visibility timeout
+        memorySize: 512,
+        role: sharedInfraStack.commonLambdaRole,
+        environment: {
+          ...commonEnv,
+        },
+        bundling: {
+          minify: true,
+          sourceMap: true,
+          externalModules: ['@aws-sdk/*', '@smithy/*'],
+        },
+      });
+
+      renameChunksWorker.addEventSource(
+        new lambdaEventSources.SqsEventSource(renameChunksQueue, {
+          batchSize: 1,
+          reportBatchItemFailures: true,
+        }),
+      );
+
+      renameChunksQueue.grantConsumeMessages(renameChunksWorker);
+
+      // Add log group for the worker
+      new logs.LogGroup(this, `RenameChunksWorkerLogs-${stage}`, {
+        logGroupName: `/aws/lambda/auto-rfp-rename-chunks-worker-${stage}`,
+        retention: stage === 'prod' ? logs.RetentionDays.INFINITE : logs.RetentionDays.TWO_WEEKS,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      });
+    }
+
     // 3. Collect all domain route definitions
     const allDomains: DomainRoutes[] = [
       organizationDomain(),
@@ -752,7 +817,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       briefDomain({ execBriefQueueUrl: execBriefQueue?.queueUrl || '', googleDriveSyncQueueUrl: gdSyncQueueUrl }),
       presignedDomain(),
       knowledgebaseDomain(),
-      documentDomain(),
+      documentDomain({ renameChunksQueueUrl }),
       questionfileDomain(),
       userDomain(),
       questionDomain(),
@@ -794,6 +859,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       solutionPlanDomain(),
       relatedRfpDomain(),
       employeeDomain({ extractionQueueUrl }),
+      bedrockRoutes,
     ];
 
     // ─── Compliance Review worker ─────────────────────────────────────────
@@ -1066,6 +1132,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
       'SolutionPlanRoutes',
       'RelatedRfpRoutes',
       'EmployeeRoutes',
+      'BedrockRoutes',
     ];
 
     // allDomains and domainStackNames are mapped 1:1 by index. A mismatch silently

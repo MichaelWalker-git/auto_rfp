@@ -24,6 +24,11 @@ import {
   isSolutionPlanRequiredError,
   isKBCoverageIncompleteError,
 } from '@/lib/hooks/use-rfp-documents';
+import {
+  isAiNotConfiguredError,
+  AI_NOT_CONFIGURED_TITLE,
+  AI_NOT_CONFIGURED_DESCRIPTION,
+} from '@/lib/ai-not-configured';
 import { useKBCoverage, KBCoverageBadge } from '@/features/kb-coverage';
 import { useGetExecutiveBriefByProject } from '@/lib/hooks/use-executive-brief';
 import { useCurrentOrganization } from '@/context/organization-context';
@@ -288,16 +293,24 @@ export const GenerateDocumentDialog = ({
       onSuccess?.();
       setOpen(false);
     } catch (err) {
-      toast({
-        title: isKBCoverageIncompleteError(err)
-          ? 'Knowledge base incomplete'
-          : isSolutionPlanRequiredError(err)
-            ? 'Solution Plan required'
-            : 'Generation failed',
-        // The refusal message already names the missing categories.
-        description: err instanceof Error ? err.message : 'Failed to start generation',
-        variant: 'destructive',
-      });
+      if (isAiNotConfiguredError(err)) {
+        toast({
+          title: AI_NOT_CONFIGURED_TITLE,
+          description: AI_NOT_CONFIGURED_DESCRIPTION,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: isKBCoverageIncompleteError(err)
+            ? 'Knowledge base incomplete'
+            : isSolutionPlanRequiredError(err)
+              ? 'Solution Plan required'
+              : 'Generation failed',
+          // The refusal message already names the missing categories.
+          description: err instanceof Error ? err.message : 'Failed to start generation',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setIsGenerating(false);
     }

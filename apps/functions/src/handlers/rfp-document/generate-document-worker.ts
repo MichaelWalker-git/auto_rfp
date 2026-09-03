@@ -28,6 +28,7 @@ import {
 import { MAX_GENERATION_RETRIES } from '@auto-rfp/core';
 import { getRFPDocument, updateRFPDocumentMetadata, loadRFPDocumentHtml } from '@/helpers/rfp-document';
 import { JobSchema, processJobInner, type Job } from '@/helpers/generate-document-worker';
+import { autoPushDocumentToDriveIfConfigured } from '@/helpers/google-drive-document-sync';
 import { sendNotification, buildNotification } from '@/helpers/send-notification';
 import { RFP_DOCUMENT_TYPES } from '@auto-rfp/core';
 
@@ -43,6 +44,12 @@ const S3_RETRY_BASE_DELAY_MS = 1000; // Exponential backoff: 1s, 2s, 4s
  * Removes sensitive info like stack traces, internal paths, and library versions.
  */
 const sanitizeErrorForUser = (rawError: string): string => {
+  // "AI not configured" is a distinct, actionable outcome — surface it verbatim
+  // instead of collapsing it into the generic "AI service unavailable" below
+  // (its message mentions "Bedrock", which would otherwise match that branch).
+  if (rawError.includes('AI is not configured for this organization')) {
+    return 'AI is not configured for this organization. An administrator must add a Bedrock API key in Organization Settings → Integrations.';
+  }
   // Generic user-friendly message for common error patterns
   if (rawError.includes('ECONNREFUSED') || rawError.includes('ETIMEDOUT') || rawError.includes('NetworkingError')) {
     return 'A temporary network error occurred. Please try again.';
@@ -307,6 +314,12 @@ const processJob = async (job: Job): Promise<void> => {
       updatedBy: 'system',
     });
     console.log(`[worker] Document status set to READY for documentId=${documentId}`);
+
+    // Auto-push the freshly generated document to Google Drive so the team can
+    // edit the native Google Doc immediately. Non-blocking and self-contained:
+    // it no-ops when Drive isn't configured and never throws, so a Drive hiccup
+    // cannot regress a document that already reached READY.
+    await autoPushDocumentToDriveIfConfigured({ orgId, projectId, opportunityId, documentId });
 
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';

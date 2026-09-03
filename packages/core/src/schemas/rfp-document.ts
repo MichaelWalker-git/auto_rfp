@@ -231,6 +231,24 @@ export const LinearSyncStatusSchema = z.enum([
 
 export type LinearSyncStatus = z.infer<typeof LinearSyncStatusSchema>;
 
+// ─── Google Drive Sync Status ───
+
+export const DRIVE_SYNC_STATUSES = {
+  SYNCED: 'Synced',
+  SYNCING: 'Syncing',
+  SYNC_FAILED: 'Sync Failed',
+  BLOCKED_APPROVED: 'Blocked — Document Approved',
+} as const;
+
+export const DriveSyncStatusSchema = z.enum([
+  'SYNCED',
+  'SYNCING',
+  'SYNC_FAILED',
+  'BLOCKED_APPROVED',
+]);
+
+export type DriveSyncStatus = z.infer<typeof DriveSyncStatusSchema>;
+
 // ─── Edit History ───
 
 export const EditHistoryActionSchema = z.enum([
@@ -238,6 +256,8 @@ export const EditHistoryActionSchema = z.enum([
   'CONVERT',
   'CONTENT_EDIT',
   'FILE_REPLACE',
+  /** Content replaced by an inbound Google Drive sync */
+  'DRIVE_IMPORT',
 ]);
 
 export type EditHistoryAction = z.infer<typeof EditHistoryActionSchema>;
@@ -316,10 +336,62 @@ export const RFPDocumentItemSchema = z.object({
   title: z.string().nullable().optional(),
   /** Edit history for tracking modifications */
   editHistory: z.array(EditHistoryEntrySchema).nullable().optional(),
-  /** Google Drive file ID when synced */
+  /** Google Drive file ID when synced. Authoritative marker for "this document is linked to Drive". */
   googleDriveFileId: z.string().nullable().optional(),
-  /** Google Drive URL when synced */
+  /** Google Drive `webViewLink` — for native Google Docs this opens the collaborative editor. */
   googleDriveUrl: z.string().nullable().optional(),
+  /** Drive mimeType of the linked file. Decides export-vs-download on pull. */
+  driveMimeType: z.string().nullable().optional(),
+  /** Cached Drive parent folder id — saves re-resolving the folder tree on every re-sync. */
+  driveFolderId: z.string().nullable().optional(),
+  /**
+   * The Drive `modifiedTime` AutoRFP has already reconciled, from either direction.
+   * This is the loop-prevention watermark: a pull only runs when Drive's current
+   * modifiedTime is strictly newer than this. Advanced only on success.
+   */
+  driveModifiedTime: z.string().nullable().optional(),
+  /**
+   * A Drive change that was detected but deliberately not imported (see BLOCKED_APPROVED).
+   * Kept separate from `driveModifiedTime` so the change stays pending and visible
+   * without re-alerting on every poll.
+   */
+  drivePendingModifiedTime: z.string().nullable().optional(),
+  /** Last successful AutoRFP → Drive push. */
+  driveLastPushedAt: z.string().nullable().optional(),
+  /** Last successful Drive → AutoRFP import. */
+  driveLastPulledAt: z.string().nullable().optional(),
+  /** Current Drive sync state. */
+  driveSyncStatus: DriveSyncStatusSchema.nullable().optional(),
+  /** Truncated message from the most recent Drive sync failure or block. */
+  driveSyncError: z.string().nullable().optional(),
+  /** When the in-flight sync claimed this document — used to reclaim stale SYNCING claims. */
+  driveSyncStartedAt: z.string().nullable().optional(),
+  /**
+   * Sparse GSI partition key (`byDriveSync`), set to `orgId` and written only while
+   * the document is linked to Drive. Sparse so unlinked documents carry no index cost.
+   */
+  driveSyncPk: z.string().nullable().optional(),
+  /** Sparse GSI sort key (`byDriveSync`) — `projectId#opportunityId#documentId`. */
+  driveSyncSk: z.string().nullable().optional(),
+  /**
+   * A **frozen** Drive copy of the content as approved — the record of what a reviewer
+   * actually signed off on, written once when approval completes and never updated.
+   *
+   * Deliberately separate from `googleDriveFileId`, which stays the single mutable
+   * pointer for editing. Two mutable pointers to the same document is how a sync ends
+   * up writing to the wrong file.
+   *
+   * Also deliberately NOT stored under `signatureDetails`: that field belongs to the
+   * human e-signature workflow, and hanging a Drive artefact off it would make two
+   * features contend for one field's meaning.
+   */
+  driveApprovedSnapshotFileId: z.string().nullable().optional(),
+  /** Link to the frozen approved copy, for the approval history UI. */
+  driveApprovedSnapshotUrl: z.string().nullable().optional(),
+  /** When the approved snapshot was captured. */
+  driveApprovedSnapshotAt: z.string().nullable().optional(),
+  /** Version number the approved snapshot was taken from, for traceability. */
+  driveApprovedSnapshotVersion: z.number().nullable().optional(),
   /**
    * S3 key for the generated/edited HTML content.
    * When present, the HTML body lives in S3 and this field is the key.

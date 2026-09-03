@@ -6,6 +6,7 @@ import { DocumentItem } from '@auto-rfp/core';
 import { getEmbedding } from './embeddings';
 import { nowIso } from './date';
 import { DocumentDBItem } from '@/types/document';
+import { buildChunkKey, buildChunksPrefixFromTxtKey } from './document-keys';
 
 import type { PineconeHit } from '@/types/pinecone';
 
@@ -119,7 +120,7 @@ export async function indexChunkToPinecone(
   const bucket = requireEnv('DOCUMENTS_BUCKET');
   const docDBItem = document as DocumentDBItem;
   const id = `${docDBItem[SK_NAME]}#${chunkKey}`;
-  const embedding = await getEmbedding(text);
+  const embedding = await getEmbedding(text, orgId);
 
   const skParts = String(docDBItem[SK_NAME]).split('#');
   const kbId = skParts.length >= 2 ? skParts[1] : '';
@@ -135,6 +136,7 @@ export async function indexChunkToPinecone(
           [PK_NAME]: docDBItem[PK_NAME],
           [SK_NAME]: docDBItem[SK_NAME],
           kbId,
+          documentName: docDBItem.name,
           chunkKey,
           bucket,
           createdAt: nowIso(),
@@ -153,42 +155,159 @@ export async function indexChunkToPinecone(
 }
 
 /**
- * Delete document chunks from Pinecone by documentId
+ * Delete document chunks from Pinecone by documentId.
+ *
+ * When `chunkCount` (and `textFileKey`, needed to derive the chunks S3
+ * prefix) is available, chunk IDs are reconstructed deterministically and
+ * deleted directly — no query round-trip, no cap on chunk count.
+ *
+ * Legacy documents indexed before `chunkCount` was tracked fall back to a
+ * paginated metadata-filtered query loop that keeps deleting until a query
+ * returns no more matches.
  */
-export async function deleteFromPinecone(orgId: string, sk: string): Promise<void> {
-  const index = await getPineconeIndex();
+export async function deleteFromPinecone(
+  orgId: string,
+  sk: string,
+  options?: { chunkCount?: DocumentItem['chunkCount']; textFileKey?: DocumentItem['textFileKey'] },
+): Promise<void> {
+  const { chunkCount, textFileKey } = options ?? {};
+
+  if (typeof chunkCount === 'number' && textFileKey) {
+    await deleteFromPineconeDeterministic(orgId, sk, chunkCount, textFileKey);
+    return;
+  }
+
+  console.warn(
+    `Pinecone: chunkCount unavailable for sk=${sk} (legacy document); falling back to paginated query-delete`,
+  );
+  await deleteFromPineconeByQuery(orgId, sk);
+}
+
+/**
+ * Deterministically reconstructs a document's chunk vector IDs from its
+ * persisted `chunkCount`, with no Pinecone query round-trip. Shared by the
+ * delete path (`deleteFromPineconeDeterministic`) and the rename-propagation
+ * path (`updateChunkDocumentNameInPinecone`) so the ID scheme only lives in
+ * one place.
+ */
+const buildDeterministicChunkIds = (sk: string, chunkCount: number, textFileKey: string): string[] => {
+  const chunksPrefix = buildChunksPrefixFromTxtKey(textFileKey);
+  return Array.from({ length: chunkCount }, (_, i) => `${sk}#${buildChunkKey(chunksPrefix, i)}`);
+};
+
+const deleteFromPineconeDeterministic = async (
+  orgId: string,
+  sk: string,
+  chunkCount: number,
+  textFileKey: string,
+): Promise<void> => {
+  if (chunkCount === 0) {
+    console.log(`Pinecone: chunkCount=0 for sk=${sk} (nothing to delete)`);
+    return;
+  }
+
+  const idsToDelete = buildDeterministicChunkIds(sk, chunkCount, textFileKey);
 
   try {
-    const results = await index.namespace(orgId).query({
-      vector: new Array(1024).fill(0),
-      topK: 10000,
-      includeMetadata: true,
-      filter: {
-        [SK_NAME]: { $eq: sk },
-      },
-    });
-
-    const idsToDelete = (results.matches || []).map((match) => match.id);
-
-    if (idsToDelete.length === 0) {
-      console.log(`Pinecone: no docs found for sk=${sk} (nothing to delete)`);
-      return;
-    }
-
+    const index = await getPineconeIndex();
     const batchSize = 100;
     for (let i = 0; i < idsToDelete.length; i += batchSize) {
       const batch = idsToDelete.slice(i, i + batchSize);
       await index.namespace(orgId).deleteMany(batch);
     }
 
-    console.log(`Pinecone: deleted ${idsToDelete.length} docs for ${SK_NAME}=${sk}`);
+    console.log(`Pinecone: deleted ${idsToDelete.length} docs for ${SK_NAME}=${sk} (deterministic)`);
   } catch (err) {
     console.error('Pinecone delete error:', err);
     throw new Error(
       `Pinecone delete failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
     );
   }
-}
+};
+
+const deleteFromPineconeByQuery = async (orgId: string, sk: string): Promise<void> => {
+  const index = await getPineconeIndex();
+  const PAGE_SIZE = 1000;
+  const batchSize = 100;
+  let totalDeleted = 0;
+
+  try {
+    for (;;) {
+      const results = await index.namespace(orgId).query({
+        vector: new Array(1024).fill(0),
+        topK: PAGE_SIZE,
+        includeMetadata: false,
+        filter: {
+          [SK_NAME]: { $eq: sk },
+        },
+      });
+
+      const idsToDelete = (results.matches || []).map((match) => match.id);
+      if (idsToDelete.length === 0) break;
+
+      for (let i = 0; i < idsToDelete.length; i += batchSize) {
+        const batch = idsToDelete.slice(i, i + batchSize);
+        await index.namespace(orgId).deleteMany(batch);
+      }
+      totalDeleted += idsToDelete.length;
+    }
+
+    console.log(`Pinecone: deleted ${totalDeleted} docs for ${SK_NAME}=${sk} (paginated fallback)`);
+  } catch (err) {
+    console.error('Pinecone delete error:', err);
+    throw new Error(
+      `Pinecone delete failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+    );
+  }
+};
+
+/**
+ * Propagate a document rename to every chunk's `documentName` metadata, inline.
+ * Chunk IDs are reconstructed deterministically (same scheme as
+ * `deleteFromPineconeDeterministic`) — no query round-trip. Metadata-only
+ * (`namespace.update`), so it never re-embeds.
+ *
+ * Batched via `Promise.all` in groups of 50 rather than the delete path's
+ * sequential batches of 100 — an `update` per ID (vs. one `deleteMany` call
+ * per batch) is many more round-trips, so a smaller, parallelized batch size
+ * bounds in-flight requests without serializing the whole document.
+ *
+ * Callers gate this to bounded chunk counts (ticket: chunkCount <= 1000) and
+ * must catch and swallow failures themselves — a Pinecone outage must not
+ * block the rename, which has already committed to DynamoDB.
+ */
+export const updateChunkDocumentNameInPinecone = async (
+  orgId: string,
+  sk: string,
+  chunkCount: number,
+  textFileKey: string,
+  documentName: string,
+): Promise<void> => {
+  if (chunkCount === 0) return;
+
+  const ids = buildDeterministicChunkIds(sk, chunkCount, textFileKey);
+
+  const index = await getPineconeIndex();
+  const namespace = index.namespace(orgId);
+  const BATCH_SIZE = 50;
+  for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+    const batch = ids.slice(i, i + BATCH_SIZE);
+    // Each update is individually logged on failure before Promise.all rethrows —
+    // .catch runs for every rejected promise in the batch (not just the first),
+    // so the caller (inline rename or the async worker) still sees the original
+    // error while every failing chunk ID gets its own log line.
+    await Promise.all(
+      batch.map((id) =>
+        namespace.update({ id, metadata: { documentName } }).catch((err) => {
+          console.error(`Pinecone: failed to update documentName for chunk ${id}:`, err);
+          throw err;
+        }),
+      ),
+    );
+  }
+
+  console.log(`Pinecone: propagated documentName to ${ids.length} chunks for ${SK_NAME}=${sk}`);
+};
 
 /**
  * Delete a specific vector by ID
@@ -254,7 +373,7 @@ export const indexSolicitationChunk = async (args: {
   const vectorId = `${questionFileId}#${chunkIndex}`;
 
   // Generate embedding
-  const embedding = await getEmbedding(text);
+  const embedding = await getEmbedding(text, orgId);
 
   const metadata: SolicitationChunkMetadata = {
     type: 'solicitation_chunk',
@@ -306,7 +425,7 @@ export const indexSolicitationChunksBatch = async (
   const embeddings: number[][] = [];
   for (let i = 0; i < chunks.length; i += EMBED_BATCH_SIZE) {
     const batch = chunks.slice(i, i + EMBED_BATCH_SIZE);
-    const batchEmbeddings = await Promise.all(batch.map(c => getEmbedding(c.text)));
+    const batchEmbeddings = await Promise.all(batch.map(c => getEmbedding(c.text, orgId)));
     embeddings.push(...batchEmbeddings);
   }
 
@@ -352,7 +471,7 @@ export const searchSolicitation = async (
   const legacyNamespace = getLegacyOpportunityNamespace(opportunityId);
 
   // Embed the query once, reuse for both namespace reads
-  const embedding = await getEmbedding(query);
+  const embedding = await getEmbedding(query, orgId);
 
   const orgPromise = index.namespace(orgId).query({
     vector: embedding,

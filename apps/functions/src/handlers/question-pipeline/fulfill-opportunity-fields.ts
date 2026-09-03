@@ -114,7 +114,7 @@ export const baseHandler = async (
       throw new Error(`Empty document text from S3: ${textFileKey}`);
     }
 
-    const responseBody = await invokeModel(getBedrockModelId(), JSON.stringify(buildBedrockMessagesBody(docText)));
+    const responseBody = await invokeModel(getBedrockModelId(), JSON.stringify(buildBedrockMessagesBody(docText)), orgId);
     const responseJson = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as Record<string, unknown>;
 
     const contentBlocks = (responseJson?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];

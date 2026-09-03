@@ -41,6 +41,41 @@ export class DatabaseStack extends cdk.Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    // GSI: enumerate the documents linked to Google Drive, scoped to one org.
+    // RFP_DOCUMENT's own sort key is `projectId#opportunityId#documentId` with no orgId
+    // segment, so the main table cannot be queried per org at all. This index is
+    // deliberately **sparse** — `driveSyncPk`/`driveSyncSk` are written only while a
+    // document is linked — so unlinked documents (the vast majority) carry no index
+    // write cost and no backfill is required. INCLUDE rather than ALL because the
+    // poller only needs enough to decide whether to import.
+    this.tableName.addGlobalSecondaryIndex({
+      indexName: 'byDriveSync',
+      partitionKey: { name: 'driveSyncPk', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'driveSyncSk', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.INCLUDE,
+      nonKeyAttributes: [
+        'documentId',
+        'projectId',
+        'opportunityId',
+        'orgId',
+        'name',
+        'title',
+        'documentType',
+        'deletedAt',
+        'updatedBy',
+        'htmlContentKey',
+        'signatureStatus',
+        'editHistory',
+        'googleDriveFileId',
+        'googleDriveUrl',
+        'driveMimeType',
+        'driveFolderId',
+        'driveModifiedTime',
+        'drivePendingModifiedTime',
+        'driveSyncStatus',
+      ],
+    });
+
     // Enable TTL on the 'ttl' attribute for presence and activity auto-expiry
     const cfnTable = this.tableName.node.defaultChild as dynamodb.CfnTable;
     cfnTable.timeToLiveSpecification = {

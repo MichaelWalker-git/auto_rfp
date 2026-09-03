@@ -20,17 +20,22 @@ export type GateTestDocumentType =
 export class SolutionPlanPage {
   constructor(private readonly page: Page) {}
 
-  // The opportunity page's sections have no headings — their Card titles are
-  // plain divs — so the stable `<section id>` landmarks from OpportunityView
-  // are the most honest anchors available (documented selector deviation).
+  // The opportunity page is tabbed (ADR 0001): each panel is a lazily-mounted
+  // `#tabpanel-<key>` body, revealed by its tab. The stable panel ids are the
+  // most honest anchors available (documented selector deviation).
 
-  /** The `<section id="solution-plan">` mount from OpportunityView. */
+  /** The Solution plan tab body (`#tabpanel-solution-plan`) from OpportunityView. */
   get panel(): Locator {
-    return this.page.locator('section#solution-plan');
+    return this.page.locator('#tabpanel-solution-plan');
   }
 
   get rfpDocumentsSection(): Locator {
-    return this.page.locator('section#rfp-documents');
+    return this.page.locator('#tabpanel-rfp-documents');
+  }
+
+  /** Activate a tab in the persistent strip so its (keep-alive) body mounts + shows. */
+  async openTab(name: RegExp): Promise<void> {
+    await this.page.getByRole('tab', { name }).click();
   }
 
   get startButton(): Locator {
@@ -75,11 +80,17 @@ export class SolutionPlanPage {
   }
 
   async gotoOpportunity(opportunityPath: string): Promise<void> {
-    await this.page.goto(opportunityPath);
+    const url = opportunityPath.includes('?')
+      ? `${opportunityPath}&tab=solution-plan`
+      : `${opportunityPath}?tab=solution-plan`;
+    await this.page.goto(url);
     await expect(this.panel).toBeVisible({ timeout: 30_000 });
   }
 
   async openGenerateDialog(): Promise<void> {
+    // The Generate trigger lives on the RFP docs tab — switch to it first.
+    await this.openTab(/RFP docs/i);
+    await expect(this.rfpDocumentsSection).toBeVisible({ timeout: 30_000 });
     await this.generateDialogTrigger.scrollIntoViewIfNeeded();
     await this.generateDialogTrigger.click();
     await expect(this.generateDialog).toBeVisible();
@@ -197,6 +208,8 @@ export class SolutionPlanPage {
   async waitForDocumentGenerated(documentLabel: string, timeoutMs: number): Promise<void> {
     await expect(async () => {
       await this.page.reload();
+      // Reload lands on the default (Details) tab — switch back to RFP docs.
+      await this.openTab(/RFP docs/i);
       await expect(this.rfpDocumentsSection).toBeVisible({ timeout: 30_000 });
       await expect(
         this.rfpDocumentsSection.getByText(documentLabel).first(),

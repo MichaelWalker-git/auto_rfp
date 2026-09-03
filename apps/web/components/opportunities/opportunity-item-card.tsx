@@ -3,6 +3,7 @@
 import React, { useCallback, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { OpportunityListItem } from '@auto-rfp/core';
+import { isPhysicalSubmission } from '@auto-rfp/core';
 import { Building2, FileText, Hash, Loader2, Pencil, Star, Tag, Trash2, User, UserPlus } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { authFetcher } from '@/lib/auth/auth-fetcher';
@@ -35,6 +36,7 @@ import { useCurrentOrganization } from '@/context/organization-context';
 import { OpportunityStatusBadge } from './opportunity-status-badge';
 import { FoiaAutomationBadge } from '@/components/foia';
 import { OpportunityNotaryChip } from './OpportunityNotaryChip';
+import { PhysicalSubmissionChip } from './PhysicalSubmissionChip';
 import { ApprovalNeededBadge } from '@/features/opportunity-approval';
 
 import type { OpportunityStatus } from '@auto-rfp/core';
@@ -139,6 +141,9 @@ export type OpportunityItemCardVariant = 'full' | 'compact';
 export interface OpportunityItemCardProps {
   item: OpportunityListItem;
   onOpen?: (item: OpportunityListItem) => void;
+  /** Canonical URL for this opportunity. When set, middle-click / ctrl-click open
+   *  it in a new tab (native browser behaviour); left-click still uses `onOpen`. */
+  href?: string;
   onDeleted?: () => void;
   onUpdated?: (item: OpportunityListItem) => void;
   variant?: OpportunityItemCardVariant;
@@ -298,6 +303,7 @@ const AssigneeChip = ({
 export const OpportunityItemCard = ({
   item,
   onOpen,
+  href,
   onDeleted,
   onUpdated,
   variant = 'full',
@@ -350,8 +356,24 @@ export const OpportunityItemCard = ({
     setDeleteError(null);
   }, []);
 
+  // Middle-click (button 1) opens the opportunity in a new tab. `onMouseDown`
+  // suppresses the browser's middle-click autoscroll cursor; `onAuxClick` does the
+  // actual open once the click completes.
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button === 1 && href) e.preventDefault();
+  }, [href]);
+
+  const handleAuxClick = useCallback((e: React.MouseEvent) => {
+    if (e.button === 1 && href) {
+      e.preventDefault();
+      window.open(href, '_blank', 'noopener,noreferrer');
+    }
+  }, [href]);
+
   return (
-    <Card data-testid="opportunity-card" 
+    <Card data-testid="opportunity-card"
+      onMouseDown={handleMouseDown}
+      onAuxClick={handleAuxClick}
       className={`group cursor-pointer overflow-hidden transition-all duration-200 hover:shadow-md hover:border-primary/20 flex flex-col bg-gradient-to-br from-background to-muted/30 ${className || ''}`}
     >
       <CardContent className="p-3 flex-1 flex flex-col gap-1.5" onClick={() => onOpen?.(item)}>
@@ -419,8 +441,8 @@ export const OpportunityItemCard = ({
           'border-t pt-1.5 mt-auto',
           gridColumns === 4 ? 'flex flex-col gap-1.5' : 'flex items-center gap-1.5'
         )} onClick={e => e.stopPropagation()}>
-          {/* Badges — also renders when only the notary chip is present */}
-          {(item.naicsCode || item.setAside || (item.type && item.type !== item.setAside) || item.notarySummary?.anyNotaryRequired) && (
+          {/* Badges — also renders when only the notary or physical-submission chip is present */}
+          {(item.naicsCode || item.setAside || (item.type && item.type !== item.setAside) || item.notarySummary?.anyNotaryRequired || isPhysicalSubmission(item.submissionMethod)) && (
             <div className="flex flex-wrap gap-1 flex-1 min-w-0">
               {item.naicsCode && (
                 <Badge variant="outline" className="text-xs h-4 px-1 text-muted-foreground">
@@ -439,6 +461,7 @@ export const OpportunityItemCard = ({
                 </Badge>
               )}
               <OpportunityNotaryChip summary={item.notarySummary} />
+              <PhysicalSubmissionChip submissionMethod={item.submissionMethod} />
             </div>
           )}
           {/* Assignee + favorite */}

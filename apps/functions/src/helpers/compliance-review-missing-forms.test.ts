@@ -264,6 +264,13 @@ describe('extractExpectedFormsFromSolicitation', () => {
     expect(mockInvokeModel).not.toHaveBeenCalled();
   });
 
+  it('threads orgId through to the Bedrock extraction call as the 3rd arg', async () => {
+    mockLoadSolicitation.mockResolvedValue('The offeror must submit SF-33.');
+    mockInvokeModel.mockResolvedValue(modelResponse('{"forms":["SF-33"]}'));
+    await extractExpectedFormsFromSolicitation({ ...args, orgId: 'org-1' });
+    expect(mockInvokeModel).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'org-1');
+  });
+
   it('returns [] and swallows a model failure', async () => {
     mockLoadSolicitation.mockResolvedValue('some text');
     mockInvokeModel.mockRejectedValue(new Error('bedrock 500'));
@@ -323,6 +330,21 @@ describe('computeMissingFormFindings', () => {
     });
     expect(findings).toHaveLength(1);
     expect(findings[0]!.title).toContain('SF-33');
+  });
+
+  it('threads orgId through to the extraction model call', async () => {
+    mockGetBrief.mockResolvedValue({ sections: { requirements: { data: {} } } });
+    mockLoadSolicitation.mockResolvedValue('The offeror must submit SF-33.');
+    mockInvokeModel.mockResolvedValue(modelResponse('{"forms":["SF-33"]}'));
+    await computeMissingFormFindings({
+      orgId: 'org-9',
+      projectId: 'p',
+      oppId: 'o',
+      modelId: 'm',
+      inventory: inventoryWithForms([]),
+      existingFindings: [],
+    });
+    expect(mockInvokeModel).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'org-9');
   });
 
   it('returns [] when there are no expected forms', async () => {

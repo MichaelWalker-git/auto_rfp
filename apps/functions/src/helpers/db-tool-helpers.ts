@@ -336,7 +336,7 @@ export const fetchContentLibraryMatches = async (
   try {
     if (!query.trim()) return empty;
 
-    const embedding = await getEmbedding(query);
+    const embedding = await getEmbedding(query, orgId);
     const hits = await semanticSearchContentLibrary(orgId, embedding, limit * 2);
     if (!hits.length) return empty;
 

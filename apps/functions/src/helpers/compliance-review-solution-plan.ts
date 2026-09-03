@@ -187,6 +187,7 @@ const computePlanCostFindings = async (
   plan: SolutionPlanFacts,
   inventory: PackageInventory,
   modelId: string,
+  orgId: string,
 ): Promise<RawFinding[]> => {
   const items = plan.costItems;
   if (items.length === 0) {
@@ -252,7 +253,7 @@ const computePlanCostFindings = async (
       snippet: c.snippet,
       statedPrice: c.statedPrice,
     }));
-    const body = await invokeModel(modelId, JSON.stringify(buildCostVerifyPrompt(plan.currency, promptItems)));
+    const body = await invokeModel(modelId, JSON.stringify(buildCostVerifyPrompt(plan.currency, promptItems)), orgId);
     const json = JSON.parse(new TextDecoder('utf-8').decode(body)) as Record<string, unknown>;
     const blocks = (json?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
     const raw = blocks.find((c) => c?.type === 'text')?.text ?? null;
@@ -383,6 +384,7 @@ const checkDocumentProse = async (
   planText: string,
   candidates: ProseSection[],
   modelId: string,
+  orgId: string,
 ): Promise<RawFinding[]> => {
   if (candidates.length === 0) return [];
   const { documentId, documentTitle } = candidates[0];
@@ -393,7 +395,7 @@ const checkDocumentProse = async (
   }));
 
   try {
-    const body = await invokeModel(modelId, JSON.stringify(buildProsePrompt(planText, documentTitle, sections)));
+    const body = await invokeModel(modelId, JSON.stringify(buildProsePrompt(planText, documentTitle, sections)), orgId);
     const json = JSON.parse(new TextDecoder('utf-8').decode(body)) as Record<string, unknown>;
     const blocks = (json?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
     const raw = blocks.find((c) => c?.type === 'text')?.text ?? null;
@@ -432,6 +434,7 @@ const computePlanProseFindings = async (
   plan: SolutionPlanFacts,
   inventory: PackageInventory,
   modelId: string,
+  orgId: string,
 ): Promise<RawFinding[]> => {
   const planText = plan.text.slice(0, MAX_SOLUTION_PLAN_TEXT_CHARS);
   if (!planText.trim()) {
@@ -484,7 +487,7 @@ const computePlanProseFindings = async (
     remaining -= slice.length;
     generated += slice.length;
     if (slice.length === 0) continue;
-    findings.push(...(await checkDocumentProse(planText, slice, modelId)));
+    findings.push(...(await checkDocumentProse(planText, slice, modelId, orgId)));
   }
 
   console.log(JSON.stringify({ tag: 'factual-candidates', factType: 'C6b-plan-prose', generated, kept: findings.length }));
@@ -627,6 +630,7 @@ const computePlanTeamFindings = async (
   plan: SolutionPlanFacts,
   inventory: PackageInventory,
   modelId: string,
+  orgId: string,
 ): Promise<RawFinding[]> => {
   const members = plan.teamMembers;
   if (members.length === 0) {
@@ -692,7 +696,7 @@ const computePlanTeamFindings = async (
       snippet: c.snippet,
       statedNames: c.statedNames,
     }));
-    const body = await invokeModel(modelId, JSON.stringify(buildTeamVerifyPrompt(promptItems)));
+    const body = await invokeModel(modelId, JSON.stringify(buildTeamVerifyPrompt(promptItems)), orgId);
     const json = JSON.parse(new TextDecoder('utf-8').decode(body)) as Record<string, unknown>;
     const blocks = (json?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
     const raw = blocks.find((c) => c?.type === 'text')?.text ?? null;
@@ -843,6 +847,7 @@ const computePlanRoleFindings = async (
   plan: SolutionPlanFacts,
   inventory: PackageInventory,
   modelId: string,
+  orgId: string,
 ): Promise<RawFinding[]> => {
   const members = plan.teamMembers;
   if (members.length === 0) {
@@ -907,7 +912,7 @@ const computePlanRoleFindings = async (
       planRole: c.item.role,
       snippet: c.snippet,
     }));
-    const body = await invokeModel(modelId, JSON.stringify(buildRoleVerifyPrompt(promptItems)));
+    const body = await invokeModel(modelId, JSON.stringify(buildRoleVerifyPrompt(promptItems)), orgId);
     const json = JSON.parse(new TextDecoder('utf-8').decode(body)) as Record<string, unknown>;
     const blocks = (json?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
     const raw = blocks.find((c) => c?.type === 'text')?.text ?? null;
@@ -964,10 +969,10 @@ export const computeSolutionPlanFindings = async (args: {
     const plan = await loadSolutionPlanFacts(orgId, projectId, oppId);
     if (!plan) return []; // no READY plan → nothing to check against
     const [cost, prose, team, role] = await Promise.all([
-      computePlanCostFindings(plan, inventory, modelId),
-      computePlanProseFindings(plan, inventory, modelId),
-      computePlanTeamFindings(plan, inventory, modelId),
-      computePlanRoleFindings(plan, inventory, modelId),
+      computePlanCostFindings(plan, inventory, modelId, orgId),
+      computePlanProseFindings(plan, inventory, modelId, orgId),
+      computePlanTeamFindings(plan, inventory, modelId, orgId),
+      computePlanRoleFindings(plan, inventory, modelId, orgId),
     ]);
     return [...cost, ...prose, ...team, ...role];
   } catch (err) {

@@ -15,5 +15,10 @@ export const linearRoutes: DomainRoutes = {
       method: 'POST',
       entry: lambdaEntry('linear/save-api-key.ts'),
     },
+    {
+      path: 'list-users',
+      method: 'GET',
+      entry: lambdaEntry('linear/list-users.ts'),
+    },
   ],
 };

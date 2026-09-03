@@ -117,6 +117,7 @@ export const autofillMatrixComments = async ({
     const responseBody = await invokeModel(
       getModelId(),
       JSON.stringify(buildPrompt(capabilities, targets)),
+      orgId,
     );
     responses = parseModelResponse(responseBody, targets);
   } catch (err) {

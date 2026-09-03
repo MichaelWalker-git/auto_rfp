@@ -97,6 +97,11 @@ describe('C6a — cost-schedule consistency', () => {
     expect(cost[0].severity).toBe('major');
     expect(cost[0].description).toContain('$9,000');
     expect(cost[0].description).toContain('5000');
+    // orgId threads through to every solution-plan Bedrock call as the 3rd arg.
+    expect(mockInvokeModel).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'o');
+    for (const call of mockInvokeModel.mock.calls) {
+      expect(call[2]).toBe('o');
+    }
   });
 
   it('renders a coherent billing-cadence mismatch (title + description reflect billing, plan price still shown)', async () => {

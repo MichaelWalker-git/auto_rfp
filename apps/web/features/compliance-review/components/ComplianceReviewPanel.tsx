@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { AiNotConfiguredNotice } from '@/components/ai-not-configured-notice';
+import { isAiNotConfiguredError } from '@/lib/ai-not-configured';
 import { useReviewRun } from '../hooks/useReviewRun';
 import { useUnifiedChat } from '../hooks/useUnifiedChat';
 import { useFindingDecisions } from '../hooks/useFindingDecisions';
@@ -35,7 +37,7 @@ const CHAT_SUGGESTIONS_REVIEW = [
 const CHAT_SUGGESTIONS_EDIT = ['Change the contact email everywhere to new@acme.com.'];
 
 export const ComplianceReviewPanel = ({ orgId, projectId, oppId }: ComplianceReviewPanelProps) => {
-  const { findings, decisions, stale, isRunning, isLoading, triggerReview, refresh, status } =
+  const { run, findings, decisions, stale, isRunning, isLoading, triggerReview, refresh, status } =
     useReviewRun(orgId, projectId, oppId);
   const { messages, isLoadingHistory, sendMessage, isSending, canEdit } = useUnifiedChat(
     orgId,
@@ -187,12 +189,15 @@ export const ComplianceReviewPanel = ({ orgId, projectId, oppId }: ComplianceRev
           </Alert>
         )}
 
-        {status === 'FAILED' && (
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>The last review failed. Please run it again.</AlertDescription>
-          </Alert>
-        )}
+        {status === 'FAILED' &&
+          (isAiNotConfiguredError({ message: run?.error }) ? (
+            <AiNotConfiguredNotice orgId={orgId} />
+          ) : (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>The last review failed. Please run it again.</AlertDescription>
+            </Alert>
+          ))}
 
         {isLoading || isRunning ? (
           <div className="space-y-3">

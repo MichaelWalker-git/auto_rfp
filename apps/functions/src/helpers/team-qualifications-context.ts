@@ -29,7 +29,7 @@ import { requireEnv } from './env';
 import { getSolutionPlanByOpportunity } from './solution-plan';
 import { listEmployeesByOrg } from './employee';
 import { getDocumentItemByDocumentId } from './document';
-import { loadTextFromS3 } from './s3';
+import { buildTextKeyCandidates, loadDocumentText } from './document-text';
 import { errorMessageOf } from './error';
 
 // ─── Budgets ──────────────────────────────────────────────────────────────────
@@ -114,6 +114,8 @@ export const hasSavedTeam = (
 
 // ─── CV text loading (BR2.2) ──────────────────────────────────────────────────
 
+const TEXT_READY_STATUSES = new Set(['TEXT_EXTRACTED', 'CHUNKED', 'INDEXED', 'ready']);
+
 /**
  * Resolve a member's CV text via `resumeRef` → org document → `textFileKey` →
  * S3. Every failure degrades to structured-fields-only with the missing bio
@@ -127,13 +129,21 @@ const loadCvText = async (
   }
   try {
     const document = await getDocumentItemByDocumentId(employee.resumeRef);
-    if (!document?.textFileKey) {
+    if (!document || buildTextKeyCandidates(document).length === 0) {
       return {
         cvText: null,
         cvMissingReason: 'resume reference does not resolve to a document with extracted text',
       };
     }
-    const text = await loadTextFromS3(requireEnv('DOCUMENTS_BUCKET'), document.textFileKey);
+    // Only attempt to load text if the pipeline has run.
+    const isTextReady = !document.indexStatus || TEXT_READY_STATUSES.has(document.indexStatus);
+    if (!isTextReady) {
+      return {
+        cvText: null,
+        cvMissingReason: 'resume document is still being processed',
+      };
+    }
+    const text = await loadDocumentText(requireEnv('DOCUMENTS_BUCKET'), document);
     if (!text.trim()) {
       return { cvText: null, cvMissingReason: 'resume document text is empty' };
     }

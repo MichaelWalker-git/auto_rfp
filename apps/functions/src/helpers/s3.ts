@@ -19,6 +19,21 @@ export async function streamToString(stream: any): Promise<string> {
   });
 }
 
+/**
+ * Single-attempt text read that resolves `null` instead of throwing when the
+ * object is missing or unreadable. For probing candidate keys, where paying
+ * `loadTextFromS3`'s retry budget on a key that is simply absent would cost
+ * seconds per miss.
+ */
+export async function tryLoadTextFromS3(bucket: string, key: string): Promise<string | null> {
+  try {
+    const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    return await streamToString(res.Body);
+  } catch {
+    return null;
+  }
+}
+
 export async function loadTextFromS3(bucket: string, key: string): Promise<string> {
   const maxRetries = 3;
   const retryDelay = 1000; // 1 second

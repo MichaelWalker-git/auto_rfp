@@ -10,9 +10,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 
-import { AlertTriangle, Briefcase, CalendarClock, CheckCircle2, Clock, DollarSign, Download, ExternalLink, FileText, ListChecks, Loader2, RefreshCw, Shield, Target, Users, XCircle } from 'lucide-react';
+import { AlertTriangle, Briefcase, CalendarClock, CalendarIcon, CheckCircle2, Clock, DollarSign, Download, ExternalLink, FileText, FolderPlus, ListChecks, Loader2, RefreshCw, Shield, Target, TicketPlus, Users, XCircle } from 'lucide-react';
+import { format } from 'date-fns';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
 
 import DeadlinesDashboard from '../deadlines/DeadlinesDashboard';
 import { useProject } from '@/lib/hooks/use-api';
@@ -28,6 +47,9 @@ import {
   useGetExecutiveBriefByProject,
   useInitExecutiveBrief,
   useHandleLinearTicket,
+  useUpdateLinearTicketStatus,
+  useLinearUsers,
+  useSyncBriefToGoogleDrive,
 } from '@/lib/hooks/use-executive-brief';
 import { useGenerateExecutiveBriefPricing } from '@/lib/hooks/use-pricing';
 
@@ -46,10 +68,15 @@ import { GapAnalysisCard } from './components/GapAnalysisCard';
 import { PricingCard } from './components/PricingCard';
 import { OpportunitySelector } from './components/OpportunitySelector';
 import { useCurrentOrganization } from '@/context/organization-context';
+import { isRfpTrackingEnabledForOrg } from '@/features/rfp-tracking';
+import { AiNotConfiguredNotice } from '@/components/ai-not-configured-notice';
+import { isAiNotConfiguredError } from '@/lib/ai-not-configured';
 import { PermissionButton } from '@/components/ui/permission-button';
+import { DisabledReasonTooltip } from '@/components/ui/disabled-reason-tooltip';
 import { useQuestionFiles } from '@/lib/hooks/use-question-file';
 import { isExtractedQuestionFile } from '@/lib/utils/question-file-status';
 import type { OpportunityItem } from '@auto-rfp/core';
+import { RFP_STAGE_OPTIONS } from '@auto-rfp/core';
 
 function sectionIcon(section: SectionKey) {
   switch (section) {
@@ -165,12 +192,18 @@ interface SectionContentProps {
 }
 
 function SectionContent({ section, status, error, isBusy, children, skeletonRows = 4 }: SectionContentProps) {
+  const { currentOrganization } = useCurrentOrganization();
   const isFailed = status === 'FAILED';
   // Only show in-progress if NOT failed - failed status takes priority
   const isInProgress = !isFailed && (isInProgressStatus(status) || isBusy);
 
   // Show error if failed (check this FIRST, before in-progress)
   if (isFailed) {
+    // The org has no valid Bedrock key — point an admin to settings rather than
+    // surfacing the raw failure string.
+    if (isAiNotConfiguredError({ message: error })) {
+      return <AiNotConfiguredNotice orgId={currentOrganization?.id ?? ''} />;
+    }
     return (
       <Alert variant="destructive">
         <AlertTriangle className="h-4 w-4"/>
@@ -225,6 +258,9 @@ export function ExecutiveBriefView({
   const router = useRouter();
   const { data: project, isLoading, isError, mutate: refetchProject } = useProject(projectId);
   const { currentOrganization } = useCurrentOrganization();
+  // Create Drive Folder / Create Linear Ticket are Horus-Tech-only, gated by the
+  // same org allow-list as RFP Tracking (NEXT_PUBLIC_RFP_TRACKING_ORG_ID).
+  const isHorusTechOrg = isRfpTrackingEnabledForOrg(currentOrganization?.id);
   const init = useInitExecutiveBrief(currentOrganization?.id);
   const genSummary = useGenerateExecutiveBriefSummary(currentOrganization?.id);
   const genDeadlines = useGenerateExecutiveBriefDeadlines(currentOrganization?.id);
@@ -236,28 +272,50 @@ export function ExecutiveBriefView({
   const genScoring = useGenerateExecutiveBriefScoring(currentOrganization?.id);
   const getBriefByProject = useGetExecutiveBriefByProject(currentOrganization?.id);
   const handleLinearTicket = useHandleLinearTicket(currentOrganization?.id);
+  const updateLinearTicketStatus = useUpdateLinearTicketStatus(currentOrganization?.id);
+  const syncBriefToDrive = useSyncBriefToGoogleDrive(currentOrganization?.id);
 
   const [regenError, setRegenError] = useState<string | null>(null);
+  const [isSyncingToDrive, setIsSyncingToDrive] = useState(false);
+  const [driveSyncStarted, setDriveSyncStarted] = useState(false);
+  const [isCreatingLinearTicket, setIsCreatingLinearTicket] = useState(false);
+  // Create-Linear-Ticket dialog: required assignee, status, and due date.
+  const [linearDialogOpen, setLinearDialogOpen] = useState(false);
+  const [linearAssigneeId, setLinearAssigneeId] = useState<string>('');
+  const [linearStage, setLinearStage] = useState<string>('');
+  const [linearDueDate, setLinearDueDate] = useState<Date | undefined>(undefined);
+  // Change-status dialog: move an existing ticket to a chosen RFP board stage.
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [newStage, setNewStage] = useState<string>('');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  // The assignee list is fetched live from Linear once the create dialog opens;
+  // the status options are the fixed RFP board stages (RFP_STAGE_OPTIONS).
+  const linearUsers = useLinearUsers(currentOrganization?.id, linearDialogOpen);
   const [previousBrief, setPreviousBrief] = useState<any>(null);
   const [briefItem, setBriefItem] = useState<any>(null);
   const [localBusySections, setLocalBusySections] = useState<Set<SectionKey>>(() => new Set());
   const [isPastPerfRegenerating, setIsPastPerfRegenerating] = useState(false);
   const [isFetchingBrief, setIsFetchingBrief] = useState(false);
   const [isGeneratingBrief, setIsGeneratingBrief] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabId | undefined>(fixedOpportunityId ? undefined : 'overview');
+  // Overview opens by default in both modes — on the opportunity Analysis tab
+  // (fixedOpportunityId set) it's the first thing a reviewer expects to see,
+  // rather than an all-collapsed accordion.
+  const [activeTab, setActiveTab] = useState<TabId | undefined>('overview');
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(fixedOpportunityId ?? initialOpportunityId ?? null);
   const [selectedOpportunity, setSelectedOpportunity] = useState<OpportunityItem | null>(null);
   const localBusySectionsRef = useRef<Set<SectionKey>>(new Set());
-  const linearTicketAttemptedRef = useRef(false);
 
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const autoGenerateTriggeredRef = useRef(false);
   const [briefFetchDone, setBriefFetchDone] = useState(false);
 
-  // Track solicitation file status for auto-generation
-  const { items: questionFiles } = useQuestionFiles(
-    fixedOpportunityId ? projectId : null,
-    { oppId: fixedOpportunityId ?? undefined, refreshInterval: 10_000 },
+  // Track solicitation file status for auto-generation and generation gating.
+  // Uses the fixed opportunity (opportunity page) or the one picked in the
+  // selector (brief page) so both surfaces know the documents.
+  const effectiveOpportunityId = fixedOpportunityId ?? selectedOpportunityId;
+  const { items: questionFiles, isLoading: isLoadingQuestionFiles } = useQuestionFiles(
+    effectiveOpportunityId ? projectId : null,
+    { oppId: effectiveOpportunityId ?? undefined, refreshInterval: 10_000 },
   );
 
   const sectionsState = useMemo(() => buildSectionsState(briefItem), [briefItem]);
@@ -274,6 +332,15 @@ export function ExecutiveBriefView({
   );
 
   const prereq = briefItem ? scoringPrereqsComplete(briefItem) : ({ ok: false, missing: [] as string[] });
+
+  // Generation needs at least one solicitation document. While the file list
+  // is loading, treat documents as present so buttons don't flash disabled —
+  // the click-time guard in generateBrief() catches the race anyway.
+  const docsMissing =
+    !!effectiveOpportunityId &&
+    !isLoadingQuestionFiles &&
+    !questionFiles.some((f) => f.status !== 'DELETED');
+  const docsMissingReason = docsMissing ? 'Upload solicitation documents first' : null;
 
   const progressText = useMemo(() => {
     if (!briefItem) return null;
@@ -393,32 +460,11 @@ export function ExecutiveBriefView({
 
           const locallyBusy = localBusySectionsRef.current.size > 0;
 
-          const scoringComplete = resp.brief.sections?.scoring?.status === 'COMPLETE';
-          const decision = resp.brief.decision || resp.brief.sections?.scoring?.data?.decision;
-          const executiveBriefId = resp.brief.sort_key;
-          
-          if (
-            scoringComplete && 
-            decision && 
-            !resp.brief.linearTicketId && 
-            !linearTicketAttemptedRef.current &&
-            executiveBriefId
-          ) {
-            linearTicketAttemptedRef.current = true;
-            try {
-              await handleLinearTicket.trigger({ executiveBriefId: String(executiveBriefId) });
-
-              const withTicket = await getBriefByProject.trigger({ 
-                projectId, 
-                opportunityId: currentOppId || undefined 
-              });
-              if (withTicket?.ok && withTicket?.brief) {
-                setBriefItem(withTicket.brief);
-              }
-            } catch (err) {
-              console.error('Failed to auto-create Linear ticket:', err);
-            }
-          }
+          // Linear tickets are no longer auto-created when the scoring decision
+          // lands — the ticket's message is the three links (brief doc, Drive
+          // folder, app URL), which only exist after the "Create Drive Folder"
+          // button has run. Creation is exclusively the "Create Linear Ticket"
+          // button next to it.
 
           if (!locallyBusy && (st === 'COMPLETE' || st === 'FAILED' || allTerminal)) {
             stopPollingBrief();
@@ -526,6 +572,155 @@ export function ExecutiveBriefView({
     return resp.executiveBriefId;
   }
 
+  const handleCreateDriveFolder = async () => {
+    const executiveBriefId = briefItem?.sort_key;
+    if (!executiveBriefId || isSyncingToDrive) return;
+    setIsSyncingToDrive(true);
+    setRegenError(null);
+    try {
+      await syncBriefToDrive.trigger({ executiveBriefId: String(executiveBriefId) });
+      setDriveSyncStarted(true);
+
+      // The endpoint returns 202 and creates the folder in a background worker,
+      // so the folder URL is not on the brief yet. Section-polling has already
+      // stopped (the brief is fully generated), so nothing else re-fetches the
+      // brief — poll here until googleDriveFolderUrl lands, then update the brief
+      // so the button flips to the "Drive Folder" link. Give up after ~90s and
+      // leave a hint to refresh; the worker may still be running.
+      const currentOppId = selectedOpportunityIdRef.current;
+      const deadline = Date.now() + 90_000;
+      let found = false;
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 3_000));
+        try {
+          const resp = await getBriefByProject.trigger({
+            projectId,
+            opportunityId: currentOppId || undefined,
+          });
+          if (resp?.ok && resp?.brief) {
+            setBriefItem(resp.brief);
+            if (resp.brief.googleDriveFolderUrl) {
+              found = true;
+              break;
+            }
+          }
+        } catch {
+          // transient — keep polling until the deadline
+        }
+      }
+      if (!found) {
+        setRegenError(
+          'Google Drive folder creation is taking longer than expected. Refresh the page in a moment to see the folder link.',
+        );
+      }
+    } catch (err) {
+      setRegenError(
+        err instanceof Error ? err.message : 'Failed to start Google Drive folder creation',
+      );
+    } finally {
+      setIsSyncingToDrive(false);
+    }
+  };
+
+  // Opens the create-ticket dialog, pre-filling the due date from the brief's
+  // detected submission deadline (still editable and required in the dialog).
+  const handleOpenLinearDialog = () => {
+    setRegenError(null);
+    const deadlineIso = briefItem?.sections?.deadlines?.data?.submissionDeadlineIso;
+    const parsed = deadlineIso ? new Date(deadlineIso) : undefined;
+    setLinearDueDate(parsed && !isNaN(parsed.getTime()) ? parsed : undefined);
+    setLinearAssigneeId('');
+    setLinearStage('');
+    setLinearDialogOpen(true);
+  };
+
+  const handleCreateLinearTicket = async () => {
+    const executiveBriefId = briefItem?.sort_key;
+    // All three inputs are required before the ticket can be created.
+    if (
+      !executiveBriefId ||
+      isCreatingLinearTicket ||
+      !linearAssigneeId ||
+      !linearStage ||
+      !linearDueDate
+    ) {
+      return;
+    }
+    setIsCreatingLinearTicket(true);
+    setRegenError(null);
+    try {
+      // The ticket's message is the three links, so it is only creatable once
+      // the Drive folder (and the brief .docx inside it) exists.
+      const currentOppId = selectedOpportunityIdRef.current;
+      const opportunityPath = currentOppId
+        ? `/organizations/${currentOrganization?.id}/projects/${projectId}/opportunities/${currentOppId}`
+        : `/organizations/${currentOrganization?.id}/projects/${projectId}`;
+      await handleLinearTicket.trigger({
+        executiveBriefId: String(executiveBriefId),
+        appUrl: `${window.location.origin}${opportunityPath}`,
+        assigneeId: linearAssigneeId,
+        stage: linearStage,
+        dueDate: format(linearDueDate, 'yyyy-MM-dd'),
+      });
+
+      setLinearDialogOpen(false);
+
+      // Re-fetch so the button flips to the ticket link.
+      const resp = await getBriefByProject.trigger({
+        projectId,
+        opportunityId: currentOppId || undefined,
+      });
+      if (resp?.ok && resp?.brief) {
+        setBriefItem(resp.brief);
+      }
+    } catch (err) {
+      setRegenError(
+        err instanceof Error ? err.message : 'Failed to create Linear ticket',
+      );
+    } finally {
+      setIsCreatingLinearTicket(false);
+    }
+  };
+
+  // Opens the change-status dialog for an existing ticket (resets the selection).
+  const handleOpenStatusDialog = () => {
+    setRegenError(null);
+    setNewStage('');
+    setStatusDialogOpen(true);
+  };
+
+  const handleUpdateLinearStatus = async () => {
+    const executiveBriefId = briefItem?.sort_key;
+    if (!executiveBriefId || isUpdatingStatus || !newStage) {
+      return;
+    }
+    setIsUpdatingStatus(true);
+    setRegenError(null);
+    try {
+      await updateLinearTicketStatus.trigger({
+        executiveBriefId: String(executiveBriefId),
+        stage: newStage,
+      });
+      setStatusDialogOpen(false);
+
+      // Re-fetch so any status-derived UI stays in sync.
+      const currentOppId = selectedOpportunityIdRef.current;
+      const resp = await getBriefByProject.trigger({
+        projectId,
+        opportunityId: currentOppId || undefined,
+      });
+      if (resp?.ok && resp?.brief) {
+        setBriefItem(resp.brief);
+      }
+    } catch (err) {
+      setRegenError(
+        err instanceof Error ? err.message : 'Failed to update Linear ticket status',
+      );
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
   async function enqueueSection(section: SectionKey, executiveBriefId: string, force?: boolean) {
     let resp: any;
     switch (section) {
@@ -579,7 +774,6 @@ export function ExecutiveBriefView({
 
     setIsGeneratingBrief(true);
     setRegenError(null);
-    linearTicketAttemptedRef.current = false;
     if (!project) { setIsGeneratingBrief(false); return; }
     if (briefItem) setPreviousBrief(briefItem);
 
@@ -944,21 +1138,28 @@ export function ExecutiveBriefView({
             <CardContent className="py-8 text-center">
               <Briefcase className="h-10 w-10 mx-auto text-muted-foreground mb-3"/>
               <p className="text-sm text-muted-foreground mb-4">
-                Generate a brief with scoring, risks, requirements, and more.
+                {docsMissing
+                  ? 'Upload solicitation documents first — the analysis is generated from them.'
+                  : 'Generate a brief with scoring, risks, requirements, and more.'}
               </p>
-              <Button onClick={() => generateBrief(false)} disabled={anySectionInProgress || isFetchingBrief || isGeneratingBrief}>
-                {anySectionInProgress || isGeneratingBrief ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2"/>
-                    {generateLabel}
-                  </>
-                )}
-              </Button>
+              <DisabledReasonTooltip reason={docsMissingReason}>
+                <Button
+                  onClick={() => generateBrief(false)}
+                  disabled={docsMissing || anySectionInProgress || isFetchingBrief || isGeneratingBrief}
+                >
+                  {anySectionInProgress || isGeneratingBrief ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2"/>
+                      {generateLabel}
+                    </>
+                  )}
+                </Button>
+              </DisabledReasonTooltip>
             </CardContent>
           </Card>
         </div>
@@ -984,6 +1185,232 @@ export function ExecutiveBriefView({
                     <Download className="h-4 w-4 mr-2" />
                     Export
                   </Button>
+                  {briefItem?.googleDriveFolderUrl ? (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={briefItem.googleDriveFolderUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Drive Folder
+                      </a>
+                    </Button>
+                  ) : isHorusTechOrg ? (
+                    <PermissionButton
+                      requiredPermission="brief:edit"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCreateDriveFolder}
+                      disabled={isSyncingToDrive || driveSyncStarted || completedSections < totalSections}
+                      title={completedSections < totalSections ? 'Generate the full brief before creating a Drive folder' : 'Create the Google Drive folder for this opportunity'}
+                    >
+                      {isSyncingToDrive ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <FolderPlus className="h-4 w-4 mr-2" />
+                      )}
+                      {driveSyncStarted ? 'Creating folder…' : 'Create Drive Folder'}
+                    </PermissionButton>
+                  ) : null}
+                  {briefItem?.linearTicketUrl ? (
+                    <>
+                      <Button variant="outline" size="sm" asChild>
+                        <a href={briefItem.linearTicketUrl} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Linear Ticket
+                        </a>
+                      </Button>
+                      {isHorusTechOrg ? (
+                        <PermissionButton
+                          requiredPermission="brief:edit"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleOpenStatusDialog}
+                          disabled={isUpdatingStatus}
+                          title="Change the Linear ticket's status"
+                        >
+                          {isUpdatingStatus ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                          )}
+                          Change Status
+                        </PermissionButton>
+                      ) : null}
+                    </>
+                  ) : isHorusTechOrg ? (
+                    <PermissionButton
+                      requiredPermission="brief:edit"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleOpenLinearDialog}
+                      disabled={isCreatingLinearTicket || !briefItem?.googleDriveFolderUrl}
+                      title={briefItem?.googleDriveFolderUrl ? 'Create the Linear ticket for this opportunity' : 'Create the Google Drive folder first — the ticket links to it'}
+                    >
+                      {isCreatingLinearTicket ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <TicketPlus className="h-4 w-4 mr-2" />
+                      )}
+                      Create Linear Ticket
+                    </PermissionButton>
+                  ) : null}
+                  <Dialog open={linearDialogOpen} onOpenChange={setLinearDialogOpen}>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Create Linear Ticket</DialogTitle>
+                        <DialogDescription>
+                          Assign the ticket, set its status, and pick the RFP due date.
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <div className="space-y-4 py-2">
+                        {/* Assignee */}
+                        <div className="space-y-1.5">
+                          <Label>Assignee</Label>
+                          {linearUsers.isLoading ? (
+                            <Skeleton className="h-9 w-full" />
+                          ) : linearUsers.error ? (
+                            <p className="text-sm text-destructive">
+                              Couldn’t load Linear members. Check the Linear API key in organization settings.
+                            </p>
+                          ) : (
+                            <Select value={linearAssigneeId} onValueChange={setLinearAssigneeId}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a team member" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {linearUsers.data?.users.map((user) => (
+                                  <SelectItem key={user.id} value={user.id}>
+                                    {user.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+
+                        {/* Status */}
+                        <div className="space-y-1.5">
+                          <Label>Status</Label>
+                          <Select value={linearStage} onValueChange={setLinearStage}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {RFP_STAGE_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.stage} value={opt.stage}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Due date */}
+                        <div className="space-y-1.5">
+                          <Label>Due date</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className={cn(
+                                  'w-full justify-start text-left font-normal',
+                                  !linearDueDate && 'text-muted-foreground',
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {linearDueDate ? format(linearDueDate, 'MMM d, yyyy') : <span>Pick a date</span>}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={linearDueDate}
+                                onSelect={setLinearDueDate}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                      </div>
+
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setLinearDialogOpen(false)}
+                          disabled={isCreatingLinearTicket}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleCreateLinearTicket}
+                          disabled={
+                            isCreatingLinearTicket ||
+                            !linearAssigneeId ||
+                            !linearStage ||
+                            !linearDueDate
+                          }
+                        >
+                          {isCreatingLinearTicket ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <TicketPlus className="h-4 w-4 mr-2" />
+                          )}
+                          Create Ticket
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  {/* Change the status of an existing Linear ticket. */}
+                  <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Change Linear Status</DialogTitle>
+                        <DialogDescription>
+                          Move ticket {briefItem?.linearTicketIdentifier || ''} to a new status.
+                        </DialogDescription>
+                      </DialogHeader>
+
+                      <div className="space-y-4 py-2">
+                        <div className="space-y-1.5">
+                          <Label>Status</Label>
+                          <Select value={newStage} onValueChange={setNewStage}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {RFP_STAGE_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.stage} value={opt.stage}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setStatusDialogOpen(false)}
+                          disabled={isUpdatingStatus}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleUpdateLinearStatus}
+                          disabled={isUpdatingStatus || !newStage}
+                        >
+                          {isUpdatingStatus ? (
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                          )}
+                          Update Status
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                   {!fixedOpportunityId && selectedOpportunityId && currentOrganization?.id && (
                     <Button variant="outline" size="sm" asChild>
                       <Link href={`/organizations/${currentOrganization.id}/projects/${projectId}/opportunities/${selectedOpportunityId}`}>
@@ -998,24 +1425,30 @@ export function ExecutiveBriefView({
                       Generating...
                     </Button>
                   ) : completedSections < totalSections ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => generateBrief(true)}
-                    >
-                      <RefreshCw className="h-4 w-4 mr-2"/>
-                      {completedSections === 0 ? 'Generate All' : 'Generate Missing'}
-                    </Button>
+                    <DisabledReasonTooltip reason={docsMissingReason}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={docsMissing}
+                        onClick={() => generateBrief(true)}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2"/>
+                        {completedSections === 0 ? 'Generate All' : 'Generate Missing'}
+                      </Button>
+                    </DisabledReasonTooltip>
                   ) : (
-                    <PermissionButton
-                      requiredPermission="brief:edit"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => generateBrief(false)}
-                    >
-                      <RefreshCw className="h-4 w-4 mr-2"/>
-                      Regenerate All
-                    </PermissionButton>
+                    <DisabledReasonTooltip reason={docsMissingReason}>
+                      <PermissionButton
+                        requiredPermission="brief:edit"
+                        variant="outline"
+                        size="sm"
+                        disabled={docsMissing}
+                        onClick={() => generateBrief(false)}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2"/>
+                        Regenerate All
+                      </PermissionButton>
+                    </DisabledReasonTooltip>
                   )}
                 </div>
               </div>

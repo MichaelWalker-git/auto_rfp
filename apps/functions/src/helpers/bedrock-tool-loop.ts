@@ -21,6 +21,12 @@ const TRUNCATION_RETRY_TOKEN_MULTIPLIER = 2;
 
 export interface InvokeClaudeWithToolsArgs<T> {
   modelId: string;
+  /**
+   * Tenant whose Bedrock key should be used. Forwarded to every internal
+   * `invokeModel` call (main round, truncation retry, JSON-repair retry).
+   * REQUIRED (ticket 09): a missing org is a compile error.
+   */
+  orgId: string;
   system: string;
   user: string;
   tools: ReadonlyArray<ToolDefinition>;
@@ -79,6 +85,7 @@ export const invokeClaudeWithTools = async <T>(
 ): Promise<T> => {
   const {
     modelId,
+    orgId,
     system,
     user,
     tools,
@@ -116,7 +123,7 @@ export const invokeClaudeWithTools = async <T>(
       requestBody.tools = tools;
     }
 
-    const responseBody = await invokeModel(modelId, JSON.stringify(requestBody));
+    const responseBody = await invokeModel(modelId, JSON.stringify(requestBody), orgId);
     const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as {
       stop_reason?: string;
       content?: ContentBlock[];
@@ -149,7 +156,7 @@ export const invokeClaudeWithTools = async <T>(
         temperature,
       };
 
-      const retryResponse = await invokeModel(modelId, JSON.stringify(retryBody));
+      const retryResponse = await invokeModel(modelId, JSON.stringify(retryBody), orgId);
       const retryParsed = JSON.parse(new TextDecoder('utf-8').decode(retryResponse)) as {
         stop_reason?: string;
         content?: ContentBlock[];
@@ -249,7 +256,7 @@ export const invokeClaudeWithTools = async <T>(
       temperature: 0,
     };
 
-    const retryResponse = await invokeModel(modelId, JSON.stringify(retryBody));
+    const retryResponse = await invokeModel(modelId, JSON.stringify(retryBody), orgId);
     const retryParsed = JSON.parse(new TextDecoder('utf-8').decode(retryResponse)) as {
       content?: ContentBlock[];
     };

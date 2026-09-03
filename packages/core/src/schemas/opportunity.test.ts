@@ -3,6 +3,9 @@ import {
   OpportunityItemSchema,
   OpportunityListItemSchema,
   OpportunityUpdateRequestSchema,
+  isPhysicalSubmission,
+  computeMailDeadline,
+  DEFAULT_MAIL_TRANSIT_BUSINESS_DAYS,
 } from './opportunity';
 
 const validOpportunity = {
@@ -134,5 +137,69 @@ describe('OpportunityUpdateRequestSchema — notary patch (u2 / WF-E)', () => {
     });
     expect(success).toBe(true);
     expect(data?.notaryUnmappedTriggers).toHaveLength(1);
+  });
+});
+
+// ─── isPhysicalSubmission ─────────────────────────────────────────────────────
+
+describe('isPhysicalSubmission', () => {
+  it('returns true for PHYSICAL', () => {
+    expect(isPhysicalSubmission('PHYSICAL')).toBe(true);
+  });
+
+  it('returns true for BOTH', () => {
+    expect(isPhysicalSubmission('BOTH')).toBe(true);
+  });
+
+  it('returns false for ELECTRONIC', () => {
+    expect(isPhysicalSubmission('ELECTRONIC')).toBe(false);
+  });
+
+  it('returns false for UNKNOWN', () => {
+    expect(isPhysicalSubmission('UNKNOWN')).toBe(false);
+  });
+
+  it('returns false for null', () => {
+    expect(isPhysicalSubmission(null)).toBe(false);
+  });
+
+  it('returns false for undefined', () => {
+    expect(isPhysicalSubmission(undefined)).toBe(false);
+  });
+});
+
+// ─── computeMailDeadline ──────────────────────────────────────────────────────
+
+describe('computeMailDeadline', () => {
+  it('exports DEFAULT_MAIL_TRANSIT_BUSINESS_DAYS = 5', () => {
+    expect(DEFAULT_MAIL_TRANSIT_BUSINESS_DAYS).toBe(5);
+  });
+
+  it('returns null for null input', () => {
+    expect(computeMailDeadline(null)).toBeNull();
+  });
+
+  it('returns null for undefined input', () => {
+    expect(computeMailDeadline(undefined)).toBeNull();
+  });
+
+  it('subtracts 5 business days from a Wednesday deadline (no weekend in span)', () => {
+    // Wednesday 2026-09-09 minus 5 business days = Wednesday 2026-09-02
+    expect(computeMailDeadline('2026-09-09')).toBe('2026-09-02');
+  });
+
+  it('spans a weekend correctly: Monday minus 5 business days = Monday (prev week)', () => {
+    // Monday 2026-09-07 minus 5 business days:
+    // Sun 9/6 (skip), Sat 9/5 (skip), Fri 9/4 (1), Thu 9/3 (2), Wed 9/2 (3), Tue 9/1 (4), Mon 8/31 (5)
+    expect(computeMailDeadline('2026-09-07')).toBe('2026-08-31');
+  });
+
+  it('uses a custom transitDays value', () => {
+    // Wednesday 2026-09-09 minus 3 business days = Friday 2026-09-04
+    expect(computeMailDeadline('2026-09-09', 3)).toBe('2026-09-04');
+  });
+
+  it('returns null for a past deadline', () => {
+    expect(computeMailDeadline('2020-01-01')).toBeNull();
   });
 });

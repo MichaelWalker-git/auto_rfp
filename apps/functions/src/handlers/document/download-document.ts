@@ -3,6 +3,7 @@ import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { apiResponse, getUserId } from '@/helpers/api';
 import { buildDocumentSK } from '@/helpers/document-keys';
+import { buildContentDispositionHeader } from '@/helpers/content-disposition';
 import { getItem } from '@/helpers/db';
 import { DOCUMENT_PK } from '@/constants/document';
 import { withSentryLambda } from '@/sentry-lambda';
@@ -25,8 +26,8 @@ const URL_EXPIRATION_SECONDS = Number(process.env.PRESIGN_EXPIRES_IN || 900);
 const s3Client = new S3Client({ region: REGION });
 
 /**
- * Download a document with ownership verification.
- * Only the user who uploaded the document (createdBy) can download it.
+ * Generate a presigned download URL for a document.
+ * Access is controlled by RBAC (document:read + org membership) — not ownership.
  *
  * GET /document/download?id={documentId}&kbId={kbId}
  */
@@ -48,7 +49,7 @@ export const baseHandler = async (
       return apiResponse(401, { message: 'Authentication required' });
     }
 
-    // Fetch the document to check ownership (lightweight DB query — no Pinecone import)
+    // Lightweight DB query — no Pinecone import
     const sk = buildDocumentSK(kbId, documentId);
     const document = await getItem<DocumentItem>(DOCUMENT_PK, sk);
 
@@ -64,10 +65,11 @@ export const baseHandler = async (
       return apiResponse(404, { message: 'Document has no associated file' });
     }
 
-    // Generate presigned download URL
+    // Generate presigned download URL, forcing a "Save As" download with the current document name
     const getObjectCmd = new GetObjectCommand({
       Bucket: DOCUMENTS_BUCKET,
       Key: document.fileKey,
+      ResponseContentDisposition: buildContentDispositionHeader(document.name),
     });
 
     const url = await getSignedUrl(s3Client as Parameters<typeof getSignedUrl>[0], getObjectCmd, {

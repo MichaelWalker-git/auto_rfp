@@ -116,12 +116,13 @@ const groupNameVariants = async (
   canonical: string,
   phrases: string[],
   modelId: string,
+  orgId: string,
 ): Promise<Set<string>> => {
   const canonNorm = norm(canonical);
   const candidates = phrases.filter((p) => p !== canonNorm);
   if (candidates.length === 0) return new Set();
   try {
-    const body = await invokeModel(modelId, JSON.stringify(buildGroupingPrompt(canonNorm, candidates)));
+    const body = await invokeModel(modelId, JSON.stringify(buildGroupingPrompt(canonNorm, candidates)), orgId);
     const json = JSON.parse(new TextDecoder('utf-8').decode(body)) as Record<string, unknown>;
     const blocks = (json?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
     const raw = blocks.find((c) => c?.type === 'text')?.text ?? null;
@@ -248,7 +249,7 @@ export const computeConsistencyFindings = async (args: {
       // ONE grouping call over the whole candidate set (docs + forms) — no extra
       // model calls for adding form coverage.
       const allPhrases = Array.from(new Set([...phrasesPerDoc.flat(), ...phrasesPerForm.flat()]));
-      const variantSet = await groupNameVariants(canonNorm, allPhrases, modelId);
+      const variantSet = await groupNameVariants(canonNorm, allPhrases, modelId, orgId);
       if (variantSet.size > 0) {
         docs.forEach((d, i) => {
           const docVariants = Array.from(new Set(phrasesPerDoc[i])).filter((p) => variantSet.has(p));
@@ -801,7 +802,7 @@ export const computeProfileFactFindings = async (args: {
           canonical: c.fact.canonical,
           passage: c.snippet,
         }));
-        const body = await invokeModel(modelId, JSON.stringify(buildFactVerifyPrompt(items)));
+        const body = await invokeModel(modelId, JSON.stringify(buildFactVerifyPrompt(items)), orgId);
         const json = JSON.parse(new TextDecoder('utf-8').decode(body)) as Record<string, unknown>;
         const blocks = (json?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
         const raw = blocks.find((c) => c?.type === 'text')?.text ?? null;

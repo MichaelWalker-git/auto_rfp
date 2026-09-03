@@ -231,7 +231,7 @@ export const computeCertFindings = async (args: {
     const recItems = records.map((r, i) => ({ r: i, label: r.label }));
     let claimToRecord = new Map<number, number | null>();
     try {
-      const body = await invokeModel(modelId, JSON.stringify(buildMapPrompt(mapItems, recItems)));
+      const body = await invokeModel(modelId, JSON.stringify(buildMapPrompt(mapItems, recItems)), orgId);
       const json = JSON.parse(new TextDecoder('utf-8').decode(body)) as Record<string, unknown>;
       const blocks = (json?.content as Array<{ type?: string; text?: string }> | undefined) ?? [];
       const raw = blocks.find((c) => c?.type === 'text')?.text ?? null;

@@ -29,7 +29,8 @@ import {
   HIGHERGOV_SEARCH_WORKER_FUNCTION_NAME_ENV,
 } from '@/constants/highergov';
 import { requireEnv } from '@/helpers/env';
-import { searchSamOpportunities, searchDibbsOpportunities, searchHigherGovOpportunities, withSourceTimeout, HIGHERGOV_TIMEOUT_MS } from '@/helpers/search-opportunity';
+import { searchSamOpportunities, searchDibbsOpportunities, withSourceTimeout, HIGHERGOV_TIMEOUT_MS } from '@/helpers/search-opportunity';
+import { searchHigherGovViaMcp, HIGHERGOV_MCP_PAGE_SIZE } from '@/helpers/highergov-mcp';
 import {
   getHigherGovSearchCache,
   isHigherGovSearchCacheStale,
@@ -72,6 +73,16 @@ const SearchRequestSchema = z.object({
   source:       z.enum(['SAM_GOV', 'DIBBS', 'HIGHER_GOV', 'ALL']).default('ALL'),
   /** HigherGov source_type filter to avoid duplicating SAM/DIBBS results */
   higherGovSourceType: z.enum(['sam', 'dibbs', 'sbir', 'grant', 'sled']).optional(),
+  /**
+   * Which HigherGov market(s) to search — the MCP `opportunity_type` enum. Defaults to
+   * federal_contract server-side, so send it explicitly to reach SLED/grants/forecasts.
+   */
+  higherGovMarket: z.enum([
+    'federal_contract', 'state_local', 'federal_and_state_local', 'federal_grant',
+    'dibbs', 'sbir', 'federal_forecast', 'sled_forecast', 'all',
+  ]).optional(),
+  /** Restrict HigherGov to currently open opportunities (18 vs 2860 on a saas search). */
+  higherGovActiveOnly: z.boolean().optional(),
   /** HigherGov search_id — replay a saved search from HigherGov UI */
   higherGovSearchId: z.string().min(1).optional(),
   keywords:     z.string().min(1).optional(),
@@ -89,13 +100,6 @@ const SearchRequestSchema = z.object({
 
 type SearchRequest = z.infer<typeof SearchRequestSchema>;
 
-/**
- * HigherGov's /opportunity/ API has no keyword/NAICS/set-aside filter and no date
- * range — those must be expressed via a saved search (search_id) built in the
- * HigherGov UI. Firing a plain keyword search therefore can't return correct
- * results (it would fetch a single day and client-filter a 100-row slice), so we
- * short-circuit with this message instead of a 15s-timeout empty response.
- */
 /** SAM.gov wants MM/dd/yyyy. */
 const toMmDdYyyy = (d: Date): string =>
   `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
@@ -108,9 +112,6 @@ const defaultPostedFrom = (): string =>
 
 const defaultPostedTo = (): string => toMmDdYyyy(new Date());
 
-export const HIGHERGOV_KEYWORD_NEEDS_SEARCH_ID =
-  'Keyword, NAICS, and set-aside search for HigherGov requires a saved search. ' +
-  'Create the search on HigherGov, then paste its Search ID into the HigherGov ID field.';
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
@@ -215,20 +216,13 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
         if (apiKey) {
           const hasSearchId = !!data.higherGovSearchId;
 
-          // HigherGov's API can't filter by keyword/NAICS/set-aside — those only
-          // work through a saved search (search_id). A plain keyword search returns
-          // a single day's slice with no matches after a 15s timeout, so skip the
-          // doomed call. Only surface guidance when HigherGov is the explicitly
-          // chosen sole source — in ALL mode SAM/DIBBS carry the keyword search and
-          // a banner on every search would be noise.
-          const hasKeywordFilters = !!(data.keywords || data.naics?.length || data.setAsideCode);
-          if (!hasSearchId && hasKeywordFilters) {
-            if (data.source === 'HIGHER_GOV') {
-              errors['HIGHER_GOV'] = HIGHERGOV_KEYWORD_NEEDS_SEARCH_ID;
-            }
-            return;
-          }
-
+          // Keyword/NAICS search for HigherGov goes through their MCP server rather
+          // than the REST API. REST silently ignores those params (a baseline
+          // posted_date query and the same query plus `keywords=zzzznonsense` both
+          // return 580 rows); MCP's `search_opportunities` honours HigherGov's full
+          // documented query language — implicit AND, `or`, `"close match"`,
+          // `-exclude`, `( )`. The old short-circuit that refused these searches has
+          // been removed accordingly.
           const pageSize = data.limit ?? 25;
 
           // ── Saved-search (search_id): async cache path ──────────────────────
@@ -258,23 +252,32 @@ export const baseHandler = async (event: APIGatewayProxyEventV2): Promise<APIGat
             return;
           }
 
-          // ── Date-only / unfiltered: fast enough to run inline ───────────────
+          // ── Keyword / NAICS / date search via MCP ───────────────────────────
+          // Runs inline: MCP responds in 0.8-3.8s (measured), well inside the API
+          // Gateway ceiling, unlike REST's 12-15s which forced the worker path above.
           const postedDate = data.postedFrom
             ? `${data.postedFrom.slice(6)}-${data.postedFrom.slice(0, 2)}-${data.postedFrom.slice(3, 5)}`
             : undefined;
 
           const resp = await withSourceTimeout(
-            searchHigherGovOpportunities(
+            searchHigherGovViaMcp(
               { baseUrl: HIGHERGOV_BASE_URL, apiKey, httpsAgent },
               {
-                keywords:     data.keywords,
-                naics:        data.naics,
-                setAsideCode: data.setAsideCode,
-                sourceType:   data.higherGovSourceType,
+                // Verbatim: stripping quotes/`-`/`or` would break the query language.
+                keyword:         data.keywords,
+                // MCP takes a single NAICS code, not a list.
+                naicsCode:       data.naics?.[0],
+                opportunityType: data.higherGovMarket,
+                activeOnly:      data.higherGovActiveOnly,
                 postedDate,
-                ordering:     '-captured_date',
-                pageSize,
-                pageNumber: data.offset ? Math.floor(data.offset / pageSize) + 1 : 1,
+                // Paged against MCP's OWN fixed page size, not the caller's `limit`.
+                // MCP ignores `limit` and always returns 100 rows, and the frontend
+                // advances `offset` by rows actually received — so dividing by a
+                // 25-row limit jumped to page 5 after one "show more" and skipped
+                // records 100-399 entirely.
+                pageNumber: data.offset
+                  ? Math.floor(data.offset / HIGHERGOV_MCP_PAGE_SIZE) + 1
+                  : 1,
               },
             ),
             'HigherGov',

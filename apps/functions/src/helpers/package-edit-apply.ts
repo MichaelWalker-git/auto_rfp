@@ -19,6 +19,7 @@ import {
   loadRFPDocumentHtml,
   updateRFPDocumentWithContent,
 } from '@/helpers/rfp-document';
+import { autoPushDocumentToDriveIfConfigured } from '@/helpers/google-drive-document-sync';
 import { getLatestVersionNumber } from '@/helpers/rfp-document-version';
 import { getRequiredForm, updateRequiredForm } from '@/helpers/required-form';
 import { snapshotFormFields } from '@/helpers/required-form-version';
@@ -76,6 +77,16 @@ const applyDocumentEdit = async (
       },
     },
     userId: ctx.userId,
+  });
+
+  // Keep the linked Google Doc in step with the applied edit. No-op when Drive
+  // is not configured; swallows its own errors so a Drive outage can't fail the apply.
+  await autoPushDocumentToDriveIfConfigured({
+    orgId: ctx.orgId,
+    projectId: ctx.projectId,
+    opportunityId: ctx.oppId,
+    documentId,
+    rePushExisting: true,
   });
 
   // updateRFPDocumentWithContent auto-versions but does not return the number;

@@ -13,6 +13,42 @@
 // Since truncateForTitan is not exported, we'll test it indirectly
 // or create a test-specific export.
 
+const mockInvokeModel = jest.fn();
+jest.mock('./bedrock-http-client', () => ({
+  invokeModel: (...a: unknown[]) => mockInvokeModel(...a),
+}));
+
+process.env.BEDROCK_EMBEDDING_MODEL_ID = 'amazon.titan-embed-text-v2:0';
+
+import { getEmbedding } from './embeddings';
+
+describe('getEmbedding - orgId propagation', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockInvokeModel.mockResolvedValue(
+      new TextEncoder().encode(JSON.stringify({ embedding: [0.1, 0.2, 0.3] })),
+    );
+  });
+
+  it('threads orgId through to invokeModel as the third argument', async () => {
+    await getEmbedding('some text', 'the-org-id');
+    expect(mockInvokeModel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'the-org-id',
+    );
+  });
+
+  it('passes undefined orgId when none is provided (unchanged behavior)', async () => {
+    await getEmbedding('some text');
+    expect(mockInvokeModel).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      undefined,
+    );
+  });
+});
+
 describe('embeddings - text handling', () => {
   describe('truncateForTitan logic (AUTO-RFP-3V)', () => {
     // Helper to replicate the truncateForTitan logic for testing

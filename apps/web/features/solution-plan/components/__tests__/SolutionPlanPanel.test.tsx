@@ -248,6 +248,50 @@ describe('SolutionPlanPanel', () => {
     );
   });
 
+  it('disables Start Solution Plan with an explanation when there are no solicitation docs', () => {
+    mockUseSolutionPlan.mockReturnValue(planState(null));
+    render(
+      <SolutionPlanPanel
+        orgId="org-1"
+        projectId="proj-1"
+        opportunityId="opp-1"
+        hasSolicitationDocs={false}
+      />,
+    );
+
+    const startButton = screen.getByRole('button', { name: /start solution plan/i });
+    expect((startButton as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      screen.getByText(/upload solicitation documents first — the solution plan is generated from them/i),
+    ).toBeTruthy();
+
+    fireEvent.click(startButton);
+    expect(mockInitSolutionPlan).not.toHaveBeenCalled();
+  });
+
+  it('disables Regenerate when there are no solicitation docs', () => {
+    mockUseSolutionPlan.mockReturnValue(planState(makePlan()));
+    render(
+      <SolutionPlanPanel
+        orgId="org-1"
+        projectId="proj-1"
+        opportunityId="opp-1"
+        hasSolicitationDocs={false}
+      />,
+    );
+
+    const regenerateButton = screen.getByRole('button', { name: /regenerate/i });
+    expect((regenerateButton as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('keeps generation enabled when hasSolicitationDocs is not provided', () => {
+    mockUseSolutionPlan.mockReturnValue(planState(null));
+    renderPanel();
+
+    const startButton = screen.getByRole('button', { name: /start solution plan/i });
+    expect((startButton as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('offers a restart when the server reports a run already in progress (409)', async () => {
     const conflict = Object.assign(new Error('run in progress'), { status: 409 });
     mockInitSolutionPlan.mockRejectedValueOnce(conflict).mockResolvedValueOnce({ ok: true });

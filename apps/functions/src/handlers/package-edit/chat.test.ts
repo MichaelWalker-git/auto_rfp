@@ -144,6 +144,8 @@ describe('package-edit chat handler', () => {
     expect(mockMakeExecutor).toHaveBeenCalledWith(
       expect.objectContaining({ orgId: 'org-1', oppId: 'opp-1', projectId: 'proj-1' }),
     );
+    // orgId (from the request query, not the token) threads into the Bedrock loop.
+    expect(mockInvoke).toHaveBeenCalledWith(expect.objectContaining({ orgId: 'org-1' }));
   });
 
   it('CLARIFY → a plain answer (no findings, no propose_edits) is returned as-is, not swallowed', async () => {

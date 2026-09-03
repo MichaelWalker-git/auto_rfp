@@ -70,7 +70,7 @@ export const XlsxFormEditor = ({ doc, orgId, onFieldUpdated }: XlsxFormEditorPro
   const [deletedFieldIds, setDeletedFieldIds] = useState<Set<string>>(new Set());
   const { width: sidebarWidth, onResizeStart: handleSidebarResizeStart } = useResizableSidebar({ initial: 300 });
 
-  const backUrl = `/organizations/${orgId}/projects/${doc.projectId}/opportunities/${doc.opportunityId}`;
+  const backUrl = `/organizations/${orgId}/projects/${doc.projectId}/opportunities/${doc.opportunityId}?tab=required-forms`;
 
   const grid = grids[activeSheet] ?? [];
 
