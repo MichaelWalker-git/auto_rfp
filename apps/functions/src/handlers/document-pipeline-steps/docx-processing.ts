@@ -9,7 +9,7 @@ import { requireEnv } from '@/helpers/env';
 import { getItem, updateItem } from '@/helpers/db';
 import { nowIso } from '@/helpers/date';
 import { DocumentItem } from '@auto-rfp/core';
-import { buildDocumentSK } from '@/helpers/document-keys';
+import { buildDocumentSK, buildTxtKeyNextToOriginal } from '@/helpers/document-keys';
 
 // Resolved lazily so tests can set process.env before module-level code runs
 const getRegion = () => requireEnv('REGION');
@@ -42,12 +42,6 @@ const streamToBuffer = (stream: NodeJS.ReadableStream): Promise<Buffer> =>
     stream.on('error', reject);
     stream.on('end', () => resolve(Buffer.concat(chunks)));
   });
-
-const buildTxtKeyNextToOriginal = (originalKey: string): string => {
-  const clean = originalKey.split('?')[0] ?? originalKey;
-  const idx = clean.lastIndexOf('.');
-  return idx === -1 ? `${clean}.txt` : `${clean.slice(0, idx)}.txt`;
-};
 
 export const baseHandler = async (
   event: DocxProcessingEvent,
@@ -91,17 +85,15 @@ export const baseHandler = async (
     }),
   );
 
-  // 4. Update document status in DynamoDB
-  try {
-    await updateItem(
-      DOCUMENT_PK,
-      buildDocumentSK(knowledgeBaseId, documentId),
-      { indexStatus: 'TEXT_EXTRACTED', textFileKey: txtKey, updatedAt: nowIso() },
-      { condition: 'attribute_exists(#pk)', conditionNames: { '#pk': 'partition_key' } },
-    );
-  } catch (err) {
-    console.warn('Failed to update DynamoDB status/textFileKey (continuing):', err);
-  }
+  // 4. Record where the text landed. This must not be swallowed: `textFileKey`
+  // is the only pointer to the extracted text, so a silent failure here leaves
+  // a document that looks INDEXED but reads back as empty (unrecoverable
+  // without a backfill). Let the step fail so the pipeline surfaces it.
+  await updateItem(
+    DOCUMENT_PK,
+    buildDocumentSK(knowledgeBaseId, documentId),
+    { indexStatus: 'TEXT_EXTRACTED', textFileKey: txtKey, updatedAt: nowIso() },
+  );
 
   // 5. Return payload for the next Step Function step (chunking)
   return {

@@ -5,7 +5,10 @@ export const DocumentItemSchema = z.object({
   knowledgeBaseId: z.string(),        // belongs to this KB
   name: z.string(),
   fileKey: z.string(),                // original PDF / uploaded file
-  textFileKey: z.string(),            // extracted text file in S3
+  // Extracted text file in S3. Absent until the document pipeline has run —
+  // only the pipeline knows where it put the text, so nothing writes this at
+  // upload time.
+  textFileKey: z.string().optional(),
 
   indexStatus: z.enum(['pending', 'TEXT_EXTRACTED', 'TEXT_EXTRACTION_FAILED', 'CHUNKED', 'INDEXED', 'ready', 'failed']),
   indexVectorKey: z.string().optional(), // embeddings file or vector DB key
@@ -31,11 +34,14 @@ export const DocumentItemSchema = z.object({
 
 export type DocumentItem = z.infer<typeof DocumentItemSchema>;
 
+// `textFileKey` is deliberately absent: it is derived and written by the
+// document pipeline once the text has actually been extracted. Callers that
+// guessed it at upload time produced records pointing at keys that never
+// existed, which read back as "document couldn't be read".
 export const CreateDocumentDTOSchema = z.object({
   knowledgeBaseId: z.string(),
   name: z.string(),
   fileKey: z.string(),
-  textFileKey: z.string(),
   fileSize: z.number().int().min(0).optional(),  // file size in bytes
 });
 

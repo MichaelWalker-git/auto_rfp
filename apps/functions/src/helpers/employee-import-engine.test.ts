@@ -5,6 +5,7 @@ jest.mock('@/helpers/db', () => ({
 }));
 jest.mock('@/helpers/s3', () => ({
   loadTextFromS3: jest.fn(),
+  tryLoadTextFromS3: jest.fn(),
 }));
 jest.mock('@/helpers/bedrock-http-client', () => ({
   invokeModel: jest.fn(),
@@ -29,6 +30,9 @@ const mockQueryAllBySkPrefix = db.queryAllBySkPrefix as jest.MockedFunction<
   typeof db.queryAllBySkPrefix
 >;
 const mockLoadTextFromS3 = s3.loadTextFromS3 as jest.MockedFunction<typeof s3.loadTextFromS3>;
+const mockTryLoadTextFromS3 = s3.tryLoadTextFromS3 as jest.MockedFunction<
+  typeof s3.tryLoadTextFromS3
+>;
 const mockInvokeModel = bedrock.invokeModel as jest.MockedFunction<typeof bedrock.invokeModel>;
 const mockListEmployees = employeeHelpers.listEmployeesByOrg as jest.MockedFunction<
   typeof employeeHelpers.listEmployeesByOrg
@@ -96,7 +100,13 @@ const otherPayload = () => ({
 
 /** One org KB + the given DOCUMENT records. */
 const setupDocuments = (
-  docs: Array<{ id: string; name: string; textFileKey?: string; indexStatus?: string }>,
+  docs: Array<{
+    id: string;
+    name: string;
+    textFileKey?: string;
+    fileKey?: string;
+    indexStatus?: string;
+  }>,
 ) => {
   mockQueryBySkPrefix.mockResolvedValue([{ sort_key: `${ORG}#kb-1` }]);
   mockQueryAllBySkPrefix.mockResolvedValue(
@@ -119,6 +129,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockListEmployees.mockResolvedValue([]);
   mockLoadTextFromS3.mockResolvedValue('Jane Smith — Project Manager. PMP certified.');
+  mockTryLoadTextFromS3.mockResolvedValue('Jane Smith — Project Manager. PMP certified.');
   mockGetSnapshot.mockResolvedValue(null);
   mockPutSnapshot.mockResolvedValue({ employeeId: 'emp-1', orgId: ORG, fields: {} });
   mockUpdateProgress.mockResolvedValue({} as EmployeeImportRunItem);
@@ -181,6 +192,33 @@ describe('runEmployeeImport — detection & categorization (BR2.1/BR2.2)', () =>
     expect(mockInvokeModel).not.toHaveBeenCalled();
     expect(run.status).toBe('COMPLETED_WITH_ERRORS');
     expect(run.failedDocuments).toEqual([{ documentName: 'scan.pdf', reason: 'UNREADABLE' }]);
+  });
+
+  // Documents uploaded before the upload path stopped guessing `textFileKey`
+  // recorded `<file>.docx.txt` while the pipeline stored the text at
+  // `<file>.txt`. Reading by `textFileKey` alone 404s, which used to report a
+  // perfectly good CV as UNREADABLE.
+  it('falls back to the fileKey-derived text key when textFileKey is stale', async () => {
+    setupDocuments([
+      {
+        id: 'doc-1',
+        name: 'CV_Jane.docx',
+        fileKey: 'org/kb/doc-1/CV_Jane.docx',
+        textFileKey: 'org/kb/doc-1/CV_Jane.docx.txt',
+        indexStatus: 'INDEXED',
+      },
+    ]);
+    mockTryLoadTextFromS3.mockImplementation(async (_bucket, key) =>
+      key === 'org/kb/doc-1/CV_Jane.txt' ? 'Jane Smith — Project Manager. PMP certified.' : null,
+    );
+    mockInvokeModel.mockResolvedValue(bedrockResponse(cvPayload()));
+    mockCreateEmployee.mockResolvedValue(makeEmployee({ id: 'emp-new' }));
+
+    const run = await runEmployeeImport(INPUT);
+
+    expect(run.cvsDetected).toBe(1);
+    expect(run.employeesCreated).toBe(1);
+    expect(run.failedDocuments).toEqual([]);
   });
 
   it('records INCOMPLETE_EXTRACTION when a CV yields no person name', async () => {

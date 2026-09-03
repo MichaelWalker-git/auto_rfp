@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { queryAllBySkPrefix, queryBySkPrefix } from '@/helpers/db';
-import { loadTextFromS3 } from '@/helpers/s3';
+import { loadDocumentText, type DocumentTextSource } from '@/helpers/document-text';
 import { invokeModel } from '@/helpers/bedrock-http-client';
 import { requireEnv } from '@/helpers/env';
 import {
@@ -84,10 +84,9 @@ interface PendingCertification {
 
 /* ── Org document listing ───────────────────────────────── */
 
-interface OrgDocument {
+interface OrgDocument extends DocumentTextSource {
   id: string;
   name: string;
-  textFileKey?: string;
   indexStatus?: string;
 }
 
@@ -118,6 +117,7 @@ export const listOrgDocuments = async (orgId: string): Promise<OrgDocument[]> =>
         id: doc.id,
         name: doc.name,
         textFileKey: doc.textFileKey,
+        fileKey: doc.fileKey,
         indexStatus: doc.indexStatus,
       });
     }
@@ -303,13 +303,11 @@ export const runEmployeeImport = async (
       counters.documentsScanned++;
 
       // BR2.1 — no extracted text → UNREADABLE.
-      const hasText =
-        !!document.textFileKey &&
-        (!document.indexStatus || TEXT_READY_STATUSES.has(document.indexStatus));
+      const isTextReady = !document.indexStatus || TEXT_READY_STATUSES.has(document.indexStatus);
       let documentText = '';
-      if (hasText && document.textFileKey) {
+      if (isTextReady) {
         try {
-          documentText = await loadTextFromS3(documentsBucket, document.textFileKey);
+          documentText = await loadDocumentText(documentsBucket, document);
         } catch (err) {
           console.warn(
             `[employee-import] failed to load text for ${document.name}:`,

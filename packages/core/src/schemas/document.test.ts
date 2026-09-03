@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DocumentItemSchema, UpdateDocumentDTOSchema } from './document';
+import { DocumentItemSchema, UpdateDocumentDTOSchema, CreateDocumentDTOSchema } from './document';
 
 const baseDocument = {
   id: 'doc-1',
@@ -32,6 +32,52 @@ describe('DocumentItemSchema.chunkCount', () => {
   it('rejects non-integers', () => {
     const result = DocumentItemSchema.safeParse({ ...baseDocument, chunkCount: 1.5 });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('DocumentItemSchema.textFileKey', () => {
+  it('is optional when absent', () => {
+    const { textFileKey, ...docWithoutTextKey } = baseDocument;
+    const { success, data } = DocumentItemSchema.safeParse(docWithoutTextKey);
+    expect(success).toBe(true);
+    expect(data?.textFileKey).toBeUndefined();
+  });
+
+  it('accepts a string when present', () => {
+    const { success, data } = DocumentItemSchema.safeParse(baseDocument);
+    expect(success).toBe(true);
+    expect(data?.textFileKey).toBe('files/doc-1.txt');
+  });
+});
+
+describe('CreateDocumentDTOSchema', () => {
+  const baseCreate = {
+    knowledgeBaseId: 'kb-1',
+    name: 'Test Document',
+    fileKey: 'files/doc-1.pdf',
+  };
+
+  it('accepts a valid document without textFileKey', () => {
+    const { success } = CreateDocumentDTOSchema.safeParse(baseCreate);
+    expect(success).toBe(true);
+  });
+
+  it('strips textFileKey when included (not part of create schema)', () => {
+    const result = CreateDocumentDTOSchema.safeParse({
+      ...baseCreate,
+      textFileKey: 'files/doc-1.txt',
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.textFileKey).toBeUndefined();
+  });
+
+  it('accepts optional fileSize', () => {
+    const { success, data } = CreateDocumentDTOSchema.safeParse({
+      ...baseCreate,
+      fileSize: 1024,
+    });
+    expect(success).toBe(true);
+    expect(data?.fileSize).toBe(1024);
   });
 });
 
