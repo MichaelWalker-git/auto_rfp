@@ -56,6 +56,15 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
     toggleFavorite(project.id);
   };
 
+  // The card is wrapped in a Link. Without stopping the event here the click
+  // bubbles up to handleOpen, which navigates into the project and unmounts
+  // the delete dialog before it can be confirmed.
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDelete?.(project);
+  };
+
   return (
     <>
       <Link href={href} className="block" onClick={handleOpen} aria-disabled={!orgId}>
@@ -93,7 +102,7 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
                 variant="ghost"
                 size="icon"
                 className="rounded-xl hover:bg-destructive/10 hover:text-destructive"
-                onClick={() => onDelete?.(project)}
+                onClick={handleDeleteClick}
                 ariaLabel="Remove project"
               />
             </>

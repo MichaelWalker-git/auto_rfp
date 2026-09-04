@@ -3,6 +3,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { EditorView } from '@tiptap/pm/view';
 import { computePageLayout, type LayoutBlock } from './pagination-layout';
+import { collectLayoutUnits, intrinsicHeights, type MeasuredRect } from './pagination-units';
 
 export interface PaginationOptions {
   /** Usable content height per page in CSS px (page height minus margins). */
@@ -64,33 +65,35 @@ export const Pagination = Extension.create<PaginationOptions>({
     // forever, so compare a cheap string instead.
     let lastSignature: string | null = null;
 
-    /** Height of any spacers currently sitting between two elements. */
-    const spacerHeightBetween = (from: HTMLElement, to: HTMLElement | null): number => {
-      let total = 0;
-      let node = from.nextElementSibling;
-      while (node && node !== to) {
-        if (node instanceof HTMLElement && node.hasAttribute(PAGINATION_SPACER_ATTR)) {
-          total += node.offsetHeight;
-        }
-        node = node.nextElementSibling;
-      }
-      return total;
-    };
-
     /**
-     * Measure top-level blocks and hand them to the pure sweep.
+     * Measure the layout units and hand them to the pure sweep.
+     *
+     * ## Units, not top-level blocks
+     *
+     * Tables split by row and lists by item (see `pagination-units.ts`). Treating
+     * a whole table as one block pushed it to the next page in one piece and left
+     * a hole the size of the remaining page — visible, undeletable, and recomputed
+     * on every keystroke.
      *
      * ## Heights are INTRINSIC, i.e. independent of the spacers already applied
      *
-     * This is what makes the layout stable. Measuring raw `offsetTop` deltas reads
+     * This is what makes the layout stable. Measuring raw top deltas reads
      * positions that already include the previous pass's spacers, so the input
      * depends on the output: the sweep sees content as already correct, removes the
      * spacers, then re-adds them next pass. Measured in Chromium, that alternated
      * `3 spacers → 0 → 3 → 0` forever — the text visibly jittering up and down.
      *
-     * Subtracting any intervening spacer height recovers the height the block would
+     * Subtracting any intervening spacer height recovers the height the unit would
      * have with no pagination at all, which is a fixed point: same signature on
      * every pass.
+     *
+     * ## Why bounding rects rather than offsetTop
+     *
+     * `offsetTop` is relative to the nearest positioned ancestor, and for a table
+     * row that is the table, not the editor. Rects against the editor root put
+     * paragraphs, rows, and list items on one axis. Spacers are located the same
+     * way, so a spacer nested inside a table body is found by position rather than
+     * by sibling walking.
      *
      * ## Why deltas rather than offsetHeight + margins
      *
@@ -100,44 +103,41 @@ export const Pagination = Extension.create<PaginationOptions>({
      */
     const measure = (view: EditorView): DecorationSet => {
       const { doc } = view.state;
+      const rootTop = view.dom.getBoundingClientRect().top;
+      const rectOf = (el: Element): MeasuredRect => {
+        const r = el.getBoundingClientRect();
+        return { top: r.top - rootTop, height: r.height };
+      };
 
-      interface Measured { pos: number; dom: HTMLElement; top: number; height: number; isBreak: boolean }
+      const spacerRects = Array.from(
+        view.dom.querySelectorAll(`[${PAGINATION_SPACER_ATTR}]`),
+      ).map(rectOf);
+
+      interface Measured extends MeasuredRect { pos: number; isBreak: boolean }
       const measured: Measured[] = [];
 
-      doc.forEach((node, offset) => {
-        const dom = view.nodeDOM(offset);
-        if (!(dom instanceof HTMLElement)) return;
-        measured.push({
-          pos: offset,
-          dom,
-          top: dom.offsetTop,
-          height: dom.offsetHeight,
-          isBreak: node.type.name === 'pageBreak',
-        });
-      });
+      for (const unit of collectLayoutUnits(doc)) {
+        const dom = view.nodeDOM(unit.measurePos);
+        if (!(dom instanceof HTMLElement)) continue;
+        measured.push({ ...rectOf(dom), pos: unit.spacerPos, isBreak: unit.isExplicitBreak });
+      }
 
       if (!measured.length) return DecorationSet.empty;
 
-      const blocks: LayoutBlock[] = measured.map((m, i) => {
-        const next = measured[i + 1];
-        return {
-          pos: m.pos,
-          height: next
-            ? Math.max(0, next.top - m.top - spacerHeightBetween(m.dom, next.dom))
-            : m.height,
-          isExplicitBreak: m.isBreak,
-        };
-      });
+      const heights = intrinsicHeights(measured, spacerRects);
+      const blocks: LayoutBlock[] = measured.map((m, i) => ({
+        pos: m.pos,
+        height: heights[i],
+        isExplicitBreak: m.isBreak,
+      }));
 
-      // The first block's position must exclude any spacer above it too, or the
+      // The first unit's position must exclude any spacer above it too, or the
       // start offset drifts by that height on every pass.
       const first = measured[0];
-      let leadingSpacer = 0;
-      for (let node = first.dom.previousElementSibling; node; node = node.previousElementSibling) {
-        if (node instanceof HTMLElement && node.hasAttribute(PAGINATION_SPACER_ATTR)) {
-          leadingSpacer += node.offsetHeight;
-        }
-      }
+      const leadingSpacer = spacerRects.reduce(
+        (sum, s) => (s.top < first.top ? sum + s.height : sum),
+        0,
+      );
       const startOffsetPx = Math.max(0, first.top - leadingSpacer);
 
       const { spacers } = computePageLayout(blocks, { contentAreaPx, pitchPx, startOffsetPx });
