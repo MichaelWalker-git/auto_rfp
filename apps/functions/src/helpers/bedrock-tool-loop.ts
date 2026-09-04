@@ -82,6 +82,14 @@ const extractText = (content: ContentBlock[]): string =>
     .trim();
 
 /**
+ * Cheap pre-check mirroring `extractFirstJsonObject`: does this text contain a
+ * JSON object/array at all? Prose without a `{` or `[` is never parseable, so
+ * the loop treats it the same as no text — it nudges for JSON instead of
+ * falling through to the repair path, which cannot know the caller's schema.
+ */
+const containsJsonStart = (text: string): boolean => /[{[]/.test(text);
+
+/**
  * Anthropic rejects an assistant turn with an empty `content` array on the
  * next `invokeModel` call (`400 messages: text content blocks must be
  * non-empty`). Substitute a placeholder text block so the conversation stays
@@ -239,17 +247,25 @@ export const invokeClaudeWithTools = async <T>(
     // Extract final text response
     rawText = extractText(content);
 
-    // No text extracted — prompt the model to produce JSON
-    if (!rawText && !isLastRound) {
-      const reason = stopReason === 'tool_use'
-        ? 'model returned tool_use without tools offered'
-        : `model returned empty text (stop_reason=${stopReason})`;
+    // Nothing usable yet — either no text at all, or narration with no JSON in
+    // it. The latter is what a model emits when it was mid-tool-use and tools
+    // were withdrawn after maxToolRounds ("Now let me verify X and finalize my
+    // analysis."): it never learned that this turn had to be the final answer.
+    // Tell it so and give it another round.
+    if (!containsJsonStart(rawText) && !isLastRound) {
+      const reason = !rawText
+        ? stopReason === 'tool_use'
+          ? 'model returned tool_use without tools offered'
+          : `model returned empty text (stop_reason=${stopReason})`
+        : `model returned text with no JSON (${rawText.length} chars, stop_reason=${stopReason})`;
       console.warn(`[bedrock-tool-loop] Round ${toolRounds}: ${reason} — prompting for JSON`);
       messages.push({ role: 'assistant', content: nonEmptyAssistantContent(content) });
       messages.push({
         role: 'user',
-        content: [{ type: 'text', text: 'Generate the complete JSON response now based on all information gathered. Output ONLY the raw JSON object, no explanation or markdown.' }],
+        content: [{ type: 'text', text: 'No further tool calls are available. Generate the complete JSON response now based on all information gathered so far, following the OUTPUT FORMAT in your instructions exactly. Output ONLY the raw JSON object, no explanation or markdown.' }],
       });
+      // Don't carry this round's unusable text into the post-loop parse.
+      rawText = '';
       toolRounds++;
       continue;
     }
@@ -261,12 +277,20 @@ export const invokeClaudeWithTools = async <T>(
   if (!rawText.trim()) {
     console.warn('[bedrock-tool-loop] No text after all rounds — attempting final salvage with fresh context');
 
+    // Keeps `cacheableUser` (the solicitation / opportunity primer) in front of
+    // the request — a salvage answer written without it would be ungrounded,
+    // and re-sending it hits the same cache prefix as the main rounds.
     const salvageMessages: Message[] = [{
       role: 'user',
-      content: [{
-        type: 'text',
-        text: `${user}\n\nRespond with ONLY the raw JSON object matching the required schema. No tools, no explanation, no markdown.`,
-      }],
+      content: [
+        ...(cacheableUser
+          ? [{ type: 'text', text: cacheableUser, cache_control: { type: 'ephemeral' } } as ContentBlock]
+          : []),
+        {
+          type: 'text',
+          text: `${user}\n\nRespond with ONLY the raw JSON object matching the required schema. No tools, no explanation, no markdown.`,
+        },
+      ],
     }];
     const salvageBody = {
       anthropic_version: 'bedrock-2023-05-31',
@@ -290,18 +314,22 @@ export const invokeClaudeWithTools = async <T>(
     console.warn('[bedrock-tool-loop] Initial parse failed, retrying with fresh JSON-only prompt:', (parseErr as Error)?.message);
     console.warn('[bedrock-tool-loop] Raw text preview:', rawText.slice(0, 300));
 
-    // Fresh conversation — avoid polluted context from tool-use rounds
+    // Fresh conversation — avoid polluted context from tool-use rounds. The
+    // caller's own `system` prompt is reused rather than a generic "you are a
+    // JSON formatter": only it carries the OUTPUT FORMAT spec, and without it
+    // the repair model invents its own keys, which then fail schema validation
+    // with a confusing "Required" error on a field the model never saw.
     const retryMessages: Message[] = [{
       role: 'user',
       content: [{
         type: 'text',
-        text: `Here is a response that needs to be formatted as valid JSON:\n\n${rawText}\n\nConvert the above into a valid JSON object. Output ONLY the raw JSON, no explanation.`,
+        text: `Here is a response that needs to be reformatted as valid JSON:\n\n${rawText}\n\nRewrite it as a single JSON object matching the OUTPUT FORMAT in your instructions exactly — same field names, nothing added or renamed. Output ONLY the raw JSON, no explanation, no markdown.`,
       }],
     }];
 
     const retryBody = {
       anthropic_version: 'bedrock-2023-05-31',
-      system: [{ type: 'text', text: 'You are a JSON formatter. Output only valid JSON objects. No markdown, no explanation.' }],
+      system: [{ type: 'text', text: system }],
       messages: retryMessages,
       max_tokens: maxTokens,
       temperature: 0,
