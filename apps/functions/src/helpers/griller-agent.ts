@@ -14,8 +14,9 @@ import { invokeModel } from './bedrock-http-client';
 import { extractBedrockText } from './document-generation';
 import {
   INTERVIEW_COMPLETE_TOKEN,
+  buildGrillerStablePrompt,
   buildGrillerSystemPrompt,
-  buildGrillerUserPrompt,
+  buildGrillerVariablePrompt,
   type TranscriptEntry,
 } from './solution-plan-prompts';
 
@@ -81,13 +82,27 @@ export class GrillerAgent {
     this.orgId = config.orgId;
   }
 
-  /** One interview turn: 1-3 pointed questions, or the termination token. */
+  /**
+   * One interview turn: 1-3 pointed questions, or the termination token.
+   *
+   * The solicitation + exec brief (identical every round of a run) go in
+   * their own leading content block marked `cache_control: { type:
+   * 'ephemeral' }` (Layer A prompt caching) — the per-round transcript and
+   * turn framing follow, uncached, so the cache hit isn't broken by content
+   * that changes round to round.
+   */
   async ask(input: GrillerTurnInput): Promise<string> {
     const body = JSON.stringify({
       anthropic_version: 'bedrock-2023-05-31',
       system: buildGrillerSystemPrompt(),
       messages: [
-        { role: 'user', content: [{ type: 'text', text: buildGrillerUserPrompt(input) }] },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: buildGrillerStablePrompt(input), cache_control: { type: 'ephemeral' } },
+            { type: 'text', text: buildGrillerVariablePrompt(input) },
+          ],
+        },
       ],
       max_tokens: this.maxTokens,
       temperature: this.temperature,

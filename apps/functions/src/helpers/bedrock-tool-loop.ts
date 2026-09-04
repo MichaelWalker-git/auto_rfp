@@ -29,6 +29,14 @@ export interface InvokeClaudeWithToolsArgs<T> {
   orgId: string;
   system: string;
   user: string;
+  /**
+   * Large, stable content (identical across calls in the same run — e.g. the
+   * FULL solicitation text) sent as its own leading content block marked
+   * `cache_control: { type: 'ephemeral' }` (Layer A prompt caching,
+   * docs/SOLICITATION-COVERAGE-PLAN.md). Omit when there's nothing worth
+   * caching — `user` alone is unaffected either way.
+   */
+  cacheableUser?: string;
   tools: ReadonlyArray<ToolDefinition>;
   /**
    * Called for each tool_use block Claude emits.
@@ -52,6 +60,7 @@ type ContentBlock = {
   name?: string;
   input?: unknown;
   text?: string;
+  cache_control?: { type: 'ephemeral' };
 };
 
 type Message = {
@@ -109,6 +118,7 @@ export const invokeClaudeWithTools = async <T>(
     orgId,
     system,
     user,
+    cacheableUser,
     tools,
     toolExecutor,
     outputSchema,
@@ -120,8 +130,15 @@ export const invokeClaudeWithTools = async <T>(
   // Allow up to 2 extra rounds beyond maxToolRounds if the model keeps requesting tools
   const absoluteMax = maxToolRounds + 2;
 
+  const initialContent: ContentBlock[] = cacheableUser
+    ? [
+        { type: 'text', text: cacheableUser, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: user },
+      ]
+    : [{ type: 'text', text: user }];
+
   const messages: Message[] = [
-    { role: 'user', content: [{ type: 'text', text: user }] },
+    { role: 'user', content: initialContent },
   ];
 
   let rawText = '';

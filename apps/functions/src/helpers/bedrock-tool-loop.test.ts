@@ -272,6 +272,50 @@ describe('invokeClaudeWithTools — orgId propagation', () => {
   });
 });
 
+describe('invokeClaudeWithTools — cacheableUser (Layer A prompt caching)', () => {
+  it('sends a leading cache_control block plus an uncached user block when cacheableUser is set', async () => {
+    const responseBody = { stop_reason: 'end_turn', content: [{ type: 'text', text: '{"title":"Cached"}' }] };
+    mockInvokeModel.mockResolvedValueOnce(encodeResponse(responseBody));
+
+    await invokeClaudeWithTools({
+      modelId: MODEL_ID,
+      system: 'System',
+      user: 'VARIABLE',
+      cacheableUser: 'STABLE CONTENT',
+      tools: [],
+      toolExecutor: mockToolExecutor,
+      outputSchema: SIMPLE_SCHEMA,
+    });
+
+    const body = JSON.parse(mockInvokeModel.mock.calls[0]?.[1] as string) as {
+      messages: Array<{ role: string; content: Array<{ type: string; text?: string; cache_control?: unknown }> }>;
+    };
+    expect(body.messages[0].content).toEqual([
+      { type: 'text', text: 'STABLE CONTENT', cache_control: { type: 'ephemeral' } },
+      { type: 'text', text: 'VARIABLE' },
+    ]);
+  });
+
+  it('preserves the original single-block content shape when cacheableUser is omitted', async () => {
+    const responseBody = { stop_reason: 'end_turn', content: [{ type: 'text', text: '{"title":"Uncached"}' }] };
+    mockInvokeModel.mockResolvedValueOnce(encodeResponse(responseBody));
+
+    await invokeClaudeWithTools({
+      modelId: MODEL_ID,
+      system: 'System',
+      user: 'VARIABLE',
+      tools: [],
+      toolExecutor: mockToolExecutor,
+      outputSchema: SIMPLE_SCHEMA,
+    });
+
+    const body = JSON.parse(mockInvokeModel.mock.calls[0]?.[1] as string) as {
+      messages: Array<{ role: string; content: Array<{ type: string; text?: string }> }>;
+    };
+    expect(body.messages[0].content).toEqual([{ type: 'text', text: 'VARIABLE' }]);
+  });
+});
+
 describe('invokeClaudeWithTools — empty-content handling', () => {
   it('does not push empty assistant content back into the conversation', async () => {
     const emptyResponse = { stop_reason: 'end_turn', content: [] };

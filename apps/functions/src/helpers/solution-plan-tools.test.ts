@@ -4,6 +4,13 @@
  * search_service_pricing since T3).
  */
 const mockExecuteDocumentTool = jest.fn();
+const mockLoadRawSolicitationDocuments = jest.fn();
+
+jest.mock('@/helpers/executive-opportunity-brief', () => ({
+  loadRawSolicitationDocuments: (...a: unknown[]) => mockLoadRawSolicitationDocuments(...a),
+  truncateText: (text: string, maxChars: number) =>
+    text.length > maxChars ? `${text.slice(0, maxChars)}\n\n[TRUNCATED]` : text,
+}));
 
 jest.mock('@/helpers/document-tools', () => ({
   DOCUMENT_TOOLS: [
@@ -21,6 +28,7 @@ jest.mock('@/helpers/document-tools', () => ({
 }));
 
 import {
+  FETCH_SOLICITATION_SECTION_TOOL_NAME,
   SOLUTION_PLAN_SHARED_TOOL_NAMES,
   SOLUTION_PLAN_TOOLS,
   executeSolutionPlanTool,
@@ -40,9 +48,11 @@ beforeEach(() => {
 });
 
 describe('SOLUTION_PLAN_TOOLS', () => {
-  it('offers exactly the shared subset (incl. search_service_pricing)', () => {
+  it('offers exactly the shared subset plus fetch_solicitation_section (incl. search_service_pricing)', () => {
     const names = SOLUTION_PLAN_TOOLS.map((t) => t.name).sort();
-    expect(names).toEqual([...SOLUTION_PLAN_SHARED_TOOL_NAMES].sort());
+    expect(names).toEqual(
+      [...SOLUTION_PLAN_SHARED_TOOL_NAMES, FETCH_SOLICITATION_SECTION_TOOL_NAME].sort(),
+    );
   });
 
   it('excludes document-only tools like get_qa_answers and get_deadlines', () => {
@@ -185,5 +195,86 @@ describe('executeSolutionPlanTool — delegation', () => {
     });
     expect(result.content).toBe('Unknown tool: get_qa_answers');
     expect(mockExecuteDocumentTool).not.toHaveBeenCalled();
+  });
+});
+
+describe('executeSolutionPlanTool — fetch_solicitation_section', () => {
+  const MAIN_DOC_TEXT = [
+    'INTRODUCTION',
+    'This is the introduction to the RFP.',
+    '',
+    '2.1 SCOPE OF WORK',
+    'The contractor shall provide cloud migration services for the agency data center.',
+    'Pricing must be submitted as a fixed-price CLIN structure.',
+    '',
+    '2.2 PERIOD OF PERFORMANCE',
+    'Base year plus four option years.',
+  ].join('\n');
+
+  beforeEach(() => {
+    mockLoadRawSolicitationDocuments.mockResolvedValue([
+      { file: {}, fileName: 'RFP Main.pdf', text: MAIN_DOC_TEXT },
+      { file: {}, fileName: 'Attachment A.pdf', text: 'Attachment content here.' },
+    ]);
+  });
+
+  it('returns context around the first keyword match', async () => {
+    const result = await executeSolutionPlanTool({
+      ...baseArgs,
+      toolName: 'fetch_solicitation_section',
+      toolInput: { documentName: 'RFP Main.pdf', keywords: ['fixed-price CLIN'] },
+    });
+
+    expect(result.content).toContain('fixed-price CLIN structure');
+    expect(mockExecuteDocumentTool).not.toHaveBeenCalled();
+  });
+
+  it('returns the enclosing section for a sectionHint', async () => {
+    const result = await executeSolutionPlanTool({
+      ...baseArgs,
+      toolName: 'fetch_solicitation_section',
+      toolInput: { documentName: 'RFP Main.pdf', sectionHint: 'SCOPE OF WORK' },
+    });
+
+    expect(result.content).toContain('2.1 SCOPE OF WORK');
+    expect(result.content).toContain('cloud migration services');
+    expect(result.content).not.toContain('PERIOD OF PERFORMANCE');
+  });
+
+  it('returns the outline when neither keywords nor sectionHint is given', async () => {
+    const result = await executeSolutionPlanTool({
+      ...baseArgs,
+      toolName: 'fetch_solicitation_section',
+      toolInput: { documentName: 'RFP Main.pdf' },
+    });
+
+    expect(result.content).toContain('Outline of "RFP Main.pdf"');
+    expect(result.content).toContain('2.1 SCOPE OF WORK');
+  });
+
+  it('reports unknown documents with the available list', async () => {
+    const result = await executeSolutionPlanTool({
+      ...baseArgs,
+      toolName: 'fetch_solicitation_section',
+      toolInput: { documentName: 'Nonexistent.pdf' },
+    });
+
+    expect(result.content).toContain('Unknown document "Nonexistent.pdf"');
+    expect(result.content).toContain('RFP Main.pdf');
+    expect(result.content).toContain('Attachment A.pdf');
+  });
+
+  it('enforces the 6,000-char cap on the response', async () => {
+    mockLoadRawSolicitationDocuments.mockResolvedValue([
+      { file: {}, fileName: 'Huge.pdf', text: 'x'.repeat(20_000) },
+    ]);
+
+    const result = await executeSolutionPlanTool({
+      ...baseArgs,
+      toolName: 'fetch_solicitation_section',
+      toolInput: { documentName: 'Huge.pdf', keywords: ['x'] },
+    });
+
+    expect(result.content.length).toBeLessThanOrEqual(6_000 + '\n\n[TRUNCATED]'.length);
   });
 });

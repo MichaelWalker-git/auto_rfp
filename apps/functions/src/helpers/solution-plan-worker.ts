@@ -27,12 +27,12 @@ import {
 
 import { computeCostScheduleTotals } from './cost-schedule';
 import { fetchExecutiveBriefAnalysis } from './db-tool-helpers';
-import { loadSolicitation } from './document-generation';
 import { errorMessageOf } from './error';
 import { requireEnv } from './env';
 import { nowIso } from './date';
 import { invokeClaudeJson, truncateText } from './executive-opportunity-brief';
 import { GrillerAgent, MIN_GRILLING_ROUNDS, shouldHonorTerminationToken } from './griller-agent';
+import { loadSolicitationBundle } from './solicitation-loader';
 import { TechLeadAgent } from './tech-lead-agent';
 import { PK_NAME } from '@/constants/common';
 import { isConditionalCheckFailed } from './db';
@@ -53,6 +53,7 @@ import {
   TECH_LEAD_PRIMER_CHAR_CAP,
   buildSynthesizerSystemPrompt,
   buildSynthesizerUserPrompt,
+  solicitationTextForBundle,
   type TranscriptEntry,
 } from './solution-plan-prompts';
 
@@ -114,19 +115,24 @@ interface RoundContext {
 
 /**
  * The Tech Lead / Synthesizer primer: exec-brief analysis (when one exists)
- * plus the head of the solicitation, capped at 10k — detail comes via tools.
+ * plus the solicitation content, capped at `TECH_LEAD_PRIMER_CHAR_CAP`
+ * (150k). `solicitationText` is either the whole `FULL`-bundle text or the
+ * `SUMMARIZED` document manifest — never a literal excerpt — with detail
+ * beyond it available via tools.
  */
 const buildOpportunityPrimer = (solicitationText: string, execBriefText: string): string => {
   const parts = [
     execBriefText,
-    solicitationText && `SOLICITATION (excerpt):\n${solicitationText}`,
+    solicitationText && `SOLICITATION:\n${solicitationText}`,
   ].filter(Boolean);
   return truncateText(parts.join('\n\n'), TECH_LEAD_PRIMER_CHAR_CAP);
 };
 
 const loadRoundContext = async (message: GrillingRoundMessage): Promise<RoundContext> => {
-  const [solicitationRaw, execBriefRaw, allMessages] = await Promise.all([
-    loadSolicitation(message.projectId, message.opportunityId),
+  const [solicitationBundle, execBriefRaw, allMessages] = await Promise.all([
+    // FULL or SUMMARIZED per total solicitation size (docs/SOLICITATION-COVERAGE-PLAN.md) —
+    // never a blind slice, so no document is silently dropped.
+    loadSolicitationBundle(message.projectId, message.opportunityId, message.orgId),
     // Empty string when no brief exists — recommended, never required (ADR-14).
     // Factual sections only — the scoring/bid-decision section must never
     // reach the plan agents.
@@ -137,7 +143,10 @@ const loadRoundContext = async (message: GrillingRoundMessage): Promise<RoundCon
   ]);
 
   return {
-    solicitationText: truncateText(solicitationRaw, GRILLER_SOLICITATION_CHAR_CAP),
+    // Safety net independent of `SOLUTION_PLAN_FULL_SOLICITATION_THRESHOLD_CHARS`
+    // (which already bounds `FULL` bundles at build time) — the two happen to
+    // share a default, but this guards against them ever being tuned apart.
+    solicitationText: truncateText(solicitationTextForBundle(solicitationBundle), GRILLER_SOLICITATION_CHAR_CAP),
     execBriefText: execBriefRaw ? truncateText(execBriefRaw, GRILLER_BRIEF_CHAR_CAP) : '',
     // Only the current run's messages — a wiped/superseded run's leftovers
     // must never leak into prompts (ADR-5)

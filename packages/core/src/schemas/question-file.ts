@@ -109,6 +109,12 @@ export const QuestionFileItemSchema = z
     googleDriveUrl: z.string().url().optional(),
     googleDriveFolderId: z.string().optional(),
     googleDriveUploadedAt: IsoDateStringSchema.optional(),
+
+    // Solicitation coverage — per-document summary computed for the
+    // Solution Plan SUMMARIZED strategy (see solicitation-bundle.ts). Cached
+    // here so it survives across Solution Plan runs and is computed once.
+    summary: z.string().optional(),
+    sections: z.array(z.string()).optional(),
   })
   .passthrough();
 

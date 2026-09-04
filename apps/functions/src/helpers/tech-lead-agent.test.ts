@@ -18,6 +18,7 @@ jest.mock('@/helpers/solution-plan-tools', () => ({
 }));
 
 import { TechLeadAgent, type TechLeadTurnInput } from './tech-lead-agent';
+import { buildTechLeadStablePrompt, buildTechLeadVariablePrompt } from './solution-plan-prompts';
 
 const turnInput: TechLeadTurnInput = {
   opportunityPrimer: 'PRIMER',
@@ -89,6 +90,21 @@ describe('TechLeadAgent.answer', () => {
       { toolName: 'search_knowledge_base', summary: 'certs' },
       { toolName: 'search_service_pricing', summary: '[{"serviceName":"Datadog"}]' },
     ]);
+  });
+
+  it('sends the opportunity primer as cacheableUser, transcript/questions as the variable user (Layer A)', async () => {
+    const agent = new TechLeadAgent({ modelId: 'm' });
+    await agent.answer(turnInput);
+
+    const args = mockInvokeClaudeWithTools.mock.calls[0][0];
+    expect(args.cacheableUser).toBe(buildTechLeadStablePrompt(turnInput.opportunityPrimer));
+    expect(args.user).toBe(
+      buildTechLeadVariablePrompt({
+        transcript: turnInput.transcript,
+        currentQuestions: turnInput.currentQuestions,
+        round: turnInput.round,
+      }),
+    );
   });
 
   it('propagates tool-loop failures to the caller', async () => {

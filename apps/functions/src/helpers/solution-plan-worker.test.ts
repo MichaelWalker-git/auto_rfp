@@ -53,11 +53,14 @@ jest.mock('@/helpers/executive-opportunity-brief', () => ({
   truncateText: (text: string, max: number) => (text.length > max ? text.slice(0, max) : text),
 }));
 
-const mockLoadSolicitation = jest.fn();
 jest.mock('@/helpers/document-generation', () => ({
-  loadSolicitation: (...a: unknown[]) => mockLoadSolicitation(...a),
   extractBedrockText: (outer: { content?: Array<{ text?: string }> }) =>
     outer.content?.[0]?.text?.trim() ?? '',
+}));
+
+const mockLoadSolicitationBundle = jest.fn();
+jest.mock('@/helpers/solicitation-loader', () => ({
+  loadSolicitationBundle: (...a: unknown[]) => mockLoadSolicitationBundle(...a),
 }));
 
 const mockFetchBrief = jest.fn();
@@ -146,7 +149,11 @@ beforeEach(() => {
   mockUpdateStatus.mockResolvedValue({});
   mockUploadHtml.mockResolvedValue('org-1/proj-1/opp-1/solution-plan/v1/solution-plan.html');
   mockEnqueue.mockResolvedValue(undefined);
-  mockLoadSolicitation.mockResolvedValue('SOLICITATION TEXT');
+  mockLoadSolicitationBundle.mockResolvedValue({
+    strategy: 'FULL',
+    text: 'SOLICITATION TEXT',
+    documents: [{ name: 'RFP.pdf', chars: 17 }],
+  });
   mockFetchBrief.mockResolvedValue('BRIEF TEXT');
   mockInvokeModel.mockResolvedValue(bedrockText('Q1: What is the architecture?'));
   mockInvokeClaudeWithTools.mockResolvedValue({ answer: 'Concrete answer.' });
@@ -198,6 +205,27 @@ describe('processGrillingRound', () => {
     expect(mockEnqueue).toHaveBeenCalledWith({ ...message, round: 2, phase: 'GRILL' });
     // Grilling rounds produce no plan content — no version capture on this path (BR1.4/W5)
     expect(mockCaptureVersion).not.toHaveBeenCalled();
+  });
+
+  it('loads the solicitation bundle scoped to the org, project, and opportunity', async () => {
+    await processGrillingRound(message);
+
+    expect(mockLoadSolicitationBundle).toHaveBeenCalledWith('proj-1', 'opp-1', 'org-1');
+  });
+
+  it('injects the manifest (not raw text) into the prompts on a SUMMARIZED bundle', async () => {
+    mockLoadSolicitationBundle.mockResolvedValue({
+      strategy: 'SUMMARIZED',
+      summaries: [{ name: 'Huge RFP.pdf', chars: 500_000, summary: 'A massive RFP.', sections: ['Scope'] }],
+      totalChars: 500_000,
+    });
+
+    await processGrillingRound(message);
+
+    const [, body] = mockInvokeModel.mock.calls[0] as [string, string];
+    const grillerPrompt = JSON.parse(body).messages[0].content[0].text as string;
+    expect(grillerPrompt).toContain('DOCUMENT MANIFEST');
+    expect(grillerPrompt).toContain('A massive RFP.');
   });
 
   it('loads the exec brief with factual sections only — never scoring/bid-decision', async () => {

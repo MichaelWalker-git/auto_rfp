@@ -700,7 +700,7 @@ export class ApiOrchestratorStack extends cdk.Stack {
         role: sharedInfraStack.commonLambdaRole,
         environment: {
           ...commonEnv,
-          PROPOSAL_MAX_SOLICITATION_CHARS: '80000',
+          PROPOSAL_MAX_SOLICITATION_CHARS: '150000',
           BEDROCK_MAX_TOKENS: '40000',
           BEDROCK_TEMPERATURE: '0.1',
           // Required for CLARIFYING_QUESTIONS document type to auto-trigger question generation

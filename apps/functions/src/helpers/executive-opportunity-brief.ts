@@ -537,6 +537,126 @@ export async function loadAllQuestionFiles(projectId: string, opportunityId: str
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
 
+export interface RawSolicitationDoc {
+  file: QuestionFileItem;
+  fileName: string;
+  text: string;
+}
+
+/**
+ * Load each question file's extracted text individually — no merging, no
+ * truncation. Shared building block for `loadAllSolicitationTexts` (Layer 0
+ * budget floor) and `loadSolicitationBundle` (FULL/SUMMARIZED routing), so
+ * both see the exact same per-document text and `QuestionFileItem`.
+ */
+export const loadRawSolicitationDocuments = async (
+  projectId: string,
+  opportunityId: string,
+): Promise<RawSolicitationDoc[]> => {
+  const files = await loadAllQuestionFiles(projectId, opportunityId);
+
+  if (!files.length) {
+    console.warn(`No question files found for projectId=${projectId}, opportunityId=${opportunityId}`);
+    return [];
+  }
+
+  const results = await Promise.all(
+    files.map(async (file: QuestionFileItem) => {
+      // Prefer textFileKey (extracted text) over fileKey (raw PDF/binary)
+      const key = file.textFileKey || file.fileKey || '';
+      try {
+        const text = await loadTextFromS3(DOCUMENTS_BUCKET, key);
+        return { file, fileName: file.originalFileName || key, text, success: true };
+      } catch (err) {
+        console.warn(`Failed to load text from ${key}:`, (err as Error)?.message);
+        return { file, fileName: file.originalFileName || key, text: '', success: false };
+      }
+    }),
+  );
+
+  return results
+    .filter((r) => r.success && r.text.trim().length > 0)
+    .map(({ file, fileName, text }) => ({ file, fileName, text }));
+};
+
+/**
+ * Per-document budget floor: even under a tight `maxChars`, no document gets
+ * truncated to nothing.
+ */
+export const MIN_PER_DOC_CHARS = 3_000;
+/** Round-robin trim step when the floor above still leaves the total over `maxChars`. */
+const ROUND_ROBIN_TRIM_STEP_CHARS = 500;
+
+export interface BudgetedSolicitationDoc {
+  fileName: string;
+  text: string;
+  /** Chars removed from this document's original text, 0 when untouched. */
+  trimmedBy: number;
+}
+
+/**
+ * Allocate `maxChars` across `docs` so every document survives with at least
+ * `MIN_PER_DOC_CHARS` — replacing a single `merged.slice(0, maxChars)` that
+ * silently drops whole trailing documents once the merge exceeds the cap
+ * (the oldest documents, since callers merge in `createdAt DESC` order).
+ *
+ * Each document is first capped at `perDocBudget`. If the floor still leaves
+ * the total over `maxChars` (a small budget spread across many files), the
+ * largest surviving document is trimmed `ROUND_ROBIN_TRIM_STEP_CHARS` at a
+ * time — round-robin — until the total fits.
+ */
+export const applyPerDocumentBudget = (
+  docs: ReadonlyArray<{ fileName: string; text: string }>,
+  maxChars: number,
+): BudgetedSolicitationDoc[] => {
+  const totalChars = docs.reduce((sum, d) => sum + d.text.length, 0);
+  if (totalChars <= maxChars) {
+    return docs.map((d) => ({ fileName: d.fileName, text: d.text, trimmedBy: 0 }));
+  }
+
+  const perDocBudget = Math.max(MIN_PER_DOC_CHARS, Math.floor(maxChars / docs.length));
+  const budgeted = docs.map((d) => ({
+    fileName: d.fileName,
+    text: d.text.length > perDocBudget ? d.text.slice(0, perDocBudget) : d.text,
+  }));
+
+  let sum = budgeted.reduce((s, d) => s + d.text.length, 0);
+  while (sum > maxChars) {
+    let largestIdx = -1;
+    let largestLen = 0;
+    budgeted.forEach((d, i) => {
+      if (d.text.length > largestLen) {
+        largestLen = d.text.length;
+        largestIdx = i;
+      }
+    });
+    if (largestIdx === -1) break; // every document is already empty — nothing left to trim
+
+    const doc = budgeted[largestIdx]!;
+    const drop = Math.min(ROUND_ROBIN_TRIM_STEP_CHARS, doc.text.length);
+    doc.text = doc.text.slice(0, doc.text.length - drop);
+    sum -= drop;
+  }
+
+  return budgeted.map((d, i) => ({ ...d, trimmedBy: docs[i]!.text.length - d.text.length }));
+};
+
+/** Currently silent — log which documents lost content to the budget floor. */
+const logTrimmedSolicitationDocuments = (budgeted: ReadonlyArray<BudgetedSolicitationDoc>): void => {
+  const trimmed = budgeted.filter((d) => d.trimmedBy > 0);
+  if (!trimmed.length) return;
+  console.warn(
+    `[loadAllSolicitationTexts] Trimmed ${trimmed.length} document(s) to fit the char budget: ` +
+      trimmed.map((d) => `${d.fileName} (-${d.trimmedBy} chars)`).join(', '),
+  );
+};
+
+/** Merge documents in order, preserving the `--- Document N: name ---` markers when there's more than one. */
+export const mergeSolicitationDocuments = (docs: ReadonlyArray<{ fileName: string; text: string }>): string => {
+  if (docs.length === 1) return docs[0]!.text;
+  return docs.map((d, i) => `--- Document ${i + 1}: ${d.fileName} ---\n${d.text}`).join('\n\n');
+};
+
 /**
  * Load ALL solicitation texts for a project+opportunity by reading all question files from S3.
  * Returns the merged text from all files, separated by document markers.
@@ -546,49 +666,21 @@ export async function loadAllSolicitationTexts(
   opportunityId: string,
   maxChars?: number,
 ): Promise<string> {
-  const files = await loadAllQuestionFiles(projectId, opportunityId);
+  const docs = await loadRawSolicitationDocuments(projectId, opportunityId);
 
-  if (!files.length) {
-    console.warn(`No question files found for projectId=${projectId}, opportunityId=${opportunityId}`);
-    return '';
-  }
-
-  const textPromises = files.map(async (file: any) => {
-    // Prefer textFileKey (extracted text) over fileKey (raw PDF/binary)
-    const key = file.textFileKey || file.fileKey;
-    try {
-      const text = await loadTextFromS3(DOCUMENTS_BUCKET, key);
-      return { fileName: file.originalFileName || key, text, success: true };
-    } catch (err) {
-      console.warn(`Failed to load text from ${key}:`, (err as Error)?.message);
-      return { fileName: key, text: '', success: false };
-    }
-  });
-
-  const results = await Promise.all(textPromises);
-  const successfulTexts = results.filter(r => r.success && r.text.trim().length > 0);
-
-  if (!successfulTexts.length) {
+  if (!docs.length) {
     console.warn(`No solicitation texts loaded for projectId=${projectId}, opportunityId=${opportunityId}`);
     return '';
   }
 
-  let merged: string;
-  if (successfulTexts.length === 1) {
-    merged = successfulTexts[0]!.text;
-  } else {
-    merged = successfulTexts
-      .map((r, i) => `--- Document ${i + 1}: ${r.fileName} ---\n${r.text}`)
-      .join('\n\n');
-  }
+  const budgeted = maxChars
+    ? applyPerDocumentBudget(docs, maxChars)
+    : docs.map((d) => ({ fileName: d.fileName, text: d.text, trimmedBy: 0 }));
+  logTrimmedSolicitationDocuments(budgeted);
 
-  console.log(`Loaded ${successfulTexts.length} solicitation document(s) for projectId=${projectId}`);
+  console.log(`Loaded ${docs.length} solicitation document(s) for projectId=${projectId}`);
 
-  if (maxChars && merged.length > maxChars) {
-    return merged.slice(0, maxChars) + '\n\n[TRUNCATED]';
-  }
-
-  return merged;
+  return mergeSolicitationDocuments(budgeted);
 }
 
 export async function loadLatestQuestionFile(projectId: string, opportunityId?: string): Promise<QuestionFileItem> {
