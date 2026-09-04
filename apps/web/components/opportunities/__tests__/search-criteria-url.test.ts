@@ -197,6 +197,30 @@ describe('savedSearchToParams', () => {
     expect(criteria?.postedFrom).toBe('2026-07-06');
     expect(criteria?.sources).toEqual(['HIGHER_GOV']);
   });
+
+  it('carries a saved non-default market and activeOnly=false through to the reopened search', () => {
+    // These two fields used to be dropped entirely by this function (though not by
+    // the in-page "Saved Searches" tab's own reopen path), so running a saved
+    // "State & Local, include closed" search from the Saved Searches page silently
+    // reran as the defaults: federal-only, active-only.
+    const params = savedSearchToParams(makeSavedSearch({
+      keywords: 'saas',
+      higherGovMarket: 'state_local',
+      higherGovActiveOnly: false,
+    }));
+
+    const criteria = paramsToCriteria(params);
+    expect(criteria?.higherGovMarket).toBe('state_local');
+    expect(criteria?.higherGovActiveOnly).toBe(false);
+  });
+
+  it('still restores the defaults for a search saved before these fields existed', () => {
+    const params = savedSearchToParams(makeSavedSearch({ keywords: 'saas' }));
+
+    const criteria = paramsToCriteria(params);
+    expect(criteria?.higherGovMarket).toBe('all');
+    expect(criteria?.higherGovActiveOnly).toBe(true);
+  });
 });
 
 describe('paramsToFormValues', () => {

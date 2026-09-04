@@ -449,7 +449,11 @@ export const SearchOpportunityForm = ({ orgId, projectId, onSearch, isLoading, i
     setIsSaving(true);
     try {
       const c = buildCriteria(w);
-      const fmt = (iso?: string) => iso ? `${iso.slice(5,7)}/${iso.slice(8,10)}/${iso.slice(0,4)}` : '01/01/2025';
+      // No date picked must persist as no date filter — never a placeholder calendar day.
+      // HigherGov's postedFrom is a single specific day; inventing one (this used to fall
+      // back to the literal '01/01/2025') would silently pin every future run of the saved
+      // search, and every scheduled run, to opportunities posted on that one fake day.
+      const fmt = (iso?: string) => iso ? `${iso.slice(5,7)}/${iso.slice(8,10)}/${iso.slice(0,4)}` : undefined;
       const source = w.source === 'HIGHER_GOV' ? 'HIGHER_GOV' : 'SAM_GOV';
       // Daily auto-import is scoped to HigherGov: its saved-search IDs pull a
       // stable, filtered result set, so unattended daily imports are safe. SAM.gov

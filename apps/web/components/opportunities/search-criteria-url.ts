@@ -88,6 +88,12 @@ export const savedSearchToParams = (s: SavedSearch): URLSearchParams =>
     closingTo:           mmDdYyyyToIso(s.criteria.closingTo),
     higherGovSourceType: s.criteria.higherGovSourceType,
     higherGovSearchId:   s.criteria.higherGovSearchId,
+    // Omitted before: a search saved with a non-default market or activeOnly=false
+    // silently reopened as 'all'/active-only from this page (though not from the
+    // in-page "Saved Searches" tab, which already carried them) — a different search
+    // than the one the user saved.
+    higherGovMarket:     s.criteria.higherGovMarket,
+    higherGovActiveOnly: s.criteria.higherGovActiveOnly,
     limit:               s.criteria.limit,
   });
 

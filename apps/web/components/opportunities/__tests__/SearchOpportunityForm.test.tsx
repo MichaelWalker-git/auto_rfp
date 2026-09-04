@@ -332,3 +332,48 @@ describe('SearchOpportunityForm — saved searches persist market and active-onl
     expect(criteria.higherGovActiveOnly).toBe(true);
   });
 });
+
+/**
+ * Saving must never invent a date. HigherGov's posted-date filter is a single
+ * specific day, so a fabricated one silently pins every future run — including
+ * scheduled ones — to whatever fake day the save happened to compute. This used to
+ * fall back to the literal '01/01/2025' for any unset date, which is guaranteed to
+ * fire for HigherGov: its postedTo is never collected at all, and postedFrom is only
+ * ever set when the user explicitly used the single-day picker.
+ */
+describe('SearchOpportunityForm — saving never invents a posted date', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockAuthFetcher.mockResolvedValue({ ok: true, json: async () => ({}) } as unknown as Response);
+  });
+
+  it('omits postedFrom/postedTo for a HigherGov search with no posted-on day picked', async () => {
+    renderForm({ source: 'HIGHER_GOV', higherGovSearchId: 'BWr0PdG39B6mX8cG47AQ8' });
+
+    const { criteria } = await saveAndReadBody();
+
+    expect(criteria.postedFrom).toBeUndefined();
+    expect(criteria.postedTo).toBeUndefined();
+  });
+
+  it('never writes the 01/01/2025 placeholder for any unset date', async () => {
+    renderForm({ source: 'HIGHER_GOV', higherGovSearchId: 'BWr0PdG39B6mX8cG47AQ8' });
+
+    const { criteria } = await saveAndReadBody();
+
+    expect(criteria.postedFrom).not.toBe('01/01/2025');
+    expect(criteria.postedTo).not.toBe('01/01/2025');
+  });
+
+  it('still saves the exact day picked on the HigherGov single-day picker', async () => {
+    renderForm({
+      source: 'HIGHER_GOV',
+      higherGovSearchId: 'BWr0PdG39B6mX8cG47AQ8',
+      higherGovPostedOn: new Date(2026, 6, 6), // Jul 6, 2026
+    });
+
+    const { criteria } = await saveAndReadBody();
+
+    expect(criteria.postedFrom).toBe('07/06/2026');
+  });
+});

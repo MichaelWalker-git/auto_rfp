@@ -50,6 +50,7 @@ import {
   fetchHigherGovDocuments,
   type HigherGovConfig,
 } from '@/helpers/search-opportunity';
+import { searchHigherGovViaMcp } from '@/helpers/highergov-mcp';
 import { buildQuestionFileSK, updateQuestionFile } from '@/helpers/questionFile';
 import { createOpportunity, findOpportunityBySourceId } from '@/helpers/opportunity';
 import { getApiKey } from '@/helpers/api-key-storage';
@@ -93,6 +94,21 @@ function shouldRunNow(search: SavedSearch, now: Date) {
 
 function buildRuntimeCriteria(search: SavedSearch, now: Date): LoadSearchOpportunitiesRequest {
   const base = search.criteria;
+
+  // HigherGov's `postedFrom` maps to `posted_date`, a SINGLE DAY, not a range — the same
+  // reason the interactive search path never lets SAM.gov's rolling-window default reach
+  // HigherGov. Advancing it to "since last run" every scheduled run would silently narrow
+  // the search to whatever day happened to compute out, and a search saved with no date at
+  // all must keep running with no date filter, exactly as saved. So HigherGov criteria pass
+  // through completely untouched: no incremental postedFrom, no postedTo.
+  if (search.source === 'HIGHER_GOV') {
+    return {
+      ...base,
+      limit: base.limit ?? 25,
+      offset: 0,
+    };
+  }
+
   const postedTo = mmddyyyy(now);
 
   // Use last run time as postedFrom for incremental fetching; fall back to saved criteria or 30 days ago
@@ -502,18 +518,35 @@ async function runForOrg(args: {
         ? `${criteria.postedFrom.slice(6)}-${criteria.postedFrom.slice(0, 2)}-${criteria.postedFrom.slice(3, 5)}`
         : undefined;
 
-      const resp = await searchHigherGovOpportunities(
-        { baseUrl: HIGHERGOV_BASE_URL, apiKey: hgApiKey, httpsAgent },
-        {
-          keywords:   hasSearchId ? undefined : criteria.keywords,
-          searchId:   criteria.higherGovSearchId,
-          sourceType: hasSearchId ? undefined : criteria.higherGovSourceType,
-          postedDate,
-          ordering:   '-captured_date',
-          pageSize:   criteria.limit ?? 25,
-          pageNumber: 1,
-        },
-      );
+      // A search_id is a saved search built in HigherGov's UI — it can return
+      // 1,300-2,900 records, well past what's safe to run inline, so it stays on the
+      // REST client exactly as before. Everything else (keyword/NAICS/market/active/date)
+      // MUST go through MCP: REST has no keyword or NAICS parameter and silently ignores
+      // both (a baseline query and the same query plus a nonsense keyword return the same
+      // row count), so running a keyword-based saved search through REST here would import
+      // a different, unfiltered set of opportunities than the interactive search the user
+      // actually configured and saved.
+      const resp = hasSearchId
+        ? await searchHigherGovOpportunities(
+            { baseUrl: HIGHERGOV_BASE_URL, apiKey: hgApiKey, httpsAgent },
+            {
+              searchId:   criteria.higherGovSearchId,
+              ordering:   '-captured_date',
+              pageSize:   criteria.limit ?? 25,
+              pageNumber: 1,
+            },
+          )
+        : await searchHigherGovViaMcp(
+            { baseUrl: HIGHERGOV_BASE_URL, apiKey: hgApiKey, httpsAgent },
+            {
+              keyword:         criteria.keywords,
+              naicsCode:       criteria.naics?.[0],
+              opportunityType: criteria.higherGovMarket,
+              activeOnly:      criteria.higherGovActiveOnly,
+              postedDate,
+              pageNumber: 1,
+            },
+          );
       found = resp.totalCount;
 
       if (!args.dryRun && s.autoImport && projectId) {
