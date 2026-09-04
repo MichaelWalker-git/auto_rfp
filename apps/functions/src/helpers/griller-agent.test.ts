@@ -81,6 +81,19 @@ describe('GrillerAgent.ask', () => {
     expect(request.max_tokens).toBe(2000);
   });
 
+  it('sends the solicitation + exec brief as a leading cache_control block, round framing uncached (Layer A)', async () => {
+    const agent = new GrillerAgent({ modelId: 'm' });
+    await agent.ask(turnInput);
+
+    const request = JSON.parse(mockInvokeModel.mock.calls[0][1] as string);
+    const [stableBlock, variableBlock] = request.messages[0].content;
+    expect(stableBlock.cache_control).toEqual({ type: 'ephemeral' });
+    expect(stableBlock.text).toContain('SOLICITATION TEXT');
+    expect(stableBlock.text).toContain('BRIEF TEXT');
+    expect(variableBlock.cache_control).toBeUndefined();
+    expect(variableBlock.text).not.toContain('SOLICITATION TEXT');
+  });
+
   it('honors maxTokens and temperature overrides', async () => {
     const agent = new GrillerAgent({ modelId: 'm', maxTokens: 900, temperature: 0.1 });
     await agent.ask(turnInput);

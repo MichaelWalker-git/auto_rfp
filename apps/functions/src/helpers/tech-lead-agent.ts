@@ -18,8 +18,9 @@ import type { GrillingToolCallSummary, SolutionPlanKey } from '@auto-rfp/core';
 
 import { invokeClaudeWithTools } from './bedrock-tool-loop';
 import {
+  buildTechLeadStablePrompt,
   buildTechLeadSystemPrompt,
-  buildTechLeadUserPrompt,
+  buildTechLeadVariablePrompt,
   type TranscriptEntry,
 } from './solution-plan-prompts';
 import {
@@ -70,7 +71,14 @@ export class TechLeadAgent {
     this.maxToolRounds = config.maxToolRounds ?? DEFAULT_MAX_TOOL_ROUNDS;
   }
 
-  /** One answering turn: concrete decisions, grounded via the tool loop. */
+  /**
+   * One answering turn: concrete decisions, grounded via the tool loop.
+   *
+   * The opportunity primer (identical every round of a run) is sent as its
+   * own leading content block marked `cache_control: { type: 'ephemeral' }`
+   * (Layer A prompt caching) — the per-round transcript and questions follow,
+   * uncached.
+   */
   async answer(input: TechLeadTurnInput): Promise<TechLeadTurnResult> {
     const { opportunityPrimer, transcript, currentQuestions, round, toolContext } = input;
 
@@ -79,7 +87,8 @@ export class TechLeadAgent {
       modelId: this.modelId,
       orgId: toolContext.orgId,
       system: buildTechLeadSystemPrompt(),
-      user: buildTechLeadUserPrompt({ opportunityPrimer, transcript, currentQuestions, round }),
+      user: buildTechLeadVariablePrompt({ transcript, currentQuestions, round }),
+      cacheableUser: buildTechLeadStablePrompt(opportunityPrimer),
       tools: SOLUTION_PLAN_TOOLS,
       toolExecutor: async (toolName, toolInput, toolUseId) => {
         toolCalls.push({ toolName, summary: summarizeToolInput(toolInput) });

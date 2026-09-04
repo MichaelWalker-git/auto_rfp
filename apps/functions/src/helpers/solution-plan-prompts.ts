@@ -11,7 +11,7 @@
  * Pure functions only — no AWS calls, no side effects.
  */
 
-import type { GrillingMessageItem, GrillingMessageRole } from '@auto-rfp/core';
+import type { DocSummary, GrillingMessageItem, GrillingMessageRole, SolicitationBundle } from '@auto-rfp/core';
 
 import type { BriefSectionName } from './executive-opportunity-brief';
 
@@ -41,18 +41,55 @@ export const SOLUTION_PLAN_BRIEF_SECTIONS: readonly BriefSectionName[] = [
   'pastPerformance',
 ];
 
-/** Griller context caps: solicitation 60k + exec brief 8k (ROADMAP §2). */
-export const GRILLER_SOLICITATION_CHAR_CAP = 60_000;
+/**
+ * Griller context caps: solicitation + exec brief 8k (ROADMAP §2). The
+ * solicitation cap matches `TECH_LEAD_PRIMER_CHAR_CAP` and the default
+ * `SOLUTION_PLAN_FULL_SOLICITATION_THRESHOLD_CHARS` — on the `FULL` path
+ * (RFPs at or under the threshold) both agents get the whole solicitation,
+ * not a compact excerpt; detail-via-tools is reserved for `SUMMARIZED`.
+ */
+export const GRILLER_SOLICITATION_CHAR_CAP = 150_000;
 export const GRILLER_BRIEF_CHAR_CAP = 8_000;
 
-/** The Tech Lead gets a compact opportunity primer and pulls detail via tools. */
-export const TECH_LEAD_PRIMER_CHAR_CAP = 10_000;
+/**
+ * The Tech Lead's opportunity primer. On `FULL` bundles this holds the whole
+ * solicitation (same cap as the Griller); on `SUMMARIZED` bundles it holds
+ * the document manifest instead, which is always well under this cap.
+ */
+export const TECH_LEAD_PRIMER_CHAR_CAP = 150_000;
 
 /**
  * Synthesizer body-length target (ADR-6): well under the 12k injection
  * truncation so sections stay whole in practice.
  */
 export const SYNTHESIS_TARGET_BODY_CHARS = 10_000;
+
+// ─── Solicitation bundle rendering ───────────────────────────────────────────────
+
+/**
+ * Render a `SUMMARIZED` bundle's per-document summaries as a manifest: enough
+ * for the Griller/Tech Lead to reason about the solicitation's shape and to
+ * decide when to call `fetch_solicitation_section` for a specific document.
+ */
+export const buildSolicitationManifest = (summaries: readonly DocSummary[], totalChars: number): string => {
+  const entries = summaries
+    .map((doc) =>
+      [
+        `--- Document: ${doc.name} (${doc.chars.toLocaleString('en-US')} chars) ---`,
+        `Summary: ${doc.summary}`,
+        doc.sections.length ? `Sections: ${doc.sections.join('; ')}` : undefined,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    )
+    .join('\n\n');
+
+  return `DOCUMENT MANIFEST (${summaries.length} document(s), ${totalChars.toLocaleString('en-US')} chars total):\n\n${entries}\n\nUse fetch_solicitation_section with the exact document name above to pull specific requirements, pricing, or evaluation criteria.`;
+};
+
+/** The text to inject for a solicitation bundle: full text on `FULL`, the manifest on `SUMMARIZED`. */
+export const solicitationTextForBundle = (bundle: SolicitationBundle): string =>
+  bundle.strategy === 'FULL' ? bundle.text : buildSolicitationManifest(bundle.summaries, bundle.totalChars);
 
 // ─── Transcript formatting ──────────────────────────────────────────────────────
 
@@ -96,15 +133,19 @@ TERMINATION:
 - Do not mention the token in any other context. Never write it inside a question or explanation.
 - Do not thank the Tech Lead or summarize — either ask questions or output the token.`;
 
-export const buildGrillerUserPrompt = (args: {
+/**
+ * The part of the Griller's user prompt that's identical on every round of a
+ * run (solicitation + exec brief) — split out so it can be sent as its own
+ * `cache_control: { type: 'ephemeral' }` content block (Layer A prompt
+ * caching, docs/SOLICITATION-COVERAGE-PLAN.md). Must be prefix-stable: never
+ * interpolate anything that changes round to round.
+ */
+export const buildGrillerStablePrompt = (args: {
   solicitationText: string;
   /** Formatted exec-brief analysis; empty string when no brief exists (ADR-14). */
   execBriefText: string;
-  transcript: TranscriptEntry[];
-  round: number;
-  maxRounds: number;
 }): string => {
-  const { solicitationText, execBriefText, transcript, round, maxRounds } = args;
+  const { solicitationText, execBriefText } = args;
 
   const parts: string[] = [
     '═══ SOLICITATION ═══',
@@ -116,6 +157,19 @@ export const buildGrillerUserPrompt = (args: {
   if (execBriefText) {
     parts.push('═══ EXECUTIVE BRIEF ANALYSIS ═══', execBriefText);
   }
+
+  return parts.join('\n\n');
+};
+
+/** The part of the Griller's user prompt that changes every round — never cached. */
+export const buildGrillerVariablePrompt = (args: {
+  transcript: TranscriptEntry[];
+  round: number;
+  maxRounds: number;
+}): string => {
+  const { transcript, round, maxRounds } = args;
+
+  const parts: string[] = [];
 
   const dialogue = formatTranscript(transcript);
   if (dialogue) {
@@ -135,6 +189,15 @@ export const buildGrillerUserPrompt = (args: {
   return parts.join('\n\n');
 };
 
+export const buildGrillerUserPrompt = (args: {
+  solicitationText: string;
+  /** Formatted exec-brief analysis; empty string when no brief exists (ADR-14). */
+  execBriefText: string;
+  transcript: TranscriptEntry[];
+  round: number;
+  maxRounds: number;
+}): string => [buildGrillerStablePrompt(args), buildGrillerVariablePrompt(args)].join('\n\n');
+
 // ─── Tech Lead ──────────────────────────────────────────────────────────────────
 
 export const buildTechLeadSystemPrompt = (): string =>
@@ -152,18 +215,24 @@ OUTPUT FORMAT:
 Respond with ONLY a JSON object, no markdown fences or commentary:
 {"answer": "<your complete answer to all of this round's questions, in plain text with paragraph breaks>"}`;
 
-export const buildTechLeadUserPrompt = (args: {
-  opportunityPrimer: string;
+/**
+ * The part of the Tech Lead's user prompt that's identical on every round of
+ * a run — split out so it can be sent as its own `cache_control: { type:
+ * 'ephemeral' }` content block (Layer A prompt caching,
+ * docs/SOLICITATION-COVERAGE-PLAN.md).
+ */
+export const buildTechLeadStablePrompt = (opportunityPrimer: string): string =>
+  `═══ OPPORTUNITY PRIMER ═══\n\n${opportunityPrimer || '(No opportunity context available — use the tools to gather what you need.)'}`;
+
+/** The part of the Tech Lead's user prompt that changes every round — never cached. */
+export const buildTechLeadVariablePrompt = (args: {
   transcript: TranscriptEntry[];
   currentQuestions: string;
   round: number;
 }): string => {
-  const { opportunityPrimer, transcript, currentQuestions, round } = args;
+  const { transcript, currentQuestions, round } = args;
 
-  const parts: string[] = [
-    '═══ OPPORTUNITY PRIMER ═══',
-    opportunityPrimer || '(No opportunity context available — use the tools to gather what you need.)',
-  ];
+  const parts: string[] = [];
 
   const dialogue = formatTranscript(transcript);
   if (dialogue) {
@@ -178,6 +247,13 @@ export const buildTechLeadUserPrompt = (args: {
 
   return parts.join('\n\n');
 };
+
+export const buildTechLeadUserPrompt = (args: {
+  opportunityPrimer: string;
+  transcript: TranscriptEntry[];
+  currentQuestions: string;
+  round: number;
+}): string => [buildTechLeadStablePrompt(args.opportunityPrimer), buildTechLeadVariablePrompt(args)].join('\n\n');
 
 // ─── Synthesizer ────────────────────────────────────────────────────────────────
 

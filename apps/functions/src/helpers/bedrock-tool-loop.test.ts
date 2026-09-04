@@ -251,7 +251,11 @@ describe('invokeClaudeWithTools — orgId propagation', () => {
     const nonJson = { stop_reason: 'end_turn', content: [{ type: 'text', text: 'this is not json' }] };
     const repaired = { stop_reason: 'end_turn', content: [{ type: 'text', text: '{"title":"Repaired"}' }] };
 
+    // maxToolRounds=0 → absoluteMax=2: rounds 0 and 1 get nudged for JSON,
+    // round 2 is the last one and falls through to the repair retry.
     mockInvokeModel
+      .mockResolvedValueOnce(encodeResponse(nonJson))
+      .mockResolvedValueOnce(encodeResponse(nonJson))
       .mockResolvedValueOnce(encodeResponse(nonJson))
       .mockResolvedValueOnce(encodeResponse(repaired));
 
@@ -263,11 +267,266 @@ describe('invokeClaudeWithTools — orgId propagation', () => {
       tools: [],
       toolExecutor: mockToolExecutor,
       outputSchema: SIMPLE_SCHEMA,
+      maxToolRounds: 0,
     });
 
     expect(result).toEqual({ title: 'Repaired' });
+    expect(mockInvokeModel).toHaveBeenCalledTimes(4);
+    // The JSON-repair invoke (last call) must carry orgId too.
+    expect(mockInvokeModel.mock.calls.at(-1)?.[2]).toBe(ORG_ID);
+  });
+});
+
+describe('invokeClaudeWithTools — non-JSON narration after tools are withdrawn', () => {
+  const TOOLS = [
+    { name: 'search_knowledge_base', description: 'Search', input_schema: { type: 'object' as const, properties: {}, required: [] } },
+  ];
+
+  it('re-prompts for JSON when the final round returns narration instead of an answer', async () => {
+    const toolUseResponse = {
+      stop_reason: 'tool_use',
+      content: [{ type: 'tool_use', id: 'tool-1', name: 'search_knowledge_base', input: {} }],
+    };
+    // What the Tech Lead actually returned in Dev once tools stopped being offered.
+    const narration = {
+      stop_reason: 'end_turn',
+      content: [{ type: 'text', text: 'Good, I have relevant past performance. Now let me verify our blended rate and finalize my analysis.' }],
+    };
+    const finalResponse = { stop_reason: 'end_turn', content: [{ type: 'text', text: '{"title":"Recovered"}' }] };
+
+    // maxToolRounds=1 → round 0 uses the tool, round 1 narrates (no tools), round 2 answers.
+    mockInvokeModel
+      .mockResolvedValueOnce(encodeResponse(toolUseResponse))
+      .mockResolvedValueOnce(encodeResponse(narration))
+      .mockResolvedValueOnce(encodeResponse(finalResponse));
+
+    const result = await invokeClaudeWithTools({
+      modelId: MODEL_ID,
+      system: 'System',
+      user: 'User',
+      tools: TOOLS,
+      toolExecutor: mockToolExecutor,
+      outputSchema: SIMPLE_SCHEMA,
+      maxToolRounds: 1,
+    });
+
+    expect(result).toEqual({ title: 'Recovered' });
+    expect(mockInvokeModel).toHaveBeenCalledTimes(3);
+
+    // The nudge must say tools are gone — that's the fact the model was missing.
+    const nudgeBody = JSON.parse(mockInvokeModel.mock.calls[2]?.[1] as string) as {
+      messages: Array<{ role: string; content: Array<{ type: string; text?: string }> }>;
+    };
+    const lastUserText = nudgeBody.messages.filter(m => m.role === 'user').at(-1)?.content[0]?.text ?? '';
+    expect(lastUserText).toContain('No further tool calls are available');
+  });
+
+  it('does not carry the discarded narration into the post-loop parse', async () => {
+    const narration = { stop_reason: 'end_turn', content: [{ type: 'text', text: 'Let me finalize my analysis.' }] };
+    const emptyResponse = { stop_reason: 'end_turn', content: [] };
+    const salvageResponse = { content: [{ type: 'text', text: '{"title":"Salvaged"}' }] };
+
+    // maxToolRounds=0 → absoluteMax=2. Round 0 narrates (discarded), rounds 1-2
+    // return nothing, so the loop must reach salvage rather than trying to parse
+    // the round-0 narration.
+    mockInvokeModel
+      .mockResolvedValueOnce(encodeResponse(narration))
+      .mockResolvedValueOnce(encodeResponse(emptyResponse))
+      .mockResolvedValueOnce(encodeResponse(emptyResponse))
+      .mockResolvedValueOnce(encodeResponse(salvageResponse));
+
+    const result = await invokeClaudeWithTools({
+      modelId: MODEL_ID,
+      system: 'System',
+      user: 'User',
+      tools: [],
+      toolExecutor: mockToolExecutor,
+      outputSchema: SIMPLE_SCHEMA,
+      maxToolRounds: 0,
+    });
+
+    expect(result).toEqual({ title: 'Salvaged' });
+    expect(mockInvokeModel).toHaveBeenCalledTimes(4);
+  });
+});
+
+describe('invokeClaudeWithTools — recovery calls stay schema- and context-aware', () => {
+  it('reuses the caller system prompt on the JSON-repair retry', async () => {
+    const nonJson = { stop_reason: 'end_turn', content: [{ type: 'text', text: 'prose only' }] };
+    const repaired = { stop_reason: 'end_turn', content: [{ type: 'text', text: '{"title":"Repaired"}' }] };
+
+    mockInvokeModel
+      .mockResolvedValueOnce(encodeResponse(nonJson))
+      .mockResolvedValueOnce(encodeResponse(nonJson))
+      .mockResolvedValueOnce(encodeResponse(nonJson))
+      .mockResolvedValueOnce(encodeResponse(repaired));
+
+    await invokeClaudeWithTools({
+      modelId: MODEL_ID,
+      system: 'OUTPUT FORMAT: {"title": "<t>"}',
+      user: 'User',
+      tools: [],
+      toolExecutor: mockToolExecutor,
+      outputSchema: SIMPLE_SCHEMA,
+      maxToolRounds: 0,
+    });
+
+    const repairBody = JSON.parse(mockInvokeModel.mock.calls.at(-1)?.[1] as string) as {
+      system: Array<{ type: string; text: string }>;
+    };
+    // Without the caller's OUTPUT FORMAT the repair model invents its own keys.
+    expect(repairBody.system[0]?.text).toBe('OUTPUT FORMAT: {"title": "<t>"}');
+  });
+
+  it('keeps the cacheableUser block on the salvage call', async () => {
+    const emptyResponse = { stop_reason: 'end_turn', content: [] };
+    const salvageResponse = { content: [{ type: 'text', text: '{"title":"Salvaged"}' }] };
+
+    mockInvokeModel
+      .mockResolvedValueOnce(encodeResponse(emptyResponse))
+      .mockResolvedValueOnce(encodeResponse(emptyResponse))
+      .mockResolvedValueOnce(encodeResponse(emptyResponse))
+      .mockResolvedValueOnce(encodeResponse(salvageResponse));
+
+    await invokeClaudeWithTools({
+      modelId: MODEL_ID,
+      system: 'System',
+      user: 'VARIABLE',
+      cacheableUser: 'STABLE CONTENT',
+      tools: [],
+      toolExecutor: mockToolExecutor,
+      outputSchema: SIMPLE_SCHEMA,
+      maxToolRounds: 0,
+    });
+
+    const salvageBody = JSON.parse(mockInvokeModel.mock.calls.at(-1)?.[1] as string) as {
+      messages: Array<{ role: string; content: Array<{ type: string; text?: string; cache_control?: unknown }> }>;
+    };
+    expect(salvageBody.messages[0]?.content[0]).toEqual({
+      type: 'text',
+      text: 'STABLE CONTENT',
+      cache_control: { type: 'ephemeral' },
+    });
+    expect(salvageBody.messages[0]?.content[1]?.text).toContain('VARIABLE');
+  });
+});
+
+describe('invokeClaudeWithTools — cacheableUser (Layer A prompt caching)', () => {
+  it('sends a leading cache_control block plus an uncached user block when cacheableUser is set', async () => {
+    const responseBody = { stop_reason: 'end_turn', content: [{ type: 'text', text: '{"title":"Cached"}' }] };
+    mockInvokeModel.mockResolvedValueOnce(encodeResponse(responseBody));
+
+    await invokeClaudeWithTools({
+      modelId: MODEL_ID,
+      system: 'System',
+      user: 'VARIABLE',
+      cacheableUser: 'STABLE CONTENT',
+      tools: [],
+      toolExecutor: mockToolExecutor,
+      outputSchema: SIMPLE_SCHEMA,
+    });
+
+    const body = JSON.parse(mockInvokeModel.mock.calls[0]?.[1] as string) as {
+      messages: Array<{ role: string; content: Array<{ type: string; text?: string; cache_control?: unknown }> }>;
+    };
+    expect(body.messages[0].content).toEqual([
+      { type: 'text', text: 'STABLE CONTENT', cache_control: { type: 'ephemeral' } },
+      { type: 'text', text: 'VARIABLE' },
+    ]);
+  });
+
+  it('preserves the original single-block content shape when cacheableUser is omitted', async () => {
+    const responseBody = { stop_reason: 'end_turn', content: [{ type: 'text', text: '{"title":"Uncached"}' }] };
+    mockInvokeModel.mockResolvedValueOnce(encodeResponse(responseBody));
+
+    await invokeClaudeWithTools({
+      modelId: MODEL_ID,
+      system: 'System',
+      user: 'VARIABLE',
+      tools: [],
+      toolExecutor: mockToolExecutor,
+      outputSchema: SIMPLE_SCHEMA,
+    });
+
+    const body = JSON.parse(mockInvokeModel.mock.calls[0]?.[1] as string) as {
+      messages: Array<{ role: string; content: Array<{ type: string; text?: string }> }>;
+    };
+    expect(body.messages[0].content).toEqual([{ type: 'text', text: 'VARIABLE' }]);
+  });
+});
+
+describe('invokeClaudeWithTools — empty-content handling', () => {
+  it('does not push empty assistant content back into the conversation', async () => {
+    const emptyResponse = { stop_reason: 'end_turn', content: [] };
+    const finalResponse = { stop_reason: 'end_turn', content: [{ type: 'text', text: '{"title":"Recovered"}' }] };
+
+    mockInvokeModel
+      .mockResolvedValueOnce(encodeResponse(emptyResponse))
+      .mockResolvedValueOnce(encodeResponse(finalResponse));
+
+    const result = await invokeClaudeWithTools({
+      modelId: MODEL_ID,
+      system: 'System',
+      user: 'User',
+      tools: [],
+      toolExecutor: mockToolExecutor,
+      outputSchema: SIMPLE_SCHEMA,
+    });
+
+    expect(result).toEqual({ title: 'Recovered' });
     expect(mockInvokeModel).toHaveBeenCalledTimes(2);
-    // The JSON-repair invoke (2nd call) must carry orgId too.
-    expect(mockInvokeModel.mock.calls[1]?.[2]).toBe(ORG_ID);
+
+    const secondCallBody = JSON.parse(mockInvokeModel.mock.calls[1]?.[1] as string) as {
+      messages: Array<{ role: string; content: Array<{ type: string; text?: string }> }>;
+    };
+    const assistantMessages = secondCallBody.messages.filter(m => m.role === 'assistant');
+    expect(assistantMessages.length).toBeGreaterThan(0);
+    for (const message of assistantMessages) {
+      expect(Array.isArray(message.content)).toBe(true);
+      expect(message.content.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('salvages a final answer when all tool rounds return empty content', async () => {
+    const emptyResponse = { stop_reason: 'end_turn', content: [] };
+    const salvageResponse = { content: [{ type: 'text', text: '{"title":"Salvaged"}' }] };
+
+    // maxToolRounds=0 → absoluteMax=2 → rounds 0,1,2 all return empty, then one salvage call.
+    mockInvokeModel
+      .mockResolvedValueOnce(encodeResponse(emptyResponse))
+      .mockResolvedValueOnce(encodeResponse(emptyResponse))
+      .mockResolvedValueOnce(encodeResponse(emptyResponse))
+      .mockResolvedValueOnce(encodeResponse(salvageResponse));
+
+    const result = await invokeClaudeWithTools({
+      modelId: MODEL_ID,
+      system: 'System',
+      user: 'User',
+      tools: [],
+      toolExecutor: mockToolExecutor,
+      outputSchema: SIMPLE_SCHEMA,
+      maxToolRounds: 0,
+    });
+
+    expect(result).toEqual({ title: 'Salvaged' });
+    expect(mockInvokeModel).toHaveBeenCalledTimes(4);
+  });
+
+  it('still throws when salvage also returns empty', async () => {
+    const emptyResponse = { stop_reason: 'end_turn', content: [] };
+
+    mockInvokeModel.mockResolvedValue(encodeResponse(emptyResponse));
+
+    await expect(
+      invokeClaudeWithTools({
+        modelId: MODEL_ID,
+        system: 'System',
+        user: 'User',
+        tools: [],
+        toolExecutor: mockToolExecutor,
+        outputSchema: SIMPLE_SCHEMA,
+        maxToolRounds: 0,
+      }),
+    ).rejects.toThrow('including salvage');
   });
 });

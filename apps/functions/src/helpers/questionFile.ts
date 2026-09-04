@@ -25,7 +25,7 @@ export const updateQuestionFile = async (
   questionFileId: string,
   questionFile: Partial<QuestionFileItem>
 ): Promise<{ success: boolean; deleted?: boolean }> => {
-  const { status, textFileKey, jobId, taskToken, totalQuestions, errorMessage, executionArn, docType, questionColumn, answerColumn, firstDataRow, sheetName } = questionFile;
+  const { status, textFileKey, jobId, taskToken, totalQuestions, errorMessage, executionArn, docType, questionColumn, answerColumn, firstDataRow, sheetName, summary, sections } = questionFile;
   const sk = buildQuestionFileSK(projectId, oppId, questionFileId);
 
   const fields: string[] = ['#updatedAt = :now'];
@@ -49,6 +49,8 @@ export const updateQuestionFile = async (
   if (answerColumn !== undefined) { fields.push('#answerColumn = :answerColumn'); names['#answerColumn'] = 'answerColumn'; values[':answerColumn'] = answerColumn; }
   if (firstDataRow !== undefined) { fields.push('#firstDataRow = :firstDataRow'); names['#firstDataRow'] = 'firstDataRow'; values[':firstDataRow'] = firstDataRow; }
   if (sheetName !== undefined) { fields.push('#sheetName = :sheetName'); names['#sheetName'] = 'sheetName'; values[':sheetName'] = sheetName; }
+  if (summary !== undefined) { fields.push('#summary = :summary'); names['#summary'] = 'summary'; values[':summary'] = summary; }
+  if (sections !== undefined) { fields.push('#sections = :sections'); names['#sections'] = 'sections'; values[':sections'] = sections; }
 
   try {
     await docClient.send(

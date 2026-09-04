@@ -71,9 +71,15 @@ const isThrottleError = (statusCode: number | undefined, body: string): boolean 
   return body.includes('ThrottlingException') || body.includes('TooManyRequestsException');
 };
 
+/** Throttling (429) plus transient 5xx — both are worth a short exponential backoff. */
+const isTransientError = (statusCode: number | undefined, body: string): boolean =>
+  isThrottleError(statusCode, body) ||
+  (statusCode !== undefined && statusCode >= 500 && statusCode < 600);
+
 /**
  * Invoke Bedrock model using HTTP request with Bearer token.
- * Retries up to 3 times on throttling (429 / ThrottlingException) with exponential backoff.
+ * Retries up to 3 times on throttling (429 / ThrottlingException) or transient
+ * 5xx responses with exponential backoff.
  */
 async function invokeModelWithHttp(
   modelId: string,
@@ -143,9 +149,9 @@ async function invokeModelWithHttp(
       return await attempt();
     } catch (err) {
       lastErr = err as Error & { statusCode?: number; body?: string };
-      if (i < THROTTLE_RETRY_DELAYS_MS.length && isThrottleError(lastErr.statusCode, lastErr.body ?? lastErr.message)) {
+      if (i < THROTTLE_RETRY_DELAYS_MS.length && isTransientError(lastErr.statusCode, lastErr.body ?? lastErr.message)) {
         const delay = THROTTLE_RETRY_DELAYS_MS[i]!;
-        console.warn(`[bedrock] ThrottlingException on attempt ${i + 1}, retrying in ${delay}ms...`);
+        console.warn(`[bedrock] transient error (${lastErr.statusCode}) on attempt ${i + 1}, retrying in ${delay}ms...`);
         await sleep(delay);
         continue;
       }

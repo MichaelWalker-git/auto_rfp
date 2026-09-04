@@ -29,6 +29,14 @@ export interface InvokeClaudeWithToolsArgs<T> {
   orgId: string;
   system: string;
   user: string;
+  /**
+   * Large, stable content (identical across calls in the same run — e.g. the
+   * FULL solicitation text) sent as its own leading content block marked
+   * `cache_control: { type: 'ephemeral' }` (Layer A prompt caching,
+   * docs/SOLICITATION-COVERAGE-PLAN.md). Omit when there's nothing worth
+   * caching — `user` alone is unaffected either way.
+   */
+  cacheableUser?: string;
   tools: ReadonlyArray<ToolDefinition>;
   /**
    * Called for each tool_use block Claude emits.
@@ -52,6 +60,7 @@ type ContentBlock = {
   name?: string;
   input?: unknown;
   text?: string;
+  cache_control?: { type: 'ephemeral' };
 };
 
 type Message = {
@@ -72,6 +81,35 @@ const extractText = (content: ContentBlock[]): string =>
     .join('\n')
     .trim();
 
+/**
+ * Cheap pre-check mirroring `extractFirstJsonObject`: does this text contain a
+ * JSON object/array at all? Prose without a `{` or `[` is never parseable, so
+ * the loop treats it the same as no text — it nudges for JSON instead of
+ * falling through to the repair path, which cannot know the caller's schema.
+ */
+const containsJsonStart = (text: string): boolean => /[{[]/.test(text);
+
+/**
+ * Anthropic rejects an assistant turn with an empty `content` array on the
+ * next `invokeModel` call (`400 messages: text content blocks must be
+ * non-empty`). Substitute a placeholder text block so the conversation stays
+ * valid when Claude returns nothing for a round.
+ */
+const nonEmptyAssistantContent = (content: ContentBlock[]): ContentBlock[] =>
+  content.length > 0 ? content : [{ type: 'text', text: '(no content in previous turn)' }];
+
+type InvokeResponse = { stop_reason?: string; content?: ContentBlock[] };
+
+/** Invoke Bedrock and decode the Anthropic response envelope. Shared by every call site in this loop. */
+const invokeAndParse = async (
+  modelId: string,
+  body: Record<string, unknown>,
+  orgId: string,
+): Promise<InvokeResponse> => {
+  const response = await invokeModel(modelId, JSON.stringify(body), orgId);
+  return JSON.parse(new TextDecoder('utf-8').decode(response)) as InvokeResponse;
+};
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 /**
@@ -88,6 +126,7 @@ export const invokeClaudeWithTools = async <T>(
     orgId,
     system,
     user,
+    cacheableUser,
     tools,
     toolExecutor,
     outputSchema,
@@ -99,8 +138,15 @@ export const invokeClaudeWithTools = async <T>(
   // Allow up to 2 extra rounds beyond maxToolRounds if the model keeps requesting tools
   const absoluteMax = maxToolRounds + 2;
 
+  const initialContent: ContentBlock[] = cacheableUser
+    ? [
+        { type: 'text', text: cacheableUser, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: user },
+      ]
+    : [{ type: 'text', text: user }];
+
   const messages: Message[] = [
-    { role: 'user', content: [{ type: 'text', text: user }] },
+    { role: 'user', content: initialContent },
   ];
 
   let rawText = '';
@@ -123,11 +169,7 @@ export const invokeClaudeWithTools = async <T>(
       requestBody.tools = tools;
     }
 
-    const responseBody = await invokeModel(modelId, JSON.stringify(requestBody), orgId);
-    const parsed = JSON.parse(new TextDecoder('utf-8').decode(responseBody)) as {
-      stop_reason?: string;
-      content?: ContentBlock[];
-    };
+    const parsed = await invokeAndParse(modelId, requestBody, orgId);
 
     const stopReason = parsed.stop_reason ?? 'end_turn';
     const content: ContentBlock[] = parsed.content ?? [];
@@ -142,7 +184,7 @@ export const invokeClaudeWithTools = async <T>(
       );
 
       // Add the partial response and ask Claude to continue
-      messages.push({ role: 'assistant', content });
+      messages.push({ role: 'assistant', content: nonEmptyAssistantContent(content) });
       messages.push({
         role: 'user',
         content: [{ type: 'text', text: 'Your previous response was truncated. Please generate the complete JSON response. Output ONLY the full JSON object, no explanatory text.' }],
@@ -156,11 +198,7 @@ export const invokeClaudeWithTools = async <T>(
         temperature,
       };
 
-      const retryResponse = await invokeModel(modelId, JSON.stringify(retryBody), orgId);
-      const retryParsed = JSON.parse(new TextDecoder('utf-8').decode(retryResponse)) as {
-        stop_reason?: string;
-        content?: ContentBlock[];
-      };
+      const retryParsed = await invokeAndParse(modelId, retryBody, orgId);
 
       rawText = extractText(retryParsed.content ?? []);
 
@@ -209,17 +247,25 @@ export const invokeClaudeWithTools = async <T>(
     // Extract final text response
     rawText = extractText(content);
 
-    // No text extracted — prompt the model to produce JSON
-    if (!rawText && !isLastRound) {
-      const reason = stopReason === 'tool_use'
-        ? 'model returned tool_use without tools offered'
-        : `model returned empty text (stop_reason=${stopReason})`;
+    // Nothing usable yet — either no text at all, or narration with no JSON in
+    // it. The latter is what a model emits when it was mid-tool-use and tools
+    // were withdrawn after maxToolRounds ("Now let me verify X and finalize my
+    // analysis."): it never learned that this turn had to be the final answer.
+    // Tell it so and give it another round.
+    if (!containsJsonStart(rawText) && !isLastRound) {
+      const reason = !rawText
+        ? stopReason === 'tool_use'
+          ? 'model returned tool_use without tools offered'
+          : `model returned empty text (stop_reason=${stopReason})`
+        : `model returned text with no JSON (${rawText.length} chars, stop_reason=${stopReason})`;
       console.warn(`[bedrock-tool-loop] Round ${toolRounds}: ${reason} — prompting for JSON`);
-      messages.push({ role: 'assistant', content });
+      messages.push({ role: 'assistant', content: nonEmptyAssistantContent(content) });
       messages.push({
         role: 'user',
-        content: [{ type: 'text', text: 'Generate the complete JSON response now based on all information gathered. Output ONLY the raw JSON object, no explanation or markdown.' }],
+        content: [{ type: 'text', text: 'No further tool calls are available. Generate the complete JSON response now based on all information gathered so far, following the OUTPUT FORMAT in your instructions exactly. Output ONLY the raw JSON object, no explanation or markdown.' }],
       });
+      // Don't carry this round's unusable text into the post-loop parse.
+      rawText = '';
       toolRounds++;
       continue;
     }
@@ -229,7 +275,36 @@ export const invokeClaudeWithTools = async <T>(
   }
 
   if (!rawText.trim()) {
-    throw new Error('[bedrock-tool-loop] Model returned no text content after all rounds');
+    console.warn('[bedrock-tool-loop] No text after all rounds — attempting final salvage with fresh context');
+
+    // Keeps `cacheableUser` (the solicitation / opportunity primer) in front of
+    // the request — a salvage answer written without it would be ungrounded,
+    // and re-sending it hits the same cache prefix as the main rounds.
+    const salvageMessages: Message[] = [{
+      role: 'user',
+      content: [
+        ...(cacheableUser
+          ? [{ type: 'text', text: cacheableUser, cache_control: { type: 'ephemeral' } } as ContentBlock]
+          : []),
+        {
+          type: 'text',
+          text: `${user}\n\nRespond with ONLY the raw JSON object matching the required schema. No tools, no explanation, no markdown.`,
+        },
+      ],
+    }];
+    const salvageBody = {
+      anthropic_version: 'bedrock-2023-05-31',
+      system: [{ type: 'text', text: system }],
+      messages: salvageMessages,
+      max_tokens: maxTokens,
+      temperature: 0,
+    };
+    const salvageParsed = await invokeAndParse(modelId, salvageBody, orgId);
+    rawText = extractText(salvageParsed.content ?? []);
+
+    if (!rawText.trim()) {
+      throw new Error('[bedrock-tool-loop] Model returned no text content after all rounds (including salvage)');
+    }
   }
 
   // If the model returned text that doesn't contain JSON, retry with a fresh context
@@ -239,27 +314,28 @@ export const invokeClaudeWithTools = async <T>(
     console.warn('[bedrock-tool-loop] Initial parse failed, retrying with fresh JSON-only prompt:', (parseErr as Error)?.message);
     console.warn('[bedrock-tool-loop] Raw text preview:', rawText.slice(0, 300));
 
-    // Fresh conversation — avoid polluted context from tool-use rounds
+    // Fresh conversation — avoid polluted context from tool-use rounds. The
+    // caller's own `system` prompt is reused rather than a generic "you are a
+    // JSON formatter": only it carries the OUTPUT FORMAT spec, and without it
+    // the repair model invents its own keys, which then fail schema validation
+    // with a confusing "Required" error on a field the model never saw.
     const retryMessages: Message[] = [{
       role: 'user',
       content: [{
         type: 'text',
-        text: `Here is a response that needs to be formatted as valid JSON:\n\n${rawText}\n\nConvert the above into a valid JSON object. Output ONLY the raw JSON, no explanation.`,
+        text: `Here is a response that needs to be reformatted as valid JSON:\n\n${rawText}\n\nRewrite it as a single JSON object matching the OUTPUT FORMAT in your instructions exactly — same field names, nothing added or renamed. Output ONLY the raw JSON, no explanation, no markdown.`,
       }],
     }];
 
     const retryBody = {
       anthropic_version: 'bedrock-2023-05-31',
-      system: [{ type: 'text', text: 'You are a JSON formatter. Output only valid JSON objects. No markdown, no explanation.' }],
+      system: [{ type: 'text', text: system }],
       messages: retryMessages,
       max_tokens: maxTokens,
       temperature: 0,
     };
 
-    const retryResponse = await invokeModel(modelId, JSON.stringify(retryBody), orgId);
-    const retryParsed = JSON.parse(new TextDecoder('utf-8').decode(retryResponse)) as {
-      content?: ContentBlock[];
-    };
+    const retryParsed = await invokeAndParse(modelId, retryBody, orgId);
     const retryText = extractText(retryParsed.content ?? []);
 
     if (!retryText.trim()) {

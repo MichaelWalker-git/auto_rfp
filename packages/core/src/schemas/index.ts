@@ -63,3 +63,4 @@ export * from './related-rfp';
 export * from './kb-coverage';
 export * from './notary';
 export * from './bedrock-config';
+export * from './solicitation-bundle';
