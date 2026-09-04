@@ -182,4 +182,27 @@ describe('invokeModel per-org resolution (ticket 09)', () => {
     expect(requests[0]?.authorization).toBe('Bearer KEY_THROTTLE');
     expect(requests[1]?.authorization).toBe('Bearer KEY_THROTTLE');
   }, 15000);
+
+  it('retries transient 5xx responses with backoff and then succeeds', async () => {
+    jest.useFakeTimers({ doNotFake: ['nextTick'] });
+    try {
+      mockGetStoredApiKey.mockResolvedValue('KEY_5XX');
+      const successBody = '{"content":[{"type":"text","text":"recovered"}]}';
+      setResponses(err(503, 'Service Unavailable'), err(503, 'Service Unavailable'), ok(successBody));
+
+      const resultPromise = invokeModel(TEXT_MODEL, '{}', 'org-5xx');
+      // Advance through THROTTLE_RETRY_DELAYS_MS = [2000, 5000, 12000] for the two 503 retries.
+      await jest.advanceTimersByTimeAsync(2000);
+      await jest.advanceTimersByTimeAsync(5000);
+      const result = await resultPromise;
+
+      expect(new TextDecoder('utf-8').decode(result)).toBe(successBody);
+      expect(requests).toHaveLength(3);
+      expect(requests[0]?.authorization).toBe('Bearer KEY_5XX');
+      expect(requests[1]?.authorization).toBe('Bearer KEY_5XX');
+      expect(requests[2]?.authorization).toBe('Bearer KEY_5XX');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });

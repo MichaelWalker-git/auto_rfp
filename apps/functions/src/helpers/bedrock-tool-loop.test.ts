@@ -271,3 +271,79 @@ describe('invokeClaudeWithTools — orgId propagation', () => {
     expect(mockInvokeModel.mock.calls[1]?.[2]).toBe(ORG_ID);
   });
 });
+
+describe('invokeClaudeWithTools — empty-content handling', () => {
+  it('does not push empty assistant content back into the conversation', async () => {
+    const emptyResponse = { stop_reason: 'end_turn', content: [] };
+    const finalResponse = { stop_reason: 'end_turn', content: [{ type: 'text', text: '{"title":"Recovered"}' }] };
+
+    mockInvokeModel
+      .mockResolvedValueOnce(encodeResponse(emptyResponse))
+      .mockResolvedValueOnce(encodeResponse(finalResponse));
+
+    const result = await invokeClaudeWithTools({
+      modelId: MODEL_ID,
+      system: 'System',
+      user: 'User',
+      tools: [],
+      toolExecutor: mockToolExecutor,
+      outputSchema: SIMPLE_SCHEMA,
+    });
+
+    expect(result).toEqual({ title: 'Recovered' });
+    expect(mockInvokeModel).toHaveBeenCalledTimes(2);
+
+    const secondCallBody = JSON.parse(mockInvokeModel.mock.calls[1]?.[1] as string) as {
+      messages: Array<{ role: string; content: Array<{ type: string; text?: string }> }>;
+    };
+    const assistantMessages = secondCallBody.messages.filter(m => m.role === 'assistant');
+    expect(assistantMessages.length).toBeGreaterThan(0);
+    for (const message of assistantMessages) {
+      expect(Array.isArray(message.content)).toBe(true);
+      expect(message.content.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('salvages a final answer when all tool rounds return empty content', async () => {
+    const emptyResponse = { stop_reason: 'end_turn', content: [] };
+    const salvageResponse = { content: [{ type: 'text', text: '{"title":"Salvaged"}' }] };
+
+    // maxToolRounds=0 → absoluteMax=2 → rounds 0,1,2 all return empty, then one salvage call.
+    mockInvokeModel
+      .mockResolvedValueOnce(encodeResponse(emptyResponse))
+      .mockResolvedValueOnce(encodeResponse(emptyResponse))
+      .mockResolvedValueOnce(encodeResponse(emptyResponse))
+      .mockResolvedValueOnce(encodeResponse(salvageResponse));
+
+    const result = await invokeClaudeWithTools({
+      modelId: MODEL_ID,
+      system: 'System',
+      user: 'User',
+      tools: [],
+      toolExecutor: mockToolExecutor,
+      outputSchema: SIMPLE_SCHEMA,
+      maxToolRounds: 0,
+    });
+
+    expect(result).toEqual({ title: 'Salvaged' });
+    expect(mockInvokeModel).toHaveBeenCalledTimes(4);
+  });
+
+  it('still throws when salvage also returns empty', async () => {
+    const emptyResponse = { stop_reason: 'end_turn', content: [] };
+
+    mockInvokeModel.mockResolvedValue(encodeResponse(emptyResponse));
+
+    await expect(
+      invokeClaudeWithTools({
+        modelId: MODEL_ID,
+        system: 'System',
+        user: 'User',
+        tools: [],
+        toolExecutor: mockToolExecutor,
+        outputSchema: SIMPLE_SCHEMA,
+        maxToolRounds: 0,
+      }),
+    ).rejects.toThrow('including salvage');
+  });
+});
